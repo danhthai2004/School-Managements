@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: school_postgres_prod
+    environment:
+      POSTGRES_DB: school_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres} # Use env var or default for now
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    restart: always
+    networks:
+      - school_net_prod
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: school_backend_prod:latest
+    container_name: school_backend_prod
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/school_db
+      SPRING_DATASOURCE_USERNAME: school
+      SPRING_DATASOURCE_PASSWORD: school # Match the logic provided in original compose or change to env var
+      # PROD TIP: You should override these with specific prod values
+    depends_on:
+      - postgres
+    restart: always
+    networks:
+      - school_net_prod
+
+volumes:
+  postgres_data_prod:
+
+
+networks:
+  school_net_prod:
+    driver: bridge
