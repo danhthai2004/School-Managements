@@ -24,8 +24,8 @@ services:
       - "8081:8081"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/school_db
-      SPRING_DATASOURCE_USERNAME: school
-      SPRING_DATASOURCE_PASSWORD: school # Match the logic provided in original compose or change to env var
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       # PROD TIP: You should override these with specific prod values
     depends_on:
       - postgres
