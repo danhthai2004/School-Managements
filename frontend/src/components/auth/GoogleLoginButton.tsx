@@ -1,30 +1,25 @@
-import { GoogleLogin } from '@react-oauth/google';
-import type { CredentialResponse } from '@react-oauth/google';
-import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { GoogleLogin } from "@react-oauth/google";
+import type { CredentialResponse } from "@react-oauth/google";
 
-const GoogleLoginButton = () => {
-  const { login } = useAuth();
-  const navigate = useNavigate();
-
-  const handleSuccess = async (credentialResponse: CredentialResponse) => {
-    try {
-      if (credentialResponse.credential) {
-        await login(credentialResponse.credential);
-        navigate('/dashboard');
-      }
-    } catch (error) {
-      console.error('Login failed:', error);
+export default function GoogleLoginButton({
+  onIdToken,
+  onError,
+}: {
+  onIdToken: (idToken: string) => void;
+  onError?: (msg: string) => void;
+}) {
+  const handleSuccess = (credentialResponse: CredentialResponse) => {
+    const idToken = credentialResponse.credential;
+    if (!idToken) {
+      onError?.("Không nhận được Google credential.");
+      return;
     }
-  };
-
-  const handleError = () => {
-    console.error('Google Login Failed');
+    onIdToken(idToken);
   };
 
   return (
-    <GoogleLogin onSuccess={handleSuccess} onError={handleError} />
+    <div className="flex justify-center">
+      <GoogleLogin onSuccess={handleSuccess} onError={() => onError?.("Google Login Failed")} />
+    </div>
   );
-};
-
-export default GoogleLoginButton;
+}
