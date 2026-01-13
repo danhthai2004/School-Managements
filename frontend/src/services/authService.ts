@@ -1,21 +1,42 @@
-import api from './api';
-import type { LoginResponse } from '../types/auth.types';
+import api from "./api";
+import type { AuthResponse, VerifyResponse, UserDto } from "../types/auth.types";
 
 export const authService = {
-  // Login with Google
-  loginWithGoogle: async (idToken: string): Promise<LoginResponse> => {
-    const response = await api.post('/auth/google', { idToken });
-    return response.data;
+  login: async (email: string, password: string): Promise<AuthResponse> => {
+    const res = await api.post<AuthResponse>("/auth/login", { email, password });
+    return res.data;
   },
 
-  // Logout
+  loginWithGoogle: async (idToken: string): Promise<AuthResponse> => {
+    const res = await api.post<AuthResponse>("/auth/google", { idToken });
+    return res.data;
+  },
+
+  forgotPassword: async (email: string): Promise<AuthResponse> => {
+    const res = await api.post<AuthResponse>("/auth/forgot-password", { email });
+    return res.data;
+  },
+
+  resendCode: async (challengeId: string): Promise<void> => {
+    await api.post("/auth/resend-code", { challengeId });
+  },
+
+  verifyOtp: async (challengeId: string, code: string): Promise<VerifyResponse> => {
+    const res = await api.post<VerifyResponse>("/auth/verify", { challengeId, code });
+    return res.data;
+  },
+
+  setPassword: async (resetToken: string, newPassword: string): Promise<AuthResponse> => {
+    const res = await api.post<AuthResponse>("/auth/set-password", { resetToken, newPassword });
+    return res.data;
+  },
+
+  me: async (): Promise<UserDto> => {
+    const res = await api.get<UserDto>("/auth/me");
+    return res.data;
+  },
+
   logout: async (): Promise<void> => {
-    await api.post('/auth/logout');
-  },
-
-  // Get current user
-  getCurrentUser: async () => {
-    const response = await api.get('/auth/me');
-    return response.data;
+    await api.post("/auth/logout");
   },
 };

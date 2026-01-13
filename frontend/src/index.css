@@ -1,3 +1,15 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@layer base {
+  html, body {
+    height: 100%;
+  }
+  body {
+    @apply text-slate-900;
+  }
+  #root {
+    min-height: 100%;
+  }
+}
+
+
