@@ -39,9 +39,11 @@ public class User {
     /**
      * All roles must change password on first login except SYSTEM_ADMIN.
      */
+    @Builder.Default
     @Column(nullable = false)
     private boolean firstLogin = true;
 
+    @Builder.Default
     @Column(nullable = false)
     private boolean enabled = true;
 
