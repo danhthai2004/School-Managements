@@ -22,22 +22,8 @@
 ### Đã có (hiện trạng repo)
 
 - Docker Compose dựng 3 service: **postgres + backend + frontend**
-- Backend cấu hình sẵn kết nối PostgreSQL + JPA + Security (mới ở mức dependency/config)
-- Frontend có:
-  - Axios instance dùng `VITE_API_URL`
-  - Service layer gọi API `/auth/*` (khung)
-  - Component Google Login (UI) dùng `@react-oauth/google`
-
-> Lưu ý: Backend hiện **chưa có API endpoint hoàn chỉnh**, nên các route `/auth/*` ở frontend mới là “khung gọi API” để bạn triển khai tiếp.
-
-### Định hướng phát triển (gợi ý)
-
-- Auth: Google OAuth2 → JWT, phân quyền (Admin/Teacher/Student)
-- CRUD: Student, Teacher, Class, Subject, Enrollment
-- Attendance (điểm danh), Gradebook (điểm), Fee/Invoice (học phí)
-- Dashboard + báo cáo
-
-## Yêu cầu môi trường
+- Backend: Spring Boot 4, Spring Security, JPA (Postgres), JWT, Gmail SMTP, Google ID token verify
+- Frontend: React + Vite + Tailwind, React Router, Google OAuth (`@react-oauth/google`)
 
 ### Chạy bằng Docker (khuyến nghị)
 
@@ -63,9 +49,14 @@ Mặc định:
 Frontend: http://localhost:3000
 Backend: http://localhost:8081
 Postgres: localhost:5432
-user: postschool
-password: school
+user: postgres
+password: postgres
 db: school_db
+
+### A) Seed system admin
+
+- Email: `kazejustworking@gmail.com`
+- Password: theo `.env` (`SYSTEM_ADMIN_PASSWORD`)
 
 ## Dừng và xoá container:
 
@@ -81,18 +72,25 @@ docker compose down -v
 
 ## Chạy dev cục bộ
 
-1. Database
-   Tạo DB school_db trong PostgreSQL (hoặc dùng Docker riêng cho Postgres).
+1. Docker
+
+   ```bash
+   docker compose up --build
+   ```
 
 2. Backend
+   ```bash
    cd backend
    ./mvnw spring-boot:run
+   ```
 
 Backend chạy trên http://localhost:8081.
 
 3. Frontend
+   ```bash
    cd frontend
    npm install
    npm run dev
+   ```
 
-Vite dev server thường chạy http://localhost:5173
+Frontend chạy trên http://localhost:5173
