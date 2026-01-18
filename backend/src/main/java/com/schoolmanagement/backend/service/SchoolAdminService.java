@@ -1,11 +1,16 @@
 package com.schoolmanagement.backend.service;
 
 import com.schoolmanagement.backend.domain.Role;
+import com.schoolmanagement.backend.domain.entity.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.School;
 import com.schoolmanagement.backend.domain.entity.User;
 import com.schoolmanagement.backend.dto.BulkImportResponse;
+import com.schoolmanagement.backend.dto.ClassRoomDto;
+import com.schoolmanagement.backend.dto.SchoolStatsDto;
 import com.schoolmanagement.backend.dto.UserDto;
+import com.schoolmanagement.backend.dto.request.CreateClassRoomRequest;
 import com.schoolmanagement.backend.exception.ApiException;
+import com.schoolmanagement.backend.repo.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.UserRepository;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -13,6 +18,7 @@ import org.apache.commons.csv.CSVRecord;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStreamReader;
@@ -23,14 +29,163 @@ import java.util.*;
 public class SchoolAdminService {
 
     private final UserRepository users;
+    private final ClassRoomRepository classRooms;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
 
-    public SchoolAdminService(UserRepository users, PasswordEncoder passwordEncoder, MailService mailService) {
+    public SchoolAdminService(UserRepository users, ClassRoomRepository classRooms,
+            PasswordEncoder passwordEncoder, MailService mailService) {
         this.users = users;
+        this.classRooms = classRooms;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
     }
+
+    // ==================== CLASS ROOM MANAGEMENT ====================
+
+    @Transactional
+    public ClassRoomDto createClassRoom(School school, CreateClassRoomRequest req) {
+        // Kiểm tra trùng tên lớp trong cùng năm học
+        if (classRooms.existsBySchoolAndNameAndAcademicYear(school, req.name(), req.academicYear())) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Lớp '" + req.name() + "' đã tồn tại trong năm học " + req.academicYear() + ".");
+        }
+
+        User teacher = null;
+        if (req.homeroomTeacherId() != null) {
+            teacher = users.findById(req.homeroomTeacherId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên."));
+            if (teacher.getRole() != Role.TEACHER) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Người dùng này không phải giáo viên.");
+            }
+            // Kiểm tra giáo viên đã làm GVCN lớp khác trong năm học này chưa
+            if (classRooms.existsByHomeroomTeacherAndAcademicYear(teacher, req.academicYear())) {
+                throw new ApiException(HttpStatus.CONFLICT,
+                        "Giáo viên này đã làm GVCN một lớp khác trong năm học " + req.academicYear() + ".");
+            }
+        }
+
+        ClassRoom classRoom = ClassRoom.builder()
+                .name(req.name())
+                .grade(req.grade())
+                .academicYear(req.academicYear())
+                .maxCapacity(req.maxCapacity())
+                .roomNumber(req.roomNumber())
+                .department(req.department() != null ? req.department()
+                        : com.schoolmanagement.backend.domain.ClassDepartment.KHONG_PHAN_BAN)
+                .school(school)
+                .homeroomTeacher(teacher)
+                .build();
+
+        classRoom = classRooms.save(classRoom);
+
+        return toClassRoomDto(classRoom);
+    }
+
+    @Transactional
+    public ClassRoomDto updateClassRoom(School school, UUID classId, CreateClassRoomRequest req) {
+        ClassRoom classRoom = classRooms.findById(classId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học."));
+
+        // Verify class belongs to school
+        if (!classRoom.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Không có quyền chỉnh sửa lớp này.");
+        }
+
+        // Check duplicate name (exclude current class)
+        if (!classRoom.getName().equals(req.name()) &&
+                classRooms.existsBySchoolAndNameAndAcademicYear(school, req.name(), req.academicYear())) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Lớp '" + req.name() + "' đã tồn tại trong năm học " + req.academicYear() + ".");
+        }
+
+        User teacher = null;
+        if (req.homeroomTeacherId() != null) {
+            teacher = users.findById(req.homeroomTeacherId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên."));
+            if (teacher.getRole() != Role.TEACHER) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Người dùng này không phải giáo viên.");
+            }
+            // Check if teacher is already homeroom for another class (exclude current)
+            User currentTeacher = classRoom.getHomeroomTeacher();
+            if ((currentTeacher == null || !currentTeacher.getId().equals(teacher.getId())) &&
+                    classRooms.existsByHomeroomTeacherAndAcademicYear(teacher, req.academicYear())) {
+                throw new ApiException(HttpStatus.CONFLICT,
+                        "Giáo viên này đã làm GVCN một lớp khác trong năm học " + req.academicYear() + ".");
+            }
+        }
+
+        classRoom.setName(req.name());
+        classRoom.setGrade(req.grade());
+        classRoom.setAcademicYear(req.academicYear());
+        classRoom.setMaxCapacity(req.maxCapacity());
+        classRoom.setRoomNumber(req.roomNumber());
+        classRoom.setDepartment(req.department() != null ? req.department()
+                : com.schoolmanagement.backend.domain.ClassDepartment.KHONG_PHAN_BAN);
+        classRoom.setHomeroomTeacher(teacher);
+
+        classRoom = classRooms.save(classRoom);
+        return toClassRoomDto(classRoom);
+    }
+
+    @Transactional
+    public void deleteClassRoom(School school, UUID classId) {
+        ClassRoom classRoom = classRooms.findById(classId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học."));
+
+        if (!classRoom.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Không có quyền xóa lớp này.");
+        }
+
+        // TODO: Check if class has students before delete
+        classRooms.delete(classRoom);
+    }
+
+    public List<ClassRoomDto> listClassRooms(School school) {
+        return classRooms.findAllBySchoolOrderByGradeAscNameAsc(school)
+                .stream()
+                .map(this::toClassRoomDto)
+                .toList();
+    }
+
+    public SchoolStatsDto getSchoolStats(School school) {
+        long totalClasses = classRooms.countBySchool(school);
+        long totalTeachers = users.countBySchoolAndRole(school, Role.TEACHER);
+        long totalStudents = users.countBySchoolAndRole(school, Role.STUDENT);
+
+        String currentAcademicYear = classRooms.findFirstBySchoolOrderByAcademicYearDesc(school)
+                .map(ClassRoom::getAcademicYear)
+                .orElseGet(() -> {
+                    int year = java.time.LocalDate.now().getYear();
+                    int month = java.time.LocalDate.now().getMonthValue();
+                    if (month >= 9) {
+                        return year + "-" + (year + 1);
+                    } else {
+                        return (year - 1) + "-" + year;
+                    }
+                });
+
+        return new SchoolStatsDto(totalClasses, totalTeachers, totalStudents, currentAcademicYear);
+    }
+
+    private ClassRoomDto toClassRoomDto(ClassRoom classRoom) {
+        User teacher = classRoom.getHomeroomTeacher();
+        return new ClassRoomDto(
+                classRoom.getId(),
+                classRoom.getName(),
+                classRoom.getGrade(),
+                classRoom.getAcademicYear(),
+                classRoom.getMaxCapacity(),
+                classRoom.getRoomNumber(),
+                classRoom.getDepartment() != null ? classRoom.getDepartment().name() : null,
+                classRoom.getStatus().name(),
+                teacher != null ? teacher.getId() : null,
+                teacher != null ? teacher.getFullName() : null,
+                0 // TODO: count students in class
+        );
+    }
+
+    // ==================== USER MANAGEMENT ====================
 
     public UserDto createUserForSchool(School school, String email, String fullName, Role role) {
         if (role == Role.SYSTEM_ADMIN || role == Role.SCHOOL_ADMIN) {
@@ -54,14 +209,25 @@ public class SchoolAdminService {
         user = users.save(user);
         mailService.sendTempPasswordEmail(user.getEmail(), user.getFullName(), tempPassword);
 
-        return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), school.getId(), school.getCode());
+        return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), school.getId(),
+                school.getCode());
     }
 
     public List<UserDto> listUsersInSchool(School school) {
         // naive: load all then filter. For small class demo OK.
         return users.findAll().stream()
                 .filter(u -> u.getSchool() != null && u.getSchool().getId().equals(school.getId()))
-                .map(u -> new UserDto(u.getId(), u.getEmail(), u.getFullName(), u.getRole(), school.getId(), school.getCode()))
+                .map(u -> new UserDto(u.getId(), u.getEmail(), u.getFullName(), u.getRole(), school.getId(),
+                        school.getCode()))
+                .toList();
+    }
+
+    public List<UserDto> listTeachersInSchool(School school) {
+        return users.findAll().stream()
+                .filter(u -> u.getSchool() != null && u.getSchool().getId().equals(school.getId())
+                        && u.getRole() == Role.TEACHER)
+                .map(u -> new UserDto(u.getId(), u.getEmail(), u.getFullName(), u.getRole(), school.getId(),
+                        school.getCode()))
                 .toList();
     }
 
@@ -75,14 +241,14 @@ public class SchoolAdminService {
         int emailed = 0;
 
         try (var reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
-             CSVParser parser = CSVFormat.DEFAULT
-                     .builder()
-                     .setHeader()
-                     .setSkipHeaderRecord(true)
-                     .setIgnoreEmptyLines(true)
-                     .setTrim(true)
-                     .build()
-                     .parse(reader)) {
+                CSVParser parser = CSVFormat.DEFAULT
+                        .builder()
+                        .setHeader()
+                        .setSkipHeaderRecord(true)
+                        .setIgnoreEmptyLines(true)
+                        .setTrim(true)
+                        .build()
+                        .parse(reader)) {
 
             for (CSVRecord record : parser) {
                 String email = record.get("email");
@@ -135,7 +301,8 @@ public class SchoolAdminService {
         } catch (ApiException ex) {
             throw ex;
         } catch (Exception ex) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Không đọc được file CSV. Hãy kiểm tra header (email, fullName, role).");
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Không đọc được file CSV. Hãy kiểm tra header (email, fullName, role).");
         }
 
         return new BulkImportResponse(created, skipped, emailed);
