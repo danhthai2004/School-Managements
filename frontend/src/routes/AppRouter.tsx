@@ -6,6 +6,7 @@ import ForgotPasswordPage from "../views/ForgotPasswordPage";
 import DashboardPage from "../views/DashboardPage";
 import ProtectedRoute from "./ProtectedRoute";
 import SchoolAdminsPage from "../views/SchoolAdminsPage";
+import SchoolAdminDashboard from "../views/school-admin/SchoolAdminDashboard";
 
 
 export default function AppRouter() {
@@ -31,6 +32,20 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <SchoolAdminsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/school-admin"
+        element={<Navigate to="/school-admin/dashboard" replace />}
+      />
+
+      <Route
+        path="/school-admin/dashboard"
+        element={
+          <ProtectedRoute>
+            <SchoolAdminDashboard />
           </ProtectedRoute>
         }
       />

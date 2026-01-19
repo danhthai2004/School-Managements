@@ -18,7 +18,7 @@ public class UserLookupService {
     }
 
     public User requireById(UUID id) {
-        return users.findById(id)
+        return users.findByIdWithSchool(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User không tồn tại."));
     }
 }
