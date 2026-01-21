@@ -21,4 +21,9 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     Optional<Student> findTopBySchoolOrderByStudentCodeDesc(School school);
 
     long countBySchool(School school);
+
+    // Find students eligible for account creation: ACTIVE, has email, no user
+    // linked
+    List<Student> findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(School school,
+            com.schoolmanagement.backend.domain.StudentStatus status);
 }

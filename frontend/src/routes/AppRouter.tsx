@@ -10,6 +10,7 @@ import SchoolAdminLayout from "../views/school-admin/SchoolAdminLayout";
 import DashboardOverview from "../views/school-admin/pages/DashboardOverview";
 import ClassManagement from "../views/school-admin/pages/ClassManagement";
 import StudentManagement from "../views/school-admin/pages/StudentManagement";
+import AccountManagement from "../views/school-admin/pages/AccountManagement";
 
 
 export default function AppRouter() {
@@ -48,6 +49,7 @@ export default function AppRouter() {
         <Route path="dashboard" element={<DashboardOverview />} />
         <Route path="classes" element={<ClassManagement />} />
         <Route path="students" element={<StudentManagement />} />
+        <Route path="accounts" element={<AccountManagement />} />
       </Route>
 
 
