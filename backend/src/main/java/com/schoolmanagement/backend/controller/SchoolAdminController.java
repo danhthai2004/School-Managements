@@ -196,4 +196,34 @@ public class SchoolAdminController {
         }
         return schoolAdminService.importCsv(admin.getSchool(), file, role);
     }
+
+    // ==================== STUDENT ACCOUNT MANAGEMENT ====================
+
+    /**
+     * Get list of students eligible for account creation
+     * (ACTIVE, has email, no user linked)
+     */
+    @GetMapping("/students/no-account")
+    public List<StudentDto> getStudentsEligibleForAccount(@AuthenticationPrincipal UserPrincipal principal) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return schoolAdminService.getStudentsEligibleForAccount(admin.getSchool());
+    }
+
+    /**
+     * Create accounts for multiple students (bulk)
+     */
+    @Transactional
+    @PostMapping("/students/accounts")
+    public com.schoolmanagement.backend.dto.BulkAccountCreationResponse createStudentAccounts(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody List<UUID> studentIds) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return schoolAdminService.createAccountsForStudents(admin.getSchool(), studentIds);
+    }
 }

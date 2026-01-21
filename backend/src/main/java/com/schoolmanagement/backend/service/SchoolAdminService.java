@@ -500,4 +500,103 @@ public class SchoolAdminService {
                 currentClassId,
                 guardianDtos);
     }
+
+    // ==================== STUDENT ACCOUNT MANAGEMENT ====================
+
+    /**
+     * Get list of students eligible for account creation:
+     * - Status is ACTIVE
+     * - Has email
+     * - No user linked yet
+     */
+    @Transactional(readOnly = true)
+    public List<StudentDto> getStudentsEligibleForAccount(School school) {
+        return students.findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(school, StudentStatus.ACTIVE)
+                .stream()
+                .map(this::toStudentDto)
+                .toList();
+    }
+
+    /**
+     * Create account for a single student
+     */
+    @Transactional
+    public UserDto createAccountForStudent(School school, UUID studentId) {
+        Student student = students.findById(studentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+
+        // Validate student belongs to school
+        if (!student.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Học sinh không thuộc trường này");
+        }
+
+        // Validate status
+        if (student.getStatus() != StudentStatus.ACTIVE) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Chỉ có thể tạo tài khoản cho học sinh đang theo học");
+        }
+
+        // Validate email
+        if (student.getEmail() == null || student.getEmail().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Học sinh chưa có email");
+        }
+
+        // Validate no existing user
+        if (student.getUser() != null) {
+            throw new ApiException(HttpStatus.CONFLICT, "Học sinh đã có tài khoản");
+        }
+
+        // Check email unique in Users table
+        if (users.existsByEmailIgnoreCase(student.getEmail())) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Email đã được sử dụng cho tài khoản khác: " + student.getEmail());
+        }
+
+        // Generate temp password
+        String tempPassword = RandomUtil.generateTempPassword(12);
+
+        // Create user
+        User user = User.builder()
+                .email(student.getEmail())
+                .fullName(student.getFullName())
+                .role(Role.STUDENT)
+                .school(school)
+                .passwordHash(passwordEncoder.encode(tempPassword))
+                .firstLogin(true)
+                .enabled(true)
+                .build();
+
+        user = users.save(user);
+
+        // Link user to student
+        student.setUser(user);
+        students.save(student);
+
+        // Send email with temp password
+        mailService.sendTempPasswordEmail(user.getEmail(), user.getFullName(), tempPassword);
+
+        return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), school.getId(),
+                school.getCode());
+    }
+
+    /**
+     * Create accounts for multiple students (bulk)
+     */
+    @Transactional
+    public BulkAccountCreationResponse createAccountsForStudents(School school, List<UUID> studentIds) {
+        int created = 0;
+        int skipped = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (UUID studentId : studentIds) {
+            try {
+                createAccountForStudent(school, studentId);
+                created++;
+            } catch (ApiException e) {
+                skipped++;
+                errors.add(studentId + ": " + e.getMessage());
+            }
+        }
+
+        return new BulkAccountCreationResponse(created, skipped, errors);
+    }
 }

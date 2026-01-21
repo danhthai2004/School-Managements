@@ -150,4 +150,21 @@ export const schoolAdminService = {
     deleteStudent: async (studentId: string): Promise<void> => {
         await api.delete(`/school/students/${studentId}`);
     },
+
+    // Student Account Management
+    getStudentsEligibleForAccount: async (): Promise<StudentDto[]> => {
+        const res = await api.get<StudentDto[]>("/school/students/no-account");
+        return res.data;
+    },
+
+    createStudentAccounts: async (studentIds: string[]): Promise<BulkAccountCreationResponse> => {
+        const res = await api.post<BulkAccountCreationResponse>("/school/students/accounts", studentIds);
+        return res.data;
+    },
+};
+
+export type BulkAccountCreationResponse = {
+    created: number;
+    skipped: number;
+    errors: string[];
 };
