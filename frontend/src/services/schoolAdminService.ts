@@ -42,6 +42,54 @@ export type UserDto = {
     schoolCode: string;
 };
 
+export type GuardianDto = {
+    id: string;
+    fullName: string;
+    phone: string | null;
+    email: string | null;
+    relationship: string | null;
+};
+
+export type StudentDto = {
+    id: string;
+    studentCode: string;
+    fullName: string;
+    dateOfBirth: string | null;
+    gender: string | null;
+    birthPlace: string | null;
+    address: string | null;
+    email: string | null;
+    phone: string | null;
+    avatarUrl: string | null;
+    status: string;
+    enrollmentDate: string | null;
+    currentClassName: string | null;
+    currentClassId: string | null;
+    guardians: GuardianDto[];
+};
+
+export type GuardianRequest = {
+    fullName: string;
+    phone?: string;
+    email?: string;
+    relationship?: string;
+};
+
+export type CreateStudentRequest = {
+    studentCode?: string; // Optional - will be auto-generated if not provided
+    fullName: string;
+    dateOfBirth?: string;
+    gender?: 'MALE' | 'FEMALE' | 'OTHER';
+    birthPlace?: string;
+    address?: string;
+    email?: string;
+    phone?: string;
+    enrollmentDate?: string;
+    classId?: string;
+    academicYear?: string;
+    guardians?: GuardianRequest[];
+};
+
 // ==================== SERVICE ====================
 
 export const schoolAdminService = {
@@ -81,5 +129,25 @@ export const schoolAdminService = {
     listUsers: async (): Promise<UserDto[]> => {
         const res = await api.get<UserDto[]>("/school/users");
         return res.data;
+    },
+
+    // Students
+    listStudents: async (): Promise<StudentDto[]> => {
+        const res = await api.get<StudentDto[]>("/school/students");
+        return res.data;
+    },
+
+    getStudent: async (studentId: string): Promise<StudentDto> => {
+        const res = await api.get<StudentDto>(`/school/students/${studentId}`);
+        return res.data;
+    },
+
+    createStudent: async (req: CreateStudentRequest): Promise<StudentDto> => {
+        const res = await api.post<StudentDto>("/school/students", req);
+        return res.data;
+    },
+
+    deleteStudent: async (studentId: string): Promise<void> => {
+        await api.delete(`/school/students/${studentId}`);
     },
 };

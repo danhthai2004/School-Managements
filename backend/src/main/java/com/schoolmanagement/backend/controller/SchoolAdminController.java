@@ -4,8 +4,10 @@ import com.schoolmanagement.backend.domain.Role;
 import com.schoolmanagement.backend.dto.BulkImportResponse;
 import com.schoolmanagement.backend.dto.ClassRoomDto;
 import com.schoolmanagement.backend.dto.SchoolStatsDto;
+import com.schoolmanagement.backend.dto.StudentDto;
 import com.schoolmanagement.backend.dto.UserDto;
 import com.schoolmanagement.backend.dto.request.CreateClassRoomRequest;
+import com.schoolmanagement.backend.dto.request.CreateStudentRequest;
 import com.schoolmanagement.backend.dto.request.CreateUserRequest;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.security.UserPrincipal;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/school")
@@ -69,7 +72,7 @@ public class SchoolAdminController {
     @Transactional
     @PutMapping("/classes/{id}")
     public ClassRoomDto updateClass(@AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable("id") java.util.UUID classId,
+            @PathVariable("id") UUID classId,
             @Valid @RequestBody CreateClassRoomRequest req) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
@@ -81,12 +84,55 @@ public class SchoolAdminController {
     @Transactional
     @DeleteMapping("/classes/{id}")
     public void deleteClass(@AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable("id") java.util.UUID classId) {
+            @PathVariable("id") UUID classId) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         schoolAdminService.deleteClassRoom(admin.getSchool(), classId);
+    }
+
+    // ==================== STUDENT MANAGEMENT ====================
+
+    @GetMapping("/students")
+    public List<StudentDto> listStudents(@AuthenticationPrincipal UserPrincipal principal) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return schoolAdminService.listStudents(admin.getSchool());
+    }
+
+    @GetMapping("/students/{id}")
+    public StudentDto getStudent(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("id") UUID studentId) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return schoolAdminService.getStudent(admin.getSchool(), studentId);
+    }
+
+    @Transactional
+    @PostMapping("/students")
+    public StudentDto createStudent(@AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody CreateStudentRequest req) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return schoolAdminService.createStudent(admin.getSchool(), req);
+    }
+
+    @Transactional
+    @DeleteMapping("/students/{id}")
+    public void deleteStudent(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("id") UUID studentId) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        schoolAdminService.deleteStudent(admin.getSchool(), studentId);
     }
 
     // ==================== USER MANAGEMENT ====================
