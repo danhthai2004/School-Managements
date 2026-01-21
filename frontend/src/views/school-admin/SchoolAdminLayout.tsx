@@ -12,7 +12,8 @@ import {
     SearchIcon,
     BellIcon,
     UserIcon,
-    LockIcon
+    LockIcon,
+    TeacherIcon
 } from "./SchoolAdminIcons";
 
 export default function SchoolAdminLayout() {
@@ -25,6 +26,7 @@ export default function SchoolAdminLayout() {
         { path: "/school-admin/dashboard", label: "Tổng quan", icon: <HomeIcon /> },
         { path: "/school-admin/classes", label: "Quản lý lớp học", icon: <ClassIcon /> },
         { path: "/school-admin/students", label: "Quản lý học sinh", icon: <StudentIcon /> },
+        { path: "/school-admin/teachers", label: "Quản lý giáo viên", icon: <TeacherIcon /> },
         { path: "/school-admin/accounts", label: "Quản lý tài khoản", icon: <UsersIcon /> },
         { path: "/school-admin/schedule", label: "Quản lý lịch học", icon: <CalendarIcon /> },
     ];

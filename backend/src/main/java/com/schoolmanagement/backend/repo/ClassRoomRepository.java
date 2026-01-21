@@ -26,4 +26,6 @@ public interface ClassRoomRepository extends JpaRepository<ClassRoom, UUID> {
     boolean existsByHomeroomTeacherAndAcademicYear(User homeroomTeacher, String academicYear);
 
     Optional<ClassRoom> findFirstBySchoolOrderByAcademicYearDesc(School school);
+
+    Optional<ClassRoom> findByHomeroomTeacher(User homeroomTeacher);
 }

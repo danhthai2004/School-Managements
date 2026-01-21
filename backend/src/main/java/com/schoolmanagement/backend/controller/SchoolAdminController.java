@@ -226,4 +226,51 @@ public class SchoolAdminController {
         }
         return schoolAdminService.createAccountsForStudents(admin.getSchool(), studentIds);
     }
+    // ==================== TEACHER MANAGEMENT ====================
+
+    @GetMapping("/teachers/profiles")
+    public List<com.schoolmanagement.backend.dto.TeacherDto> listTeacherProfiles(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return schoolAdminService.listTeachersProfile(admin.getSchool());
+    }
+
+    @Transactional
+    @PostMapping("/teachers")
+    public com.schoolmanagement.backend.dto.TeacherDto createTeacher(@AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody com.schoolmanagement.backend.dto.request.CreateTeacherRequest req) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return schoolAdminService.createTeacher(admin.getSchool(), req);
+    }
+
+    @Transactional
+    @PutMapping("/teachers/{teacherId}")
+    public com.schoolmanagement.backend.dto.TeacherDto updateTeacher(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID teacherId,
+            @Valid @RequestBody com.schoolmanagement.backend.dto.request.CreateTeacherRequest req) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return schoolAdminService.updateTeacher(admin.getSchool(), teacherId, req);
+    }
+
+    @Transactional
+    @DeleteMapping("/teachers/{teacherId}")
+    public void deleteTeacher(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID teacherId) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        schoolAdminService.deleteTeacher(admin.getSchool(), teacherId);
+    }
 }
