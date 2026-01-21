@@ -90,6 +90,36 @@ export type CreateStudentRequest = {
     guardians?: GuardianRequest[];
 };
 
+export type TeacherDto = {
+    id: string;
+    teacherCode: string;
+    fullName: string;
+    dateOfBirth: string | null;
+    gender: string | null;
+    address: string | null;
+    email: string | null;
+    phone: string | null;
+    specialization: string | null;
+    degree: string | null;
+    status: string;
+    homeroomClassId: string | null;
+    homeroomClassName: string | null;
+    avatarUrl: string | null;
+};
+
+export type CreateTeacherRequest = {
+    teacherCode?: string;
+    fullName: string;
+    dateOfBirth?: string;
+    gender?: 'MALE' | 'FEMALE' | 'OTHER';
+    address?: string;
+    email?: string;
+    phone?: string;
+    specialization?: string;
+    degree?: string;
+    createAccount: boolean;
+};
+
 // ==================== SERVICE ====================
 
 export const schoolAdminService = {
@@ -123,6 +153,25 @@ export const schoolAdminService = {
     listTeachers: async (): Promise<UserDto[]> => {
         const res = await api.get<UserDto[]>("/school/teachers");
         return res.data;
+    },
+
+    listTeacherProfiles: async (): Promise<TeacherDto[]> => {
+        const res = await api.get<TeacherDto[]>("/school/teachers/profiles");
+        return res.data;
+    },
+
+    createTeacher: async (req: CreateTeacherRequest): Promise<TeacherDto> => {
+        const res = await api.post<TeacherDto>("/school/teachers", req);
+        return res.data;
+    },
+
+    updateTeacher: async (teacherId: string, req: CreateTeacherRequest): Promise<TeacherDto> => {
+        const res = await api.put<TeacherDto>(`/school/teachers/${teacherId}`, req);
+        return res.data;
+    },
+
+    deleteTeacher: async (teacherId: string): Promise<void> => {
+        await api.delete(`/school/teachers/${teacherId}`);
     },
 
     // Users
