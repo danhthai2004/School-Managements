@@ -1,17 +1,13 @@
 package com.schoolmanagement.backend.service;
 
 import com.schoolmanagement.backend.domain.Role;
-import com.schoolmanagement.backend.domain.entity.ClassRoom;
-import com.schoolmanagement.backend.domain.entity.School;
-import com.schoolmanagement.backend.domain.entity.User;
-import com.schoolmanagement.backend.dto.BulkImportResponse;
-import com.schoolmanagement.backend.dto.ClassRoomDto;
-import com.schoolmanagement.backend.dto.SchoolStatsDto;
-import com.schoolmanagement.backend.dto.UserDto;
+import com.schoolmanagement.backend.domain.StudentStatus;
+import com.schoolmanagement.backend.domain.entity.*;
+import com.schoolmanagement.backend.dto.*;
 import com.schoolmanagement.backend.dto.request.CreateClassRoomRequest;
+import com.schoolmanagement.backend.dto.request.CreateStudentRequest;
 import com.schoolmanagement.backend.exception.ApiException;
-import com.schoolmanagement.backend.repo.ClassRoomRepository;
-import com.schoolmanagement.backend.repo.UserRepository;
+import com.schoolmanagement.backend.repo.*;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -23,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.*;
 
 @Service
@@ -30,13 +27,21 @@ public class SchoolAdminService {
 
     private final UserRepository users;
     private final ClassRoomRepository classRooms;
+    private final StudentRepository students;
+    private final GuardianRepository guardians;
+    private final ClassEnrollmentRepository enrollments;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
 
     public SchoolAdminService(UserRepository users, ClassRoomRepository classRooms,
+            StudentRepository students, GuardianRepository guardians,
+            ClassEnrollmentRepository enrollments,
             PasswordEncoder passwordEncoder, MailService mailService) {
         this.users = users;
         this.classRooms = classRooms;
+        this.students = students;
+        this.guardians = guardians;
+        this.enrollments = enrollments;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
     }
@@ -306,5 +311,193 @@ public class SchoolAdminService {
         }
 
         return new BulkImportResponse(created, skipped, emailed);
+    }
+
+    // ==================== STUDENT MANAGEMENT ====================
+
+    @Transactional
+    public StudentDto createStudent(School school, CreateStudentRequest req) {
+        // Auto-generate student code if not provided
+        String studentCode = req.studentCode();
+        if (studentCode == null || studentCode.isBlank()) {
+            studentCode = generateNextStudentCode(school);
+        }
+
+        // Check duplicate student code
+        if (students.existsBySchoolAndStudentCode(school, studentCode)) {
+            throw new ApiException(HttpStatus.CONFLICT, "Mã học sinh đã tồn tại: " + studentCode);
+        }
+
+        // Validate date of birth must be in the past
+        if (req.dateOfBirth() != null && !req.dateOfBirth().isBefore(java.time.LocalDate.now())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Ngày sinh phải nhỏ hơn ngày hiện tại");
+        }
+
+        // Create student
+        Student student = Student.builder()
+                .studentCode(studentCode)
+                .fullName(req.fullName())
+                .dateOfBirth(req.dateOfBirth())
+                .gender(req.gender())
+                .birthPlace(req.birthPlace())
+                .address(req.address())
+                .email(req.email())
+                .phone(req.phone())
+                .enrollmentDate(req.enrollmentDate() != null ? req.enrollmentDate() : java.time.LocalDate.now())
+                .status(StudentStatus.ACTIVE)
+                .school(school)
+                .build();
+
+        student = students.save(student);
+
+        // Save guardians
+        if (req.guardians() != null && !req.guardians().isEmpty()) {
+            for (CreateStudentRequest.GuardianRequest g : req.guardians()) {
+                Guardian guardian = Guardian.builder()
+                        .student(student)
+                        .fullName(g.fullName())
+                        .phone(g.phone())
+                        .email(g.email())
+                        .relationship(g.relationship())
+                        .build();
+                guardians.save(guardian);
+            }
+        }
+
+        // Enroll in class if provided
+        if (req.classId() != null) {
+            ClassRoom classRoom = classRooms.findById(req.classId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học"));
+
+            if (!classRoom.getSchool().getId().equals(school.getId())) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "Lớp học không thuộc trường này");
+            }
+
+            // Check class is active
+            if (classRoom.getStatus() != com.schoolmanagement.backend.domain.ClassRoomStatus.ACTIVE) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Không thể thêm học sinh vào lớp không hoạt động");
+            }
+
+            // Check class capacity
+            long currentEnrollment = enrollments.countByClassRoom(classRoom);
+            if (currentEnrollment >= classRoom.getMaxCapacity()) {
+                throw new ApiException(HttpStatus.BAD_REQUEST,
+                        "Lớp đã đủ sĩ số (" + classRoom.getMaxCapacity() + " học sinh)");
+            }
+
+            String academicYear = req.academicYear() != null ? req.academicYear() : classRoom.getAcademicYear();
+
+            ClassEnrollment enrollment = ClassEnrollment.builder()
+                    .student(student)
+                    .classRoom(classRoom)
+                    .academicYear(academicYear)
+                    .enrolledAt(Instant.now())
+                    .build();
+            enrollments.save(enrollment);
+        }
+
+        return toStudentDto(student);
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudentDto> listStudents(School school) {
+        return students.findAllBySchoolOrderByFullNameAsc(school).stream()
+                .map(this::toStudentDto)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public StudentDto getStudent(School school, UUID studentId) {
+        Student student = students.findById(studentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+
+        if (!student.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Học sinh không thuộc trường này");
+        }
+
+        return toStudentDto(student);
+    }
+
+    @Transactional
+    public void deleteStudent(School school, UUID studentId) {
+        Student student = students.findById(studentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+
+        if (!student.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Học sinh không thuộc trường này");
+        }
+
+        // Delete related records
+        enrollments.deleteAllByStudent(student);
+        guardians.deleteAllByStudent(student);
+        students.delete(student);
+    }
+
+    /**
+     * Generate next student code in format HS0001, HS0002, etc.
+     */
+    private String generateNextStudentCode(School school) {
+        // Find the highest student code in the school
+        Optional<Student> latestStudent = students.findTopBySchoolOrderByStudentCodeDesc(school);
+
+        if (latestStudent.isEmpty()) {
+            // First student in the school
+            return "HS0001";
+        }
+
+        String lastCode = latestStudent.get().getStudentCode();
+
+        // Try to extract number from code (e.g., "HS0001" -> 1)
+        try {
+            // Remove "HS" prefix and parse the number
+            if (lastCode.startsWith("HS")) {
+                int lastNumber = Integer.parseInt(lastCode.substring(2));
+                int nextNumber = lastNumber + 1;
+                // Format with leading zeros (4 digits)
+                return String.format("HS%04d", nextNumber);
+            }
+        } catch (NumberFormatException e) {
+            // If parsing fails, fall through to default
+        }
+
+        // If we can't parse the last code, count students and use that
+        long studentCount = students.countBySchool(school);
+        return String.format("HS%04d", studentCount + 1);
+    }
+
+    private StudentDto toStudentDto(Student student) {
+        List<Guardian> studentGuardians = guardians.findAllByStudent(student);
+        List<StudentDto.GuardianDto> guardianDtos = studentGuardians.stream()
+                .map(g -> new StudentDto.GuardianDto(g.getId(), g.getFullName(), g.getPhone(), g.getEmail(),
+                        g.getRelationship()))
+                .toList();
+
+        // Get current class enrollment
+        String currentClassName = null;
+        UUID currentClassId = null;
+        Optional<ClassEnrollment> currentEnrollment = enrollments.findByStudentAndAcademicYear(student,
+                classRooms.findFirstBySchoolOrderByAcademicYearDesc(student.getSchool())
+                        .map(ClassRoom::getAcademicYear).orElse(""));
+        if (currentEnrollment.isPresent()) {
+            currentClassName = currentEnrollment.get().getClassRoom().getName();
+            currentClassId = currentEnrollment.get().getClassRoom().getId();
+        }
+
+        return new StudentDto(
+                student.getId(),
+                student.getStudentCode(),
+                student.getFullName(),
+                student.getDateOfBirth(),
+                student.getGender() != null ? student.getGender().name() : null,
+                student.getBirthPlace(),
+                student.getAddress(),
+                student.getEmail(),
+                student.getPhone(),
+                student.getAvatarUrl(),
+                student.getStatus().name(),
+                student.getEnrollmentDate(),
+                currentClassName,
+                currentClassId,
+                guardianDtos);
     }
 }

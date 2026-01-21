@@ -6,7 +6,10 @@ import ForgotPasswordPage from "../views/ForgotPasswordPage";
 import DashboardPage from "../views/DashboardPage";
 import ProtectedRoute from "./ProtectedRoute";
 import SchoolAdminsPage from "../views/SchoolAdminsPage";
-import SchoolAdminDashboard from "../views/school-admin/SchoolAdminDashboard";
+import SchoolAdminLayout from "../views/school-admin/SchoolAdminLayout";
+import DashboardOverview from "../views/school-admin/pages/DashboardOverview";
+import ClassManagement from "../views/school-admin/pages/ClassManagement";
+import StudentManagement from "../views/school-admin/pages/StudentManagement";
 
 
 export default function AppRouter() {
@@ -36,19 +39,16 @@ export default function AppRouter() {
         }
       />
 
-      <Route
-        path="/school-admin"
-        element={<Navigate to="/school-admin/dashboard" replace />}
-      />
-
-      <Route
-        path="/school-admin/dashboard"
-        element={
-          <ProtectedRoute>
-            <SchoolAdminDashboard />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/school-admin" element={
+        <ProtectedRoute>
+          <SchoolAdminLayout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<DashboardOverview />} />
+        <Route path="classes" element={<ClassManagement />} />
+        <Route path="students" element={<StudentManagement />} />
+      </Route>
 
 
       <Route path="*" element={<Navigate to="/login" replace />} />
