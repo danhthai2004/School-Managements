@@ -110,6 +110,7 @@ export type UpdateGuardianRequest = {
     phone?: string;
     email?: string;
     relationship?: string;
+};
 export type TeacherDto = {
     id: string;
     teacherCode: string;
