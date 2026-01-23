@@ -17,10 +17,17 @@ interface AddClassModalProps {
     teachers: UserDto[];
 }
 
+const getCurrentAcademicYear = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1; // getMonth is 0-indexed
+    return month >= 9 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+};
+
 function AddClassModal({ isOpen, onClose, onSuccess, teachers }: AddClassModalProps) {
     const [name, setName] = useState("");
     const [grade, setGrade] = useState(10);
-    const [academicYear, setAcademicYear] = useState("2024-2025");
+    const [academicYear, setAcademicYear] = useState(getCurrentAcademicYear());
     const [maxCapacity, setMaxCapacity] = useState(35);
     const [roomNumber, setRoomNumber] = useState("");
     const [department, setDepartment] = useState<'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI'>("KHONG_PHAN_BAN");
@@ -425,7 +432,7 @@ const ClassManagement = () => {
                                             cls.department === 'KHONG_PHAN_BAN' ? 'Không phân ban' : '—'}
                                 </td>
                                 <td className="px-6 py-4 text-gray-600">{cls.homeroomTeacherName || "—"}</td>
-                                <td className="px-6 py-4 text-gray-600">{cls.maxCapacity}</td>
+                                <td className="px-6 py-4 text-gray-600">{cls.studentCount} / {cls.maxCapacity}</td>
                                 <td className="px-6 py-4">
                                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${cls.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
                                         {cls.status === 'ACTIVE' ? 'Hoạt động' : 'Ngừng HĐ'}

@@ -13,7 +13,11 @@ import com.schoolmanagement.backend.dto.request.CreateUserRequest;
 import com.schoolmanagement.backend.dto.request.UpdateStudentRequest;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.security.UserPrincipal;
+import com.schoolmanagement.backend.service.ClassManagementService;
 import com.schoolmanagement.backend.service.SchoolAdminService;
+import com.schoolmanagement.backend.service.StudentImportService;
+import com.schoolmanagement.backend.service.StudentManagementService;
+import com.schoolmanagement.backend.service.TeacherManagementService;
 import com.schoolmanagement.backend.service.UserLookupService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -31,10 +35,23 @@ import java.util.UUID;
 public class SchoolAdminController {
 
     private final SchoolAdminService schoolAdminService;
+    private final ClassManagementService classManagementService;
+    private final StudentManagementService studentManagementService;
+    private final TeacherManagementService teacherManagementService;
+    private final StudentImportService studentImportService;
     private final UserLookupService userLookup;
 
-    public SchoolAdminController(SchoolAdminService schoolAdminService, UserLookupService userLookup) {
+    public SchoolAdminController(SchoolAdminService schoolAdminService,
+            ClassManagementService classManagementService,
+            StudentManagementService studentManagementService,
+            TeacherManagementService teacherManagementService,
+            StudentImportService studentImportService,
+            UserLookupService userLookup) {
         this.schoolAdminService = schoolAdminService;
+        this.classManagementService = classManagementService;
+        this.studentManagementService = studentManagementService;
+        this.teacherManagementService = teacherManagementService;
+        this.studentImportService = studentImportService;
         this.userLookup = userLookup;
     }
 
@@ -57,7 +74,7 @@ public class SchoolAdminController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return schoolAdminService.listClassRooms(admin.getSchool());
+        return classManagementService.listClassRooms(admin.getSchool());
     }
 
     @Transactional
@@ -68,7 +85,7 @@ public class SchoolAdminController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return schoolAdminService.createClassRoom(admin.getSchool(), req);
+        return classManagementService.createClassRoom(admin.getSchool(), req);
     }
 
     @Transactional
@@ -80,7 +97,7 @@ public class SchoolAdminController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return schoolAdminService.updateClassRoom(admin.getSchool(), classId, req);
+        return classManagementService.updateClassRoom(admin.getSchool(), classId, req);
     }
 
     @Transactional
@@ -91,7 +108,7 @@ public class SchoolAdminController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        schoolAdminService.deleteClassRoom(admin.getSchool(), classId);
+        classManagementService.deleteClassRoom(admin.getSchool(), classId);
     }
 
     // ==================== STUDENT MANAGEMENT ====================
@@ -102,7 +119,7 @@ public class SchoolAdminController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return schoolAdminService.listStudents(admin.getSchool());
+        return studentManagementService.listStudents(admin.getSchool());
     }
 
     @GetMapping("/students/{id}")
@@ -112,7 +129,7 @@ public class SchoolAdminController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return schoolAdminService.getStudent(admin.getSchool(), studentId);
+        return studentManagementService.getStudent(admin.getSchool(), studentId);
     }
 
     @Transactional
@@ -123,7 +140,7 @@ public class SchoolAdminController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return schoolAdminService.createStudent(admin.getSchool(), req);
+        return studentManagementService.createStudent(admin.getSchool(), req);
     }
 
     @Transactional
@@ -134,7 +151,7 @@ public class SchoolAdminController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        schoolAdminService.deleteStudent(admin.getSchool(), studentId);
+        studentManagementService.deleteStudent(admin.getSchool(), studentId);
     }
 
     @Transactional
@@ -146,7 +163,7 @@ public class SchoolAdminController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return schoolAdminService.updateStudent(admin.getSchool(), studentId, req);
+        return studentManagementService.updateStudent(admin.getSchool(), studentId, req);
     }
 
     /**
@@ -167,7 +184,7 @@ public class SchoolAdminController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return schoolAdminService.importStudentsFromExcel(admin.getSchool(), file, academicYear, grade, autoAssign);
+        return studentImportService.importStudentsFromExcel(admin.getSchool(), file, academicYear, grade, autoAssign);
     }
 
     // ==================== USER MANAGEMENT ====================
@@ -244,7 +261,7 @@ public class SchoolAdminController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return schoolAdminService.getStudentsEligibleForAccount(admin.getSchool());
+        return studentManagementService.getStudentsEligibleForAccount(admin.getSchool());
     }
 
     /**
@@ -259,7 +276,7 @@ public class SchoolAdminController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return schoolAdminService.createAccountsForStudents(admin.getSchool(), studentIds);
+        return studentManagementService.createAccountsForStudents(admin.getSchool(), studentIds);
     }
     // ==================== TEACHER MANAGEMENT ====================
 
@@ -270,7 +287,7 @@ public class SchoolAdminController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return schoolAdminService.listTeachersProfile(admin.getSchool());
+        return teacherManagementService.listTeachersProfile(admin.getSchool());
     }
 
     @Transactional
@@ -281,7 +298,7 @@ public class SchoolAdminController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return schoolAdminService.createTeacher(admin.getSchool(), req);
+        return teacherManagementService.createTeacher(admin.getSchool(), req);
     }
 
     @Transactional
@@ -294,7 +311,7 @@ public class SchoolAdminController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return schoolAdminService.updateTeacher(admin.getSchool(), teacherId, req);
+        return teacherManagementService.updateTeacher(admin.getSchool(), teacherId, req);
     }
 
     @Transactional
@@ -306,6 +323,6 @@ public class SchoolAdminController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        schoolAdminService.deleteTeacher(admin.getSchool(), teacherId);
+        teacherManagementService.deleteTeacher(admin.getSchool(), teacherId);
     }
 }

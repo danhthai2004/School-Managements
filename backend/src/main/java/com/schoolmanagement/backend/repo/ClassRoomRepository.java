@@ -15,32 +15,34 @@ import java.util.UUID;
 @Repository
 public interface ClassRoomRepository extends JpaRepository<ClassRoom, UUID> {
 
-    List<ClassRoom> findAllBySchoolOrderByGradeAscNameAsc(School school);
+        List<ClassRoom> findAllBySchoolOrderByGradeAscNameAsc(School school);
 
-    Optional<ClassRoom> findBySchoolAndName(School school, String name);
+        Optional<ClassRoom> findBySchoolAndName(School school, String name);
 
-    long countBySchool(School school);
+        long countBySchool(School school);
 
-    boolean existsBySchoolAndName(School school, String name);
+        boolean existsBySchoolAndName(School school, String name);
 
-    boolean existsBySchoolAndNameAndAcademicYear(School school, String name, String academicYear);
+        boolean existsBySchoolAndNameAndAcademicYear(School school, String name, String academicYear);
 
-    boolean existsByHomeroomTeacherAndAcademicYear(User homeroomTeacher, String academicYear);
+        boolean existsByHomeroomTeacherAndAcademicYear(User homeroomTeacher, String academicYear);
 
-    Optional<ClassRoom> findFirstBySchoolOrderByAcademicYearDesc(School school);
+        Optional<ClassRoom> findFirstBySchoolOrderByAcademicYearDesc(School school);
 
-    // Find classes by department, grade, academic year for auto-assignment
-    List<ClassRoom> findAllBySchoolAndDepartmentAndGradeAndAcademicYearAndStatus(
-            School school,
-            ClassDepartment department,
-            int grade,
-            String academicYear,
-            ClassRoomStatus status);
+        // Find classes by department, grade, academic year for auto-assignment
+        List<ClassRoom> findAllBySchoolAndDepartmentAndGradeAndAcademicYearAndStatus(
+                        School school,
+                        ClassDepartment department,
+                        int grade,
+                        String academicYear,
+                        ClassRoomStatus status);
 
-    // Find all active classes for a grade and academic year
-    List<ClassRoom> findAllBySchoolAndGradeAndAcademicYearAndStatus(
-            School school,
-            int grade,
-            String academicYear,
-            ClassRoomStatus status);
+        // Find all active classes for a grade and academic year
+        List<ClassRoom> findAllBySchoolAndGradeAndAcademicYearAndStatus(
+                        School school,
+                        int grade,
+                        String academicYear,
+                        ClassRoomStatus status);
+
+        Optional<ClassRoom> findByHomeroomTeacher(User homeroomTeacher);
 }
