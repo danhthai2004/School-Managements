@@ -1,25 +1,33 @@
 package com.schoolmanagement.backend.service;
 
+import com.schoolmanagement.backend.domain.ClassDepartment;
+import com.schoolmanagement.backend.domain.ClassRoomStatus;
+import com.schoolmanagement.backend.domain.Gender;
 import com.schoolmanagement.backend.domain.Role;
 import com.schoolmanagement.backend.domain.StudentStatus;
 import com.schoolmanagement.backend.domain.entity.*;
 import com.schoolmanagement.backend.dto.*;
 import com.schoolmanagement.backend.dto.request.CreateClassRoomRequest;
 import com.schoolmanagement.backend.dto.request.CreateStudentRequest;
+import com.schoolmanagement.backend.dto.request.UpdateStudentRequest;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.repo.*;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.*;
 
 @Service
@@ -433,6 +441,112 @@ public class SchoolAdminService {
         students.delete(student);
     }
 
+    @Transactional
+    public StudentDto updateStudent(School school, UUID studentId, UpdateStudentRequest req) {
+        Student student = students.findById(studentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+
+        if (!student.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Học sinh không thuộc trường này");
+        }
+
+        // Validate date of birth must be in the past
+        if (req.dateOfBirth() != null && !req.dateOfBirth().isBefore(java.time.LocalDate.now())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Ngày sinh phải nhỏ hơn ngày hiện tại");
+        }
+
+        // Update basic info
+        student.setFullName(req.fullName());
+        student.setDateOfBirth(req.dateOfBirth());
+        student.setGender(req.gender());
+        student.setBirthPlace(req.birthPlace());
+        student.setAddress(req.address());
+        student.setEmail(req.email());
+        student.setPhone(req.phone());
+
+        // Update status if provided
+        if (req.status() != null) {
+            student.setStatus(req.status());
+        }
+
+        student = students.save(student);
+
+        // Update guardians - replace all existing guardians with new ones
+        if (req.guardians() != null) {
+            // Delete existing guardians
+            guardians.deleteAllByStudent(student);
+
+            // Create new guardians
+            for (UpdateStudentRequest.GuardianRequest g : req.guardians()) {
+                if (g.fullName() != null && !g.fullName().isBlank()) {
+                    Guardian guardian = Guardian.builder()
+                            .student(student)
+                            .fullName(g.fullName())
+                            .phone(g.phone())
+                            .email(g.email())
+                            .relationship(g.relationship())
+                            .build();
+                    guardians.save(guardian);
+                }
+            }
+        }
+
+        // Handle class enrollment change
+        if (req.classId() != null) {
+            // Get current enrollment for this academic year
+            String academicYear = req.academicYear() != null ? req.academicYear()
+                    : classRooms.findFirstBySchoolOrderByAcademicYearDesc(school)
+                            .map(ClassRoom::getAcademicYear)
+                            .orElse("");
+
+            Optional<ClassEnrollment> currentEnrollment = enrollments.findByStudentAndAcademicYear(student,
+                    academicYear);
+
+            // Check if the class is changing
+            boolean needsNewEnrollment = currentEnrollment.isEmpty() ||
+                    !currentEnrollment.get().getClassRoom().getId().equals(req.classId());
+
+            if (needsNewEnrollment) {
+                ClassRoom newClass = classRooms.findById(req.classId())
+                        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học"));
+
+                if (!newClass.getSchool().getId().equals(school.getId())) {
+                    throw new ApiException(HttpStatus.FORBIDDEN, "Lớp học không thuộc trường này");
+                }
+
+                // Check class is active
+                if (newClass.getStatus() != ClassRoomStatus.ACTIVE) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "Không thể chuyển học sinh vào lớp không hoạt động");
+                }
+
+                // Check class capacity (excluding current student if already in this class)
+                long currentCount = enrollments.countByClassRoom(newClass);
+                if (currentEnrollment.isPresent()
+                        && currentEnrollment.get().getClassRoom().getId().equals(req.classId())) {
+                    currentCount--; // Don't count current student
+                }
+                if (currentCount >= newClass.getMaxCapacity()) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST,
+                            "Lớp đã đủ sĩ số (" + newClass.getMaxCapacity() + " học sinh)");
+                }
+
+                // Remove old enrollment if exists
+                currentEnrollment.ifPresent(enrollments::delete);
+
+                // Create new enrollment
+                ClassEnrollment newEnrollment = ClassEnrollment.builder()
+                        .student(student)
+                        .classRoom(newClass)
+                        .academicYear(academicYear)
+                        .enrolledAt(Instant.now())
+                        .build();
+                enrollments.save(newEnrollment);
+            }
+        }
+
+        return toStudentDto(student);
+    }
+
     /**
      * Generate next student code in format HS0001, HS0002, etc.
      */
@@ -463,6 +577,343 @@ public class SchoolAdminService {
         // If we can't parse the last code, count students and use that
         long studentCount = students.countBySchool(school);
         return String.format("HS%04d", studentCount + 1);
+    }
+
+    // ==================== EXCEL IMPORT ====================
+
+    /**
+     * Import students from Excel file with optional auto class assignment
+     */
+    @Transactional
+    public ImportStudentResult importStudentsFromExcel(School school, MultipartFile file,
+            String academicYear, int grade, boolean autoAssign) {
+        if (file == null || file.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "File Excel rỗng.");
+        }
+
+        String filename = file.getOriginalFilename();
+        if (filename == null || (!filename.endsWith(".xlsx") && !filename.endsWith(".xls"))) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Vui lòng upload file Excel (.xlsx hoặc .xls)");
+        }
+
+        List<ImportStudentResult.ImportError> errors = new ArrayList<>();
+        List<Student> createdStudents = new ArrayList<>();
+        int totalRows = 0;
+        int successCount = 0;
+        int failedCount = 0;
+
+        try (InputStream is = file.getInputStream();
+                Workbook workbook = new XSSFWorkbook(is)) {
+
+            Sheet sheet = workbook.getSheetAt(0);
+            if (sheet == null) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "File Excel không có sheet nào.");
+            }
+
+            // Get header row to map column names
+            Row headerRow = sheet.getRow(0);
+            if (headerRow == null) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "File Excel không có header row.");
+            }
+
+            Map<String, Integer> columnMap = new HashMap<>();
+            for (int i = 0; i < headerRow.getLastCellNum(); i++) {
+                Cell cell = headerRow.getCell(i);
+                if (cell != null) {
+                    String header = getCellStringValue(cell).toLowerCase().trim();
+                    columnMap.put(header, i);
+                }
+            }
+
+            // Validate required columns
+            if (!columnMap.containsKey("fullname") && !columnMap.containsKey("họ tên")
+                    && !columnMap.containsKey("hoten")) {
+                throw new ApiException(HttpStatus.BAD_REQUEST,
+                        "File Excel phải có cột 'fullName' hoặc 'Họ tên'");
+            }
+
+            // Process data rows
+            for (int rowNum = 1; rowNum <= sheet.getLastRowNum(); rowNum++) {
+                Row row = sheet.getRow(rowNum);
+                if (row == null || isRowEmpty(row)) {
+                    continue;
+                }
+
+                totalRows++;
+                String studentName = "";
+
+                try {
+                    // Extract student data from row
+                    studentName = getValueFromRow(row, columnMap, "fullname", "họ tên", "hoten");
+                    if (studentName == null || studentName.isBlank()) {
+                        errors.add(new ImportStudentResult.ImportError(rowNum + 1, "", "Thiếu họ tên"));
+                        failedCount++;
+                        continue;
+                    }
+
+                    // Parse date of birth
+                    LocalDate dateOfBirth = parseDateFromRow(row, columnMap, "dateofbirth", "ngày sinh", "ngaysinh");
+
+                    // Parse gender
+                    Gender gender = parseGenderFromRow(row, columnMap, "gender", "giới tính", "gioitinh");
+
+                    // Parse department
+                    ClassDepartment department = parseDepartmentFromRow(row, columnMap, "department", "ban",
+                            "phân ban");
+
+                    // Other fields
+                    String birthPlace = getValueFromRow(row, columnMap, "birthplace", "nơi sinh", "noisinh");
+                    String address = getValueFromRow(row, columnMap, "address", "địa chỉ", "diachi");
+                    String email = getValueFromRow(row, columnMap, "email");
+                    String phone = getValueFromRow(row, columnMap, "phone", "sđt", "số điện thoại", "sodienthoai");
+
+                    // Guardian info
+                    String guardianName = getValueFromRow(row, columnMap, "guardianname", "tên phụ huynh",
+                            "tenphuhuynh");
+                    String guardianPhone = getValueFromRow(row, columnMap, "guardianphone", "sđt phụ huynh",
+                            "sdtphuhuynh");
+                    String guardianRelationship = getValueFromRow(row, columnMap, "guardianrelationship", "quan hệ",
+                            "quanhe");
+
+                    // Generate student code
+                    String studentCode = generateNextStudentCode(school);
+
+                    // Create student entity
+                    Student student = Student.builder()
+                            .studentCode(studentCode)
+                            .fullName(studentName.trim())
+                            .dateOfBirth(dateOfBirth)
+                            .gender(gender)
+                            .birthPlace(birthPlace)
+                            .address(address)
+                            .email(email)
+                            .phone(phone)
+                            .enrollmentDate(LocalDate.now())
+                            .status(StudentStatus.ACTIVE)
+                            .school(school)
+                            .build();
+
+                    student = students.save(student);
+                    createdStudents.add(student);
+
+                    // Save guardian if provided
+                    if (guardianName != null && !guardianName.isBlank()) {
+                        Guardian guardian = Guardian.builder()
+                                .student(student)
+                                .fullName(guardianName.trim())
+                                .phone(guardianPhone)
+                                .relationship(guardianRelationship)
+                                .build();
+                        guardians.save(guardian);
+                    }
+
+                    successCount++;
+
+                } catch (Exception e) {
+                    errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
+                            "Lỗi: " + e.getMessage()));
+                    failedCount++;
+                }
+            }
+
+        } catch (ApiException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Không đọc được file Excel: " + ex.getMessage());
+        }
+
+        // Auto assign students to classes if requested
+        int assignedCount = 0;
+        if (autoAssign && !createdStudents.isEmpty()) {
+            assignedCount = autoAssignStudentsToClasses(school, createdStudents, academicYear, grade);
+        }
+
+        return new ImportStudentResult(totalRows, successCount, failedCount, assignedCount, errors);
+    }
+
+    /**
+     * Auto-assign students to classes based on department
+     * Uses round-robin distribution to balance class sizes
+     */
+    private int autoAssignStudentsToClasses(School school, List<Student> studentsToAssign,
+            String academicYear, int grade) {
+        int assignedCount = 0;
+
+        // Group students by department (extracted during import, we'll need to store it
+        // temporarily)
+        // For now, assign to any available class in the grade
+        List<ClassRoom> availableClasses = classRooms.findAllBySchoolAndGradeAndAcademicYearAndStatus(
+                school, grade, academicYear, ClassRoomStatus.ACTIVE);
+
+        if (availableClasses.isEmpty()) {
+            return 0; // No classes available
+        }
+
+        // Get current enrollment counts for each class
+        Map<UUID, Long> classEnrollmentCounts = new HashMap<>();
+        for (ClassRoom classRoom : availableClasses) {
+            classEnrollmentCounts.put(classRoom.getId(), enrollments.countByClassRoom(classRoom));
+        }
+
+        // Sort classes by current enrollment (ascending) to balance
+        availableClasses.sort(Comparator.comparingLong(c -> classEnrollmentCounts.get(c.getId())));
+
+        int classIndex = 0;
+        for (Student student : studentsToAssign) {
+            // Find next available class with capacity
+            int attempts = 0;
+            while (attempts < availableClasses.size()) {
+                ClassRoom classRoom = availableClasses.get(classIndex % availableClasses.size());
+                long currentCount = classEnrollmentCounts.get(classRoom.getId());
+
+                if (currentCount < classRoom.getMaxCapacity()) {
+                    // Assign student to this class
+                    ClassEnrollment enrollment = ClassEnrollment.builder()
+                            .student(student)
+                            .classRoom(classRoom)
+                            .academicYear(academicYear)
+                            .enrolledAt(Instant.now())
+                            .build();
+                    enrollments.save(enrollment);
+
+                    // Update count
+                    classEnrollmentCounts.put(classRoom.getId(), currentCount + 1);
+                    assignedCount++;
+                    classIndex++;
+                    break;
+                }
+
+                classIndex++;
+                attempts++;
+            }
+        }
+
+        return assignedCount;
+    }
+
+    // ==================== EXCEL HELPER METHODS ====================
+
+    private String getCellStringValue(Cell cell) {
+        if (cell == null)
+            return "";
+
+        return switch (cell.getCellType()) {
+            case STRING -> cell.getStringCellValue();
+            case NUMERIC -> {
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    yield cell.getLocalDateTimeCellValue().toLocalDate().toString();
+                }
+                double value = cell.getNumericCellValue();
+                if (value == Math.floor(value)) {
+                    yield String.valueOf((long) value);
+                }
+                yield String.valueOf(value);
+            }
+            case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
+            case FORMULA -> {
+                try {
+                    yield cell.getStringCellValue();
+                } catch (Exception e) {
+                    yield String.valueOf(cell.getNumericCellValue());
+                }
+            }
+            default -> "";
+        };
+    }
+
+    private boolean isRowEmpty(Row row) {
+        for (int i = 0; i < row.getLastCellNum(); i++) {
+            Cell cell = row.getCell(i);
+            if (cell != null && !getCellStringValue(cell).isBlank()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String getValueFromRow(Row row, Map<String, Integer> columnMap, String... possibleNames) {
+        for (String name : possibleNames) {
+            Integer colIndex = columnMap.get(name.toLowerCase());
+            if (colIndex != null) {
+                Cell cell = row.getCell(colIndex);
+                if (cell != null) {
+                    String value = getCellStringValue(cell);
+                    if (!value.isBlank()) {
+                        return value.trim();
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private LocalDate parseDateFromRow(Row row, Map<String, Integer> columnMap, String... possibleNames) {
+        for (String name : possibleNames) {
+            Integer colIndex = columnMap.get(name.toLowerCase());
+            if (colIndex != null) {
+                Cell cell = row.getCell(colIndex);
+                if (cell != null) {
+                    if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
+                        return cell.getLocalDateTimeCellValue().toLocalDate();
+                    } else {
+                        String dateStr = getCellStringValue(cell);
+                        if (!dateStr.isBlank()) {
+                            return parseDate(dateStr);
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private LocalDate parseDate(String dateStr) {
+        if (dateStr == null || dateStr.isBlank())
+            return null;
+
+        // Try different date formats
+        String[] formats = { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd", "dd-MM-yyyy" };
+
+        for (String format : formats) {
+            try {
+                java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern(format);
+                return LocalDate.parse(dateStr, formatter);
+            } catch (Exception ignored) {
+            }
+        }
+
+        return null;
+    }
+
+    private Gender parseGenderFromRow(Row row, Map<String, Integer> columnMap, String... possibleNames) {
+        String value = getValueFromRow(row, columnMap, possibleNames);
+        if (value == null)
+            return null;
+
+        value = value.toLowerCase().trim();
+        if (value.equals("nam") || value.equals("male") || value.equals("m")) {
+            return Gender.MALE;
+        } else if (value.equals("nữ") || value.equals("nu") || value.equals("female") || value.equals("f")) {
+            return Gender.FEMALE;
+        } else if (value.equals("khác") || value.equals("khac") || value.equals("other")) {
+            return Gender.OTHER;
+        }
+        return null;
+    }
+
+    private ClassDepartment parseDepartmentFromRow(Row row, Map<String, Integer> columnMap, String... possibleNames) {
+        String value = getValueFromRow(row, columnMap, possibleNames);
+        if (value == null)
+            return ClassDepartment.KHONG_PHAN_BAN;
+
+        value = value.toLowerCase().trim();
+        if (value.contains("tự nhiên") || value.contains("tu nhien") || value.equals("tn") || value.equals("a")) {
+            return ClassDepartment.TU_NHIEN;
+        } else if (value.contains("xã hội") || value.contains("xa hoi") || value.equals("xh") || value.equals("c")) {
+            return ClassDepartment.XA_HOI;
+        }
+        return ClassDepartment.KHONG_PHAN_BAN;
     }
 
     private StudentDto toStudentDto(Student student) {
