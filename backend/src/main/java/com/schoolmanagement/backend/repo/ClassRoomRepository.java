@@ -1,5 +1,7 @@
 package com.schoolmanagement.backend.repo;
 
+import com.schoolmanagement.backend.domain.ClassDepartment;
+import com.schoolmanagement.backend.domain.ClassRoomStatus;
 import com.schoolmanagement.backend.domain.entity.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.School;
 import com.schoolmanagement.backend.domain.entity.User;
@@ -27,5 +29,18 @@ public interface ClassRoomRepository extends JpaRepository<ClassRoom, UUID> {
 
     Optional<ClassRoom> findFirstBySchoolOrderByAcademicYearDesc(School school);
 
-    Optional<ClassRoom> findByHomeroomTeacher(User homeroomTeacher);
+    // Find classes by department, grade, academic year for auto-assignment
+    List<ClassRoom> findAllBySchoolAndDepartmentAndGradeAndAcademicYearAndStatus(
+            School school,
+            ClassDepartment department,
+            int grade,
+            String academicYear,
+            ClassRoomStatus status);
+
+    // Find all active classes for a grade and academic year
+    List<ClassRoom> findAllBySchoolAndGradeAndAcademicYearAndStatus(
+            School school,
+            int grade,
+            String academicYear,
+            ClassRoomStatus status);
 }

@@ -90,6 +90,26 @@ export type CreateStudentRequest = {
     guardians?: GuardianRequest[];
 };
 
+export type UpdateStudentRequest = {
+    fullName: string;
+    dateOfBirth?: string;
+    gender?: 'MALE' | 'FEMALE' | 'OTHER';
+    birthPlace?: string;
+    address?: string;
+    email?: string;
+    phone?: string;
+    status?: 'ACTIVE' | 'GRADUATED' | 'TRANSFERRED' | 'SUSPENDED';
+    classId?: string;
+    academicYear?: string;
+    guardians?: UpdateGuardianRequest[];
+};
+
+export type UpdateGuardianRequest = {
+    id?: string; // null for new guardian
+    fullName: string;
+    phone?: string;
+    email?: string;
+    relationship?: string;
 export type TeacherDto = {
     id: string;
     teacherCode: string;
@@ -196,6 +216,32 @@ export const schoolAdminService = {
         return res.data;
     },
 
+    updateStudent: async (studentId: string, req: UpdateStudentRequest): Promise<StudentDto> => {
+        const res = await api.put<StudentDto>(`/school/students/${studentId}`, req);
+        return res.data;
+    },
+
+    // Import students from Excel
+    importStudentsFromExcel: async (
+        file: File,
+        academicYear: string,
+        grade: number,
+        autoAssign: boolean = true
+    ): Promise<ImportStudentResult> => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("academicYear", academicYear);
+        formData.append("grade", grade.toString());
+        formData.append("autoAssign", autoAssign.toString());
+
+        const res = await api.post<ImportStudentResult>("/school/students/import-excel", formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
+        return res.data;
+    },
+
     deleteStudent: async (studentId: string): Promise<void> => {
         await api.delete(`/school/students/${studentId}`);
     },
@@ -216,4 +262,20 @@ export type BulkAccountCreationResponse = {
     created: number;
     skipped: number;
     errors: string[];
+};
+
+// ==================== IMPORT RESULT TYPE ====================
+
+export type ImportStudentResult = {
+    totalRows: number;
+    successCount: number;
+    failedCount: number;
+    assignedToClassCount: number;
+    errors: ImportError[];
+};
+
+export type ImportError = {
+    rowNumber: number;
+    studentName: string;
+    errorMessage: string;
 };

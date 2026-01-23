@@ -3,12 +3,14 @@ package com.schoolmanagement.backend.controller;
 import com.schoolmanagement.backend.domain.Role;
 import com.schoolmanagement.backend.dto.BulkImportResponse;
 import com.schoolmanagement.backend.dto.ClassRoomDto;
+import com.schoolmanagement.backend.dto.ImportStudentResult;
 import com.schoolmanagement.backend.dto.SchoolStatsDto;
 import com.schoolmanagement.backend.dto.StudentDto;
 import com.schoolmanagement.backend.dto.UserDto;
 import com.schoolmanagement.backend.dto.request.CreateClassRoomRequest;
 import com.schoolmanagement.backend.dto.request.CreateStudentRequest;
 import com.schoolmanagement.backend.dto.request.CreateUserRequest;
+import com.schoolmanagement.backend.dto.request.UpdateStudentRequest;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.security.UserPrincipal;
 import com.schoolmanagement.backend.service.SchoolAdminService;
@@ -133,6 +135,39 @@ public class SchoolAdminController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         schoolAdminService.deleteStudent(admin.getSchool(), studentId);
+    }
+
+    @Transactional
+    @PutMapping("/students/{id}")
+    public StudentDto updateStudent(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("id") UUID studentId,
+            @Valid @RequestBody UpdateStudentRequest req) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return schoolAdminService.updateStudent(admin.getSchool(), studentId, req);
+    }
+
+    /**
+     * Import students from Excel file with auto class assignment
+     * Excel columns: fullName (required), dateOfBirth, gender, department,
+     * birthPlace, address, email, phone, guardianName, guardianPhone,
+     * guardianRelationship
+     */
+    @Transactional
+    @PostMapping("/students/import-excel")
+    public ImportStudentResult importStudentsFromExcel(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("academicYear") String academicYear,
+            @RequestParam("grade") int grade,
+            @RequestParam(value = "autoAssign", defaultValue = "true") boolean autoAssign) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return schoolAdminService.importStudentsFromExcel(admin.getSchool(), file, academicYear, grade, autoAssign);
     }
 
     // ==================== USER MANAGEMENT ====================
