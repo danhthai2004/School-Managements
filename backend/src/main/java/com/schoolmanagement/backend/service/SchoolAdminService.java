@@ -10,6 +10,7 @@ import com.schoolmanagement.backend.dto.*;
 import com.schoolmanagement.backend.dto.request.CreateClassRoomRequest;
 import com.schoolmanagement.backend.dto.request.CreateStudentRequest;
 import com.schoolmanagement.backend.dto.request.UpdateStudentRequest;
+import com.schoolmanagement.backend.dto.request.CreateTeacherRequest;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.repo.*;
 import org.apache.commons.csv.CSVFormat;
@@ -38,12 +39,13 @@ public class SchoolAdminService {
     private final StudentRepository students;
     private final GuardianRepository guardians;
     private final ClassEnrollmentRepository enrollments;
+    private final TeacherRepository teachers;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
 
     public SchoolAdminService(UserRepository users, ClassRoomRepository classRooms,
             StudentRepository students, GuardianRepository guardians,
-            ClassEnrollmentRepository enrollments,
+            ClassEnrollmentRepository enrollments, TeacherRepository teachers,
             PasswordEncoder passwordEncoder, MailService mailService) {
         this.users = users;
         this.classRooms = classRooms;
@@ -52,6 +54,7 @@ public class SchoolAdminService {
         this.enrollments = enrollments;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
+        this.teachers = teachers;
     }
 
     // ==================== CLASS ROOM MANAGEMENT ====================
@@ -950,5 +953,288 @@ public class SchoolAdminService {
                 currentClassName,
                 currentClassId,
                 guardianDtos);
+    }
+
+    // ==================== STUDENT ACCOUNT MANAGEMENT ====================
+
+    /**
+     * Get list of students eligible for account creation:
+     * - Status is ACTIVE
+     * - Has email
+     * - No user linked yet
+     */
+    @Transactional(readOnly = true)
+    public List<StudentDto> getStudentsEligibleForAccount(School school) {
+        return students.findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(school, StudentStatus.ACTIVE)
+                .stream()
+                .map(this::toStudentDto)
+                .toList();
+    }
+
+    /**
+     * Create account for a single student
+     */
+    @Transactional
+    public UserDto createAccountForStudent(School school, UUID studentId) {
+        Student student = students.findById(studentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+
+        // Validate student belongs to school
+        if (!student.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Học sinh không thuộc trường này");
+        }
+
+        // Validate status
+        if (student.getStatus() != StudentStatus.ACTIVE) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Chỉ có thể tạo tài khoản cho học sinh đang theo học");
+        }
+
+        // Validate email
+        if (student.getEmail() == null || student.getEmail().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Học sinh chưa có email");
+        }
+
+        // Validate no existing user
+        if (student.getUser() != null) {
+            throw new ApiException(HttpStatus.CONFLICT, "Học sinh đã có tài khoản");
+        }
+
+        // Check email unique in Users table
+        if (users.existsByEmailIgnoreCase(student.getEmail())) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Email đã được sử dụng cho tài khoản khác: " + student.getEmail());
+        }
+
+        // Generate temp password
+        String tempPassword = RandomUtil.generateTempPassword(12);
+
+        // Create user
+        User user = User.builder()
+                .email(student.getEmail())
+                .fullName(student.getFullName())
+                .role(Role.STUDENT)
+                .school(school)
+                .passwordHash(passwordEncoder.encode(tempPassword))
+                .firstLogin(true)
+                .enabled(true)
+                .build();
+
+        user = users.save(user);
+
+        // Link user to student
+        student.setUser(user);
+        students.save(student);
+
+        // Send email with temp password
+        mailService.sendTempPasswordEmail(user.getEmail(), user.getFullName(), tempPassword);
+
+        return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), school.getId(),
+                school.getCode());
+    }
+
+    /**
+     * Create accounts for multiple students (bulk)
+     */
+    @Transactional
+    public BulkAccountCreationResponse createAccountsForStudents(School school, List<UUID> studentIds) {
+        int created = 0;
+        int skipped = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (UUID studentId : studentIds) {
+            try {
+                createAccountForStudent(school, studentId);
+                created++;
+            } catch (ApiException e) {
+                skipped++;
+                errors.add(studentId + ": " + e.getMessage());
+            }
+        }
+
+        return new BulkAccountCreationResponse(created, skipped, errors);
+    }
+    // ==================== TEACHER MANAGEMENT ====================
+
+    @Transactional
+    public TeacherDto createTeacher(School school, CreateTeacherRequest req) {
+        // Auto-generate teacher code if not provided
+        String teacherCode = req.teacherCode();
+        if (teacherCode == null || teacherCode.isBlank()) {
+            teacherCode = generateNextTeacherCode(school);
+        }
+
+        // Check duplicate teacher code
+        if (teachers.existsBySchoolAndTeacherCode(school, teacherCode)) {
+            throw new ApiException(HttpStatus.CONFLICT, "Mã giáo viên đã tồn tại: " + teacherCode);
+        }
+
+        // Validate date of birth
+        if (req.dateOfBirth() != null && !req.dateOfBirth().isBefore(java.time.LocalDate.now())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Ngày sinh phải nhỏ hơn ngày hiện tại");
+        }
+
+        // Validate email uniqueness if provided
+        if (req.email() != null && !req.email().isBlank()) {
+            if (teachers.existsByEmailIgnoreCase(req.email())) {
+                throw new ApiException(HttpStatus.CONFLICT, "Email giáo viên đã tồn tại trong hệ thống");
+            }
+        }
+
+        // Create teacher
+        Teacher teacher = Teacher.builder()
+                .teacherCode(teacherCode)
+                .fullName(req.fullName())
+                .dateOfBirth(req.dateOfBirth())
+                .gender(req.gender())
+                .address(req.address())
+                .email(req.email())
+                .phone(req.phone())
+                .specialization(req.specialization())
+                .degree(req.degree())
+                .school(school)
+                .status("ACTIVE")
+                .build();
+
+        teacher = teachers.save(teacher);
+
+        // Create account if requested
+        if (req.createAccount() && req.email() != null && !req.email().isBlank()) {
+            // Check if email already used for an account
+            if (users.existsByEmailIgnoreCase(req.email())) {
+                // If user exists, we might want to link it (if role is TEACHER), or error.
+                // For simplicity, error if email conflict.
+                throw new ApiException(HttpStatus.CONFLICT, "Email đã được sử dụng cho một tài khoản khác");
+            }
+
+            String tempPassword = RandomUtil.generateTempPassword(12);
+            User user = User.builder()
+                    .email(req.email())
+                    .fullName(req.fullName())
+                    .role(Role.TEACHER)
+                    .school(school)
+                    .passwordHash(passwordEncoder.encode(tempPassword))
+                    .firstLogin(true)
+                    .enabled(true)
+                    .build();
+
+            user = users.save(user);
+            teacher.setUser(user);
+            teachers.save(teacher);
+
+            mailService.sendTempPasswordEmail(user.getEmail(), user.getFullName(), tempPassword);
+        }
+
+        return toTeacherDto(teacher);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TeacherDto> listTeachersProfile(School school) {
+        return teachers.findAllBySchoolOrderByTeacherCodeAsc(school).stream()
+                .map(this::toTeacherDto)
+                .toList();
+    }
+
+    @Transactional
+    public TeacherDto updateTeacher(School school, UUID teacherId, CreateTeacherRequest req) {
+        Teacher teacher = teachers.findById(teacherId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên"));
+
+        if (!teacher.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Giáo viên không thuộc trường này");
+        }
+
+        // Validate date of birth
+        if (req.dateOfBirth() != null && !req.dateOfBirth().isBefore(java.time.LocalDate.now())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Ngày sinh phải nhỏ hơn ngày hiện tại");
+        }
+
+        // Validate email uniqueness if changed
+        if (req.email() != null && !req.email().isBlank()) {
+            if (!req.email().equalsIgnoreCase(teacher.getEmail()) && teachers.existsByEmailIgnoreCase(req.email())) {
+                throw new ApiException(HttpStatus.CONFLICT, "Email giáo viên đã tồn tại trong hệ thống");
+            }
+        }
+
+        // Update fields
+        teacher.setFullName(req.fullName());
+        teacher.setDateOfBirth(req.dateOfBirth());
+        teacher.setGender(req.gender());
+        teacher.setAddress(req.address());
+        teacher.setEmail(req.email());
+        teacher.setPhone(req.phone());
+        teacher.setSpecialization(req.specialization());
+        teacher.setDegree(req.degree());
+
+        teacher = teachers.save(teacher);
+        return toTeacherDto(teacher);
+    }
+
+    @Transactional
+    public void deleteTeacher(School school, UUID teacherId) {
+        Teacher teacher = teachers.findById(teacherId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên"));
+
+        if (!teacher.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Giáo viên không thuộc trường này");
+        }
+
+        // Check if teacher is homeroom teacher of any class
+        if (teacher.getUser() != null) {
+            var homeroomClass = classRooms.findByHomeroomTeacher(teacher.getUser());
+            if (homeroomClass.isPresent()) {
+                throw new ApiException(HttpStatus.CONFLICT,
+                        "Không thể xóa giáo viên đang chủ nhiệm lớp " + homeroomClass.get().getName());
+            }
+        }
+
+        teachers.delete(teacher);
+    }
+
+    private String generateNextTeacherCode(School school) {
+        Optional<Teacher> latestTeacher = teachers.findTopBySchoolOrderByTeacherCodeDesc(school);
+        if (latestTeacher.isEmpty()) {
+            return "GV0001";
+        }
+        String lastCode = latestTeacher.get().getTeacherCode();
+        try {
+            if (lastCode.startsWith("GV")) {
+                int lastNumber = Integer.parseInt(lastCode.substring(2));
+                return String.format("GV%04d", lastNumber + 1);
+            }
+        } catch (NumberFormatException ignored) {
+        }
+
+        long count = teachers.count(); // fallback
+        return String.format("GV%04d", count + 1);
+    }
+
+    private TeacherDto toTeacherDto(Teacher teacher) {
+        // Find homeroom class for this teacher
+        UUID homeroomClassId = null;
+        String homeroomClassName = null;
+
+        if (teacher.getUser() != null) {
+            var homeroomClass = classRooms.findByHomeroomTeacher(teacher.getUser());
+            if (homeroomClass.isPresent()) {
+                homeroomClassId = homeroomClass.get().getId();
+                homeroomClassName = homeroomClass.get().getName();
+            }
+        }
+
+        return new TeacherDto(
+                teacher.getId(),
+                teacher.getTeacherCode(),
+                teacher.getFullName(),
+                teacher.getDateOfBirth(),
+                teacher.getGender() != null ? teacher.getGender().name() : null,
+                teacher.getAddress(),
+                teacher.getEmail(),
+                teacher.getPhone(),
+                teacher.getSpecialization(),
+                teacher.getDegree(),
+                teacher.getStatus(),
+                homeroomClassId,
+                homeroomClassName,
+                null);
     }
 }
