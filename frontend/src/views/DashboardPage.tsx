@@ -10,6 +10,8 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user?.role === "SCHOOL_ADMIN") {
       navigate("/school-admin/dashboard", { replace: true });
+    } else if (user?.role === "SYSTEM_ADMIN") {
+      navigate("/system/overview", { replace: true });
     }
   }, [user?.role, navigate]);
 

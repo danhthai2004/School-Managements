@@ -30,11 +30,18 @@ export default function LoginPage() {
       const res = await login(email.trim(), password);
       if (res.status === "AUTHENTICATED") {
         const role = res.user?.role;
-        navigate(role === "SYSTEM_ADMIN" ? "/school-admins" : "/dashboard");
+        console.log("Login success, role:", role);
+        if (role === "SYSTEM_ADMIN") {
+          navigate("/system/overview");
+        } else if (role === "SCHOOL_ADMIN") {
+          navigate("/school-admin/dashboard");
+        } else {
+          navigate("/dashboard");
+        }
         return;
       }
 
-      
+
       if (res.status === "OTP_REQUIRED") {
         navigate("/verify");
         return;
@@ -70,7 +77,7 @@ export default function LoginPage() {
 
   return (
     <AuthCard title="Đăng nhập" subtitle="Sử dụng email được cấp bởi trường" showBrand>
-      
+
       <form onSubmit={onSubmit} className="space-y-4">
         {error ? (
           <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
