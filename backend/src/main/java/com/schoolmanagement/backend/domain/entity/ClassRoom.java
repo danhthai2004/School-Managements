@@ -54,4 +54,8 @@ public class ClassRoom {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "homeroom_teacher_id")
     private User homeroomTeacher;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "combination_id")
+    private Combination combination;
 }

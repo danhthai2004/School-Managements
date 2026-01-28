@@ -14,6 +14,7 @@ import com.schoolmanagement.backend.dto.request.UpdateStudentRequest;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.security.UserPrincipal;
 import com.schoolmanagement.backend.service.ClassManagementService;
+import com.schoolmanagement.backend.service.CurriculumService;
 import com.schoolmanagement.backend.service.SchoolAdminService;
 import com.schoolmanagement.backend.service.StudentImportService;
 import com.schoolmanagement.backend.service.StudentManagementService;
@@ -32,6 +33,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/school")
 @Transactional(readOnly = true)
+@lombok.extern.slf4j.Slf4j
 public class SchoolAdminController {
 
     private final SchoolAdminService schoolAdminService;
@@ -40,19 +42,25 @@ public class SchoolAdminController {
     private final TeacherManagementService teacherManagementService;
     private final StudentImportService studentImportService;
     private final UserLookupService userLookup;
+    private final CurriculumService curriculumService;
+    private final com.schoolmanagement.backend.service.TeacherAssignmentService teacherAssignmentService;
 
     public SchoolAdminController(SchoolAdminService schoolAdminService,
             ClassManagementService classManagementService,
             StudentManagementService studentManagementService,
             TeacherManagementService teacherManagementService,
             StudentImportService studentImportService,
-            UserLookupService userLookup) {
+            UserLookupService userLookup,
+            CurriculumService curriculumService,
+            com.schoolmanagement.backend.service.TeacherAssignmentService teacherAssignmentService) {
         this.schoolAdminService = schoolAdminService;
         this.classManagementService = classManagementService;
         this.studentManagementService = studentManagementService;
         this.teacherManagementService = teacherManagementService;
         this.studentImportService = studentImportService;
         this.userLookup = userLookup;
+        this.curriculumService = curriculumService;
+        this.teacherAssignmentService = teacherAssignmentService;
     }
 
     // ==================== STATISTICS ====================
@@ -324,5 +332,100 @@ public class SchoolAdminController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         teacherManagementService.deleteTeacher(admin.getSchool(), teacherId);
+    }
+
+    // ==================== CURRICULUM MANAGEMENT ====================
+
+    @GetMapping("/subjects")
+    public List<com.schoolmanagement.backend.dto.SubjectDto> listSubjects(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        // Subjects are system-wide, so school context might strictly not be needed, but
+        // we check anyway
+
+        // School check removed as Subjects are system-wide master data
+        return curriculumService.listAllSubjects();
+    }
+
+    @GetMapping("/combinations")
+    public List<com.schoolmanagement.backend.dto.CombinationDto> listCombinations(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return curriculumService.listCombinations(admin.getSchool());
+    }
+
+    @Transactional
+    @PostMapping("/combinations")
+    public com.schoolmanagement.backend.dto.CombinationDto createCombination(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody com.schoolmanagement.backend.dto.request.CreateCombinationRequest req) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return curriculumService.createCombination(admin.getSchool(), req);
+    }
+
+    @Transactional
+    @PutMapping("/combinations/{id}")
+    public com.schoolmanagement.backend.dto.CombinationDto updateCombination(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("id") UUID id,
+            @Valid @RequestBody com.schoolmanagement.backend.dto.request.CreateCombinationRequest req) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return curriculumService.updateCombination(id, admin.getSchool(), req);
+    }
+
+    @Transactional
+    @DeleteMapping("/combinations/{id}")
+    public void deleteCombination(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("id") UUID id) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        curriculumService.deleteCombination(id, admin.getSchool());
+    }
+
+    // ==================== TEACHER ASSIGNMENT ====================
+
+    @Transactional
+    @PostMapping("/assignments/init")
+    public void initializeAssignments(@AuthenticationPrincipal UserPrincipal principal) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        teacherAssignmentService.initializeAssignments(admin.getSchool());
+    }
+
+    @GetMapping("/assignments")
+    public List<com.schoolmanagement.backend.dto.TeacherAssignmentDto> listAssignments(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(value = "classId", required = false) UUID classId) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return teacherAssignmentService.listAssignments(admin.getSchool(), classId);
+    }
+
+    @Transactional
+    @PutMapping("/assignments/{id}/teacher")
+    public com.schoolmanagement.backend.dto.TeacherAssignmentDto assignTeacher(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("id") UUID assignmentId,
+            @RequestBody com.schoolmanagement.backend.dto.request.AssignTeacherRequest req) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return teacherAssignmentService.assignTeacher(admin.getSchool(), assignmentId, req.teacherId());
     }
 }

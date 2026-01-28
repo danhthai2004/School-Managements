@@ -21,6 +21,8 @@ export type ClassRoomDto = {
     homeroomTeacherId: string | null;
     homeroomTeacherName: string | null;
     studentCount: number;
+    combinationId: string | null;
+    combinationName: string | null;
 };
 
 export type CreateClassRoomRequest = {
@@ -31,6 +33,7 @@ export type CreateClassRoomRequest = {
     roomNumber?: string;
     department?: 'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI';
     homeroomTeacherId?: string;
+    combinationId?: string;
 };
 
 export type UserDto = {
@@ -111,6 +114,7 @@ export type UpdateGuardianRequest = {
     email?: string;
     relationship?: string;
 };
+
 
 export type TeacherDto = {
     id: string;
@@ -258,6 +262,50 @@ export const schoolAdminService = {
         const res = await api.post<BulkAccountCreationResponse>("/school/students/accounts", studentIds);
         return res.data;
     },
+
+    // Curriculum
+    listSubjects: async (): Promise<SubjectDto[]> => {
+        const res = await api.get<SubjectDto[]>("/school/subjects");
+        return res.data;
+    },
+
+    listCombinations: async (): Promise<CombinationDto[]> => {
+        const res = await api.get<CombinationDto[]>("/school/combinations");
+        return res.data;
+    },
+
+    createCombination: async (req: CreateCombinationRequest): Promise<CombinationDto> => {
+        const res = await api.post<CombinationDto>("/school/combinations", req);
+        return res.data;
+    },
+
+    updateCombination: async (id: string, req: CreateCombinationRequest): Promise<CombinationDto> => {
+        const res = await api.put<CombinationDto>(`/school/combinations/${id}`, req);
+        return res.data;
+    },
+
+    deleteCombination: async (id: string): Promise<void> => {
+        await api.delete(`/school/combinations/${id}`);
+    },
+
+    // Teacher Assignments
+    initializeAssignments: async (): Promise<void> => {
+        await api.post("/school/assignments/init");
+    },
+
+    listAssignments: async (classId?: string): Promise<import("./dtos/TeacherAssignmentDto").TeacherAssignmentDto[]> => {
+        const res = await api.get<import("./dtos/TeacherAssignmentDto").TeacherAssignmentDto[]>("/school/assignments", {
+            params: { classId }
+        });
+        return res.data;
+    },
+
+    assignTeacher: async (assignmentId: string, teacherId: string | null): Promise<import("./dtos/TeacherAssignmentDto").TeacherAssignmentDto> => {
+        const res = await api.put<import("./dtos/TeacherAssignmentDto").TeacherAssignmentDto>(`/school/assignments/${assignmentId}/teacher`, {
+            teacherId
+        });
+        return res.data;
+    },
 };
 
 export type BulkAccountCreationResponse = {
@@ -276,8 +324,41 @@ export type ImportStudentResult = {
     errors: ImportError[];
 };
 
+
 export type ImportError = {
     rowNumber: number;
     studentName: string;
     errorMessage: string;
 };
+
+// ==================== CURRICULUM TYPES ====================
+
+export type SubjectDto = {
+    id: string;
+    name: string;
+    code: string | null;
+    type: 'COMPULSORY' | 'ELECTIVE' | 'SPECIALIZED';
+    stream: 'TU_NHIEN' | 'XA_HOI' | null;
+    totalLessons: number | null;
+    active: boolean;
+    description: string | null;
+};
+
+export type CombinationDto = {
+    id: string;
+    name: string;
+    code: string | null;
+    stream: 'TU_NHIEN' | 'XA_HOI';
+    subjects: SubjectDto[];
+};
+
+export type CreateCombinationRequest = {
+    name: string;
+    code?: string;
+    stream: 'TU_NHIEN' | 'XA_HOI';
+    electiveSubjectIds: string[];
+    specializedSubjectIds: string[];
+};
+
+
+

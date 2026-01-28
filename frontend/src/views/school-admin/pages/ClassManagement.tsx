@@ -4,7 +4,8 @@ import {
     schoolAdminService,
     type ClassRoomDto,
     type UserDto,
-    type CreateClassRoomRequest
+    type CreateClassRoomRequest,
+    type CombinationDto
 } from "../../../services/schoolAdminService";
 import { PlusIcon, XIcon } from "../SchoolAdminIcons";
 
@@ -15,6 +16,7 @@ interface AddClassModalProps {
     onClose: () => void;
     onSuccess: () => void;
     teachers: UserDto[];
+    combinations: CombinationDto[];
 }
 
 const getCurrentAcademicYear = () => {
@@ -24,13 +26,14 @@ const getCurrentAcademicYear = () => {
     return month >= 9 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
 };
 
-function AddClassModal({ isOpen, onClose, onSuccess, teachers }: AddClassModalProps) {
+function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations }: AddClassModalProps) {
     const [name, setName] = useState("");
     const [grade, setGrade] = useState(10);
     const [academicYear, setAcademicYear] = useState(getCurrentAcademicYear());
     const [maxCapacity, setMaxCapacity] = useState(35);
     const [roomNumber, setRoomNumber] = useState("");
     const [department, setDepartment] = useState<'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI'>("KHONG_PHAN_BAN");
+    const [combinationId, setCombinationId] = useState("");
     const [homeroomTeacherId, setHomeroomTeacherId] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -48,6 +51,7 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers }: AddClassModalPr
                 maxCapacity,
                 roomNumber: roomNumber.trim() || undefined,
                 department,
+                combinationId: combinationId || undefined
             };
             if (homeroomTeacherId) {
                 req.homeroomTeacherId = homeroomTeacherId;
@@ -58,6 +62,7 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers }: AddClassModalPr
             setMaxCapacity(35);
             setRoomNumber("");
             setDepartment("KHONG_PHAN_BAN");
+            setCombinationId("");
             setHomeroomTeacherId("");
             onSuccess();
             onClose();
@@ -82,7 +87,7 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers }: AddClassModalPr
                         </button>
                     </div>
                 </div>
-                <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
                     {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>}
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-2">Tên lớp <span className="text-red-500">*</span></label>
@@ -109,6 +114,19 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers }: AddClassModalPr
                             className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all" />
                         <p className="text-xs text-gray-500 mt-1">Tối đa 35 học sinh/lớp</p>
                     </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Tổ hợp môn (GDPT 2018)</label>
+                        <select value={combinationId} onChange={(e) => setCombinationId(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-white">
+                            <option value="">-- Chọn tổ hợp môn --</option>
+                            {combinations.map((c) => (
+                                <option key={c.id} value={c.id}>{c.name} {c.code ? `(${c.code})` : ''}</option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">Chọn tổ hợp thay cho phân ban truyền thống</p>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">Phòng học</label>
@@ -116,7 +134,7 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers }: AddClassModalPr
                                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Phân ban</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Phân ban (Cũ)</label>
                             <select value={department} onChange={(e) => setDepartment(e.target.value as any)}
                                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-white">
                                 <option value="KHONG_PHAN_BAN">Không phân ban</option>
@@ -151,15 +169,17 @@ interface EditClassModalProps {
     onClose: () => void;
     onSuccess: () => void;
     teachers: UserDto[];
+    combinations: CombinationDto[];
 }
 
-function EditClassModal({ isOpen, classData, onClose, onSuccess, teachers }: EditClassModalProps) {
+function EditClassModal({ isOpen, classData, onClose, onSuccess, teachers, combinations }: EditClassModalProps) {
     const [name, setName] = useState("");
     const [grade, setGrade] = useState(10);
     const [academicYear, setAcademicYear] = useState("");
     const [maxCapacity, setMaxCapacity] = useState(35);
     const [roomNumber, setRoomNumber] = useState("");
     const [department, setDepartment] = useState<'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI'>("KHONG_PHAN_BAN");
+    const [combinationId, setCombinationId] = useState("");
     const [homeroomTeacherId, setHomeroomTeacherId] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -172,6 +192,7 @@ function EditClassModal({ isOpen, classData, onClose, onSuccess, teachers }: Edi
             setMaxCapacity(classData.maxCapacity);
             setRoomNumber(classData.roomNumber || "");
             setDepartment((classData.department as any) || "KHONG_PHAN_BAN");
+            setCombinationId(classData.combinationId || "");
             setHomeroomTeacherId(classData.homeroomTeacherId || "");
         }
     }, [classData]);
@@ -190,6 +211,7 @@ function EditClassModal({ isOpen, classData, onClose, onSuccess, teachers }: Edi
                 maxCapacity,
                 roomNumber: roomNumber.trim() || undefined,
                 department,
+                combinationId: combinationId || undefined
             };
             if (homeroomTeacherId) {
                 req.homeroomTeacherId = homeroomTeacherId;
@@ -216,7 +238,7 @@ function EditClassModal({ isOpen, classData, onClose, onSuccess, teachers }: Edi
                         <button onClick={onClose} className="text-white/80 hover:text-white"><XIcon /></button>
                     </div>
                 </div>
-                <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
                     {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -244,6 +266,18 @@ function EditClassModal({ isOpen, classData, onClose, onSuccess, teachers }: Edi
                                 className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none" />
                         </div>
                     </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Tổ hợp môn (GDPT 2018)</label>
+                        <select value={combinationId} onChange={(e) => setCombinationId(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none bg-white">
+                            <option value="">-- Chọn tổ hợp môn --</option>
+                            {combinations.map((c) => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Phòng học</label>
@@ -251,7 +285,7 @@ function EditClassModal({ isOpen, classData, onClose, onSuccess, teachers }: Edi
                                 className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Phân ban</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Phân ban (Cũ)</label>
                             <select value={department} onChange={(e) => setDepartment(e.target.value as any)}
                                 className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none bg-white">
                                 <option value="KHONG_PHAN_BAN">Không phân ban</option>
@@ -340,6 +374,7 @@ const ClassManagement = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
     const [teachers, setTeachers] = useState<UserDto[]>([]);
+    const [combinations, setCombinations] = useState<CombinationDto[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -371,12 +406,14 @@ const ClassManagement = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [classesData, teachersData] = await Promise.all([
+            const [classesData, teachersData, combinationsData] = await Promise.all([
                 schoolAdminService.listClasses(),
                 schoolAdminService.listTeachers(),
+                schoolAdminService.listCombinations(),
             ]);
             setClasses(classesData);
             setTeachers(teachersData);
+            setCombinations(combinationsData);
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tải dữ liệu.");
         } finally {
@@ -412,7 +449,7 @@ const ClassManagement = () => {
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Khối</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Năm học</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Phòng</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Phân ban</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tổ hợp / Ban</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">GVCN</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Sĩ số</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Trạng thái</th>
@@ -427,9 +464,13 @@ const ClassManagement = () => {
                                 <td className="px-6 py-4 text-gray-600">{cls.academicYear}</td>
                                 <td className="px-6 py-4 text-gray-600">{cls.roomNumber || "—"}</td>
                                 <td className="px-6 py-4 text-gray-600">
-                                    {cls.department === 'TU_NHIEN' ? 'Tự nhiên' :
-                                        cls.department === 'XA_HOI' ? 'Xã hội' :
-                                            cls.department === 'KHONG_PHAN_BAN' ? 'Không phân ban' : '—'}
+                                    {cls.combinationName ? (
+                                        <span className="text-blue-600 font-medium">{cls.combinationName}</span>
+                                    ) : (
+                                        cls.department === 'TU_NHIEN' ? 'Tự nhiên' :
+                                            cls.department === 'XA_HOI' ? 'Xã hội' :
+                                                cls.department === 'KHONG_PHAN_BAN' ? 'Không phân ban' : '—'
+                                    )}
                                 </td>
                                 <td className="px-6 py-4 text-gray-600">{cls.homeroomTeacherName || "—"}</td>
                                 <td className="px-6 py-4 text-gray-600">{cls.studentCount} / {cls.maxCapacity}</td>
@@ -461,6 +502,7 @@ const ClassManagement = () => {
                 onClose={() => setShowAddModal(false)}
                 onSuccess={fetchData}
                 teachers={teachers}
+                combinations={combinations}
             />
             <EditClassModal
                 isOpen={showEditModal}
@@ -471,6 +513,7 @@ const ClassManagement = () => {
                 }}
                 onSuccess={fetchData}
                 teachers={teachers}
+                combinations={combinations}
             />
             <DeleteConfirmModal
                 isOpen={showDeleteModal}
