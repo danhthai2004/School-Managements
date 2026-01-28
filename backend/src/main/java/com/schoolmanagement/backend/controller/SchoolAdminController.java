@@ -203,7 +203,7 @@ public class SchoolAdminController {
     public UserDto createUser(@AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody CreateUserRequest req) {
 
-        var admin = getCurrentUser(principal);
+        var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
@@ -218,7 +218,7 @@ public class SchoolAdminController {
 
     @GetMapping("/users")
     public List<UserDto> listUsers(@AuthenticationPrincipal UserPrincipal principal) {
-        var admin = getCurrentUser(principal);
+        var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }

@@ -15,7 +15,7 @@ import SchoolsListPage from "../views/system/SchoolsListPage";
 import SchoolDetailsPage from "../views/system/SchoolDetailsPage";
 import NotificationsPage from "../views/system/NotificationsPage";
 import ActivityLogsPage from "../views/system/ActivityLogsPage";
-import SchoolAdminsPage from "../views/SchoolAdminsPage";
+
 import SchoolAdminLayout from "../views/school-admin/SchoolAdminLayout";
 import DashboardOverview from "../views/school-admin/pages/DashboardOverview";
 import ClassManagement from "../views/school-admin/pages/ClassManagement";
@@ -65,7 +65,7 @@ export default function AppRouter() {
         <Route path="schools/:id" element={<SchoolDetailsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="activity-logs" element={<ActivityLogsPage />} />
-      />
+      </Route>
 
       <Route path="/school-admin" element={
         <ProtectedRoute>

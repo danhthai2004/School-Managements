@@ -9,6 +9,7 @@ import {
   type SchoolLevel,
 } from "../../services/systemService";
 import { extractErrorMessage } from "../../utils/errorUtils";
+import { SchoolIcon, PlusIcon, ArrowRightIcon } from "../../components/layout/SystemIcons";
 
 const SCHOOL_LEVEL_LABELS: Record<SchoolLevel, string> = {
   PRIMARY: "Tiểu học (Cấp 1)",
@@ -136,37 +137,38 @@ export default function SchoolsListPage() {
         </div>
         <button
           onClick={() => setShowCreate(!showCreate)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
         >
-          + Tạo trường mới
+          <PlusIcon size={20} />
+          {showCreate ? "Đóng form" : "Tạo trường mới"}
         </button>
       </div>
 
       {/* Messages */}
       {error && (
-        <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-sm">
+        <div className="mb-4 p-4 bg-rose-50 border border-rose-100 rounded-xl text-rose-700 text-sm flex items-center gap-2">
           {error}
         </div>
       )}
       {success && (
-        <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-sm">
+        <div className="mb-4 p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-700 text-sm flex items-center gap-2">
           {success}
         </div>
       )}
 
       {/* Create Form */}
       {showCreate && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-4">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">Tạo trường mới</h2>
-          <form onSubmit={handleCreate} className="space-y-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-8 shadow-sm animate-fade-in-up">
+          <h2 className="text-lg font-bold text-slate-900 mb-6">Tạo trường mới</h2>
+          <form onSubmit={handleCreate} className="space-y-6">
             {/* Row 1: Province & School Level */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
                   Tỉnh/Thành phố <span className="text-rose-500">*</span>
                 </label>
                 <select
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                   value={provinceCode ?? ""}
                   onChange={(e) => setProvinceCode(e.target.value ? Number(e.target.value) : null)}
                   required
@@ -180,9 +182,9 @@ export default function SchoolsListPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Cấp học</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Cấp học</label>
                 <select
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                   value={schoolLevel ?? ""}
                   onChange={(e) => setSchoolLevel((e.target.value || null) as SchoolLevel | null)}
                 >
@@ -196,11 +198,11 @@ export default function SchoolsListPage() {
 
             {/* Row 2: School Select */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 Chọn trường <span className="text-rose-500">*</span>
               </label>
               <select
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all disabled:opacity-60"
                 value={registryCode}
                 onChange={(e) => setRegistryCode(e.target.value)}
                 required
@@ -219,33 +221,33 @@ export default function SchoolsListPage() {
 
             {/* Auto-filled info */}
             {selectedSchool && (
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
-                <p className="text-sm font-medium text-blue-900">Thông tin trường (tự động điền)</p>
-                <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 space-y-3">
+                <p className="text-sm font-semibold text-blue-900">Thông tin trường (tự động điền)</p>
+                <div className="grid grid-cols-3 gap-6 text-sm">
                   <div>
-                    <span className="text-slate-500">Mã trường:</span>{" "}
-                    <span className="font-medium">{selectedSchool.code}</span>
+                    <span className="text-slate-500 block mb-1">Mã trường</span>
+                    <span className="font-medium text-slate-900">{selectedSchool.code}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500">Cấp học:</span>{" "}
-                    <span className="font-medium">
+                    <span className="text-slate-500 block mb-1">Cấp học</span>
+                    <span className="font-medium text-slate-900">
                       {SCHOOL_LEVEL_LABELS[selectedSchool.schoolLevel]}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500">Khu vực tuyển sinh:</span>{" "}
-                    <span className="font-medium">{selectedSchool.enrollmentArea || "—"}</span>
+                    <span className="text-slate-500 block mb-1">Khu vực tuyển sinh</span>
+                    <span className="font-medium text-slate-900">{selectedSchool.enrollmentArea || "—"}</span>
                   </div>
                 </div>
               </div>
             )}
 
             {/* Row 3: Ward & Address */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Phường/Xã</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Phường/Xã</label>
                 <select
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all disabled:opacity-60"
                   value={wardCode ?? ""}
                   onChange={(e) => setWardCode(e.target.value ? Number(e.target.value) : null)}
                   disabled={!provinceCode}
@@ -259,9 +261,9 @@ export default function SchoolsListPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Địa chỉ chi tiết</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Địa chỉ chi tiết</label>
                 <input
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder="VD: Số 123, đường ABC"
@@ -269,11 +271,11 @@ export default function SchoolsListPage() {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-3 pt-2">
               <button
                 type="submit"
                 disabled={creating}
-                className="px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50"
+                className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-70 transition-all shadow-sm hover:shadow"
               >
                 {creating ? "Đang tạo..." : "Tạo trường"}
               </button>
@@ -283,7 +285,7 @@ export default function SchoolsListPage() {
                   setShowCreate(false);
                   resetForm();
                 }}
-                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200"
+                className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-all"
               >
                 Hủy
               </button>
@@ -294,47 +296,55 @@ export default function SchoolsListPage() {
 
       {/* Schools Grid */}
       {loading ? (
-        <div className="text-center text-slate-500 py-8">Đang tải...</div>
+        <div className="flex justify-center items-center py-20">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
       ) : schools.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500">
-          Chưa có trường nào. Bấm "Tạo trường mới" để bắt đầu.
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+          <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-400">
+            <SchoolIcon size={32} />
+          </div>
+          <h3 className="text-lg font-medium text-slate-900">Chưa có trường nào</h3>
+          <p className="text-slate-500 mt-1 mb-6">Bắt đầu bằng cách thêm trường học mới vào hệ thống.</p>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+          >
+            + Tạo trường mới
+          </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {schools.map((school) => (
             <Link
               key={school.id}
               to={`/system/schools/${school.id}`}
-              className="block bg-white rounded-2xl border border-slate-200 p-5 hover:border-blue-300 hover:shadow-md transition-all"
+              className="block bg-white rounded-2xl border border-slate-200 p-6 hover:border-blue-300 hover:shadow-md transition-all group"
             >
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-blue-100 grid place-items-center">
-                  <SchoolIcon />
+                <div className="w-12 h-12 rounded-xl bg-blue-50 grid place-items-center text-blue-600 group-hover:scale-110 transition-transform">
+                  <SchoolIcon size={24} />
                 </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-slate-900">{school.name}</h3>
-                  <p className="text-sm text-slate-500 mt-1">{school.code}</p>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-slate-900 truncate">{school.name}</h3>
+                  <p className="text-sm text-slate-500 mt-0.5 truncate">{school.code}</p>
                   {school.provinceName && (
-                    <p className="text-xs text-slate-400 mt-1">{school.provinceName}</p>
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-xs font-medium text-slate-600">
+                        {school.provinceName}
+                      </span>
+                    </div>
                   )}
                 </div>
               </div>
-              <div className="mt-4 flex items-center justify-between">
-                <span className="text-xs text-slate-400">Nhấn để xem chi tiết</span>
-                <span className="text-blue-600">→</span>
+              <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-sm">
+                <span className="text-slate-500 group-hover:text-blue-600 transition-colors">Xem chi tiết</span>
+                <ArrowRightIcon size={16} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
               </div>
             </Link>
           ))}
         </div>
       )}
     </div>
-  );
-}
-
-function SchoolIcon() {
-  return (
-    <svg className="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M10 10h4" />
-    </svg>
   );
 }

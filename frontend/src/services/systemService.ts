@@ -79,6 +79,8 @@ export type CreateSchoolAdminForSchoolRequest = {
 export type UpdateSchoolRequest = {
   wardCode?: number;
   address?: string;
+  name?: string;
+  code?: string;
 };
 
 export type ProvinceDto = {
