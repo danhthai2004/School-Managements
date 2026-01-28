@@ -15,6 +15,19 @@ import SchoolsListPage from "../views/system/SchoolsListPage";
 import SchoolDetailsPage from "../views/system/SchoolDetailsPage";
 import NotificationsPage from "../views/system/NotificationsPage";
 import ActivityLogsPage from "../views/system/ActivityLogsPage";
+import SchoolAdminsPage from "../views/SchoolAdminsPage";
+import SchoolAdminLayout from "../views/school-admin/SchoolAdminLayout";
+import DashboardOverview from "../views/school-admin/pages/DashboardOverview";
+import ClassManagement from "../views/school-admin/pages/ClassManagement";
+import StudentManagement from "../views/school-admin/pages/StudentManagement";
+import AccountManagement from "../views/school-admin/pages/AccountManagement";
+import TeacherManagement from "../views/school-admin/pages/TeacherManagement";
+import SubjectManagement from "../views/school-admin/pages/SubjectManagement";
+import CombinationManagement from "../views/school-admin/pages/CombinationManagement";
+import TeacherAssignment from "../views/school-admin/pages/TeacherAssignment";
+import TimetableManagement from "../views/school-admin/pages/TimetableManagement";
+import TimetableDetailView from "../views/school-admin/pages/TimetableDetailView";
+
 
 
 export default function AppRouter() {
@@ -52,6 +65,25 @@ export default function AppRouter() {
         <Route path="schools/:id" element={<SchoolDetailsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="activity-logs" element={<ActivityLogsPage />} />
+      />
+
+      <Route path="/school-admin" element={
+        <ProtectedRoute>
+          <SchoolAdminLayout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<DashboardOverview />} />
+        <Route path="classes" element={<ClassManagement />} />
+        <Route path="students" element={<StudentManagement />} />
+        <Route path="teachers" element={<TeacherManagement />} />
+        <Route path="accounts" element={<AccountManagement />} />
+        <Route path="subjects" element={<SubjectManagement />} />
+        <Route path="combinations" element={<CombinationManagement />} />
+        <Route path="assignments" element={<TeacherAssignment />} />
+        <Route path="schedule" element={<TimetableManagement />} />
+        <Route path="schedule/:id" element={<TimetableDetailView />} />
+
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />

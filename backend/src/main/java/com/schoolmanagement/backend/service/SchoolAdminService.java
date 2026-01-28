@@ -4,8 +4,11 @@ import com.schoolmanagement.backend.domain.Role;
 import com.schoolmanagement.backend.domain.entity.School;
 import com.schoolmanagement.backend.domain.entity.User;
 import com.schoolmanagement.backend.dto.BulkImportResponse;
+import com.schoolmanagement.backend.dto.SchoolStatsDto;
 import com.schoolmanagement.backend.dto.UserDto;
 import com.schoolmanagement.backend.exception.ApiException;
+import com.schoolmanagement.backend.repo.ClassRoomRepository;
+import com.schoolmanagement.backend.repo.StudentRepository;
 import com.schoolmanagement.backend.repo.UserRepository;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -13,25 +16,55 @@ import org.apache.commons.csv.CSVRecord;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.List;
+import java.util.Locale;
 
 @Service
 public class SchoolAdminService {
 
     private final UserRepository users;
+    private final ClassRoomRepository classRooms;
+    private final StudentRepository students;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
 
-    public SchoolAdminService(UserRepository users, PasswordEncoder passwordEncoder, MailService mailService) {
+    public SchoolAdminService(UserRepository users, ClassRoomRepository classRooms,
+            StudentRepository students,
+            PasswordEncoder passwordEncoder, MailService mailService) {
         this.users = users;
+        this.classRooms = classRooms;
+        this.students = students;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
     }
 
+    // ==================== SCHOOL STATS ====================
+
+    public SchoolStatsDto getSchoolStats(School school) {
+        long totalClasses = classRooms.countBySchool(school);
+        long totalTeachers = users.countBySchoolAndRole(school, Role.TEACHER);
+        long totalStudents = students.countBySchool(school);
+
+        int year = java.time.LocalDate.now().getYear();
+        int month = java.time.LocalDate.now().getMonthValue();
+        String currentAcademicYear;
+        if (month >= 9) {
+            currentAcademicYear = year + "-" + (year + 1);
+        } else {
+            currentAcademicYear = (year - 1) + "-" + year;
+        }
+
+        return new SchoolStatsDto(totalClasses, totalTeachers, totalStudents, currentAcademicYear);
+    }
+
+    // ==================== USER MANAGEMENT ====================
+
+    @Transactional
     public UserDto createUserForSchool(School school, String email, String fullName, Role role) {
         if (role == Role.SYSTEM_ADMIN || role == Role.SCHOOL_ADMIN) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Role không hợp lệ cho trường.");
@@ -54,14 +87,25 @@ public class SchoolAdminService {
         user = users.save(user);
         mailService.sendTempPasswordEmail(user.getEmail(), user.getFullName(), tempPassword);
 
-        return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), school.getId(), school.getCode());
+        return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), school.getId(),
+                school.getCode());
     }
 
     public List<UserDto> listUsersInSchool(School school) {
         // naive: load all then filter. For small class demo OK.
         return users.findAll().stream()
                 .filter(u -> u.getSchool() != null && u.getSchool().getId().equals(school.getId()))
-                .map(u -> new UserDto(u.getId(), u.getEmail(), u.getFullName(), u.getRole(), school.getId(), school.getCode()))
+                .map(u -> new UserDto(u.getId(), u.getEmail(), u.getFullName(), u.getRole(), school.getId(),
+                        school.getCode()))
+                .toList();
+    }
+
+    public List<UserDto> listTeachersInSchool(School school) {
+        return users.findAll().stream()
+                .filter(u -> u.getSchool() != null && u.getSchool().getId().equals(school.getId())
+                        && u.getRole() == Role.TEACHER)
+                .map(u -> new UserDto(u.getId(), u.getEmail(), u.getFullName(), u.getRole(), school.getId(),
+                        school.getCode()))
                 .toList();
     }
 
@@ -75,14 +119,14 @@ public class SchoolAdminService {
         int emailed = 0;
 
         try (var reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
-             CSVParser parser = CSVFormat.DEFAULT
-                     .builder()
-                     .setHeader()
-                     .setSkipHeaderRecord(true)
-                     .setIgnoreEmptyLines(true)
-                     .setTrim(true)
-                     .build()
-                     .parse(reader)) {
+                CSVParser parser = CSVFormat.DEFAULT
+                        .builder()
+                        .setHeader()
+                        .setSkipHeaderRecord(true)
+                        .setIgnoreEmptyLines(true)
+                        .setTrim(true)
+                        .build()
+                        .parse(reader)) {
 
             for (CSVRecord record : parser) {
                 String email = record.get("email");
@@ -135,9 +179,11 @@ public class SchoolAdminService {
         } catch (ApiException ex) {
             throw ex;
         } catch (Exception ex) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Không đọc được file CSV. Hãy kiểm tra header (email, fullName, role).");
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Không đọc được file CSV. Hãy kiểm tra header (email, fullName, role).");
         }
 
         return new BulkImportResponse(created, skipped, emailed);
     }
+
 }
