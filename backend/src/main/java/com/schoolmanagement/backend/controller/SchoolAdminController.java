@@ -25,6 +25,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import com.schoolmanagement.backend.domain.entity.User;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -202,7 +203,7 @@ public class SchoolAdminController {
     public UserDto createUser(@AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody CreateUserRequest req) {
 
-        var admin = userLookup.requireById(principal.getId());
+        var admin = getCurrentUser(principal);
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
@@ -217,7 +218,7 @@ public class SchoolAdminController {
 
     @GetMapping("/users")
     public List<UserDto> listUsers(@AuthenticationPrincipal UserPrincipal principal) {
-        var admin = userLookup.requireById(principal.getId());
+        var admin = getCurrentUser(principal);
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }

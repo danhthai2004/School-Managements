@@ -24,7 +24,8 @@ public class JwtService {
     public JwtService(
             @Value("${app.jwt.secret}") String secret,
             @Value("${app.jwt.access-ttl-seconds:604800}") long accessTtlSeconds,
-            @Value("${app.jwt.reset-ttl-seconds:600}") long resetTtlSeconds) {
+            @Value("${app.jwt.reset-ttl-seconds:600}") long resetTtlSeconds
+    ) {
         if (secret == null || secret.trim().length() < 32) {
             // For local dev only. In production, set APP_JWT_SECRET env to >= 32 chars.
             secret = "dev-dev-dev-dev-dev-dev-dev-dev-dev-dev-dev-dev";
@@ -44,7 +45,8 @@ public class JwtService {
                 .addClaims(Map.of(
                         "kind", TokenKind.ACCESS.name(),
                         "email", user.getEmail(),
-                        "role", user.getRole().name()))
+                        "role", user.getRole().name()
+                ))
                 .signWith(key, Jwts.SIG.HS256)
                 .compact();
     }
@@ -58,7 +60,8 @@ public class JwtService {
                 .setExpiration(Date.from(exp))
                 .addClaims(Map.of(
                         "kind", TokenKind.RESET.name(),
-                        "challengeId", challengeId.toString()))
+                        "challengeId", challengeId.toString()
+                ))
                 .signWith(key, Jwts.SIG.HS256)
                 .compact();
     }
