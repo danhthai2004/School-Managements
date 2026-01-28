@@ -30,7 +30,7 @@ export default function LoginPage() {
       const res = await login(email.trim(), password);
       if (res.status === "AUTHENTICATED") {
         const role = res.user?.role;
-        navigate(role === "SYSTEM_ADMIN" ? "/school-admins" : "/dashboard");
+        navigate(role === "SYSTEM_ADMIN" ? "/system/overview" : "/dashboard");
         return;
       }
 

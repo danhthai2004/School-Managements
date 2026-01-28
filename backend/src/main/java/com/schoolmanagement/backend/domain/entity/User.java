@@ -3,6 +3,7 @@ package com.schoolmanagement.backend.domain.entity;
 import com.schoolmanagement.backend.domain.Role;
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
@@ -39,11 +40,9 @@ public class User {
     /**
      * All roles must change password on first login except SYSTEM_ADMIN.
      */
-    @Builder.Default
     @Column(nullable = false)
     private boolean firstLogin = true;
 
-    @Builder.Default
     @Column(nullable = false)
     private boolean enabled = true;
 
@@ -53,4 +52,16 @@ public class User {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "school_id")
     private School school;
+
+    /**
+     * When set, user is marked for pending deletion.
+     * User will be automatically deleted 14 days after this timestamp.
+     */
+    private Instant pendingDeleteAt;
+
+    /**
+     * Stores the enabled state before marking for pending delete.
+     * Used to restore the correct state when un-marking from pending delete.
+     */
+    private Boolean wasEnabledBeforePendingDelete;
 }

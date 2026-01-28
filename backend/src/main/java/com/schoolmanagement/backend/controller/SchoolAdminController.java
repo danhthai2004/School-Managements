@@ -12,6 +12,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import com.schoolmanagement.backend.domain.entity.User;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -30,9 +31,9 @@ public class SchoolAdminController {
 
     @PostMapping("/users")
     public UserDto createUser(@AuthenticationPrincipal UserPrincipal principal,
-                              @Valid @RequestBody CreateUserRequest req) {
+            @Valid @RequestBody CreateUserRequest req) {
 
-        var admin = userLookup.requireById(principal.getId());
+        var admin = getCurrentUser(principal);
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
@@ -47,7 +48,7 @@ public class SchoolAdminController {
 
     @GetMapping("/users")
     public List<UserDto> listUsers(@AuthenticationPrincipal UserPrincipal principal) {
-        var admin = userLookup.requireById(principal.getId());
+        var admin = getCurrentUser(principal);
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
@@ -59,9 +60,9 @@ public class SchoolAdminController {
      */
     @PostMapping("/users/import")
     public BulkImportResponse importUsers(@AuthenticationPrincipal UserPrincipal principal,
-                                          @RequestParam("file") MultipartFile file,
-                                          @RequestParam(value = "defaultRole", required = false, defaultValue = "STUDENT") String defaultRole) {
-        var admin = userLookup.requireById(principal.getId());
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "defaultRole", required = false, defaultValue = "STUDENT") String defaultRole) {
+        var admin = getCurrentUser(principal);
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
@@ -76,4 +77,12 @@ public class SchoolAdminController {
         }
         return schoolAdminService.importCsv(admin.getSchool(), file, role);
     }
+
+    private User getCurrentUser(UserPrincipal principal) {
+        if (principal == null || principal.getId() == null) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "User not authenticated");
+        }
+        return userLookup.requireById(principal.getId());
+    }
+
 }

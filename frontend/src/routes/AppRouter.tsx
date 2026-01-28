@@ -5,7 +5,16 @@ import NewPasswordPage from "../views/NewPasswordPage";
 import ForgotPasswordPage from "../views/ForgotPasswordPage";
 import DashboardPage from "../views/DashboardPage";
 import ProtectedRoute from "./ProtectedRoute";
-import SchoolAdminsPage from "../views/SchoolAdminsPage";
+
+// System Admin
+import SystemLayout from "../components/layout/SystemLayout";
+import SystemOverviewPage from "../views/system/SystemOverviewPage";
+import SystemUsersPage from "../views/system/SystemUsersPage";
+import PendingDeletePage from "../views/system/PendingDeletePage";
+import SchoolsListPage from "../views/system/SchoolsListPage";
+import SchoolDetailsPage from "../views/system/SchoolDetailsPage";
+import NotificationsPage from "../views/system/NotificationsPage";
+import ActivityLogsPage from "../views/system/ActivityLogsPage";
 
 
 export default function AppRouter() {
@@ -26,15 +35,24 @@ export default function AppRouter() {
         }
       />
 
+      {/* System Admin Routes */}
       <Route
-        path="/school-admins"
+        path="/system"
         element={
-          <ProtectedRoute>
-            <SchoolAdminsPage />
+          <ProtectedRoute requiredRole="SYSTEM_ADMIN">
+            <SystemLayout />
           </ProtectedRoute>
         }
-      />
-
+      >
+        <Route index element={<Navigate to="/system/overview" replace />} />
+        <Route path="overview" element={<SystemOverviewPage />} />
+        <Route path="users" element={<SystemUsersPage />} />
+        <Route path="users/pending" element={<PendingDeletePage />} />
+        <Route path="schools" element={<SchoolsListPage />} />
+        <Route path="schools/:id" element={<SchoolDetailsPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="activity-logs" element={<ActivityLogsPage />} />
+      </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
