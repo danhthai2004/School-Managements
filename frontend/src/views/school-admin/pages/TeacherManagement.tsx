@@ -624,6 +624,8 @@ function DeleteTeacherModal({ isOpen, teacher, onClose, onSuccess }: DeleteTeach
 // ==================== PAGE COMPONENT ====================
 
 const TeacherManagement = () => {
+
+    // ... (keep existing state)
     const [teachers, setTeachers] = useState<TeacherDto[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -648,14 +650,6 @@ const TeacherManagement = () => {
         }
     };
 
-    if (loading) {
-        return <div className="p-8 text-center text-gray-500">Đang tải danh sách giáo viên...</div>;
-    }
-
-    if (error) {
-        return <div className="bg-red-50 border border-red-200 text-red-600 px-6 py-4 rounded-xl text-sm">{error}</div>;
-    }
-
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 animate-fade-in-up">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -668,53 +662,59 @@ const TeacherManagement = () => {
                     <span>Thêm giáo viên</span>
                 </button>
             </div>
-            <div className="overflow-x-auto">
-                <table className="w-full">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Mã GV</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Họ tên</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Điện thoại</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Chuyên môn</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Lớp CN</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Trạng thái</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {teachers.map((teacher) => (
-                            <tr key={teacher.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedTeacher(teacher)}>
-                                <td className="px-6 py-4 text-sm font-medium text-gray-900">{teacher.teacherCode}</td>
-                                <td className="px-6 py-4 text-sm text-gray-700">{teacher.fullName}</td>
-                                <td className="px-6 py-4 text-sm text-gray-600">{teacher.email || '—'}</td>
-                                <td className="px-6 py-4 text-sm text-gray-600">{teacher.phone || '—'}</td>
-                                <td className="px-6 py-4 text-sm text-gray-600">{teacher.specialization || '—'}</td>
-                                <td className="px-6 py-4">
-                                    {teacher.homeroomClassName ? (
-                                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
-                                            {teacher.homeroomClassName}
-                                        </span>
-                                    ) : (
-                                        <span className="text-gray-400 text-sm">—</span>
-                                    )}
-                                </td>
-                                <td className="px-6 py-4">
-                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${teacher.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                                        {teacher.status === 'ACTIVE' ? 'Đang làm' : teacher.status}
-                                    </span>
-                                </td>
-                            </tr>
-                        ))}
-                        {teachers.length === 0 && (
+
+            {loading && <div className="p-8 text-center text-gray-500">Đang tải danh sách...</div>}
+            {error && <div className="m-6 bg-red-50 text-red-600 p-4 rounded">{error}</div>}
+
+            {!loading && !error && (
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead className="bg-gray-50">
                             <tr>
-                                <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                                    Chưa có giáo viên nào. Bấm "Thêm giáo viên" để bắt đầu.
-                                </td>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Mã GV</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Họ tên</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Điện thoại</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Chuyên môn</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Lớp CN</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Trạng thái</th>
                             </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {teachers.map((teacher) => (
+                                <tr key={teacher.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedTeacher(teacher)}>
+                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{teacher.teacherCode}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-700">{teacher.fullName}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">{teacher.email || '—'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">{teacher.phone || '—'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">{teacher.specialization || '—'}</td>
+                                    <td className="px-6 py-4">
+                                        {teacher.homeroomClassName ? (
+                                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+                                                {teacher.homeroomClassName}
+                                            </span>
+                                        ) : (
+                                            <span className="text-gray-400 text-sm">—</span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${teacher.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                                            {teacher.status === 'ACTIVE' ? 'Đang làm' : teacher.status}
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))}
+                            {teachers.length === 0 && (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                                        Chưa có giáo viên nào. Bấm "Thêm giáo viên" để bắt đầu.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
             <AddTeacherModal
                 isOpen={showAddTeacherModal}

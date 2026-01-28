@@ -23,12 +23,15 @@ public class ClassManagementService {
     private final ClassRoomRepository classRooms;
     private final UserRepository users;
     private final ClassEnrollmentRepository enrollments;
+    private final com.schoolmanagement.backend.repo.CombinationRepository combinations;
 
     public ClassManagementService(ClassRoomRepository classRooms, UserRepository users,
-            ClassEnrollmentRepository enrollments) {
+            ClassEnrollmentRepository enrollments,
+            com.schoolmanagement.backend.repo.CombinationRepository combinations) {
         this.classRooms = classRooms;
         this.users = users;
         this.enrollments = enrollments;
+        this.combinations = combinations;
     }
 
     // ==================== CLASS ROOM MANAGEMENT ====================
@@ -55,6 +58,12 @@ public class ClassManagementService {
             }
         }
 
+        com.schoolmanagement.backend.domain.entity.Combination combination = null;
+        if (req.combinationId() != null) {
+            combination = combinations.findById(req.combinationId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy tổ hợp môn."));
+        }
+
         ClassRoom classRoom = ClassRoom.builder()
                 .name(req.name())
                 .grade(req.grade())
@@ -65,11 +74,13 @@ public class ClassManagementService {
                         : com.schoolmanagement.backend.domain.ClassDepartment.KHONG_PHAN_BAN)
                 .school(school)
                 .homeroomTeacher(teacher)
+                .combination(combination)
                 .build();
 
         classRoom = classRooms.save(classRoom);
+        return
 
-        return toClassRoomDto(classRoom);
+        toClassRoomDto(classRoom);
     }
 
     @Transactional
@@ -105,6 +116,12 @@ public class ClassManagementService {
             }
         }
 
+        com.schoolmanagement.backend.domain.entity.Combination combination = null;
+        if (req.combinationId() != null) {
+            combination = combinations.findById(req.combinationId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy tổ hợp môn."));
+        }
+
         classRoom.setName(req.name());
         classRoom.setGrade(req.grade());
         classRoom.setAcademicYear(req.academicYear());
@@ -113,6 +130,7 @@ public class ClassManagementService {
         classRoom.setDepartment(req.department() != null ? req.department()
                 : com.schoolmanagement.backend.domain.ClassDepartment.KHONG_PHAN_BAN);
         classRoom.setHomeroomTeacher(teacher);
+        classRoom.setCombination(combination);
 
         classRoom = classRooms.save(classRoom);
         return toClassRoomDto(classRoom);
@@ -151,6 +169,8 @@ public class ClassManagementService {
                 classRoom.getStatus().name(),
                 teacher != null ? teacher.getId() : null,
                 teacher != null ? teacher.getFullName() : null,
-                enrollments.countByClassRoom(classRoom));
+                enrollments.countByClassRoom(classRoom),
+                classRoom.getCombination() != null ? classRoom.getCombination().getId() : null,
+                classRoom.getCombination() != null ? classRoom.getCombination().getName() : null);
     }
 }

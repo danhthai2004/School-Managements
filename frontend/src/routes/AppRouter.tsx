@@ -12,6 +12,12 @@ import ClassManagement from "../views/school-admin/pages/ClassManagement";
 import StudentManagement from "../views/school-admin/pages/StudentManagement";
 import AccountManagement from "../views/school-admin/pages/AccountManagement";
 import TeacherManagement from "../views/school-admin/pages/TeacherManagement";
+import SubjectManagement from "../views/school-admin/pages/SubjectManagement";
+import CombinationManagement from "../views/school-admin/pages/CombinationManagement";
+import TeacherAssignment from "../views/school-admin/pages/TeacherAssignment";
+import TimetableManagement from "../views/school-admin/pages/TimetableManagement";
+import TimetableDetailView from "../views/school-admin/pages/TimetableDetailView";
+
 
 
 export default function AppRouter() {
@@ -52,6 +58,12 @@ export default function AppRouter() {
         <Route path="students" element={<StudentManagement />} />
         <Route path="teachers" element={<TeacherManagement />} />
         <Route path="accounts" element={<AccountManagement />} />
+        <Route path="subjects" element={<SubjectManagement />} />
+        <Route path="combinations" element={<CombinationManagement />} />
+        <Route path="assignments" element={<TeacherAssignment />} />
+        <Route path="schedule" element={<TimetableManagement />} />
+        <Route path="schedule/:id" element={<TimetableDetailView />} />
+
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />
