@@ -298,20 +298,33 @@ public class AutoScheduleService {
         log.info("Step 3: Scheduling elective subjects (Physical, Chemical, Bio, History, Geo, etc.)...");
 
         var allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool());
+        // Cache compulsory subjects once
+        var compulsorySubjects = subjectRepository
+                .findByTypeAndActiveTrue(com.schoolmanagement.backend.domain.SubjectType.COMPULSORY);
 
         for (var classroom : allClasses) {
             if (!classroom.getAcademicYear().equals(timetable.getAcademicYear()))
                 continue;
 
-            var assignments = teacherAssignmentRepository.findAllByClassRoom(classroom);
+            // Gather all subjects to schedule for this class
+            java.util.Set<Subject> subjectsToSchedule = new java.util.HashSet<>(compulsorySubjects);
 
-            for (var assignment : assignments) {
-                Subject subject = assignment.getSubject();
+            // Add combination subjects if any
+            if (classroom.getCombination() != null) {
+                subjectsToSchedule.addAll(classroom.getCombination().getSubjects());
+            }
 
+            for (Subject subject : subjectsToSchedule) {
                 if (isSkippedSubject(subject.getCode()))
                     continue;
 
-                Teacher teacher = assignment.getTeacher();
+                // SPECIALIZED subjects are handled in next step
+                if (subject.getType() == com.schoolmanagement.backend.domain.SubjectType.SPECIALIZED)
+                    continue;
+
+                // Lookup Teacher
+                var assignmentOpt = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject);
+                Teacher teacher = assignmentOpt.map(TeacherAssignment::getTeacher).orElse(null);
 
                 // Use the shared scheduling method with randomization enabled
                 scheduleSubject(timetable, classroom, subject, teacher, true, context);
@@ -320,7 +333,7 @@ public class AutoScheduleService {
     }
 
     private boolean isSkippedSubject(String code) {
-        // High Freq only (CC, SHL removed)
+        // High Freq only
         return java.util.List.of("TOAN", "VAN", "ANH").contains(code);
     }
 
@@ -328,46 +341,32 @@ public class AutoScheduleService {
         log.info("Step 4: Scheduling specialized subjects (Chuyen de)...");
 
         var allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool());
+        // Fetch all specialized subjects
+        var specializedSubjects = subjectRepository
+                .findByTypeAndActiveTrue(com.schoolmanagement.backend.domain.SubjectType.SPECIALIZED);
 
         for (var classroom : allClasses) {
             if (!classroom.getAcademicYear().equals(timetable.getAcademicYear()))
                 continue;
 
-            var assignments = teacherAssignmentRepository.findAllByClassRoom(classroom);
+            if (classroom.getCombination() == null)
+                continue;
+            var stream = classroom.getCombination().getStream();
+            if (stream == null)
+                continue;
 
-            for (var assignment : assignments) {
-                Subject subject = assignment.getSubject();
-
-                // Only process SPECIALIZED subjects here
-                if (subject.getType() != com.schoolmanagement.backend.domain.SubjectType.SPECIALIZED) {
+            for (Subject subject : specializedSubjects) {
+                // Determine if this specialized subject belongs to the class stream
+                // Assuming specialized subjects have a stream field that matches
+                if (subject.getStream() != stream) {
                     continue;
                 }
 
-                Teacher teacher = assignment.getTeacher();
-                int lessonsToAssign = subject.getTotalLessons();
-                int assignedCount = 0;
+                Teacher teacher = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject)
+                        .map(TeacherAssignment::getTeacher).orElse(null);
 
-                // Simple loop with context check
-                for (DayOfWeek day : DayOfWeek.values()) {
-                    if (day == DayOfWeek.SUNDAY)
-                        continue;
-                    if (assignedCount >= lessonsToAssign)
-                        break;
-
-                    for (int slot = 1; slot <= 5; slot++) {
-                        if (assignedCount >= lessonsToAssign)
-                            break;
-
-                        // Check Context
-                        if (context.isClassOccupied(classroom.getId(), day, slot))
-                            continue;
-                        if (context.isTeacherOccupied(teacher != null ? teacher.getId() : null, day, slot))
-                            continue;
-
-                        createAndSaveDetail(timetable, classroom, subject, day, slot, teacher, context);
-                        assignedCount++;
-                    }
-                }
+                // Use the shared scheduling method
+                scheduleSubject(timetable, classroom, subject, teacher, true, context);
             }
         }
     }

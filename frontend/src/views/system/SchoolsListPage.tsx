@@ -4,18 +4,9 @@ import {
   systemService,
   type SchoolDto,
   type ProvinceDto,
-  type WardDto,
-  type SchoolRegistryDto,
-  type SchoolLevel,
 } from "../../services/systemService";
 import { extractErrorMessage } from "../../utils/errorUtils";
 import { SchoolIcon, PlusIcon, ArrowRightIcon } from "../../components/layout/SystemIcons";
-
-const SCHOOL_LEVEL_LABELS: Record<SchoolLevel, string> = {
-  PRIMARY: "Tiểu học (Cấp 1)",
-  SECONDARY: "THCS (Cấp 2)",
-  HIGH_SCHOOL: "THPT (Cấp 3)",
-};
 
 export default function SchoolsListPage() {
   const [schools, setSchools] = useState<SchoolDto[]>([]);
@@ -29,18 +20,11 @@ export default function SchoolsListPage() {
 
   // Dropdown data
   const [provinces, setProvinces] = useState<ProvinceDto[]>([]);
-  const [wards, setWards] = useState<WardDto[]>([]);
-  const [registry, setRegistry] = useState<SchoolRegistryDto[]>([]);
 
   // Form values
   const [provinceCode, setProvinceCode] = useState<number | null>(null);
-  const [schoolLevel, setSchoolLevel] = useState<SchoolLevel | null>(null);
-  const [registryCode, setRegistryCode] = useState<string>("");
-  const [wardCode, setWardCode] = useState<number | null>(null);
+  const [schoolName, setSchoolName] = useState("");
   const [address, setAddress] = useState("");
-
-  // Selected school info (for auto-fill display)
-  const selectedSchool = registry.find((r) => r.code === registryCode);
 
   const loadData = async () => {
     try {
@@ -67,36 +51,10 @@ export default function SchoolsListPage() {
     loadProvinces();
   }, []);
 
-  // Load wards when province changes
-  useEffect(() => {
-    if (provinceCode) {
-      systemService
-        .getWardsByProvince(provinceCode)
-        .then(setWards)
-        .catch(console.error);
-    } else {
-      setWards([]);
-    }
-    setWardCode(null);
-  }, [provinceCode]);
-
-  // Load school registry when province or level changes
-  useEffect(() => {
-    if (provinceCode) {
-      systemService
-        .getSchoolRegistry(provinceCode, schoolLevel ?? undefined)
-        .then(setRegistry)
-        .catch(console.error);
-    } else {
-      setRegistry([]);
-    }
-    setRegistryCode("");
-  }, [provinceCode, schoolLevel]);
-
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!registryCode || !provinceCode) {
-      setError("Vui lòng chọn tỉnh/thành và trường học");
+    if (!schoolName || !provinceCode) {
+      setError("Vui lòng nhập tên trường và chọn tỉnh/thành");
       return;
     }
     setError(null);
@@ -104,9 +62,8 @@ export default function SchoolsListPage() {
     setCreating(true);
     try {
       await systemService.createSchool({
-        registryCode,
+        schoolName: schoolName.trim(),
         provinceCode,
-        wardCode: wardCode ?? undefined,
         address: address.trim() || undefined,
       });
       setSuccess("Đã tạo trường thành công");
@@ -122,9 +79,7 @@ export default function SchoolsListPage() {
 
   const resetForm = () => {
     setProvinceCode(null);
-    setSchoolLevel(null);
-    setRegistryCode("");
-    setWardCode(null);
+    setSchoolName("");
     setAddress("");
   };
 
@@ -161,8 +116,20 @@ export default function SchoolsListPage() {
         <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-8 shadow-sm animate-fade-in-up">
           <h2 className="text-lg font-bold text-slate-900 mb-6">Tạo trường mới</h2>
           <form onSubmit={handleCreate} className="space-y-6">
-            {/* Row 1: Province & School Level */}
+            {/* Row 1: Name & Province */}
             <div className="grid grid-cols-2 gap-6">
+              <div className="col-span-1">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Tên trường học <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400"
+                  value={schoolName}
+                  onChange={(e) => setSchoolName(e.target.value)}
+                  placeholder="Nhập tên trường học..."
+                  required
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Tỉnh/Thành phố <span className="text-rose-500">*</span>
@@ -181,94 +148,21 @@ export default function SchoolsListPage() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Cấp học</label>
-                <select
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                  value={schoolLevel ?? ""}
-                  onChange={(e) => setSchoolLevel((e.target.value || null) as SchoolLevel | null)}
-                >
-                  <option value="">-- Tất cả cấp --</option>
-                  <option value="PRIMARY">Tiểu học (Cấp 1)</option>
-                  <option value="SECONDARY">THCS (Cấp 2)</option>
-                  <option value="HIGH_SCHOOL">THPT (Cấp 3)</option>
-                </select>
-              </div>
             </div>
 
-            {/* Row 2: School Select */}
+            {/* Row 2: Address */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Chọn trường <span className="text-rose-500">*</span>
-              </label>
-              <select
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all disabled:opacity-60"
-                value={registryCode}
-                onChange={(e) => setRegistryCode(e.target.value)}
-                required
-                disabled={!provinceCode}
-              >
-                <option value="">
-                  {provinceCode ? "-- Chọn trường --" : "-- Vui lòng chọn tỉnh/thành trước --"}
-                </option>
-                {registry.map((r) => (
-                  <option key={r.code} value={r.code}>
-                    {r.name} ({r.code})
-                  </option>
-                ))}
-              </select>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Địa chỉ chi tiết</label>
+              <input
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="VD: Số 123, Đường ABC..."
+              />
             </div>
 
-            {/* Auto-filled info */}
-            {selectedSchool && (
-              <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 space-y-3">
-                <p className="text-sm font-semibold text-blue-900">Thông tin trường (tự động điền)</p>
-                <div className="grid grid-cols-3 gap-6 text-sm">
-                  <div>
-                    <span className="text-slate-500 block mb-1">Mã trường</span>
-                    <span className="font-medium text-slate-900">{selectedSchool.code}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block mb-1">Cấp học</span>
-                    <span className="font-medium text-slate-900">
-                      {SCHOOL_LEVEL_LABELS[selectedSchool.schoolLevel]}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block mb-1">Khu vực tuyển sinh</span>
-                    <span className="font-medium text-slate-900">{selectedSchool.enrollmentArea || "—"}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Row 3: Ward & Address */}
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Phường/Xã</label>
-                <select
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all disabled:opacity-60"
-                  value={wardCode ?? ""}
-                  onChange={(e) => setWardCode(e.target.value ? Number(e.target.value) : null)}
-                  disabled={!provinceCode}
-                >
-                  <option value="">-- Chọn phường/xã (tuỳ chọn) --</option>
-                  {wards.map((w) => (
-                    <option key={w.code} value={w.code}>
-                      {w.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Địa chỉ chi tiết</label>
-                <input
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="VD: Số 123, đường ABC"
-                />
-              </div>
+            <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3 text-sm text-blue-800">
+              <span className="font-semibold">Lưu ý:</span> Trường sẽ được tạo với cấp học mặc định là <strong>THPT (Cấp 3)</strong>.
             </div>
 
             <div className="flex gap-3 pt-2">
