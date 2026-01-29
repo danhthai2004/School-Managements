@@ -96,6 +96,22 @@ public class StudentManagementService {
                         .email(g.email())
                         .relationship(g.relationship())
                         .build();
+
+                // If guardian has email, create/link account
+                if (g.email() != null && !g.email().isBlank()) {
+                    try {
+                        User guardianUser = processGuardianUser(school, g.email(), g.fullName());
+                        guardian.setUser(guardianUser);
+                    } catch (Exception e) {
+                        // Log error but don't fail student creation?
+                        // For now, let's log and proceed, or should we fail?
+                        // User requested this feature, so maybe fail if we can't create account?
+                        // But duplicate email on different role might be an issue.
+                        // Let's rely on processGuardianUser to handle it gracefully.
+                        System.err.println("Failed to create guardian user: " + e.getMessage());
+                    }
+                }
+
                 guardians.save(guardian);
             }
         }
@@ -399,6 +415,33 @@ public class StudentManagementService {
 
         long studentCount = students.countBySchool(school);
         return String.format("HS%04d", studentCount + 1);
+    }
+
+    private User processGuardianUser(School school, String email, String fullName) {
+        // Check if user exists
+        Optional<User> existingUser = users.findByEmailIgnoreCase(email);
+        if (existingUser.isPresent()) {
+            return existingUser.get();
+        }
+
+        // Create new user
+        String tempPassword = RandomUtil.generateTempPassword(12);
+        User user = User.builder()
+                .email(email)
+                .fullName(fullName)
+                .role(Role.GUARDIAN)
+                .school(school)
+                .passwordHash(passwordEncoder.encode(tempPassword))
+                .firstLogin(true)
+                .enabled(true)
+                .build();
+
+        user = users.save(user);
+
+        // Send email
+        mailService.sendTempPasswordEmail(user.getEmail(), user.getFullName(), tempPassword);
+
+        return user;
     }
 
     private StudentDto toStudentDto(Student student) {

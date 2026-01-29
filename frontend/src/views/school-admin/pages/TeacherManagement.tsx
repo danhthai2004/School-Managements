@@ -91,9 +91,23 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
     const [phone, setPhone] = useState("");
     const [specialization, setSpecialization] = useState("");
     const [degree, setDegree] = useState("");
+    const [subjectId, setSubjectId] = useState("");
     const [createAccount, setCreateAccount] = useState(true);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [subjects, setSubjects] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchSubjects = async () => {
+            try {
+                const data = await schoolAdminService.listSubjects();
+                setSubjects(data);
+            } catch (err) {
+                console.error("Failed to fetch subjects");
+            }
+        };
+        if (isOpen) fetchSubjects();
+    }, [isOpen]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -118,12 +132,14 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
                 phone: phone.trim() || undefined,
                 specialization: specialization.trim() || undefined,
                 degree: degree.trim() || undefined,
+                subjectId: subjectId || undefined,
                 createAccount,
             };
             await schoolAdminService.createTeacher(req);
             // Reset form
             setFullName(""); setDateOfBirth(null); setDateInputValue(""); setGender("MALE");
             setAddress(""); setEmail(""); setPhone(""); setSpecialization(""); setDegree("");
+            setSubjectId("");
             setCreateAccount(true);
             onSuccess();
             onClose();
@@ -235,7 +251,17 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
                     <h3 className="font-semibold text-gray-700 border-b pb-2 mt-6">Thông tin chuyên môn</h3>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Chuyên môn</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Bộ môn giảng dạy</label>
+                            <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none bg-white">
+                                <option value="">-- Chọn bộ môn --</option>
+                                {subjects.map((sub: any) => (
+                                    <option key={sub.id} value={sub.id}>{sub.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Chuyên môn (Ghi chú)</label>
                             <input type="text" value={specialization} onChange={(e) => setSpecialization(e.target.value)}
                                 placeholder="Toán, Văn, Anh..."
                                 className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" />
@@ -389,8 +415,22 @@ function EditTeacherModal({ isOpen, teacher, onClose, onSuccess }: EditTeacherMo
     const [phone, setPhone] = useState("");
     const [specialization, setSpecialization] = useState("");
     const [degree, setDegree] = useState("");
+    const [subjectId, setSubjectId] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [subjects, setSubjects] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchSubjects = async () => {
+            try {
+                const data = await schoolAdminService.listSubjects();
+                setSubjects(data);
+            } catch (err) {
+                console.error("Failed to fetch subjects");
+            }
+        };
+        if (isOpen) fetchSubjects();
+    }, [isOpen]);
 
     useEffect(() => {
         if (teacher) {
@@ -401,6 +441,7 @@ function EditTeacherModal({ isOpen, teacher, onClose, onSuccess }: EditTeacherMo
             setPhone(teacher.phone || "");
             setSpecialization(teacher.specialization || "");
             setDegree(teacher.degree || "");
+            setSubjectId(teacher.subjectId || "");
             if (teacher.dateOfBirth) {
                 const d = new Date(teacher.dateOfBirth);
                 setDateOfBirth(d);
@@ -439,6 +480,7 @@ function EditTeacherModal({ isOpen, teacher, onClose, onSuccess }: EditTeacherMo
                 phone: phone.trim() || undefined,
                 specialization: specialization.trim() || undefined,
                 degree: degree.trim() || undefined,
+                subjectId: subjectId || undefined,
                 createAccount: false, // Don't create account on edit
             };
             await schoolAdminService.updateTeacher(teacher.id, req);
@@ -542,13 +584,23 @@ function EditTeacherModal({ isOpen, teacher, onClose, onSuccess }: EditTeacherMo
                                 className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Chuyên môn</label>
-                            <input type="text" value={specialization} onChange={(e) => setSpecialization(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" />
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Bộ môn giảng dạy</label>
+                            <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none bg-white">
+                                <option value="">-- Chọn bộ môn --</option>
+                                {subjects.map((sub: any) => (
+                                    <option key={sub.id} value={sub.id}>{sub.name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Bằng cấp</label>
                             <input type="text" value={degree} onChange={(e) => setDegree(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Chuyên môn (Ghi chú)</label>
+                            <input type="text" value={specialization} onChange={(e) => setSpecialization(e.target.value)}
                                 className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" />
                         </div>
                     </div>

@@ -173,7 +173,8 @@ const AccountManagement = () => {
                                                 }`}>
                                                 {user.role === 'TEACHER' ? 'Giáo viên' :
                                                     user.role === 'STUDENT' ? 'Học sinh' :
-                                                        user.role === 'SCHOOL_ADMIN' ? 'Quản trị viên' : user.role}
+                                                        user.role === 'SCHOOL_ADMIN' ? 'Quản trị viên' :
+                                                            user.role === 'GUARDIAN' ? 'Phụ huynh' : user.role}
                                             </span>
                                         </td>
                                     </tr>

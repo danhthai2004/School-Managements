@@ -130,6 +130,8 @@ export type TeacherDto = {
     status: string;
     homeroomClassId: string | null;
     homeroomClassName: string | null;
+    subjectId: string | null;
+    subjectName: string | null;
     avatarUrl: string | null;
 };
 
@@ -143,6 +145,7 @@ export type CreateTeacherRequest = {
     phone?: string;
     specialization?: string;
     degree?: string;
+    subjectId?: string;
     createAccount: boolean;
 };
 
