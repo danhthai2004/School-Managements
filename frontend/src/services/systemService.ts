@@ -58,9 +58,8 @@ export type ActivityLogDto = {
 };
 
 export type CreateSchoolRequest = {
-  registryCode: string;
+  schoolName: string;
   provinceCode: number;
-  wardCode?: number;
   address?: string;
 };
 

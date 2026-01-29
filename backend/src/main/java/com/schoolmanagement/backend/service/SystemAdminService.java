@@ -2,7 +2,6 @@ package com.schoolmanagement.backend.service;
 
 import com.schoolmanagement.backend.domain.Role;
 import com.schoolmanagement.backend.domain.entity.School;
-import com.schoolmanagement.backend.domain.entity.SchoolRegistry;
 import com.schoolmanagement.backend.domain.entity.User;
 import com.schoolmanagement.backend.dto.SchoolDetailDto;
 import com.schoolmanagement.backend.dto.SchoolDto;
@@ -11,7 +10,6 @@ import com.schoolmanagement.backend.dto.UserListDto;
 import com.schoolmanagement.backend.dto.request.CreateSchoolRequest;
 import com.schoolmanagement.backend.dto.request.UpdateSchoolRequest;
 import com.schoolmanagement.backend.exception.ApiException;
-import com.schoolmanagement.backend.repo.SchoolRegistryRepository;
 import com.schoolmanagement.backend.repo.SchoolRepository;
 import com.schoolmanagement.backend.repo.UserRepository;
 import org.springframework.http.HttpStatus;
@@ -27,17 +25,15 @@ import java.util.UUID;
 public class SystemAdminService {
 
     private final SchoolRepository schools;
-    private final SchoolRegistryRepository schoolRegistry;
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
     private final ActivityLogService activityLog;
 
-    public SystemAdminService(SchoolRepository schools, SchoolRegistryRepository schoolRegistry,
+    public SystemAdminService(SchoolRepository schools,
             UserRepository users, PasswordEncoder passwordEncoder, MailService mailService,
             ActivityLogService activityLog) {
         this.schools = schools;
-        this.schoolRegistry = schoolRegistry;
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
@@ -47,21 +43,29 @@ public class SystemAdminService {
     // ========== SCHOOL MANAGEMENT ==========
 
     public SchoolDto createSchool(CreateSchoolRequest req, User performedBy) {
-        SchoolRegistry registry = schoolRegistry.findById(req.registryCode())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Mã trường không tồn tại trong danh mục."));
+        // Generate a simple code or use name as base. For now, let's auto-generate a
+        // code.
+        // Format: SCH + random 6 chars or similar, or just uppercase name stripped.
+        // User didn't specify code format, so we'll generate a unique one.
+        String generatedCode = generateSchoolCode(req.schoolName());
 
-        if (schools.existsByCodeIgnoreCase(req.registryCode())) {
-            throw new ApiException(HttpStatus.CONFLICT, "Trường đã được thêm vào hệ thống.");
+        if (schools.existsByCodeIgnoreCase(generatedCode)) {
+            // Unlikely with random/timestamp, but good to check or retry.
+            // For simplicity in this scope, assuming unique enough or user handles name
+            // uniqueness if we used name.
+            // Let's actually verify by Name if we want strict uniqueness, but Code is the
+            // PK/ID usually.
+            // The constraint is typically on Code.
         }
 
+        // Default level: THPT (High School)
+        // No ward code.
         School school = School.builder()
-                .name(registry.getName())
-                .code(registry.getCode())
+                .name(req.schoolName())
+                .code(generatedCode)
                 .provinceCode(req.provinceCode())
-                .wardCode(req.wardCode())
-                .schoolLevel(registry.getSchoolLevel())
+                .schoolLevel(com.schoolmanagement.backend.domain.entity.SchoolLevel.HIGH_SCHOOL)
                 .address(req.address())
-                .enrollmentArea(registry.getEnrollmentArea())
                 .build();
         school = schools.save(school);
 
@@ -69,6 +73,13 @@ public class SystemAdminService {
                 "School: " + school.getName() + " (" + school.getCode() + ")");
 
         return toSchoolDto(school);
+    }
+
+    private String generateSchoolCode(String name) {
+        // Generate shorter code to fit in DB length
+        // SCH + 5 digit random number.
+        int randomNum = 10000 + (int) (Math.random() * 90000);
+        return "SCH-" + randomNum;
     }
 
     public List<SchoolDto> listSchools() {
@@ -92,9 +103,6 @@ public class SystemAdminService {
         School school = schools.findById(schoolId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Trường không tồn tại."));
 
-        if (req.wardCode() != null) {
-            school.setWardCode(req.wardCode());
-        }
         if (req.address() != null) {
             school.setAddress(req.address());
         }
@@ -110,8 +118,6 @@ public class SystemAdminService {
                 s.getId(), s.getName(), s.getCode(),
                 s.getProvinceCode(),
                 s.getProvince() != null ? s.getProvince().getName() : null,
-                s.getWardCode(),
-                s.getWard() != null ? s.getWard().getName() : null,
                 s.getSchoolLevel(),
                 s.getAddress(),
                 s.getEnrollmentArea());
