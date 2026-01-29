@@ -31,7 +31,7 @@ public class TeacherAssignment {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "teacher_id", nullable = true) // Can be null initially
-    private User teacher;
+    private Teacher teacher;
 
     @Column(name = "lessons_per_week", nullable = false)
     private int lessonsPerWeek; // e.g., 4 periods of Math

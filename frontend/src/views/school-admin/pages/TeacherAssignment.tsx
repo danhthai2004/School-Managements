@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { schoolAdminService, type ClassRoomDto } from "../../../services/schoolAdminService";
 import type { TeacherAssignmentDto } from "../../../services/dtos/TeacherAssignmentDto";
-import { RefreshCw, CheckCircle, AlertCircle, UserPlus, X } from "lucide-react";
+import { RefreshCw, CheckCircle, AlertCircle, UserPlus, X, Filter as FilterIcon } from "lucide-react";
 import toast from "react-hot-toast";
 
 export default function TeacherAssignment() {
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>("");
+    const [gradeFilter, setGradeFilter] = useState<string>("ALL");
     const [assignments, setAssignments] = useState<TeacherAssignmentDto[]>([]);
     const [teachers, setTeachers] = useState<any[]>([]); // UserDto or TeacherDto
     const [loading, setLoading] = useState(false);
@@ -45,8 +46,8 @@ export default function TeacherAssignment() {
 
     const fetchTeachers = async () => {
         try {
-            // Need a list of ALL teachers to assign
-            const data = await schoolAdminService.listTeachers();
+            // Need a list of ALL teachers to assign, with profile details (subjectId)
+            const data = await schoolAdminService.listTeacherProfiles();
             setTeachers(data);
         } catch (error) {
             console.error(error);
@@ -115,6 +116,8 @@ export default function TeacherAssignment() {
         return 'bg-orange-500';
     };
 
+    const filteredClasses = classes.filter(c => gradeFilter === "ALL" || c.grade.toString() === gradeFilter);
+
     return (
         <div className="space-y-6 p-4">
             <div className="flex justify-between items-center">
@@ -132,30 +135,52 @@ export default function TeacherAssignment() {
             </div>
 
             {/* Filters */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex gap-4 items-center">
-                <div className="flex-1 max-w-md">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Chọn Lớp học</label>
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                <div className="flex flex-wrap gap-4 items-center">
+                    <div className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                        <FilterIcon className="text-slate-400" size={18} />
+                        Bộ lọc:
+                    </div>
+
+                    <select
+                        className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        value={gradeFilter}
+                        onChange={(e) => {
+                            setGradeFilter(e.target.value);
+                            setSelectedClassId(""); // Reset class when grade changes
+                        }}
+                    >
+                        <option value="ALL">Tất cả các khối</option>
+                        <option value="10">Khối 10</option>
+                        <option value="11">Khối 11</option>
+                        <option value="12">Khối 12</option>
+                    </select>
+
                     <select
                         value={selectedClassId}
                         onChange={(e) => setSelectedClassId(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                        className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all min-w-[200px]"
                     >
                         <option value="">-- Chọn lớp --</option>
-                        {classes.map(c => (
+                        {filteredClasses.map(c => (
                             <option key={c.id} value={c.id}>{c.name} (Khối {c.grade})</option>
                         ))}
                     </select>
-                </div>
 
-                {selectedClassId && assignments.length > 0 && (
-                    <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Tiến độ phân công</label>
-                        <div className="w-full bg-gray-200 rounded-full h-2.5 mb-1">
-                            <div className={`h-2.5 rounded-full ${getProgressColor()}`} style={{ width: `${(getAssignedCount() / assignments.length) * 100}%` }}></div>
+                    {selectedClassId && assignments.length > 0 && (
+                        <div className="ml-auto flex items-center gap-4">
+                            <div className="flex flex-col items-end">
+                                <span className="text-xs text-slate-500">Tiến độ phân công</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-slate-700">{getAssignedCount()}/{assignments.length} môn</span>
+                                    <div className="w-24 bg-gray-200 rounded-full h-2">
+                                        <div className={`h-2 rounded-full ${getProgressColor()}`} style={{ width: `${(getAssignedCount() / assignments.length) * 100}%` }}></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <p className="text-xs text-gray-500 text-right">{getAssignedCount()}/{assignments.length} môn đã gán</p>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
 
             {/* Assignments List */}
@@ -246,12 +271,14 @@ export default function TeacherAssignment() {
                                 className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value="">-- Chưa gán --</option>
-                                {teachers.map(t => (
-                                    <option key={t.id} value={t.id}>{t.fullName} ({t.email})</option>
-                                ))}
+                                {teachers
+                                    .filter(t => !currentAssignment?.subjectId || t.subjectId === currentAssignment.subjectId)
+                                    .map(t => (
+                                        <option key={t.id} value={t.id}>{t.fullName} ({t.email})</option>
+                                    ))}
                             </select>
                             <p className="text-xs text-gray-500 mt-2">
-                                * Gợi ý: Nên chọn giáo viên có chuyên môn {currentAssignment.subjectName}
+                                * Chỉ hiển thị giáo viên giảng dạy môn {currentAssignment.subjectName}
                             </p>
                         </div>
 

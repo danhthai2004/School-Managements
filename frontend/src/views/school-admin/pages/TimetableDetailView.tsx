@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import api from "../../../services/api";
-import { Download, Search, AlertCircle } from "lucide-react";
+import { Download, AlertCircle } from "lucide-react"; // Remove Search
+import { FilterIcon } from "../../../components/layout/SystemIcons";
+import { schoolAdminService, type ClassRoomDto } from "../../../services/schoolAdminService";
 
 interface TimetableDetail {
     id: string;
@@ -17,21 +19,45 @@ const SLOTS = [1, 2, 3, 4, 5];
 
 export default function TimetableDetailView() {
     const { id } = useParams();
-    const navigate = useNavigate();
+
     const [details, setDetails] = useState<TimetableDetail[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [timetableName, setTimetableName] = useState<string>("");
+    const [gradeFilter, setGradeFilter] = useState<string>("ALL");
+    const [classSearch, setClassSearch] = useState<string>(""); // Use this as class NAME filter
+
+    // Classes for dropdown
+    const [classesList, setClassesList] = useState<ClassRoomDto[]>([]);
+
+    useEffect(() => {
+        fetchClasses();
+    }, []);
+
+    const fetchClasses = async () => {
+        try {
+            const data = await schoolAdminService.listClasses();
+            setClassesList(data);
+        } catch (err) {
+            console.error("Failed to fetch classes", err);
+        }
+    };
+
 
     useEffect(() => {
         if (id) fetchDetails();
-    }, [id]);
+    }, [id, gradeFilter, classSearch]);
+
 
     const fetchDetails = async () => {
         try {
+            const params: any = {};
+            if (gradeFilter !== "ALL") params.grade = gradeFilter;
+            if (classSearch) params.className = classSearch;
+
             // Also fetch timetable info to get the name
             const [detailsRes, infoRes] = await Promise.all([
-                api.get(`/school-admin/timetables/${id}/details`),
+                api.get(`/school-admin/timetables/${id}/details`, { params }),
                 api.get(`/school-admin/timetables/${id}`)
             ]);
             setDetails(detailsRes.data);
@@ -40,6 +66,28 @@ export default function TimetableDetailView() {
             setError("Không thể tải dữ liệu thời khóa biểu. Vui lòng kiểm tra kết nối và thử lại.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleExport = async () => {
+        try {
+            const params: any = {};
+            if (gradeFilter !== "ALL") params.grade = gradeFilter;
+            if (classSearch) params.className = classSearch;
+
+            const response = await api.get(`/school-admin/timetables/${id}/export`, {
+                params,
+                responseType: 'blob'
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `${timetableName || 'timetable'}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (e) {
+            setError("Lỗi khi xuất file Excel");
         }
     };
 
@@ -66,9 +114,7 @@ export default function TimetableDetailView() {
         return details.find(d => d.className === className && d.dayOfWeek === originalDayName && d.slotIndex === slot);
     };
 
-
-
-    // ... inside getCell removed from here
+    const filteredClasses = classesList.filter(c => gradeFilter === "ALL" || c.grade.toString() === gradeFilter).sort((a, b) => a.name.localeCompare(b.name));
 
     return (
         <div className="space-y-6">
@@ -85,13 +131,11 @@ export default function TimetableDetailView() {
                     </div>
                 </div>
                 <div className="flex gap-3">
+
                     <button
-                        onClick={() => navigate(-1)}
-                        className="px-4 py-2 border border-slate-200 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+                        onClick={handleExport}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-medium hover:shadow-lg transition-all"
                     >
-                        Quay lại
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-medium hover:shadow-lg transition-all">
                         <Download size={18} />
                         <span>Xuất Excel</span>
                     </button>
@@ -107,27 +151,38 @@ export default function TimetableDetailView() {
             )}
 
             {/* Filters */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <div className="flex gap-4">
-                    <div className="w-64">
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Lọc theo Khối</label>
-                        <select className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:border-blue-500 outline-none text-slate-700 font-medium">
-                            <option value="ALL">Tất cả các khối</option>
-                            <option value="10">Khối 10</option>
-                            <option value="11">Khối 11</option>
-                            <option value="12">Khối 12</option>
-                        </select>
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                <div className="flex flex-wrap gap-4 items-center">
+                    <div className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                        <FilterIcon className="text-slate-400" size={18} />
+                        Bộ lọc:
                     </div>
-                    <div className="w-64">
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Tìm kiếm lớp</label>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                            <input
-                                type="text"
-                                placeholder="Nhập tên lớp..."
-                                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:border-blue-500 outline-none text-slate-700 placeholder-slate-400"
-                            />
-                        </div>
+
+                    <select
+                        className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        value={gradeFilter}
+                        onChange={(e) => {
+                            setGradeFilter(e.target.value);
+                            setClassSearch(""); // Reset class when grade changes
+                        }}
+                    >
+                        <option value="ALL">Tất cả các khối</option>
+                        <option value="10">Khối 10</option>
+                        <option value="11">Khối 11</option>
+                        <option value="12">Khối 12</option>
+                    </select>
+
+                    <div className="relative">
+                        <select
+                            value={classSearch}
+                            onChange={(e) => setClassSearch(e.target.value)}
+                            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all min-w-[200px]"
+                        >
+                            <option value="">-- Tất cả lớp --</option>
+                            {filteredClasses.map(c => (
+                                <option key={c.id} value={c.name}>{c.name} (Khối {c.grade})</option>
+                            ))}
+                        </select>
                     </div>
                 </div>
             </div>

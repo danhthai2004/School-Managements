@@ -27,15 +27,17 @@ public class TeacherManagementService {
     private final ClassRoomRepository classRooms;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
+    private final com.schoolmanagement.backend.repo.SubjectRepository subjects;
 
     public TeacherManagementService(TeacherRepository teachers, UserRepository users,
             ClassRoomRepository classRooms, PasswordEncoder passwordEncoder,
-            MailService mailService) {
+            MailService mailService, com.schoolmanagement.backend.repo.SubjectRepository subjects) {
         this.teachers = teachers;
         this.users = users;
         this.classRooms = classRooms;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
+        this.subjects = subjects;
     }
 
     // ==================== TEACHER MANAGEMENT ====================
@@ -65,6 +67,13 @@ public class TeacherManagementService {
             }
         }
 
+        // Find Subject
+        com.schoolmanagement.backend.domain.entity.Subject subject = null;
+        if (req.subjectId() != null) {
+            subject = subjects.findById(req.subjectId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy môn học"));
+        }
+
         // Create teacher
         Teacher teacher = Teacher.builder()
                 .teacherCode(teacherCode)
@@ -76,6 +85,7 @@ public class TeacherManagementService {
                 .phone(req.phone())
                 .specialization(req.specialization())
                 .degree(req.degree())
+                .primarySubject(subject)
                 .school(school)
                 .status("ACTIVE")
                 .build();
@@ -150,6 +160,14 @@ public class TeacherManagementService {
         teacher.setSpecialization(req.specialization());
         teacher.setDegree(req.degree());
 
+        if (req.subjectId() != null) {
+            com.schoolmanagement.backend.domain.entity.Subject subject = subjects.findById(req.subjectId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy môn học"));
+            teacher.setPrimarySubject(subject);
+        } else {
+            teacher.setPrimarySubject(null);
+        }
+
         teacher = teachers.save(teacher);
         return toTeacherDto(teacher);
     }
@@ -220,6 +238,8 @@ public class TeacherManagementService {
                 teacher.getStatus(),
                 homeroomClassId,
                 homeroomClassName,
+                teacher.getPrimarySubject() != null ? teacher.getPrimarySubject().getId() : null,
+                teacher.getPrimarySubject() != null ? teacher.getPrimarySubject().getName() : null,
                 null);
     }
 }

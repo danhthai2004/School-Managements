@@ -37,7 +37,7 @@ public class TimetableDetail {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "teacher_id", nullable = true)
-    private User teacher;
+    private Teacher teacher;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "day_of_week", nullable = false)

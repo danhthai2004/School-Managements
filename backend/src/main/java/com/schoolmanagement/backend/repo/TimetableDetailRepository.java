@@ -3,12 +3,13 @@ package com.schoolmanagement.backend.repo;
 import com.schoolmanagement.backend.domain.entity.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.Timetable;
 import com.schoolmanagement.backend.domain.entity.TimetableDetail;
-import com.schoolmanagement.backend.domain.entity.User;
+import com.schoolmanagement.backend.domain.entity.Teacher;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.time.DayOfWeek;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -17,10 +18,10 @@ public interface TimetableDetailRepository extends JpaRepository<TimetableDetail
 
         List<TimetableDetail> findAllByTimetableAndClassRoom(Timetable timetable, ClassRoom classRoom);
 
-        List<TimetableDetail> findAllByTimetableAndTeacher(Timetable timetable, User teacher);
+        List<TimetableDetail> findAllByTimetableAndTeacher(Timetable timetable, Teacher teacher);
 
         // Check conflicts
-        boolean existsByTimetableAndTeacherAndDayOfWeekAndSlotIndex(Timetable timetable, User teacher,
+        boolean existsByTimetableAndTeacherAndDayOfWeekAndSlotIndex(Timetable timetable, Teacher teacher,
                         DayOfWeek dayOfWeek,
                         int slotIndex);
 

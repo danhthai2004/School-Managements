@@ -21,7 +21,9 @@ public class TeacherAssignmentService {
 
     private final TeacherAssignmentRepository assignments;
     private final ClassRoomRepository classRooms;
-    private final UserRepository users;
+    // private final UserRepository users; // No longer needed directly for
+    // assignment
+    private final com.schoolmanagement.backend.repo.TeacherRepository teachers;
 
     /**
      * Initialize empty assignments for all classes based on their combinations.
@@ -76,11 +78,29 @@ public class TeacherAssignmentService {
             throw new ApiException(HttpStatus.FORBIDDEN, "Không có quyền chỉnh sửa");
         }
 
-        User teacher = null;
+        Teacher teacher = null;
         if (teacherId != null) {
-            teacher = users.findById(teacherId)
+            teacher = teachers.findById(teacherId)
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên"));
-            // TODO: Verify teacher role?
+
+            if (!teacher.getSchool().getId().equals(school.getId())) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Giáo viên không thuộc trường này");
+            }
+
+            // Validate Subject
+            if (teacher.getPrimarySubject() != null
+                    && !teacher.getPrimarySubject().getId().equals(assignment.getSubject().getId())) {
+                // Relaxed validation or strict?
+                // "only teachers assigned to a specific subject can be assigned"
+                throw new ApiException(HttpStatus.BAD_REQUEST,
+                        "Giáo viên có chuyên môn " + teacher.getPrimarySubject().getName() + " không thể dạy môn "
+                                + assignment.getSubject().getName());
+            }
+            if (teacher.getPrimarySubject() == null) {
+                // Allow or deny? Maybe warn. Let's start with strict validation if subject is
+                // set.
+                // If teacher subject is null, maybe allow?
+            }
         }
 
         assignment.setTeacher(teacher);

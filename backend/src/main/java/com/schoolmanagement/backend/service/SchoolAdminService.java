@@ -92,9 +92,8 @@ public class SchoolAdminService {
     }
 
     public List<UserDto> listUsersInSchool(School school) {
-        // naive: load all then filter. For small class demo OK.
-        return users.findAll().stream()
-                .filter(u -> u.getSchool() != null && u.getSchool().getId().equals(school.getId()))
+        return users.findBySchoolId(school.getId()).stream()
+                .filter(u -> u.getRole() != Role.SYSTEM_ADMIN)
                 .map(u -> new UserDto(u.getId(), u.getEmail(), u.getFullName(), u.getRole(), school.getId(),
                         school.getCode()))
                 .toList();
