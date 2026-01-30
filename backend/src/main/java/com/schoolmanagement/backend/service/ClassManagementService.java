@@ -149,6 +149,18 @@ public class ClassManagementService {
         classRooms.delete(classRoom);
     }
 
+    @Transactional(readOnly = true)
+    public ClassRoomDto getClassRoom(School school, UUID classId) {
+        ClassRoom classRoom = classRooms.findById(classId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học."));
+
+        if (!classRoom.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Không có quyền xem lớp này.");
+        }
+
+        return toClassRoomDto(classRoom);
+    }
+
     public List<ClassRoomDto> listClassRooms(School school) {
         return classRooms.findAllBySchoolOrderByGradeAscNameAsc(school)
                 .stream()

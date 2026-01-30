@@ -272,7 +272,18 @@ export default function TeacherAssignment() {
                             >
                                 <option value="">-- Chưa gán --</option>
                                 {teachers
-                                    .filter(t => !currentAssignment?.subjectId || t.subjectId === currentAssignment.subjectId)
+                                    .filter(t => {
+                                        if (!currentAssignment?.subjectId) return true;
+                                        // Exact match (normal case)
+                                        if (t.subjectId === currentAssignment.subjectId) return true;
+
+                                        // Specialized subject match (e.g. "Chuyên đề Toán" vs "Toán")
+                                        if (t.subjectName && currentAssignment.subjectName &&
+                                            currentAssignment.subjectName.includes(t.subjectName)) {
+                                            return true;
+                                        }
+                                        return false;
+                                    })
                                     .map(t => (
                                         <option key={t.id} value={t.id}>{t.fullName} ({t.email})</option>
                                     ))}

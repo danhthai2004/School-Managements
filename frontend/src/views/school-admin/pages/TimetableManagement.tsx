@@ -201,13 +201,86 @@ function ApplyConfirmationModal({ isOpen, onClose, onConfirm, itemName }: ApplyM
     );
 }
 
+// Modal for Generate Confirmation
+interface GenerateModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    itemName: string;
+}
+
+function GenerateConfirmationModal({ isOpen, onClose, onConfirm, itemName }: GenerateModalProps) {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+                <div className="text-center">
+                    <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Play className="w-8 h-8 text-indigo-600 pl-1" />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900 mb-2">Chạy Xếp Lịch Tự Động?</h3>
+                    <p className="text-slate-600 mb-6">
+                        Hệ thống sẽ tự động sắp xếp thời khóa biểu cho <span className="font-semibold text-slate-900">{itemName}</span> dựa trên dữ liệu hiện tại.<br />
+                        <span className="text-xs text-slate-500 mt-2 block">Quá trình này có thể mất vài phút.</span>
+                    </p>
+                    <div className="flex gap-3">
+                        <button onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-slate-700 font-medium hover:bg-slate-50">Hủy</button>
+                        <button onClick={onConfirm} className="flex-1 px-4 py-2 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 shadow-lg shadow-indigo-200">
+                            Xác nhận
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// Auto-Close Success Modal
+interface SuccessModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    message: string;
+}
+
+function AutoCloseSuccessModal({ isOpen, onClose, message }: SuccessModalProps) {
+    useEffect(() => {
+        if (isOpen) {
+            const timer = setTimeout(() => {
+                onClose();
+            }, 2500); // Auto close after 2.5s
+            return () => clearTimeout(timer);
+        }
+    }, [isOpen, onClose]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none">
+            {/* Transparent backdrop so user can see behind, but maybe slightly dimmed? Let's keep it minimal for "notification" feel or full modal? User said "Modal xuất hiện... rồi tự tắt" -> likely a center modal. */}
+            <div className="absolute inset-0 bg-black/20" />
+            <div className="relative bg-white/90 backdrop-blur-md border border-white/50 shadow-2xl rounded-2xl p-6 min-w-[300px] transform transition-all animate-in fade-in zoom-in duration-300 pointer-events-auto">
+                <div className="flex flex-col items-center justify-center text-center">
+                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3 text-green-600">
+                        <CheckCircle2 size={32} />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800">{message}</h3>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function TimetableManagement() {
     const [timetables, setTimetables] = useState<Timetable[]>([]);
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [generating, setGenerating] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+    // Success Modal State
+    const [successModalOpen, setSuccessModalOpen] = useState(false);
+    const [successMessage, setSuccessMessage] = useState("");
 
     // Create Modal state
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -219,6 +292,10 @@ export default function TimetableManagement() {
     // Apply Modal state
     const [applyModalOpen, setApplyModalOpen] = useState(false);
     const [selectedApplyTimetable, setSelectedApplyTimetable] = useState<Timetable | null>(null);
+
+    // Generate Modal state
+    const [generateModalOpen, setGenerateModalOpen] = useState(false);
+    const [selectedGenerateTimetable, setSelectedGenerateTimetable] = useState<Timetable | null>(null);
 
     const fetchTimetables = async () => {
         setLoading(true);
@@ -237,22 +314,32 @@ export default function TimetableManagement() {
         fetchTimetables();
     }, []);
 
-    const handleGenerate = async (id: string, name: string) => {
-        // Simple confirm for generate
-        if (!confirm(`Bạn có chắc chắn muốn chạy thuật toán Auto Xếp cho TKB: ${name}?`)) return;
+    const handleGenerateClick = (timetable: Timetable) => {
+        setSelectedGenerateTimetable(timetable);
+        setGenerateModalOpen(true);
+    };
 
-        setGenerating(id);
+    const handleConfirmGenerate = async () => {
+        if (!selectedGenerateTimetable) return;
+        const timetable = selectedGenerateTimetable;
+
+        setGenerateModalOpen(false); // Close confirm modal
+        setGenerating(timetable.id);
         setError(null);
-        setSuccessMsg(null);
 
         try {
-            await api.post(`/school-admin/timetables/${id}/generate`);
-            setSuccessMsg(`Đã tạo lịch xếp tự động thành công cho TKB: ${name}`);
-            setTimeout(() => setSuccessMsg(null), 5000);
+            await api.post(`/school-admin/timetables/${timetable.id}/generate`);
+
+            // Show success modal
+            setSuccessMessage(`Đã xếp lịch thành công cho: ${timetable.name}`);
+            setSuccessModalOpen(true);
+
+            // Note: success modal auto-closes
         } catch (error) {
-            setError(`Lỗi khi xếp TKB: ${name}. Vui lòng thử lại.`);
+            setError(`Lỗi khi xếp TKB: ${timetable.name}. Vui lòng thử lại.`);
         } finally {
             setGenerating(null);
+            setSelectedGenerateTimetable(null);
         }
     };
 
@@ -267,8 +354,10 @@ export default function TimetableManagement() {
         setLoading(true);
         try {
             await api.delete(`/school-admin/timetables/${selectedTimetable.id}`);
-            setSuccessMsg(`Đã xóa thời khóa biểu: ${selectedTimetable.name}`);
-            setTimeout(() => setSuccessMsg(null), 3000);
+
+            setSuccessMessage(`Đã xóa: ${selectedTimetable.name}`);
+            setSuccessModalOpen(true);
+
             fetchTimetables();
         } catch (error) {
             setError("Lỗi khi xóa thời khóa biểu.");
@@ -289,8 +378,10 @@ export default function TimetableManagement() {
         setLoading(true);
         try {
             await api.post(`/school-admin/timetables/${selectedApplyTimetable.id}/apply`);
-            setSuccessMsg(`Đã áp dụng TKB "${selectedApplyTimetable.name}" thành công!`);
-            setTimeout(() => setSuccessMsg(null), 3000);
+
+            setSuccessMessage(`Đã áp dụng TKB: ${selectedApplyTimetable.name}`);
+            setSuccessModalOpen(true);
+
             fetchTimetables();
         } catch (error) {
             setError("Lỗi khi áp dụng thời khóa biểu.");
@@ -316,17 +407,11 @@ export default function TimetableManagement() {
                 </button>
             </div>
 
-            {/* Success/Error Alerts */}
+            {/* Error Alerts (Keep error as banner, logical for persistent issues) */}
             {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
                     <AlertCircle size={20} />
                     <span>{error}</span>
-                </div>
-            )}
-            {successMsg && (
-                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
-                    <CheckCircle2 size={20} />
-                    <span>{successMsg}</span>
                 </div>
             )}
 
@@ -386,7 +471,7 @@ export default function TimetableManagement() {
                                             )}
 
                                             <button
-                                                onClick={() => handleGenerate(t.id, t.name)}
+                                                onClick={() => handleGenerateClick(t)}
                                                 disabled={generating === t.id}
                                                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
                                                 title="Chạy thuật toán xếp tự động"
@@ -424,8 +509,8 @@ export default function TimetableManagement() {
                 onClose={() => setIsCreateModalOpen(false)}
                 onSuccess={() => {
                     fetchTimetables();
-                    setSuccessMsg("Tạo thời khóa biểu mới thành công!");
-                    setTimeout(() => setSuccessMsg(null), 3000);
+                    setSuccessMessage("Tạo thời khóa biểu mới thành công!");
+                    setSuccessModalOpen(true);
                 }}
             />
 
@@ -443,6 +528,21 @@ export default function TimetableManagement() {
                 onClose={() => setApplyModalOpen(false)}
                 onConfirm={handleApplyConfirm}
                 itemName={selectedApplyTimetable?.name || ""}
+            />
+
+            {/* Generate Confirmation Modal */}
+            <GenerateConfirmationModal
+                isOpen={generateModalOpen}
+                onClose={() => setGenerateModalOpen(false)}
+                onConfirm={handleConfirmGenerate}
+                itemName={selectedGenerateTimetable?.name || ""}
+            />
+
+            {/* Auto-Close Success Modal */}
+            <AutoCloseSuccessModal
+                isOpen={successModalOpen}
+                onClose={() => setSuccessModalOpen(false)}
+                message={successMessage}
             />
         </div>
     );
