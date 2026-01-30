@@ -26,4 +26,6 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     // linked
     List<Student> findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(School school,
             com.schoolmanagement.backend.domain.StudentStatus status);
+
+    void deleteBySchoolId(UUID schoolId);
 }

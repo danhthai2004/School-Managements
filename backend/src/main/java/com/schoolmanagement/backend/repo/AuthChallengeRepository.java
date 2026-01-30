@@ -9,4 +9,6 @@ import java.util.UUID;
 
 public interface AuthChallengeRepository extends JpaRepository<AuthChallenge, UUID> {
     Optional<AuthChallenge> findByIdAndType(UUID id, AuthChallengeType type);
+
+    void deleteByUserId(UUID userId);
 }

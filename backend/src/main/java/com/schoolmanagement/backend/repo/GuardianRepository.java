@@ -14,4 +14,6 @@ public interface GuardianRepository extends JpaRepository<Guardian, UUID> {
     List<Guardian> findAllByStudent(Student student);
 
     void deleteAllByStudent(Student student);
+
+    void deleteByUserId(UUID userId);
 }

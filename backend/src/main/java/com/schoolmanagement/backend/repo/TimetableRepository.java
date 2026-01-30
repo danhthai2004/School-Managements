@@ -13,4 +13,6 @@ public interface TimetableRepository extends JpaRepository<Timetable, UUID> {
     List<Timetable> findAllBySchoolOrderByCreatedAtDesc(School school);
 
     List<Timetable> findAllBySchoolAndAcademicYearAndSemester(School school, String academicYear, int semester);
+
+    void deleteBySchoolId(UUID schoolId);
 }

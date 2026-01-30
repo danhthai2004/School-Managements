@@ -11,4 +11,6 @@ import java.util.UUID;
 @Repository
 public interface LessonSlotRepository extends JpaRepository<LessonSlot, UUID> {
     List<LessonSlot> findAllBySchoolOrderBySlotIndexAsc(School school);
+
+    void deleteBySchoolId(UUID schoolId);
 }

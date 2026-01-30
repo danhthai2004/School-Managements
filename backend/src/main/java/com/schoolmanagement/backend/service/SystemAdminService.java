@@ -10,8 +10,7 @@ import com.schoolmanagement.backend.dto.UserListDto;
 import com.schoolmanagement.backend.dto.request.CreateSchoolRequest;
 import com.schoolmanagement.backend.dto.request.UpdateSchoolRequest;
 import com.schoolmanagement.backend.exception.ApiException;
-import com.schoolmanagement.backend.repo.SchoolRepository;
-import com.schoolmanagement.backend.repo.UserRepository;
+import com.schoolmanagement.backend.repo.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -29,43 +28,60 @@ public class SystemAdminService {
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
     private final ActivityLogService activityLog;
+    private final TeacherRepository teachers;
+    private final StudentRepository students;
+    private final ClassRoomRepository classRooms;
+    private final LessonSlotRepository lessonSlots;
+    private final TimetableRepository timetables;
+    private final TeacherAssignmentRepository teacherAssignments;
+    private final CombinationRepository combinations;
+    private final AuthChallengeRepository authChallenges;
+    private final GuardianRepository guardians;
 
     public SystemAdminService(SchoolRepository schools,
             UserRepository users, PasswordEncoder passwordEncoder, MailService mailService,
-            ActivityLogService activityLog) {
+            ActivityLogService activityLog, TeacherRepository teachers, StudentRepository students,
+            ClassRoomRepository classRooms, LessonSlotRepository lessonSlots,
+            TimetableRepository timetables, TeacherAssignmentRepository teacherAssignments,
+            CombinationRepository combinations, AuthChallengeRepository authChallenges,
+            GuardianRepository guardians) {
         this.schools = schools;
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
         this.activityLog = activityLog;
+        this.teachers = teachers;
+        this.students = students;
+        this.classRooms = classRooms;
+        this.lessonSlots = lessonSlots;
+        this.timetables = timetables;
+        this.teacherAssignments = teacherAssignments;
+        this.combinations = combinations;
+        this.authChallenges = authChallenges;
+        this.guardians = guardians;
     }
 
     // ========== SCHOOL MANAGEMENT ==========
 
     public SchoolDto createSchool(CreateSchoolRequest req, User performedBy) {
-        // Generate a simple code or use name as base. For now, let's auto-generate a
-        // code.
-        // Format: SCH + random 6 chars or similar, or just uppercase name stripped.
-        // User didn't specify code format, so we'll generate a unique one.
-        String generatedCode = generateSchoolCode(req.schoolName());
+        // Use the provided school code (manual entry per MOE requirement)
+        String schoolCode = req.schoolCode().trim();
 
-        if (schools.existsByCodeIgnoreCase(generatedCode)) {
-            // Unlikely with random/timestamp, but good to check or retry.
-            // For simplicity in this scope, assuming unique enough or user handles name
-            // uniqueness if we used name.
-            // Let's actually verify by Name if we want strict uniqueness, but Code is the
-            // PK/ID usually.
-            // The constraint is typically on Code.
+        if (schools.existsByCodeIgnoreCase(schoolCode)) {
+            throw new ApiException(HttpStatus.CONFLICT, "Mã trường đã tồn tại.");
         }
 
-        // Default level: THPT (High School)
-        // No ward code.
+        // Auto-prefix "THPT " to display name (since all schools are high school)
+        String displayName = "THPT " + req.schoolName().trim();
+
         School school = School.builder()
-                .name(req.schoolName())
-                .code(generatedCode)
+                .name(displayName)
+                .code(schoolCode)
                 .provinceCode(req.provinceCode())
+                .wardCode(req.wardCode())
                 .schoolLevel(com.schoolmanagement.backend.domain.entity.SchoolLevel.HIGH_SCHOOL)
                 .address(req.address())
+                .enrollmentArea(req.enrollmentArea())
                 .build();
         school = schools.save(school);
 
@@ -73,13 +89,6 @@ public class SystemAdminService {
                 "School: " + school.getName() + " (" + school.getCode() + ")");
 
         return toSchoolDto(school);
-    }
-
-    private String generateSchoolCode(String name) {
-        // Generate shorter code to fit in DB length
-        // SCH + 5 digit random number.
-        int randomNum = 10000 + (int) (Math.random() * 90000);
-        return "SCH-" + randomNum;
     }
 
     public List<SchoolDto> listSchools() {
@@ -96,16 +105,62 @@ public class SystemAdminService {
                 .map(this::toUserListDto)
                 .toList();
 
-        return new SchoolDetailDto(school.getId(), school.getName(), school.getCode(), admins);
+        return new SchoolDetailDto(
+                school.getId(),
+                school.getName(),
+                school.getCode(),
+                school.getProvinceCode(),
+                school.getProvince() != null ? school.getProvince().getName() : null,
+                school.getWardCode(),
+                school.getWard() != null ? school.getWard().getName() : null,
+                school.getEnrollmentArea(),
+                school.getAddress(),
+                admins,
+                school.getPendingDeleteAt());
     }
 
     public SchoolDto updateSchool(UUID schoolId, UpdateSchoolRequest req, User performedBy) {
         School school = schools.findById(schoolId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Trường không tồn tại."));
 
-        if (req.address() != null) {
-            school.setAddress(req.address());
+        // Update name if provided
+        if (req.name() != null && !req.name().isBlank()) {
+            school.setName(req.name().trim());
         }
+
+        // Update code if provided (check for uniqueness)
+        if (req.code() != null && !req.code().isBlank()) {
+            String newCode = req.code().trim();
+            if (!newCode.equalsIgnoreCase(school.getCode()) && schools.existsByCodeIgnoreCase(newCode)) {
+                throw new ApiException(HttpStatus.CONFLICT, "Mã trường đã tồn tại.");
+            }
+            school.setCode(newCode);
+        }
+
+        // Update provinceCode if provided
+        if (req.provinceCode() != null) {
+            school.setProvinceCode(req.provinceCode());
+            // Reset wardCode if province changes (ward belongs to different province)
+            if (!req.provinceCode().equals(school.getProvinceCode())) {
+                school.setWardCode(null);
+            }
+        }
+
+        // Update wardCode if provided
+        if (req.wardCode() != null) {
+            school.setWardCode(req.wardCode());
+        }
+
+        // Update enrollmentArea if provided
+        if (req.enrollmentArea() != null) {
+            school.setEnrollmentArea(req.enrollmentArea().isBlank() ? null : req.enrollmentArea().trim());
+        }
+
+        // Update address if provided
+        if (req.address() != null) {
+            school.setAddress(req.address().isBlank() ? null : req.address().trim());
+        }
+
         school = schools.save(school);
 
         activityLog.log("SCHOOL_UPDATED", performedBy, null, "School ID: " + schoolId);
@@ -113,14 +168,103 @@ public class SystemAdminService {
         return toSchoolDto(school);
     }
 
+    @Transactional
+    public void deleteSchool(UUID schoolId, User performedBy) {
+        School school = schools.findById(schoolId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Trường không tồn tại."));
+
+        if (school.getPendingDeleteAt() != null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Trường đã đang chờ xóa.");
+        }
+
+        school.setPendingDeleteAt(Instant.now());
+        schools.save(school);
+
+        activityLog.log("SCHOOL_PENDING_DELETE", performedBy, null,
+                "School marked for deletion: " + school.getName() + " (" + school.getCode() + ")");
+    }
+
+    @Transactional
+    public void restoreSchool(UUID schoolId, User performedBy) {
+        School school = schools.findById(schoolId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Trường không tồn tại."));
+
+        if (school.getPendingDeleteAt() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Trường không đang chờ xóa.");
+        }
+
+        school.setPendingDeleteAt(null);
+        schools.save(school);
+
+        activityLog.log("SCHOOL_RESTORED", performedBy, null,
+                "School restored: " + school.getName() + " (" + school.getCode() + ")");
+    }
+
+    @Transactional
+    public void permanentDeleteSchool(UUID schoolId, User performedBy) {
+        School school = schools.findById(schoolId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Trường không tồn tại."));
+
+        String schoolName = school.getName();
+        String schoolCode = school.getCode();
+
+        // 1. Delete teacher assignments first (references teachers, classrooms)
+        teacherAssignments.deleteBySchoolId(schoolId);
+
+        // 2. Delete timetables (references classrooms, lesson slots)
+        timetables.deleteBySchoolId(schoolId);
+
+        // 3. Delete combinations (references school)
+        combinations.deleteBySchoolId(schoolId);
+
+        // 4. Delete lesson slots (references school)
+        lessonSlots.deleteBySchoolId(schoolId);
+
+        // 5. Delete teachers (references school and users)
+        teachers.deleteBySchoolId(schoolId);
+
+        // 6. Delete guardians (references students via user_id)
+        List<User> schoolUsers = users.findBySchoolId(schoolId);
+        for (User u : schoolUsers) {
+            guardians.deleteByUserId(u.getId());
+        }
+
+        // 7. Delete students (references school and users)
+        students.deleteBySchoolId(schoolId);
+
+        // 8. Delete classrooms (references school)
+        classRooms.deleteBySchoolId(schoolId);
+
+        // 9. Delete auth challenges for users
+        for (User u : schoolUsers) {
+            authChallenges.deleteByUserId(u.getId());
+        }
+
+        // 10. Delete all users belonging to this school
+        if (!schoolUsers.isEmpty()) {
+            users.deleteAll(schoolUsers);
+            activityLog.log("USERS_DELETED_WITH_SCHOOL", performedBy, null,
+                    schoolUsers.size() + " users deleted with school " + schoolCode);
+        }
+
+        // 11. Finally delete the school
+        schools.delete(school);
+
+        activityLog.log("SCHOOL_PERMANENT_DELETED", performedBy, null,
+                "School permanently deleted: " + schoolName + " (" + schoolCode + ")");
+    }
+
     private SchoolDto toSchoolDto(School s) {
         return new SchoolDto(
                 s.getId(), s.getName(), s.getCode(),
                 s.getProvinceCode(),
                 s.getProvince() != null ? s.getProvince().getName() : null,
+                s.getWardCode(),
+                s.getWard() != null ? s.getWard().getName() : null,
                 s.getSchoolLevel(),
                 s.getAddress(),
-                s.getEnrollmentArea());
+                s.getEnrollmentArea(),
+                s.getPendingDeleteAt());
     }
 
     // ========== USER MANAGEMENT ==========
