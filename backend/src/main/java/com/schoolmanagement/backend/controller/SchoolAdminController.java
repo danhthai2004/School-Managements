@@ -20,6 +20,7 @@ import com.schoolmanagement.backend.service.StudentImportService;
 import com.schoolmanagement.backend.service.StudentManagementService;
 import com.schoolmanagement.backend.service.TeacherManagementService;
 import com.schoolmanagement.backend.service.UserLookupService;
+import com.schoolmanagement.backend.dto.BulkAccountCreationResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -86,6 +87,16 @@ public class SchoolAdminController {
         return classManagementService.listClassRooms(admin.getSchool());
     }
 
+    @GetMapping("/classes/{id}")
+    public ClassRoomDto getClass(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("id") UUID classId) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return classManagementService.getClassRoom(admin.getSchool(), classId);
+    }
+
     @Transactional
     @PostMapping("/classes")
     public ClassRoomDto createClass(@AuthenticationPrincipal UserPrincipal principal,
@@ -123,12 +134,13 @@ public class SchoolAdminController {
     // ==================== STUDENT MANAGEMENT ====================
 
     @GetMapping("/students")
-    public List<StudentDto> listStudents(@AuthenticationPrincipal UserPrincipal principal) {
+    public List<StudentDto> listStudents(@AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) UUID classId) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return studentManagementService.listStudents(admin.getSchool());
+        return studentManagementService.listStudents(admin.getSchool(), classId);
     }
 
     @GetMapping("/students/{id}")
@@ -278,7 +290,7 @@ public class SchoolAdminController {
      */
     @Transactional
     @PostMapping("/students/accounts")
-    public com.schoolmanagement.backend.dto.BulkAccountCreationResponse createStudentAccounts(
+    public BulkAccountCreationResponse createStudentAccounts(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody List<UUID> studentIds) {
         var admin = userLookup.requireById(principal.getId());

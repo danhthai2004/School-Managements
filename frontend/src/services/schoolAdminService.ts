@@ -169,6 +169,11 @@ export const schoolAdminService = {
         return res.data;
     },
 
+    getClass: async (id: string): Promise<ClassRoomDto> => {
+        const res = await api.get<ClassRoomDto>(`/school/classes/${id}`);
+        return res.data;
+    },
+
     updateClass: async (classId: string, req: CreateClassRoomRequest): Promise<ClassRoomDto> => {
         const res = await api.put<ClassRoomDto>(`/school/classes/${classId}`, req);
         return res.data;
@@ -210,8 +215,9 @@ export const schoolAdminService = {
     },
 
     // Students
-    listStudents: async (): Promise<StudentDto[]> => {
-        const res = await api.get<StudentDto[]>("/school/students");
+    listStudents: async (classId?: string): Promise<StudentDto[]> => {
+        const params = classId ? { classId } : {};
+        const res = await api.get<StudentDto[]>("/school/students", { params });
         return res.data;
     },
 

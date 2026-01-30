@@ -257,4 +257,3 @@ export default function TimetableDetailView() {
         </div>
     );
 }
-

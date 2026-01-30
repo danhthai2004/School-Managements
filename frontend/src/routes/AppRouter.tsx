@@ -19,6 +19,7 @@ import ActivityLogsPage from "../views/system/ActivityLogsPage";
 import SchoolAdminLayout from "../views/school-admin/SchoolAdminLayout";
 import DashboardOverview from "../views/school-admin/pages/DashboardOverview";
 import ClassManagement from "../views/school-admin/pages/ClassManagement";
+import ClassDetailView from "../views/school-admin/pages/ClassDetailView";
 import StudentManagement from "../views/school-admin/pages/StudentManagement";
 import AccountManagement from "../views/school-admin/pages/AccountManagement";
 import TeacherManagement from "../views/school-admin/pages/TeacherManagement";
@@ -75,6 +76,7 @@ export default function AppRouter() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<DashboardOverview />} />
         <Route path="classes" element={<ClassManagement />} />
+        <Route path="classes/:id" element={<ClassDetailView />} />
         <Route path="students" element={<StudentManagement />} />
         <Route path="teachers" element={<TeacherManagement />} />
         <Route path="accounts" element={<AccountManagement />} />

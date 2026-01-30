@@ -152,7 +152,20 @@ public class StudentManagementService {
     }
 
     @Transactional(readOnly = true)
-    public List<StudentDto> listStudents(School school) {
+    public List<StudentDto> listStudents(School school, UUID classId) {
+        if (classId != null) {
+            ClassRoom classRoom = classRooms.findById(classId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học"));
+
+            if (!classRoom.getSchool().getId().equals(school.getId())) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "Lớp học không thuộc trường này");
+            }
+
+            return enrollments.findAllByClassRoom(classRoom).stream()
+                    .map(enrollment -> toStudentDto(enrollment.getStudent()))
+                    .toList();
+        }
+
         return students.findAllBySchoolOrderByFullNameAsc(school).stream()
                 .map(this::toStudentDto)
                 .toList();

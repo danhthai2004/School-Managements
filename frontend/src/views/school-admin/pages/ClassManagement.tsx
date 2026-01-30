@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Edit, Trash2 } from "lucide-react";
+import { useSearchParams, Link } from "react-router-dom";
 import {
     schoolAdminService,
     type ClassRoomDto,
@@ -459,7 +460,14 @@ const ClassManagement = () => {
                     <tbody className="divide-y divide-gray-100">
                         {classes.map((cls) => (
                             <tr key={cls.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 font-medium text-gray-900">{cls.name}</td>
+                                <td className="px-6 py-4 font-medium text-gray-900">
+                                    <Link to={`/school-admin/classes/${cls.id}`}
+                                        className="text-blue-600 hover:text-blue-800 hover:underline font-bold"
+                                        title="Xem danh sách học sinh"
+                                    >
+                                        {cls.name}
+                                    </Link>
+                                </td>
                                 <td className="px-6 py-4 text-gray-600">{cls.grade}</td>
                                 <td className="px-6 py-4 text-gray-600">{cls.academicYear}</td>
                                 <td className="px-6 py-4 text-gray-600">{cls.roomNumber || "—"}</td>
@@ -481,10 +489,20 @@ const ClassManagement = () => {
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex gap-2">
-                                        <button onClick={() => { setEditingClass(cls); setShowEditModal(true); }}
-                                            className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">Sửa</button>
-                                        <button onClick={() => { setDeletingClass(cls); setShowDeleteModal(true); }}
-                                            className="text-red-600 hover:text-red-800 text-sm font-medium">Xóa</button>
+                                        <button
+                                            onClick={() => { setEditingClass(cls); setShowEditModal(true); }}
+                                            className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg transition-colors"
+                                            title="Chỉnh sửa"
+                                        >
+                                            <Edit className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => { setDeletingClass(cls); setShowDeleteModal(true); }}
+                                            className="text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors"
+                                            title="Xóa lớp học"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -526,6 +544,6 @@ const ClassManagement = () => {
             />
         </div>
     );
-};
+}
 
 export default ClassManagement;

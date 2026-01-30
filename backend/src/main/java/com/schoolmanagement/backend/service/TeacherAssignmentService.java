@@ -90,11 +90,20 @@ public class TeacherAssignmentService {
             // Validate Subject
             if (teacher.getPrimarySubject() != null
                     && !teacher.getPrimarySubject().getId().equals(assignment.getSubject().getId())) {
-                // Relaxed validation or strict?
-                // "only teachers assigned to a specific subject can be assigned"
-                throw new ApiException(HttpStatus.BAD_REQUEST,
-                        "Giáo viên có chuyên môn " + teacher.getPrimarySubject().getName() + " không thể dạy môn "
-                                + assignment.getSubject().getName());
+
+                // Smart check: Allow if assignment is SPECIALIZED equivalent of primary subject
+                // e.g. Primary: TOAN, Assignment: CD_TOAN
+                String teacherSubjectCode = teacher.getPrimarySubject().getCode();
+                String assignmentSubjectCode = assignment.getSubject().getCode();
+
+                boolean isSpecializedVersion = assignmentSubjectCode.startsWith("CD_")
+                        && assignmentSubjectCode.contains(teacherSubjectCode);
+
+                if (!isSpecializedVersion) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST,
+                            "Giáo viên có chuyên môn " + teacher.getPrimarySubject().getName() + " không thể dạy môn "
+                                    + assignment.getSubject().getName());
+                }
             }
             if (teacher.getPrimarySubject() == null) {
                 // Allow or deny? Maybe warn. Let's start with strict validation if subject is
