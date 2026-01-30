@@ -8,6 +8,7 @@ import {
     Globe,
     CheckCircle,
     XCircle,
+    X,
     Ban,
     Shield,
     Clock,
@@ -35,6 +36,7 @@ export const MoreVerticalIcon = (props: any) => <MoreVertical strokeWidth={1.5} 
 export const CalendarIcon = (props: any) => <Calendar strokeWidth={1.5} size={20} {...props} />;
 export const PlusIcon = (props: any) => <Plus strokeWidth={1.5} size={20} {...props} />;
 export const UploadIcon = (props: any) => <Upload strokeWidth={1.5} size={20} {...props} />;
+export const XIcon = (props: any) => <X strokeWidth={1.5} size={20} {...props} />;
 
 export const HomeIcon = (props: any) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>

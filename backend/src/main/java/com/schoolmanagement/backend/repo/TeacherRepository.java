@@ -25,4 +25,6 @@ public interface TeacherRepository extends JpaRepository<Teacher, UUID> {
 
     // Check if duplicate teacher code exists in school
     boolean existsBySchoolAndTeacherCodeAndIdNot(School school, String teacherCode, UUID id);
+
+    void deleteBySchoolId(UUID schoolId);
 }

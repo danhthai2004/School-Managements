@@ -4,9 +4,10 @@ import {
   systemService,
   type SchoolDto,
   type ProvinceDto,
+  type WardDto,
 } from "../../services/systemService";
 import { extractErrorMessage } from "../../utils/errorUtils";
-import { SchoolIcon, PlusIcon, ArrowRightIcon } from "../../components/layout/SystemIcons";
+import { SchoolIcon, PlusIcon, ArrowRightIcon, XIcon } from "../../components/layout/SystemIcons";
 
 export default function SchoolsListPage() {
   const [schools, setSchools] = useState<SchoolDto[]>([]);
@@ -20,10 +21,16 @@ export default function SchoolsListPage() {
 
   // Dropdown data
   const [provinces, setProvinces] = useState<ProvinceDto[]>([]);
+  const [wards, setWards] = useState<WardDto[]>([]);
+  const [loadingWards, setLoadingWards] = useState(false);
 
   // Form values
   const [provinceCode, setProvinceCode] = useState<number | null>(null);
+  const [wardCode, setWardCode] = useState<number | null>(null);
   const [schoolName, setSchoolName] = useState("");
+  const [schoolCode, setSchoolCode] = useState("");
+  const [enrollmentArea, setEnrollmentArea] = useState("");
+  const [priorityType, setPriorityType] = useState(""); // "" or "DTNT"
   const [address, setAddress] = useState("");
 
   const loadData = async () => {
@@ -51,10 +58,25 @@ export default function SchoolsListPage() {
     loadProvinces();
   }, []);
 
+  // Load wards when province changes
+  useEffect(() => {
+    if (provinceCode) {
+      setLoadingWards(true);
+      setWardCode(null);
+      systemService.getWardsByProvince(provinceCode)
+        .then(setWards)
+        .catch(e => console.error("Failed to load wards", e))
+        .finally(() => setLoadingWards(false));
+    } else {
+      setWards([]);
+      setWardCode(null);
+    }
+  }, [provinceCode]);
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!schoolName || !provinceCode) {
-      setError("Vui lòng nhập tên trường và chọn tỉnh/thành");
+    if (!schoolName || !schoolCode || !provinceCode) {
+      setError("Vui lòng nhập tên trường, mã trường và chọn tỉnh/thành");
       return;
     }
     setError(null);
@@ -63,7 +85,10 @@ export default function SchoolsListPage() {
     try {
       await systemService.createSchool({
         schoolName: schoolName.trim(),
+        schoolCode: schoolCode.trim(),
         provinceCode,
+        wardCode: wardCode || undefined,
+        enrollmentArea: enrollmentArea.trim() || undefined,
         address: address.trim() || undefined,
       });
       setSuccess("Đã tạo trường thành công");
@@ -79,8 +104,13 @@ export default function SchoolsListPage() {
 
   const resetForm = () => {
     setProvinceCode(null);
+    setWardCode(null);
     setSchoolName("");
+    setSchoolCode("");
+    setEnrollmentArea("");
+    setPriorityType("");
     setAddress("");
+    setWards([]);
   };
 
   return (
@@ -90,13 +120,23 @@ export default function SchoolsListPage() {
           <h1 className="text-2xl font-bold text-slate-900">Danh sách trường học</h1>
           <p className="text-slate-500 mt-1">Quản lý tất cả trường trong hệ thống</p>
         </div>
-        <button
-          onClick={() => setShowCreate(!showCreate)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
-        >
-          <PlusIcon size={20} />
-          {showCreate ? "Đóng form" : "Tạo trường mới"}
-        </button>
+        {showCreate ? (
+          <button
+            onClick={() => setShowCreate(false)}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors shadow-sm hover:shadow"
+          >
+            <XIcon size={20} />
+            Đóng form
+          </button>
+        ) : (
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
+          >
+            <PlusIcon size={20} />
+            Tạo trường mới
+          </button>
+        )}
       </div>
 
       {/* Messages */}
@@ -116,20 +156,38 @@ export default function SchoolsListPage() {
         <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-8 shadow-sm animate-fade-in-up">
           <h2 className="text-lg font-bold text-slate-900 mb-6">Tạo trường mới</h2>
           <form onSubmit={handleCreate} className="space-y-6">
-            {/* Row 1: Name & Province */}
+            {/* Row 1: Name & School Code */}
             <div className="grid grid-cols-2 gap-6">
-              <div className="col-span-1">
+              <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Tên trường học <span className="text-rose-500">*</span>
+                  Tên trường <span className="text-rose-500">*</span>
+                  <span className="text-slate-400 font-normal ml-1">(tự động thêm "THPT" vào đầu)</span>
                 </label>
                 <input
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400"
                   value={schoolName}
                   onChange={(e) => setSchoolName(e.target.value)}
-                  placeholder="Nhập tên trường học..."
+                  placeholder="VD: Nguyễn Văn A"
                   required
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Mã trường <span className="text-rose-500">*</span>
+                  <span className="text-slate-400 font-normal ml-1">(theo BGD)</span>
+                </label>
+                <input
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400"
+                  value={schoolCode}
+                  onChange={(e) => setSchoolCode(e.target.value)}
+                  placeholder="VD: 02000123"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Row 2: Province & Ward */}
+            <div className="grid grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Tỉnh/Thành phố <span className="text-rose-500">*</span>
@@ -148,13 +206,73 @@ export default function SchoolsListPage() {
                   ))}
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Phường/Xã
+                </label>
+                <select
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  value={wardCode ?? ""}
+                  onChange={(e) => setWardCode(e.target.value ? Number(e.target.value) : null)}
+                  disabled={!provinceCode || loadingWards}
+                >
+                  <option value="">
+                    {loadingWards ? "Đang tải..." : provinceCode ? "-- Chọn phường/xã --" : "-- Chọn tỉnh trước --"}
+                  </option>
+                  {wards.map((w) => (
+                    <option key={w.code} value={w.code}>
+                      {w.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {/* Row 2: Address */}
+            {/* Row 3: KVTS & DTNT */}
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  KVTS <span className="text-slate-400 font-normal">(Khu vực tuyển sinh)</span>
+                </label>
+                <select
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  value={enrollmentArea}
+                  onChange={(e) => {
+                    setEnrollmentArea(e.target.value);
+                    // Reset priorityType if KV3 is selected (no DTNT option)
+                    if (e.target.value === "KV3" || e.target.value === "") {
+                      setPriorityType("");
+                    }
+                  }}
+                >
+                  <option value="">-- Chọn khu vực --</option>
+                  <option value="KV1">KV1</option>
+                  <option value="KV2">KV2</option>
+                  <option value="KV3">KV3</option>
+                </select>
+              </div>
+              {(enrollmentArea === "KV1" || enrollmentArea === "KV2") && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Loại ưu tiên
+                  </label>
+                  <select
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                    value={priorityType}
+                    onChange={(e) => setPriorityType(e.target.value)}
+                  >
+                    <option value="">-- Không --</option>
+                    <option value="DTNT">DTNT (Dân tộc nội trú)</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Row 4: Address */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Địa chỉ chi tiết</label>
               <input
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="VD: Số 123, Đường ABC..."
@@ -162,7 +280,7 @@ export default function SchoolsListPage() {
             </div>
 
             <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3 text-sm text-blue-800">
-              <span className="font-semibold">Lưu ý:</span> Trường sẽ được tạo với cấp học mặc định là <strong>THPT (Cấp 3)</strong>.
+              <span className="font-semibold">Lưu ý:</span> Tên trường sẽ được tự động thêm tiền tố <strong>"THPT "</strong> khi lưu.
             </div>
 
             <div className="flex gap-3 pt-2">

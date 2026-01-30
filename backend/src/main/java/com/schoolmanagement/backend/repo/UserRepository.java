@@ -14,33 +14,36 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificationExecutor<User> {
-    Optional<User> findByEmailIgnoreCase(String email);
+        Optional<User> findByEmailIgnoreCase(String email);
 
-    boolean existsByEmailIgnoreCase(String email);
+        boolean existsByEmailIgnoreCase(String email);
 
-    List<User> findBySchoolId(UUID schoolId);
+        List<User> findBySchoolId(UUID schoolId);
 
-    List<User> findByRole(Role role);
+        List<User> findByRole(Role role);
 
-    List<User> findBySchoolIdAndRole(UUID schoolId, Role role);
+        List<User> findBySchoolIdAndRole(UUID schoolId, Role role);
 
-    List<User> findByPendingDeleteAtIsNotNull();
+        List<User> findByPendingDeleteAtIsNotNull();
 
-    List<User> findByPendingDeleteAtBefore(Instant time);
+        List<User> findByPendingDeleteAtBefore(Instant time);
 
-    @Query("SELECT u FROM User u WHERE " +
-            "(:role IS NULL OR u.role = :role) AND " +
-            "(:schoolId IS NULL OR u.school.id = :schoolId) AND " +
-            "(:enabled IS NULL OR u.enabled = :enabled) AND " +
-            "(:pendingDelete = false OR u.pendingDeleteAt IS NOT NULL) AND " +
-            "(:pendingDelete = true OR u.pendingDeleteAt IS NULL)")
-    List<User> findWithFilters(
-            @Param("role") Role role,
-            @Param("schoolId") UUID schoolId,
-            @Param("enabled") Boolean enabled,
-            @Param("pendingDelete") boolean pendingDelete);
-    long countBySchoolAndRole(School school, Role role);
+        @Query("SELECT u FROM User u WHERE " +
+                        "(:role IS NULL OR u.role = :role) AND " +
+                        "(:schoolId IS NULL OR u.school.id = :schoolId) AND " +
+                        "(:enabled IS NULL OR u.enabled = :enabled) AND " +
+                        "(:pendingDelete = false OR u.pendingDeleteAt IS NOT NULL) AND " +
+                        "(:pendingDelete = true OR u.pendingDeleteAt IS NULL)")
+        List<User> findWithFilters(
+                        @Param("role") Role role,
+                        @Param("schoolId") UUID schoolId,
+                        @Param("enabled") Boolean enabled,
+                        @Param("pendingDelete") boolean pendingDelete);
 
-    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u LEFT JOIN FETCH u.school WHERE u.id = :id")
-    Optional<User> findByIdWithSchool(UUID id);
+        long countBySchool(School school);
+
+        long countBySchoolAndRole(School school, Role role);
+
+        @org.springframework.data.jpa.repository.Query("SELECT u FROM User u LEFT JOIN FETCH u.school WHERE u.id = :id")
+        Optional<User> findByIdWithSchool(UUID id);
 }

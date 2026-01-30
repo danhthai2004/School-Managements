@@ -15,6 +15,7 @@ export type SchoolDto = {
   schoolLevel: SchoolLevel | null;
   address: string | null;
   enrollmentArea: string | null;
+  pendingDeleteAt: string | null;
 };
 
 export type UserListDto = {
@@ -33,7 +34,14 @@ export type SchoolDetailDto = {
   id: string;
   name: string;
   code: string;
+  provinceCode: number | null;
+  provinceName: string | null;
+  wardCode: number | null;
+  wardName: string | null;
+  enrollmentArea: string | null;
+  address: string | null;
   admins: UserListDto[];
+  pendingDeleteAt: string | null;
 };
 
 export type NotificationDto = {
@@ -59,7 +67,10 @@ export type ActivityLogDto = {
 
 export type CreateSchoolRequest = {
   schoolName: string;
+  schoolCode: string;
   provinceCode: number;
+  wardCode?: number;
+  enrollmentArea?: string;
   address?: string;
 };
 
@@ -76,10 +87,12 @@ export type CreateSchoolAdminForSchoolRequest = {
 };
 
 export type UpdateSchoolRequest = {
-  wardCode?: number;
-  address?: string;
   name?: string;
   code?: string;
+  provinceCode?: number;
+  wardCode?: number;
+  enrollmentArea?: string;
+  address?: string;
 };
 
 export type ProvinceDto = {
@@ -140,6 +153,18 @@ export const systemService = {
   updateSchool: async (id: string, req: UpdateSchoolRequest): Promise<SchoolDto> => {
     const res = await api.put<SchoolDto>(`/system/schools/${id}`, req);
     return res.data;
+  },
+
+  deleteSchool: async (id: string): Promise<void> => {
+    await api.delete(`/system/schools/${id}`);
+  },
+
+  restoreSchool: async (id: string): Promise<void> => {
+    await api.post(`/system/schools/${id}/restore`);
+  },
+
+  permanentDeleteSchool: async (id: string): Promise<void> => {
+    await api.delete(`/system/schools/${id}/permanent`);
   },
 
   createSchoolAdminForSchool: async (schoolId: string, req: CreateSchoolAdminForSchoolRequest): Promise<void> => {
