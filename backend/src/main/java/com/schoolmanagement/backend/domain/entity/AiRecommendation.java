@@ -49,6 +49,10 @@ public class AiRecommendation {
     @Column(name = "feedback_at")
     private Instant feedbackAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "model_id")
+    private MlModel usedModel;
+
     @Column(name = "generated_at", nullable = false)
     @Builder.Default
     private Instant generatedAt = Instant.now();

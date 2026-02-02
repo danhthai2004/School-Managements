@@ -65,6 +65,10 @@ public class RiskPrediction {
     @JoinColumn(name = "assigned_to")
     private User assignedTo;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "model_id")
+    private MlModel usedModel;
+
     @Column(name = "predicted_at", nullable = false)
     @Builder.Default
     private Instant predictedAt = Instant.now();

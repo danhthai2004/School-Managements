@@ -53,6 +53,11 @@ public class MlModel {
     @Column(columnDefinition = "TEXT")
     private String parameters; // JSON string
 
+    // Models can be global (school_id null) or specific to a school
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "school_id")
+    private School school;
+
     @Column(name = "created_at", nullable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();

@@ -38,6 +38,10 @@ public class GradingScale {
     @Builder.Default
     private boolean isActive = true;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "school_id", nullable = false)
+    private School school;
+
     @Column(name = "created_at", nullable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();

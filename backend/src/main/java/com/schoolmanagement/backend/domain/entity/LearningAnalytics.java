@@ -77,6 +77,10 @@ public class LearningAnalytics {
     @Builder.Default
     private Instant analyzedAt = Instant.now();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "model_id")
+    private MlModel usedModel;
+
     @Column(name = "created_at", nullable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();

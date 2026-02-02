@@ -30,4 +30,8 @@ public class GradeType {
     @Column(name = "is_active")
     @Builder.Default
     private boolean isActive = true;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "school_id", nullable = false)
+    private School school;
 }
