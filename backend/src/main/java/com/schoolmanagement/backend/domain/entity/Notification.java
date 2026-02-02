@@ -62,6 +62,35 @@ public class Notification {
     @Column(nullable = false)
     private Instant createdAt;
 
+    @Column(name = "notification_type", length = 50)
+    private String notificationType; // GRADE_UPDATE, ATTENDANCE_ALERT, etc.
+
+    @Column(length = 20)
+    @Builder.Default
+    private String priority = "NORMAL"; // LOW, NORMAL, HIGH, URGENT
+
+    @Column(name = "scheduled_at")
+    private Instant scheduledAt;
+
+    @Column(name = "sent_at")
+    private Instant sentAt;
+
+    @Column(name = "send_in_app")
+    @Builder.Default
+    private boolean sendInApp = true;
+
+    @Column(name = "send_email")
+    @Builder.Default
+    private boolean sendEmail = false;
+
+    @Column(name = "send_sms")
+    @Builder.Default
+    private boolean sendSMS = false;
+
+    @Column(length = 20)
+    @Builder.Default
+    private String status = "PENDING"; // PENDING, SENT, FAILED, CANCELLED
+
     @PrePersist
     public void prePersist() {
         if (createdAt == null) {
