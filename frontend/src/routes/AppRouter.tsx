@@ -28,6 +28,8 @@ import CombinationManagement from "../views/school-admin/pages/CombinationManage
 import TeacherAssignment from "../views/school-admin/pages/TeacherAssignment";
 import TimetableManagement from "../views/school-admin/pages/TimetableManagement";
 import TimetableDetailView from "../views/school-admin/pages/TimetableDetailView";
+import ReportsPage from "../views/school-admin/pages/ReportsPage";
+
 
 
 
@@ -85,7 +87,7 @@ export default function AppRouter() {
         <Route path="assignments" element={<TeacherAssignment />} />
         <Route path="schedule" element={<TimetableManagement />} />
         <Route path="schedule/:id" element={<TimetableDetailView />} />
-
+        <Route path="reports" element={<ReportsPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />
