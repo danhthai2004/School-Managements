@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { schoolAdminService, type ClassRoomDto, type StudentDto } from "../../../services/schoolAdminService";
 import { ArrowLeft, Users, Calendar, DoorOpen, GraduationCap } from "lucide-react";
+import { StatusBadge } from "../../../components/common";
 
 const ClassDetailView = () => {
     const { id } = useParams<{ id: string }>();
@@ -138,53 +139,48 @@ const ClassDetailView = () => {
             </div>
 
             {/* Students List */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center">
-                    <h2 className="text-xl font-bold text-slate-800 flex items-center">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                    <h2 className="text-lg font-bold text-gray-800 flex items-center">
                         <Users className="w-5 h-5 mr-3 text-blue-600" />
                         Danh sách học sinh
                     </h2>
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead className="bg-slate-50">
+                    <table className="w-full">
+                        <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">STT</th>
-                                <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Mã học sinh</th>
-                                <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Họ và tên</th>
-                                <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Ngày sinh</th>
-                                <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Giới tính</th>
-                                <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Điện thoại</th>
-                                <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Trái thái</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">STT</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Mã học sinh</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Họ và tên</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Ngày sinh</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Giới tính</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Điện thoại</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Trạng thái</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-gray-100">
                             {students.map((student, index) => (
-                                <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-8 py-4 text-sm text-slate-500">{index + 1}</td>
-                                    <td className="px-8 py-4 text-sm font-medium text-slate-900">{student.studentCode}</td>
-                                    <td className="px-8 py-4 text-sm font-semibold text-slate-800">{student.fullName}</td>
-                                    <td className="px-8 py-4 text-sm text-slate-600">{student.dateOfBirth || "—"}</td>
-                                    <td className="px-8 py-4 text-sm text-slate-600">
+                                <tr key={student.id} className="hover:bg-blue-50 transition-colors">
+                                    <td className="px-6 py-4 text-sm text-gray-500">{index + 1}</td>
+                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{student.studentCode}</td>
+                                    <td className="px-6 py-4 text-sm font-semibold text-gray-800">{student.fullName}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">{student.dateOfBirth || "—"}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">
                                         {student.gender === 'MALE' ? 'Nam' : student.gender === 'FEMALE' ? 'Nữ' : 'Khác'}
                                     </td>
-                                    <td className="px-8 py-4 text-sm text-slate-600 font-mono">{student.phone || "—"}</td>
-                                    <td className="px-8 py-4 text-sm">
-                                        <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${student.status === 'ACTIVE' ? 'bg-green-100 text-green-700' :
-                                            student.status === 'GRADUATED' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
-                                            }`}>
-                                            {student.status === 'ACTIVE' ? 'Đang học' :
-                                                student.status === 'GRADUATED' ? 'Đã tốt nghiệp' : 'Ngừng học'}
-                                        </span>
+                                    <td className="px-6 py-4 text-sm text-gray-600">{student.phone || "—"}</td>
+                                    <td className="px-6 py-4 text-sm">
+                                        <StatusBadge status={student.status || 'ACTIVE'} />
                                     </td>
                                 </tr>
                             ))}
                             {students.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="px-8 py-16 text-center text-slate-400 italic">
-                                        <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                                        <p>Lớp chưa có học sinh nào.</p>
+                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
+                                        <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                                        <p className="text-sm">Lớp chưa có học sinh nào.</p>
                                     </td>
                                 </tr>
                             )}

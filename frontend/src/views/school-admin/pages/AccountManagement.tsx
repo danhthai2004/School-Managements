@@ -156,18 +156,18 @@ const AccountManagement = () => {
                         <table className="w-full">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Họ tên</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Vai trò</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Email</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Họ tên</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Vai trò</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {users.map((user) => (
-                                    <tr key={user.id} className="hover:bg-gray-50">
+                                    <tr key={user.id} className="hover:bg-blue-50 transition-colors">
                                         <td className="px-6 py-4 text-sm text-gray-900">{user.email}</td>
                                         <td className="px-6 py-4 text-sm text-gray-700">{user.fullName}</td>
                                         <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${user.role === 'TEACHER' ? 'bg-blue-100 text-blue-700' :
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full ${user.role === 'TEACHER' ? 'bg-blue-100 text-blue-700' :
                                                 user.role === 'STUDENT' ? 'bg-green-100 text-green-700' :
                                                     'bg-gray-100 text-gray-600'
                                                 }`}>
@@ -227,7 +227,7 @@ const AccountManagement = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {eligibleStudents.map((stu) => (
-                                    <tr key={stu.id} className="hover:bg-gray-50">
+                                    <tr key={stu.id} className="hover:bg-blue-50 transition-colors">
                                         <td className="px-6 py-4">
                                             <input
                                                 type="checkbox"
