@@ -26,4 +26,8 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     // linked
     List<Student> findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(School school,
             com.schoolmanagement.backend.domain.StudentStatus status);
+
+    // Find student by linked user ID
+    @org.springframework.data.jpa.repository.Query("SELECT s FROM Student s LEFT JOIN FETCH s.school WHERE s.user.id = :userId")
+    java.util.Optional<Student> findByUserIdWithDetails(@org.springframework.data.repository.query.Param("userId") java.util.UUID userId);
 }

@@ -10,9 +10,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
+@Slf4j
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
 
@@ -30,6 +32,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
 
+        String requestUri = request.getRequestURI();
+        
         // Skip CORS preflight requests
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             filterChain.doFilter(request, response);
@@ -38,6 +42,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         String header = request.getHeader("Authorization");
         if (header == null || !header.startsWith("Bearer ")) {
+            log.debug("[JwtAuth] No Bearer token for: {}", requestUri);
             filterChain.doFilter(request, response);
             return;
         }
@@ -46,6 +51,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         try {
             var kind = jwt.getKind(token);
             if (kind != TokenKind.ACCESS) {
+                log.debug("[JwtAuth] Wrong token kind for: {}", requestUri);
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -55,11 +61,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 var userDetails = userDetailsService.loadUserByUsername(email);
                 var auth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 SecurityContextHolder.getContext().setAuthentication(auth);
+                
+                // Log for notification endpoints
+                if (requestUri.contains("/notifications")) {
+                    log.info("[JwtAuth] Authenticated {} with authorities: {} for {}", 
+                        email, userDetails.getAuthorities(), requestUri);
+                }
             }
         } catch (JwtException ex) {
-            // ignore invalid token
+            log.warn("[JwtAuth] Invalid token for {}: {}", requestUri, ex.getMessage());
         }
 
         filterChain.doFilter(request, response);
     }
 }
+

@@ -24,6 +24,10 @@ import java.util.UUID;
 @Slf4j
 public class AutoScheduleService {
 
+    // Constants for timetable constraints
+    private static final int MIN_PERIODS_PER_DAY = 4; // Each day should have at least 4 periods
+    private static final int MAX_PERIODS_PER_DAY = 5; // Maximum 5 periods per day
+
     private final TimetableRepository timetableRepository;
     private final TimetableConstraintService constraintService;
     private final SubjectRepository subjectRepository;
@@ -80,6 +84,9 @@ public class AutoScheduleService {
         // Initialize Context
         ScheduleContext context = new ScheduleContext();
 
+        // Step 1: Fixed Activities (Chào cờ, Sinh hoạt lớp)
+        scheduleFixedActivities(timetable, context);
+
         // Step 2: High Frequency Subjects
         scheduleHighFrequencySubjects(timetable, context);
 
@@ -93,6 +100,82 @@ public class AutoScheduleService {
         // ... implementation pending
 
         log.info("Auto-generation completed for Timetable ID: {}", timetableId);
+    }
+
+    /**
+     * Step 1: Schedule fixed activities for all classes.
+     * - Chào cờ (CC): Monday, Period 1 - First period of the week
+     * - Sinh hoạt lớp (SHL): Saturday, Period 5 - Last period of the week
+     * Each session should have at least 4 periods.
+     */
+    private void scheduleFixedActivities(Timetable timetable, ScheduleContext context) {
+        log.info("Step 1: Scheduling fixed activities (Chào cờ, Sinh hoạt lớp)...");
+
+        var allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool());
+
+        // Find or create CC (Chào cờ) and SHL (Sinh hoạt lớp) subjects
+        Subject chaoCoSubject = subjectRepository.findByCode("CC").orElse(null);
+        Subject shlSubject = subjectRepository.findByCode("SHL").orElse(null);
+
+        // If subjects don't exist, create them
+        if (chaoCoSubject == null) {
+            chaoCoSubject = Subject.builder()
+                    .name("Chào cờ")
+                    .code("CC")
+                    .type(com.schoolmanagement.backend.domain.SubjectType.ACTIVITY)
+                    .totalLessons(1)
+                    .active(true)
+                    .description("Tiết chào cờ đầu tuần")
+                    .build();
+            chaoCoSubject = subjectRepository.save(chaoCoSubject);
+            log.info("Created subject: Chào cờ (CC)");
+        }
+
+        if (shlSubject == null) {
+            shlSubject = Subject.builder()
+                    .name("Sinh hoạt lớp")
+                    .code("SHL")
+                    .type(com.schoolmanagement.backend.domain.SubjectType.ACTIVITY)
+                    .totalLessons(1)
+                    .active(true)
+                    .description("Tiết sinh hoạt lớp cuối tuần")
+                    .build();
+            shlSubject = subjectRepository.save(shlSubject);
+            log.info("Created subject: Sinh hoạt lớp (SHL)");
+        }
+
+        for (var classroom : allClasses) {
+            if (!classroom.getAcademicYear().equals(timetable.getAcademicYear()))
+                continue;
+
+            // Schedule Chào cờ: Monday, Period 1 (first period of the week)
+            createFixedDetail(timetable, classroom, chaoCoSubject, DayOfWeek.MONDAY, 1, context);
+
+            // Schedule Sinh hoạt lớp: Saturday, Period 5 (last period of the week)
+            createFixedDetail(timetable, classroom, shlSubject, DayOfWeek.SATURDAY, 5, context);
+        }
+    }
+
+    /**
+     * Create a fixed timetable detail that cannot be moved/swapped.
+     */
+    private void createFixedDetail(Timetable timetable, ClassRoom classroom,
+            Subject subject, DayOfWeek day, int slotIndex, ScheduleContext context) {
+        var detail = TimetableDetail.builder()
+                .timetable(timetable)
+                .classRoom(classroom)
+                .subject(subject)
+                .teacher(null) // Usually no specific teacher for activities
+                .dayOfWeek(day)
+                .slotIndex(slotIndex)
+                .isFixed(true) // Mark as fixed - cannot be swapped
+                .build();
+        timetableDetailRepository.save(detail);
+
+        // Mark context immediately
+        context.markOccupied(classroom.getId(), null, day, slotIndex);
+        log.debug("Fixed activity: {} for class {} on {} period {}",
+                subject.getCode(), classroom.getName(), day, slotIndex);
     }
 
     private void scheduleHighFrequencySubjects(Timetable timetable, ScheduleContext context) {
@@ -155,9 +238,8 @@ public class AutoScheduleService {
             if (assignedToday >= limitPerDay)
                 continue;
 
+            // Prioritize contiguous slots (1, 2, 3, 4, 5) - no shuffle to ensure proper filling
             java.util.List<Integer> slots = new java.util.ArrayList<>(java.util.List.of(1, 2, 3, 4, 5));
-            if (randomize)
-                java.util.Collections.shuffle(slots);
 
             for (int slot : slots) {
                 if (assignedCount >= lessonsToAssign)

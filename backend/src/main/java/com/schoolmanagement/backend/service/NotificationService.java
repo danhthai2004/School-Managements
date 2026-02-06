@@ -96,4 +96,77 @@ public class NotificationService {
                 n.getCreatedBy() != null ? n.getCreatedBy().getEmail() : null,
                 n.getCreatedAt());
     }
+
+    /**
+     * Create a notification for a specific school (used by School Admin).
+     */
+    public NotificationDto createForSchool(String title, String message, School school, User createdBy) {
+        Notification notification = Notification.builder()
+                .title(title)
+                .message(message)
+                .scope(NotificationScope.SCHOOL)
+                .targetSchool(school)
+                .createdBy(createdBy)
+                .build();
+
+        notification = notifications.save(notification);
+
+        activityLog.log("SCHOOL_NOTIFICATION_CREATED", createdBy, null,
+                "School: " + school.getName() + ", Notification: " + notification.getTitle());
+
+        return toDto(notification);
+    }
+
+    /**
+     * Get all notifications for a specific school (for School Admin management).
+     */
+    public List<NotificationDto> getForSchool(School school) {
+        return notifications.findByTargetSchoolOrderByCreatedAtDesc(school).stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    /**
+     * Get all visible notifications for a user based on their school and role.
+     */
+    public List<NotificationDto> getVisibleForUser(UUID schoolId, com.schoolmanagement.backend.domain.Role role) {
+        return notifications.findVisibleNotifications(schoolId, role).stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    /**
+     * Count recent notifications (last 7 days) for a school.
+     */
+    public long countRecentForSchool(UUID schoolId) {
+        java.time.Instant sevenDaysAgo = java.time.Instant.now().minus(7, java.time.temporal.ChronoUnit.DAYS);
+        return notifications.countRecentForSchool(schoolId, sevenDaysAgo);
+    }
+
+    /**
+     * Count all recent notifications (last 7 days) - for System Admin.
+     */
+    public long countRecentAll() {
+        java.time.Instant sevenDaysAgo = java.time.Instant.now().minus(7, java.time.temporal.ChronoUnit.DAYS);
+        return notifications.countRecentAll(sevenDaysAgo);
+    }
+
+    /**
+     * Get notification by ID.
+     * Validates that the notification is visible to the given school.
+     */
+    public NotificationDto getById(UUID id, UUID schoolId) {
+        Notification notification = notifications.findById(id)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Thông báo không tồn tại."));
+        
+        // Check if notification is visible to this school
+        boolean isVisible = notification.getScope() == NotificationScope.ALL ||
+                (notification.getTargetSchool() != null && notification.getTargetSchool().getId().equals(schoolId));
+        
+        if (!isVisible) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Bạn không có quyền xem thông báo này.");
+        }
+        
+        return toDto(notification);
+    }
 }

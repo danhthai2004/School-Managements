@@ -50,7 +50,7 @@ export default function AuthCard({
   children: React.ReactNode;
   topSlot?: React.ReactNode;
   showBrand?: boolean;
-  maxWidthClass?: string; // "max-w-md" | "max-w-lg" ...
+  maxWidthClass?: string; 
 }) {
   return (
     <div className="relative min-h-screen overflow-hidden">

@@ -45,4 +45,7 @@ public interface ClassRoomRepository extends JpaRepository<ClassRoom, UUID> {
                         ClassRoomStatus status);
 
         Optional<ClassRoom> findByHomeroomTeacher(User homeroomTeacher);
+
+        // Find classrooms by school and list of grades
+        List<ClassRoom> findBySchoolAndGradeIn(School school, List<Integer> grades);
 }

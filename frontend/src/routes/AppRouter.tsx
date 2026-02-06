@@ -27,6 +27,17 @@ import CombinationManagement from "../views/school-admin/pages/CombinationManage
 import TeacherAssignment from "../views/school-admin/pages/TeacherAssignment";
 import TimetableManagement from "../views/school-admin/pages/TimetableManagement";
 import TimetableDetailView from "../views/school-admin/pages/TimetableDetailView";
+import NotificationManagement from "../views/school-admin/pages/NotificationManagement";
+import ExamScheduleManagement from "../views/school-admin/pages/ExamScheduleManagement";
+
+// Student
+import StudentLayout from "../components/layout/StudentLayout";
+import StudentOverviewPage from "../views/Student/StudentOverviewPage";
+import StudentTimetablePage from "../views/Student/StudentTimetablePage";
+import StudentExamSchedulePage from "../views/Student/StudentExamSchedulePage";
+import StudentScoresPage from "../views/Student/StudentScoresPage";
+import StudentAttendancePage from "../views/Student/StudentAttendancePage";
+import StudentAnalysisPage from "../views/Student/StudentAnalysisPage";
 
 
 
@@ -83,7 +94,23 @@ export default function AppRouter() {
         <Route path="assignments" element={<TeacherAssignment />} />
         <Route path="schedule" element={<TimetableManagement />} />
         <Route path="schedule/:id" element={<TimetableDetailView />} />
+        <Route path="notifications" element={<NotificationManagement />} />
+        <Route path="exam-schedules" element={<ExamScheduleManagement />} />
+      </Route>
 
+      {/* Student Routes */}
+      <Route path="/student" element={
+        <ProtectedRoute requiredRole="STUDENT">
+          <StudentLayout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<Navigate to="overview" replace />} />
+        <Route path="overview" element={<StudentOverviewPage />} />
+        <Route path="timetable" element={<StudentTimetablePage />} />
+        <Route path="exam-schedule" element={<StudentExamSchedulePage />} />
+        <Route path="scores" element={<StudentScoresPage />} />
+        <Route path="attendance" element={<StudentAttendancePage />} />
+        <Route path="analysis" element={<StudentAnalysisPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />
