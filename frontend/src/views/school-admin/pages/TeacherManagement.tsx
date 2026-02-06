@@ -5,7 +5,8 @@ import "react-datepicker/dist/react-datepicker.css";
 import {
     schoolAdminService,
     type TeacherDto,
-    type CreateTeacherRequest
+    type CreateTeacherRequest,
+    type ImportTeacherResult
 } from "../../../services/schoolAdminService";
 import { PlusIcon, XIcon } from "../SchoolAdminIcons";
 import { TeacherStatusBadge } from "../../../components/common";
@@ -93,7 +94,7 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
     const [phone, setPhone] = useState("");
     const [specialization, setSpecialization] = useState("");
     const [degree, setDegree] = useState("");
-    const [subjectId, setSubjectId] = useState("");
+    const [subjectIds, setSubjectIds] = useState<string[]>([]);
     const [createAccount, setCreateAccount] = useState(true);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -134,14 +135,14 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
                 phone: phone.trim() || undefined,
                 specialization: specialization.trim() || undefined,
                 degree: degree.trim() || undefined,
-                subjectId: subjectId || undefined,
+                subjectIds: subjectIds.length > 0 ? subjectIds : undefined,
                 createAccount,
             };
             await schoolAdminService.createTeacher(req);
             // Reset form
             setFullName(""); setDateOfBirth(null); setDateInputValue(""); setGender("MALE");
             setAddress(""); setEmail(""); setPhone(""); setSpecialization(""); setDegree("");
-            setSubjectId("");
+            setSubjectIds([]);
             setCreateAccount(true);
             onSuccess();
             onClose();
@@ -295,26 +296,59 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
                                 <h3 className="font-semibold text-gray-800">Thông tin chuyên môn</h3>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
+                                <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-slate-600 mb-1.5">Bộ môn giảng dạy</label>
-                                    <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}
-                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer">
-                                        <option value="">-- Chọn bộ môn --</option>
-                                        {subjects.map((sub: any) => (
-                                            <option key={sub.id} value={sub.id}>{sub.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-600 mb-1.5">Chuyên môn (Ghi chú)</label>
-                                    <input type="text" value={specialization} onChange={(e) => setSpecialization(e.target.value)}
-                                        placeholder="Toán, Văn, Anh..."
-                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all" />
+                                    <div className="space-y-2">
+                                        <select
+                                            value=""
+                                            onChange={(e) => {
+                                                const selectedId = e.target.value;
+                                                if (selectedId && !subjectIds.includes(selectedId)) {
+                                                    setSubjectIds([...subjectIds, selectedId]);
+                                                }
+                                            }}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
+                                        >
+                                            <option value="">-- Chọn thêm bộ môn --</option>
+                                            {subjects.filter(s => !subjectIds.includes(s.id)).map((sub: any) => (
+                                                <option key={sub.id} value={sub.id}>{sub.name}</option>
+                                            ))}
+                                        </select>
+
+                                        <div className="flex flex-wrap gap-2 min-h-[30px]">
+                                            {subjectIds.map(id => {
+                                                const sub = subjects.find(s => s.id === id);
+                                                return (
+                                                    <span key={id} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                                                        {sub?.name || 'Unknown'}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSubjectIds(subjectIds.filter(sid => sid !== id))}
+                                                            className="ml-2 text-blue-400 hover:text-blue-600 focus:outline-none"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L10 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                                            </svg>
+                                                        </button>
+                                                    </span>
+                                                );
+                                            })}
+                                            {subjectIds.length === 0 && (
+                                                <span className="text-gray-400 text-sm italic py-1">Chưa chọn môn nào</span>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-slate-600 mb-1.5">Bằng cấp</label>
                                     <input type="text" value={degree} onChange={(e) => setDegree(e.target.value)}
                                         placeholder="Cử nhân, Thạc sĩ, Tiến sĩ..."
+                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all" />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-slate-600 mb-1.5">Chuyên môn (Ghi chú)</label>
+                                    <input type="text" value={specialization} onChange={(e) => setSpecialization(e.target.value)}
+                                        placeholder="Toán, Văn, Anh..."
                                         className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all" />
                                 </div>
                             </div>
@@ -397,7 +431,7 @@ const formatDisplayDate = (dateString: string | null | undefined): string => {
 function TeacherDetailModal({ isOpen, teacher, onClose, onEdit, onDelete }: TeacherDetailModalProps) {
     if (!isOpen || !teacher) return null;
 
-    const InfoRow = ({ label, value }: { label: string; value: string | null | undefined }) => (
+    const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
         <div className="py-3 border-b border-gray-100 last:border-0">
             <div className="text-xs text-gray-500 mb-1">{label}</div>
             <div className="text-sm text-gray-900 font-medium">{value || '—'}</div>
@@ -432,7 +466,21 @@ function TeacherDetailModal({ isOpen, teacher, onClose, onEdit, onDelete }: Teac
                         <InfoRow label="Ngày sinh" value={formatDisplayDate(teacher.dateOfBirth)} />
                         <InfoRow label="Giới tính" value={teacher.gender === 'MALE' ? 'Nam' : teacher.gender === 'FEMALE' ? 'Nữ' : teacher.gender} />
                         <InfoRow label="Địa chỉ" value={teacher.address} />
-                        <InfoRow label="Chuyên môn" value={teacher.specialization} />
+                        <InfoRow
+                            label="Bộ môn"
+                            value={
+                                teacher.subjects && teacher.subjects.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                        {teacher.subjects.map(sub => (
+                                            <span key={sub.id} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100">
+                                                {sub.name}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : '—'
+                            }
+                        />
+                        <InfoRow label="Chuyên môn (Ghi chú)" value={teacher.specialization} />
                         <InfoRow label="Bằng cấp" value={teacher.degree} />
                         <InfoRow label="Lớp chủ nhiệm" value={teacher.homeroomClassName} />
                     </div>
@@ -485,7 +533,7 @@ function EditTeacherModal({ isOpen, teacher, onClose, onSuccess }: EditTeacherMo
     const [phone, setPhone] = useState("");
     const [specialization, setSpecialization] = useState("");
     const [degree, setDegree] = useState("");
-    const [subjectId, setSubjectId] = useState("");
+    const [subjectIds, setSubjectIds] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [subjects, setSubjects] = useState<any[]>([]);
@@ -511,7 +559,14 @@ function EditTeacherModal({ isOpen, teacher, onClose, onSuccess }: EditTeacherMo
             setPhone(teacher.phone || "");
             setSpecialization(teacher.specialization || "");
             setDegree(teacher.degree || "");
-            setSubjectId(teacher.subjectId || "");
+
+            // Map subjects to IDs
+            if (teacher.subjects) {
+                setSubjectIds(teacher.subjects.map(s => s.id));
+            } else {
+                setSubjectIds([]);
+            }
+
             if (teacher.dateOfBirth) {
                 const d = new Date(teacher.dateOfBirth);
                 setDateOfBirth(d);
@@ -550,7 +605,7 @@ function EditTeacherModal({ isOpen, teacher, onClose, onSuccess }: EditTeacherMo
                 phone: phone.trim() || undefined,
                 specialization: specialization.trim() || undefined,
                 degree: degree.trim() || undefined,
-                subjectId: subjectId || undefined,
+                subjectIds: subjectIds.length > 0 ? subjectIds : undefined,
                 createAccount: false, // Don't create account on edit
             };
             await schoolAdminService.updateTeacher(teacher.id, req);
@@ -705,17 +760,50 @@ function EditTeacherModal({ isOpen, teacher, onClose, onSuccess }: EditTeacherMo
                                 <h3 className="font-semibold text-gray-800">Thông tin chuyên môn</h3>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
+                                <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-slate-600 mb-1.5">Bộ môn giảng dạy</label>
-                                    <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}
-                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer">
-                                        <option value="">-- Chọn bộ môn --</option>
-                                        {subjects.map((sub: any) => (
-                                            <option key={sub.id} value={sub.id}>{sub.name}</option>
-                                        ))}
-                                    </select>
+                                    <div className="space-y-2">
+                                        <select
+                                            value=""
+                                            onChange={(e) => {
+                                                const selectedId = e.target.value;
+                                                if (selectedId && !subjectIds.includes(selectedId)) {
+                                                    setSubjectIds([...subjectIds, selectedId]);
+                                                }
+                                            }}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
+                                        >
+                                            <option value="">-- Chọn thêm bộ môn --</option>
+                                            {subjects.filter(s => !subjectIds.includes(s.id)).map((sub: any) => (
+                                                <option key={sub.id} value={sub.id}>{sub.name}</option>
+                                            ))}
+                                        </select>
+
+                                        <div className="flex flex-wrap gap-2 min-h-[30px]">
+                                            {subjectIds.map(id => {
+                                                const sub = subjects.find(s => s.id === id);
+                                                return (
+                                                    <span key={id} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                                                        {sub?.name || 'Unknown'}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSubjectIds(subjectIds.filter(sid => sid !== id))}
+                                                            className="ml-2 text-blue-400 hover:text-blue-600 focus:outline-none"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L10 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                                            </svg>
+                                                        </button>
+                                                    </span>
+                                                );
+                                            })}
+                                            {subjectIds.length === 0 && (
+                                                <span className="text-gray-400 text-sm italic py-1">Chưa chọn môn nào</span>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
+                                <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-slate-600 mb-1.5">Bằng cấp</label>
                                     <input type="text" value={degree} onChange={(e) => setDegree(e.target.value)}
                                         placeholder="Cử nhân, Thạc sĩ, Tiến sĩ..."
@@ -823,7 +911,238 @@ function DeleteTeacherModal({ isOpen, teacher, onClose, onSuccess }: DeleteTeach
     );
 }
 
-// ==================== PAGE COMPONENT ====================
+// ==================== IMPORT EXCEL MODAL ====================
+
+interface ImportTeacherExcelModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSuccess: () => void;
+    onImportComplete: (result: ImportTeacherResult) => void;
+}
+
+function ImportTeacherExcelModal({ isOpen, onClose, onSuccess, onImportComplete }: ImportTeacherExcelModalProps) {
+    const [file, setFile] = useState<File | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const selectedFile = e.target.files?.[0];
+        if (selectedFile) {
+            if (!selectedFile.name.endsWith('.xlsx') && !selectedFile.name.endsWith('.xls')) {
+                setError('Vui lòng chọn file Excel (.xlsx hoặc .xls)');
+                return;
+            }
+            setFile(selectedFile);
+            setError(null);
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!file) {
+            setError('Vui lòng chọn file Excel');
+            return;
+        }
+
+        setLoading(true);
+        setError(null);
+
+        try {
+            const importResult = await schoolAdminService.importTeachersFromExcel(file);
+
+            if (importResult.successCount > 0) {
+                onSuccess();
+            }
+            handleClose();
+            onImportComplete(importResult);
+        } catch (err: any) {
+            setError(err?.response?.data?.message || 'Không thể import file.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleClose = () => {
+        setFile(null);
+        setError(null);
+        onClose();
+    };
+
+    if (!isOpen) return null;
+
+    return createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xl mx-4 overflow-hidden max-h-[90vh] flex flex-col z-[100]">
+                <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 px-6 py-4 flex-none">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-semibold text-white">Import giáo viên từ Excel</h2>
+                        <button onClick={handleClose} className="text-white/80 hover:text-white">
+                            <XIcon />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="p-6 space-y-4">
+                    {/* Instructions */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
+                        <p className="font-medium text-blue-800 mb-2">Hướng dẫn:</p>
+                        <ul className="text-blue-700 space-y-1 list-disc list-inside">
+                            <li>File Excel phải có cột <strong>Họ tên</strong> (bắt buộc)</li>
+                            <li>Các cột tùy chọn: Ngày sinh, Giới tính, Địa chỉ, Email, SĐT</li>
+                            <li>Thông tin chuyên môn: Chuyên môn, Bằng cấp</li>
+                        </ul>
+                    </div>
+
+                    {error && (
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                            {error}
+                        </div>
+                    )}
+
+                    {/* Upload Form */}
+                    <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto">
+                        {/* File Input */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                                Chọn file Excel *
+                            </label>
+                            <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-emerald-500 transition-colors">
+                                <input
+                                    type="file"
+                                    accept=".xlsx,.xls"
+                                    onChange={handleFileChange}
+                                    className="hidden"
+                                    id="teacher-excel-file-input"
+                                />
+                                <label htmlFor="teacher-excel-file-input" className="cursor-pointer">
+                                    <div className="flex flex-col items-center">
+                                        <svg className="w-10 h-10 text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        <p className="text-slate-600">
+                                            {file ? file.name : 'Click để chọn file hoặc kéo thả vào đây'}
+                                        </p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Buttons */}
+                        <div className="flex gap-3 pt-2">
+                            <button
+                                type="button"
+                                onClick={handleClose}
+                                className="flex-1 px-5 py-3 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-100 transition-all"
+                            >
+                                Hủy bỏ
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={loading || !file}
+                                className="flex-1 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-semibold hover:shadow-lg hover:shadow-emerald-500/25 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                            >
+                                {loading ? (
+                                    <>
+                                        <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                        Đang import...
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                        </svg>
+                                        Import
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+}
+
+// ==================== IMPORT SUCCESS TOAST ====================
+
+interface ImportTeacherSuccessToastProps {
+    result: ImportTeacherResult | null;
+    onClose: () => void;
+}
+
+function ImportTeacherSuccessToast({ result, onClose }: ImportTeacherSuccessToastProps) {
+    useEffect(() => {
+        if (result) {
+            const timer = setTimeout(() => {
+                onClose();
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [result, onClose]);
+
+    if (!result) return null;
+
+    return createPortal(
+        <div className="fixed inset-0 z-[110] flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+                <div className={`px-6 py-4 ${result.failedCount > 0 ? 'bg-amber-500' : 'bg-emerald-500'}`}>
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-white">Kết quả Import</h3>
+                        <button onClick={onClose} className="text-white/80 hover:text-white">
+                            <XIcon />
+                        </button>
+                    </div>
+                </div>
+                <div className="p-6">
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div className="text-center p-3 bg-slate-50 rounded-lg">
+                            <div className="text-2xl font-bold text-slate-700">{result.totalRows}</div>
+                            <div className="text-xs text-slate-500">Tổng dòng</div>
+                        </div>
+                        <div className="text-center p-3 bg-emerald-50 rounded-lg">
+                            <div className="text-2xl font-bold text-emerald-600">{result.successCount}</div>
+                            <div className="text-xs text-emerald-600">Thành công</div>
+                        </div>
+                        <div className="text-center p-3 bg-red-50 rounded-lg">
+                            <div className="text-2xl font-bold text-red-600">{result.failedCount}</div>
+                            <div className="text-xs text-red-600">Thất bại</div>
+                        </div>
+                    </div>
+
+                    {result.errors && result.errors.length > 0 && (
+                        <div className="mt-4">
+                            <p className="text-sm font-medium text-slate-700 mb-2">Chi tiết lỗi:</p>
+                            <div className="max-h-40 overflow-y-auto bg-red-50 rounded-lg p-3 text-sm">
+                                {result.errors.map((err, idx) => (
+                                    <div key={idx} className="text-red-700 py-1 border-b border-red-100 last:border-0">
+                                        <span className="font-medium">Dòng {err.rowNumber}</span>
+                                        {err.teacherName && <span> ({err.teacherName})</span>}: {err.errorMessage}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <button
+                        onClick={onClose}
+                        className="w-full mt-4 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition-colors"
+                    >
+                        Đóng
+                    </button>
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+}
+
+// ==================== PAGE COMPONENT ======================================
 
 const TeacherManagement = () => {
 
@@ -832,12 +1151,20 @@ const TeacherManagement = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showAddTeacherModal, setShowAddTeacherModal] = useState(false);
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [importResult, setImportResult] = useState<ImportTeacherResult | null>(null);
     const [selectedTeacher, setSelectedTeacher] = useState<TeacherDto | null>(null);
     const [editingTeacher, setEditingTeacher] = useState<TeacherDto | null>(null);
     const [deletingTeacher, setDeletingTeacher] = useState<TeacherDto | null>(null);
 
+    // New State for Filter & Sort
+    const [subjects, setSubjects] = useState<any[]>([]);
+    const [filterSubjectId, setFilterSubjectId] = useState<string>("");
+    const [sortConfig, setSortConfig] = useState<{ key: keyof TeacherDto | 'subjectName'; direction: 'asc' | 'desc' } | null>(null);
+
     useEffect(() => {
         fetchData();
+        fetchSubjects();
     }, []);
 
     const fetchData = async () => {
@@ -852,17 +1179,122 @@ const TeacherManagement = () => {
         }
     };
 
+    const fetchSubjects = async () => {
+        try {
+            const data = await schoolAdminService.listSubjects();
+            setSubjects(data);
+        } catch (error) {
+            console.error("Failed to fetch subjects:", error);
+        }
+    };
+
+    // Filter & Sort Logic
+    const filteredTeachers = React.useMemo(() => {
+        let result = [...teachers];
+
+        // 1. Filter by Subject
+        if (filterSubjectId) {
+            const filterSubject = subjects.find(s => s.id === filterSubjectId);
+            if (filterSubject) {
+                result = result.filter(t => {
+                    if (t.subjects && t.subjects.some(s => s.id === filterSubjectId)) {
+                        return true;
+                    }
+                    if (t.subjects) {
+                        return false;
+                    }
+                    return false;
+                });
+            }
+        }
+
+        // 2. Sort
+        if (sortConfig) {
+            result.sort((a, b) => {
+                let aValue: any = sortConfig.key === 'subjectName' ? (a.subjectNames || '') : a[sortConfig.key as keyof TeacherDto];
+                let bValue: any = sortConfig.key === 'subjectName' ? (b.subjectNames || '') : b[sortConfig.key as keyof TeacherDto];
+
+                // Handle null/undefined
+                if (!aValue) aValue = "";
+                if (!bValue) bValue = "";
+
+                if (typeof aValue === 'string') {
+                    return sortConfig.direction === 'asc'
+                        ? aValue.localeCompare(bValue as string)
+                        : (bValue as string).localeCompare(aValue);
+                }
+
+                // Fallback for non-string
+                if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        return result;
+    }, [teachers, filterSubjectId, sortConfig]);
+
+    const handleSort = (key: keyof TeacherDto | 'subjectName') => {
+        setSortConfig(current => {
+            if (current?.key === key) {
+                if (current.direction === 'asc') return { key, direction: 'desc' };
+                return null; // Reset sort
+            }
+            return { key, direction: 'asc' };
+        });
+    };
+
+    // Helper to render sort icon
+    const SortHeader = ({ label, sortKey, className = "" }: { label: string, sortKey: keyof TeacherDto | 'subjectName', className?: string }) => (
+        <th
+            className={`px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100 hover:text-blue-600 transition-colors select-none ${className}`}
+            onClick={() => handleSort(sortKey)}
+        >
+            <div className="flex items-center gap-1">
+                {label}
+                <span className="text-gray-400">
+                    {sortConfig?.key === sortKey ? (
+                        sortConfig.direction === 'asc' ? '↑' : '↓'
+                    ) : (
+                        <span className="opacity-0 group-hover:opacity-50">⇅</span>
+                    )}
+                </span>
+            </div>
+        </th>
+    );
+
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 animate-fade-in-up">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">Danh sách giáo viên</h2>
-                <button
-                    onClick={() => setShowAddTeacherModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
-                >
-                    <PlusIcon />
-                    <span>Thêm giáo viên</span>
-                </button>
+                <div className="flex gap-2">
+                    <select
+                        value={filterSubjectId}
+                        onChange={(e) => setFilterSubjectId(e.target.value)}
+                        className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none focus:border-blue-500 bg-gray-50 hover:bg-white transition-colors cursor-pointer"
+                    >
+                        <option value="">Tất cả bộ môn</option>
+                        {subjects.map((sub: any) => (
+                            <option key={sub.id} value={sub.id}>{sub.name}</option>
+                        ))}
+                    </select>
+                    <button
+                        onClick={() => setShowImportModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        <span>Import Excel</span>
+                    </button>
+                    <button
+                        onClick={() => setShowAddTeacherModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
+                    >
+                        <PlusIcon />
+                        <span>Thêm giáo viên</span>
+                    </button>
+                </div>
             </div>
 
             {loading && <div className="p-8 text-center text-gray-500">Đang tải danh sách...</div>}
@@ -873,22 +1305,36 @@ const TeacherManagement = () => {
                     <table className="w-full">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Mã GV</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Họ tên</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Điện thoại</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Chuyên môn</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Lớp CN</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Trạng thái</th>
+                                <SortHeader label="Mã GV" sortKey="teacherCode" />
+                                <SortHeader label="Họ tên" sortKey="fullName" />
+                                <SortHeader label="Email" sortKey="email" />
+                                <SortHeader label="Điện thoại" sortKey="phone" />
+                                <SortHeader label="Bộ môn" sortKey="subjectName" />
+                                <SortHeader label="Chuyên môn" sortKey="specialization" />
+                                <SortHeader label="Lớp CN" sortKey="homeroomClassName" />
+                                <SortHeader label="Trạng thái" sortKey="status" />
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {teachers.map((teacher) => (
+                            {filteredTeachers.map((teacher) => (
                                 <tr key={teacher.id} className="hover:bg-blue-50 transition-colors cursor-pointer" onClick={() => setSelectedTeacher(teacher)}>
                                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{teacher.teacherCode}</td>
                                     <td className="px-6 py-4 text-sm text-gray-700">{teacher.fullName}</td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{teacher.email || '—'}</td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{teacher.phone || '—'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">
+                                        {teacher.subjects && teacher.subjects.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1">
+                                                {teacher.subjects.map(sub => (
+                                                    <span key={sub.id} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100">
+                                                        {sub.name}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <span className="text-gray-400 italic">--</span>
+                                        )}
+                                    </td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{teacher.specialization || '—'}</td>
                                     <td className="px-6 py-4">
                                         {teacher.homeroomClassName ? (
@@ -945,6 +1391,16 @@ const TeacherManagement = () => {
                 teacher={deletingTeacher}
                 onClose={() => setDeletingTeacher(null)}
                 onSuccess={fetchData}
+            />
+            <ImportTeacherExcelModal
+                isOpen={showImportModal}
+                onClose={() => setShowImportModal(false)}
+                onSuccess={fetchData}
+                onImportComplete={(result) => setImportResult(result)}
+            />
+            <ImportTeacherSuccessToast
+                result={importResult}
+                onClose={() => setImportResult(null)}
             />
         </div>
     );

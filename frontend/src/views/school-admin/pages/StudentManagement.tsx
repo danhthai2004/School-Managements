@@ -101,75 +101,81 @@ interface ImportSuccessToastProps {
 }
 
 function ImportSuccessToast({ result, onClose }: ImportSuccessToastProps) {
-    const timerRef = React.useRef<number | null>(null);
-
     useEffect(() => {
         if (result) {
-            // Clear any existing timer
-            if (timerRef.current) {
-                clearTimeout(timerRef.current);
-            }
-            // Set new timer
-            timerRef.current = window.setTimeout(() => {
+            const timer = setTimeout(() => {
                 onClose();
             }, 3000);
+            return () => clearTimeout(timer);
         }
-        return () => {
-            if (timerRef.current) {
-                clearTimeout(timerRef.current);
-            }
-        };
-    }, [result]); // Only depend on result, not onClose
+    }, [result, onClose]);
 
     if (!result) return null;
 
-    return (
-        <div
-            className="fixed top-4 right-4 z-[9999]"
-            style={{
-                animation: 'slideIn 0.3s ease-out'
-            }}
-        >
-            <style>{`
-                @keyframes slideIn {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-            `}</style>
-            <div className="bg-white rounded-xl shadow-2xl border border-gray-200 p-4 min-w-[320px]">
-                <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h4 className="font-semibold text-gray-900">Import hoàn tất!</h4>
-                        <p className="text-xs text-gray-500">Tự động đóng sau 3 giây</p>
-                    </div>
-                    <button onClick={onClose} className="ml-auto text-gray-400 hover:text-gray-600">
-                        <XIcon />
-                    </button>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-green-50 rounded-lg p-3 text-center">
-                        <p className="text-2xl font-bold text-green-600">{result.successCount}</p>
-                        <p className="text-xs text-green-700">Thành công</p>
-                    </div>
-                    <div className="bg-red-50 rounded-lg p-3 text-center">
-                        <p className="text-2xl font-bold text-red-600">{result.failedCount}</p>
-                        <p className="text-xs text-red-700">Thất bại</p>
+    return createPortal(
+        <div className="fixed inset-0 z-[110] flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className={`px-6 py-4 ${result.failedCount > 0 ? 'bg-amber-500' : 'bg-emerald-500'}`}>
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-white">Kết quả Import</h3>
+                        <button onClick={onClose} className="text-white/80 hover:text-white">
+                            <XIcon />
+                        </button>
                     </div>
                 </div>
-                {result.assignedToClassCount > 0 && (
-                    <div className="mt-2 bg-blue-50 rounded-lg p-2 text-center">
-                        <p className="text-sm text-blue-700">
-                            <strong>{result.assignedToClassCount}</strong> học sinh đã phân lớp
-                        </p>
+                <div className="p-6">
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div className="text-center p-3 bg-slate-50 rounded-lg">
+                            <div className="text-2xl font-bold text-slate-700">{result.totalRows}</div>
+                            <div className="text-xs text-slate-500">Tổng dòng</div>
+                        </div>
+                        <div className="text-center p-3 bg-emerald-50 rounded-lg">
+                            <div className="text-2xl font-bold text-emerald-600">{result.successCount}</div>
+                            <div className="text-xs text-emerald-600">Thành công</div>
+                        </div>
+                        <div className="text-center p-3 bg-red-50 rounded-lg">
+                            <div className="text-2xl font-bold text-red-600">{result.failedCount}</div>
+                            <div className="text-xs text-red-600">Thất bại</div>
+                        </div>
                     </div>
-                )}
+
+                    {result.assignedToClassCount > 0 && (
+                        <div className="mt-2 bg-blue-50 rounded-lg p-3 text-center mb-4">
+                            <p className="text-sm text-blue-700 font-medium">
+                                <span className="font-bold text-lg mr-1">{result.assignedToClassCount}</span>
+                                học sinh đã được phân lớp
+                            </p>
+                        </div>
+                    )}
+
+                    {result.errors && result.errors.length > 0 && (
+                        <div className="mt-4">
+                            <p className="text-sm font-medium text-slate-700 mb-2">Chi tiết lỗi:</p>
+                            <div className="max-h-40 overflow-y-auto bg-red-50 rounded-lg p-3 text-sm">
+                                {result.errors.map((err, idx) => (
+                                    <div key={idx} className="text-red-700 py-1 border-b border-red-100 last:border-0">
+                                        <span className="font-medium">Dòng {err.rowNumber}</span>
+                                        {err.studentName && <span> ({err.studentName})</span>}: {err.errorMessage}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="mt-4 flex flex-col gap-2">
+                        <p className="text-xs text-center text-slate-400">Tự động đóng sau 3 giây</p>
+                        <button
+                            onClick={onClose}
+                            className="w-full px-4 py-2.5 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition-colors"
+                        >
+                            Đóng
+                        </button>
+                    </div>
+                </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 
@@ -192,6 +198,11 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes }: AddStudentModa
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
     const [classId, setClassId] = useState("");
+    // Assignment state
+    const [assignmentMode, setAssignmentMode] = useState<'MANUAL' | 'AUTO'>("MANUAL");
+    const [autoGrade, setAutoGrade] = useState<number>(10);
+    const [autoDepartment, setAutoDepartment] = useState<'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI'>("KHONG_PHAN_BAN");
+
     const [guardianName, setGuardianName] = useState("");
     const [guardianPhone, setGuardianPhone] = useState("");
     const [guardianEmail, setGuardianEmail] = useState("");
@@ -221,7 +232,9 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes }: AddStudentModa
                 address: address.trim() || undefined,
                 email: email.trim() || undefined,
                 phone: phone.trim() || undefined,
-                classId: classId || undefined,
+                classId: assignmentMode === 'MANUAL' ? (classId || undefined) : undefined,
+                grade: assignmentMode === 'AUTO' ? autoGrade : undefined,
+                department: assignmentMode === 'AUTO' ? autoDepartment : undefined,
                 guardians: guardianName ? [{
                     fullName: guardianName.trim(),
                     phone: guardianPhone.trim() || undefined,
@@ -231,7 +244,8 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes }: AddStudentModa
             };
             await schoolAdminService.createStudent(req);
             setFullName(""); setDateOfBirth(null); setDateInputValue(""); setGender("MALE");
-            setBirthPlace(""); setAddress(""); setEmail(""); setPhone(""); setClassId("");
+            setBirthPlace(""); setAddress(""); setEmail(""); setPhone("");
+            setClassId(""); setAssignmentMode("MANUAL"); setAutoGrade(10); setAutoDepartment("KHONG_PHAN_BAN");
             setGuardianName(""); setGuardianPhone(""); setGuardianEmail(""); setGuardianRelationship("");
             onSuccess();
             onClose();
@@ -415,16 +429,74 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes }: AddStudentModa
                                 </div>
                                 <h3 className="font-semibold text-gray-800">Thông tin học tập</h3>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-600 mb-1.5">Lớp học</label>
-                                <select
-                                    value={classId}
-                                    onChange={(e) => setClassId(e.target.value)}
-                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
-                                >
-                                    <option value="">-- Chọn lớp --</option>
-                                    {classes.map((c) => <option key={c.id} value={c.id}>{c.name} (Khối {c.grade})</option>)}
-                                </select>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-600 mb-2">Hình thức xếp lớp</label>
+                                    <div className="flex gap-4">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="assignmentMode"
+                                                checked={assignmentMode === 'MANUAL'}
+                                                onChange={() => setAssignmentMode('MANUAL')}
+                                                className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                                            />
+                                            <span className="text-gray-700">Chọn lớp cụ thể</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="assignmentMode"
+                                                checked={assignmentMode === 'AUTO'}
+                                                onChange={() => setAssignmentMode('AUTO')}
+                                                className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                                            />
+                                            <span className="text-gray-700">Tự động xếp lớp theo Ban</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {assignmentMode === 'MANUAL' ? (
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-600 mb-1.5">Lớp học</label>
+                                        <select
+                                            value={classId}
+                                            onChange={(e) => setClassId(e.target.value)}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
+                                        >
+                                            <option value="">-- Chọn lớp --</option>
+                                            {classes.map((c) => <option key={c.id} value={c.id}>{c.name} (Khối {c.grade})</option>)}
+                                        </select>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-600 mb-1.5">Khối lớp</label>
+                                            <select
+                                                value={autoGrade}
+                                                onChange={(e) => setAutoGrade(Number(e.target.value))}
+                                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
+                                            >
+                                                <option value={10}>Khối 10</option>
+                                                <option value={11}>Khối 11</option>
+                                                <option value={12}>Khối 12</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-600 mb-1.5">Ban học</label>
+                                            <select
+                                                value={autoDepartment}
+                                                onChange={(e) => setAutoDepartment(e.target.value as any)}
+                                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
+                                            >
+                                                <option value="KHONG_PHAN_BAN">Không phân ban</option>
+                                                <option value="TU_NHIEN">Ban Tự Nhiên</option>
+                                                <option value="XA_HOI">Ban Xã Hội</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

@@ -4,6 +4,7 @@ import com.schoolmanagement.backend.domain.Role;
 import com.schoolmanagement.backend.dto.BulkImportResponse;
 import com.schoolmanagement.backend.dto.ClassRoomDto;
 import com.schoolmanagement.backend.dto.ImportStudentResult;
+import com.schoolmanagement.backend.dto.ImportTeacherResult;
 import com.schoolmanagement.backend.dto.SchoolStatsDto;
 import com.schoolmanagement.backend.dto.StudentDto;
 import com.schoolmanagement.backend.dto.UserDto;
@@ -18,15 +19,16 @@ import com.schoolmanagement.backend.service.CurriculumService;
 import com.schoolmanagement.backend.service.SchoolAdminService;
 import com.schoolmanagement.backend.service.StudentImportService;
 import com.schoolmanagement.backend.service.StudentManagementService;
+import com.schoolmanagement.backend.service.TeacherImportService;
 import com.schoolmanagement.backend.service.TeacherManagementService;
 import com.schoolmanagement.backend.service.UserLookupService;
+import com.schoolmanagement.backend.service.TeacherAssignmentService;
 import com.schoolmanagement.backend.dto.BulkAccountCreationResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-import com.schoolmanagement.backend.domain.entity.User;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -45,7 +47,8 @@ public class SchoolAdminController {
     private final StudentImportService studentImportService;
     private final UserLookupService userLookup;
     private final CurriculumService curriculumService;
-    private final com.schoolmanagement.backend.service.TeacherAssignmentService teacherAssignmentService;
+    private final TeacherAssignmentService teacherAssignmentService;
+    private final TeacherImportService teacherImportService;
 
     public SchoolAdminController(SchoolAdminService schoolAdminService,
             ClassManagementService classManagementService,
@@ -54,7 +57,8 @@ public class SchoolAdminController {
             StudentImportService studentImportService,
             UserLookupService userLookup,
             CurriculumService curriculumService,
-            com.schoolmanagement.backend.service.TeacherAssignmentService teacherAssignmentService) {
+            TeacherAssignmentService teacherAssignmentService,
+            TeacherImportService teacherImportService) {
         this.schoolAdminService = schoolAdminService;
         this.classManagementService = classManagementService;
         this.studentManagementService = studentManagementService;
@@ -63,6 +67,7 @@ public class SchoolAdminController {
         this.userLookup = userLookup;
         this.curriculumService = curriculumService;
         this.teacherAssignmentService = teacherAssignmentService;
+        this.teacherImportService = teacherImportService;
     }
 
     // ==================== STATISTICS ====================
@@ -345,6 +350,24 @@ public class SchoolAdminController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         teacherManagementService.deleteTeacher(admin.getSchool(), teacherId);
+    }
+
+    /**
+     * Import teachers from Excel file
+     * Excel columns: fullName/Họ tên (required), dateOfBirth/Ngày sinh, gender/Giới
+     * tính,
+     * address/Địa chỉ, email, phone/SĐT, specialization/Chuyên môn, degree/Bằng cấp
+     */
+    @Transactional
+    @PostMapping("/teachers/import-excel")
+    public ImportTeacherResult importTeachersFromExcel(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam("file") MultipartFile file) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return teacherImportService.importTeachersFromExcel(admin.getSchool(), file);
     }
 
     // ==================== CURRICULUM MANAGEMENT ====================
