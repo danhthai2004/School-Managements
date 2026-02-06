@@ -4,6 +4,7 @@ import com.schoolmanagement.backend.domain.Role;
 import com.schoolmanagement.backend.dto.BulkImportResponse;
 import com.schoolmanagement.backend.dto.ClassRoomDto;
 import com.schoolmanagement.backend.dto.ImportStudentResult;
+import com.schoolmanagement.backend.dto.ImportTeacherResult;
 import com.schoolmanagement.backend.dto.SchoolStatsDto;
 import com.schoolmanagement.backend.dto.StudentDto;
 import com.schoolmanagement.backend.dto.UserDto;
@@ -18,14 +19,16 @@ import com.schoolmanagement.backend.service.CurriculumService;
 import com.schoolmanagement.backend.service.SchoolAdminService;
 import com.schoolmanagement.backend.service.StudentImportService;
 import com.schoolmanagement.backend.service.StudentManagementService;
+import com.schoolmanagement.backend.service.TeacherImportService;
 import com.schoolmanagement.backend.service.TeacherManagementService;
 import com.schoolmanagement.backend.service.UserLookupService;
+import com.schoolmanagement.backend.service.TeacherAssignmentService;
+import com.schoolmanagement.backend.dto.BulkAccountCreationResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-import com.schoolmanagement.backend.domain.entity.User;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -47,6 +50,7 @@ public class SchoolAdminController {
     private final com.schoolmanagement.backend.service.TeacherAssignmentService teacherAssignmentService;
     private final com.schoolmanagement.backend.service.NotificationService notificationService;
     private final com.schoolmanagement.backend.service.ExamScheduleService examScheduleService;
+    private final TeacherImportService teacherImportService;
 
     public SchoolAdminController(SchoolAdminService schoolAdminService,
             ClassManagementService classManagementService,
@@ -57,7 +61,8 @@ public class SchoolAdminController {
             CurriculumService curriculumService,
             com.schoolmanagement.backend.service.TeacherAssignmentService teacherAssignmentService,
             com.schoolmanagement.backend.service.NotificationService notificationService,
-            com.schoolmanagement.backend.service.ExamScheduleService examScheduleService) {
+            com.schoolmanagement.backend.service.ExamScheduleService examScheduleService,
+            TeacherImportService teacherImportService) {
         this.schoolAdminService = schoolAdminService;
         this.classManagementService = classManagementService;
         this.studentManagementService = studentManagementService;
@@ -68,6 +73,7 @@ public class SchoolAdminController {
         this.teacherAssignmentService = teacherAssignmentService;
         this.notificationService = notificationService;
         this.examScheduleService = examScheduleService;
+        this.teacherImportService = teacherImportService;
     }
 
     // ==================== STATISTICS ====================
@@ -90,6 +96,16 @@ public class SchoolAdminController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         return classManagementService.listClassRooms(admin.getSchool());
+    }
+
+    @GetMapping("/classes/{id}")
+    public ClassRoomDto getClass(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("id") UUID classId) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return classManagementService.getClassRoom(admin.getSchool(), classId);
     }
 
     @Transactional
@@ -129,12 +145,13 @@ public class SchoolAdminController {
     // ==================== STUDENT MANAGEMENT ====================
 
     @GetMapping("/students")
-    public List<StudentDto> listStudents(@AuthenticationPrincipal UserPrincipal principal) {
+    public List<StudentDto> listStudents(@AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) UUID classId) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return studentManagementService.listStudents(admin.getSchool());
+        return studentManagementService.listStudents(admin.getSchool(), classId);
     }
 
     @GetMapping("/students/{id}")
@@ -284,7 +301,7 @@ public class SchoolAdminController {
      */
     @Transactional
     @PostMapping("/students/accounts")
-    public com.schoolmanagement.backend.dto.BulkAccountCreationResponse createStudentAccounts(
+    public BulkAccountCreationResponse createStudentAccounts(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody List<UUID> studentIds) {
         var admin = userLookup.requireById(principal.getId());
@@ -339,6 +356,24 @@ public class SchoolAdminController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         teacherManagementService.deleteTeacher(admin.getSchool(), teacherId);
+    }
+
+    /**
+     * Import teachers from Excel file
+     * Excel columns: fullName/Họ tên (required), dateOfBirth/Ngày sinh, gender/Giới
+     * tính,
+     * address/Địa chỉ, email, phone/SĐT, specialization/Chuyên môn, degree/Bằng cấp
+     */
+    @Transactional
+    @PostMapping("/teachers/import-excel")
+    public ImportTeacherResult importTeachersFromExcel(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam("file") MultipartFile file) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return teacherImportService.importTeachersFromExcel(admin.getSchool(), file);
     }
 
     // ==================== CURRICULUM MANAGEMENT ====================

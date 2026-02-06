@@ -88,18 +88,38 @@ public class TeacherAssignmentService {
             }
 
             // Validate Subject
-            if (teacher.getPrimarySubject() != null
-                    && !teacher.getPrimarySubject().getId().equals(assignment.getSubject().getId())) {
-                // Relaxed validation or strict?
-                // "only teachers assigned to a specific subject can be assigned"
-                throw new ApiException(HttpStatus.BAD_REQUEST,
-                        "Giáo viên có chuyên môn " + teacher.getPrimarySubject().getName() + " không thể dạy môn "
-                                + assignment.getSubject().getName());
+            // Validate Subject
+            boolean canTeach = false;
+            if (teacher.getSubjects() == null || teacher.getSubjects().isEmpty()) {
+                // If no subjects listed, maybe allow? Let's assume strict rule: must have
+                // subject.
+                // Or maybe allow if "Specialization" string matches?
+                // Let's stick to strict: must match one of the assigned subjects.
+            } else {
+                for (com.schoolmanagement.backend.domain.entity.Subject s : teacher.getSubjects()) {
+                    if (s.getId().equals(assignment.getSubject().getId())) {
+                        canTeach = true;
+                        break;
+                    }
+                    // Smart check: Allow if assignment is SPECIALIZED equivalent of a teacher
+                    // subject
+                    String teacherSubjectCode = s.getCode();
+                    String assignmentSubjectCode = assignment.getSubject().getCode();
+                    if (assignmentSubjectCode.startsWith("CD_") && assignmentSubjectCode.contains(teacherSubjectCode)) {
+                        canTeach = true;
+                        break;
+                    }
+                }
             }
-            if (teacher.getPrimarySubject() == null) {
-                // Allow or deny? Maybe warn. Let's start with strict validation if subject is
-                // set.
-                // If teacher subject is null, maybe allow?
+
+            if (!canTeach && !teacher.getSubjects().isEmpty()) {
+                // Format list of subjects
+                String subjectNames = teacher.getSubjects().stream()
+                        .map(com.schoolmanagement.backend.domain.entity.Subject::getName)
+                        .collect(Collectors.joining(", "));
+                throw new ApiException(HttpStatus.BAD_REQUEST,
+                        "Giáo viên có chuyên môn [" + subjectNames + "] không thể dạy môn "
+                                + assignment.getSubject().getName());
             }
         }
 

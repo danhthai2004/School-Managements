@@ -1,7 +1,10 @@
 package com.schoolmanagement.backend.service;
 
+import com.schoolmanagement.backend.domain.ClassDepartment;
 import com.schoolmanagement.backend.domain.ExamStatus;
 import com.schoolmanagement.backend.domain.ExamType;
+import com.schoolmanagement.backend.domain.StreamType;
+import com.schoolmanagement.backend.domain.SubjectType;
 import com.schoolmanagement.backend.domain.entity.*;
 import com.schoolmanagement.backend.dto.ExamScheduleGenerateRequest;
 import com.schoolmanagement.backend.dto.ExamScheduleViewDto;
@@ -116,6 +119,10 @@ public class ExamScheduleService {
                 List<ClassRoom> gradeClassRooms = classRoomsByGrade.get(grade);
                 if (gradeClassRooms == null || gradeClassRooms.isEmpty()) continue;
                 
+                // Filter classrooms that should take this subject's exam
+                List<ClassRoom> eligibleClassRooms = filterEligibleClassRooms(gradeClassRooms, subject);
+                if (eligibleClassRooms.isEmpty()) continue;
+                
                 // Find available slot for this grade (no overlap with other subjects)
                 TimeSlot slot = findAvailableSlotForGrade(
                         request.startDate(), 
@@ -129,12 +136,12 @@ public class ExamScheduleService {
                     continue;
                 }
                 
-                // Create exam for each classroom in this grade with random room assignment
+                // Create exam for each eligible classroom with random room assignment
                 List<String> shuffledRooms = new ArrayList<>(Arrays.asList(EXAM_ROOMS));
                 Collections.shuffle(shuffledRooms);
                 int roomIndex = 0;
                 
-                for (ClassRoom classRoom : gradeClassRooms) {
+                for (ClassRoom classRoom : eligibleClassRooms) {
                     String examRoom = shuffledRooms.get(roomIndex % shuffledRooms.size());
                     roomIndex++;
                     
@@ -158,7 +165,8 @@ public class ExamScheduleService {
                 
                 // Mark slot as used for this grade
                 usedSlotsByGrade.get(grade).add(slot);
-                log.info("Scheduled {} for grade {} at {} {}", subject.getName(), grade, slot.date, slot.startTime);
+                log.info("Scheduled {} for grade {} ({} classes) at {} {}", 
+                        subject.getName(), grade, eligibleClassRooms.size(), slot.date, slot.startTime);
             }
         }
         
@@ -171,6 +179,10 @@ public class ExamScheduleService {
             for (Integer grade : request.grades()) {
                 List<ClassRoom> gradeClassRooms = classRoomsByGrade.get(grade);
                 if (gradeClassRooms == null || gradeClassRooms.isEmpty()) continue;
+                
+                // Filter classrooms that should take this subject's exam
+                List<ClassRoom> eligibleClassRooms = filterEligibleClassRooms(gradeClassRooms, subject);
+                if (eligibleClassRooms.isEmpty()) continue;
                 
                 // Find available slot for this grade
                 TimeSlot slot = findAvailableSlotForGrade(
@@ -185,8 +197,8 @@ public class ExamScheduleService {
                     continue;
                 }
                 
-                // Create exam for each classroom in this grade
-                for (ClassRoom classRoom : gradeClassRooms) {
+                // Create exam for each eligible classroom in this grade
+                for (ClassRoom classRoom : eligibleClassRooms) {
                     ExamSchedule exam = ExamSchedule.builder()
                             .classRoom(classRoom)
                             .subject(subject)
@@ -207,7 +219,8 @@ public class ExamScheduleService {
                 
                 // Mark slot as used for this grade
                 usedSlotsByGrade.get(grade).add(slot);
-                log.info("Scheduled {} for grade {} at {} {}", subject.getName(), grade, slot.date, slot.startTime);
+                log.info("Scheduled {} for grade {} ({} classes) at {} {}", 
+                        subject.getName(), grade, eligibleClassRooms.size(), slot.date, slot.startTime);
             }
         }
         
@@ -373,6 +386,68 @@ public class ExamScheduleService {
                 exam.getAcademicYear(),
                 exam.getSemester()
         );
+    }
+    
+    /**
+     * Filter classrooms that should take a specific subject's exam.
+     * - COMPULSORY subjects: All classes can take the exam
+     * - ELECTIVE/SPECIALIZED subjects: Only classes with matching department/stream
+     *   - If subject has TU_NHIEN stream, only TU_NHIEN department classes
+     *   - If subject has XA_HOI stream, only XA_HOI department classes
+     *   - Classes with KHONG_PHAN_BAN (grade 10) will take both stream exams
+     * - Also check if class has a combination that includes this subject
+     */
+    private List<ClassRoom> filterEligibleClassRooms(List<ClassRoom> classRooms, Subject subject) {
+        SubjectType subjectType = subject.getType();
+        StreamType subjectStream = subject.getStream();
+        
+        // COMPULSORY subjects: all classes take the exam
+        if (subjectType == SubjectType.COMPULSORY) {
+            return classRooms;
+        }
+        
+        // ACTIVITY subjects (like chào cờ, sinh hoạt): skip exams
+        if (subjectType == SubjectType.ACTIVITY) {
+            return new ArrayList<>();
+        }
+        
+        // ELECTIVE or SPECIALIZED subjects: filter by department/stream
+        List<ClassRoom> eligibleClasses = new ArrayList<>();
+        
+        for (ClassRoom classRoom : classRooms) {
+            ClassDepartment classDepartment = classRoom.getDepartment();
+            Combination combination = classRoom.getCombination();
+            
+            // Check 1: If class has a combination, check if subject is in that combination
+            if (combination != null && combination.getSubjects() != null && !combination.getSubjects().isEmpty()) {
+                boolean subjectInCombination = combination.getSubjects().stream()
+                        .anyMatch(s -> s.getId().equals(subject.getId()));
+                if (subjectInCombination) {
+                    eligibleClasses.add(classRoom);
+                    continue;
+                }
+                // If class has a combination but subject is not in it, skip this class
+                continue;
+            }
+            
+            // Check 2: Classes without combination - check department matching
+            // Grade 10 (KHONG_PHAN_BAN) classes can take ALL exams
+            if (classDepartment == null || classDepartment == ClassDepartment.KHONG_PHAN_BAN) {
+                eligibleClasses.add(classRoom);
+                continue;
+            }
+            
+            // Check 3: Match subject stream with class department
+            if (subjectStream != null) {
+                if (subjectStream == StreamType.TU_NHIEN && classDepartment == ClassDepartment.TU_NHIEN) {
+                    eligibleClasses.add(classRoom);
+                } else if (subjectStream == StreamType.XA_HOI && classDepartment == ClassDepartment.XA_HOI) {
+                    eligibleClasses.add(classRoom);
+                }
+            }
+        }
+        
+        return eligibleClasses;
     }
     
     private static class TimeSlot {

@@ -19,6 +19,7 @@ import ActivityLogsPage from "../views/system/ActivityLogsPage";
 import SchoolAdminLayout from "../views/school-admin/SchoolAdminLayout";
 import DashboardOverview from "../views/school-admin/pages/DashboardOverview";
 import ClassManagement from "../views/school-admin/pages/ClassManagement";
+import ClassDetailView from "../views/school-admin/pages/ClassDetailView";
 import StudentManagement from "../views/school-admin/pages/StudentManagement";
 import AccountManagement from "../views/school-admin/pages/AccountManagement";
 import TeacherManagement from "../views/school-admin/pages/TeacherManagement";
@@ -29,6 +30,7 @@ import TimetableManagement from "../views/school-admin/pages/TimetableManagement
 import TimetableDetailView from "../views/school-admin/pages/TimetableDetailView";
 import NotificationManagement from "../views/school-admin/pages/NotificationManagement";
 import ExamScheduleManagement from "../views/school-admin/pages/ExamScheduleManagement";
+import ReportsPage from "../views/school-admin/pages/ReportsPage";
 
 // Student
 import StudentLayout from "../components/layout/StudentLayout";
@@ -38,7 +40,6 @@ import StudentExamSchedulePage from "../views/Student/StudentExamSchedulePage";
 import StudentScoresPage from "../views/Student/StudentScoresPage";
 import StudentAttendancePage from "../views/Student/StudentAttendancePage";
 import StudentAnalysisPage from "../views/Student/StudentAnalysisPage";
-
 
 
 export default function AppRouter() {
@@ -86,6 +87,7 @@ export default function AppRouter() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<DashboardOverview />} />
         <Route path="classes" element={<ClassManagement />} />
+        <Route path="classes/:id" element={<ClassDetailView />} />
         <Route path="students" element={<StudentManagement />} />
         <Route path="teachers" element={<TeacherManagement />} />
         <Route path="accounts" element={<AccountManagement />} />
@@ -96,6 +98,7 @@ export default function AppRouter() {
         <Route path="schedule/:id" element={<TimetableDetailView />} />
         <Route path="notifications" element={<NotificationManagement />} />
         <Route path="exam-schedules" element={<ExamScheduleManagement />} />
+        <Route path="reports" element={<ReportsPage />} />
       </Route>
 
       {/* Student Routes */}

@@ -33,21 +33,25 @@ public class SchoolAdminService {
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
 
+    private final com.schoolmanagement.backend.repo.TeacherRepository teachers;
+
     public SchoolAdminService(UserRepository users, ClassRoomRepository classRooms,
             StudentRepository students,
-            PasswordEncoder passwordEncoder, MailService mailService) {
+            PasswordEncoder passwordEncoder, MailService mailService,
+            com.schoolmanagement.backend.repo.TeacherRepository teachers) {
         this.users = users;
         this.classRooms = classRooms;
         this.students = students;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
+        this.teachers = teachers;
     }
 
     // ==================== SCHOOL STATS ====================
 
     public SchoolStatsDto getSchoolStats(School school) {
         long totalClasses = classRooms.countBySchool(school);
-        long totalTeachers = users.countBySchoolAndRole(school, Role.TEACHER);
+        long totalTeachers = teachers.countBySchool(school);
         long totalStudents = students.countBySchool(school);
 
         int year = java.time.LocalDate.now().getYear();

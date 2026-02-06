@@ -447,6 +447,22 @@ public class AutoScheduleService {
                 Teacher teacher = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject)
                         .map(TeacherAssignment::getTeacher).orElse(null);
 
+                // Smart Fallback: If no teacher assigned to CD_SUBJECT, check usage of base
+                // Subject teacher
+                if (teacher == null && subject.getCode().startsWith("CD_")) {
+                    String baseCode = subject.getCode().replace("CD_", "");
+                    // Find base subject teacher for this class
+                    var baseSubjectOpt = subjectRepository.findByCode(baseCode);
+                    if (baseSubjectOpt.isPresent()) {
+                        teacher = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, baseSubjectOpt.get())
+                                .map(TeacherAssignment::getTeacher).orElse(null);
+                        if (teacher != null) {
+                            log.info("Using implicit teacher {} from {} for specialized subject {}",
+                                    teacher.getFullName(), baseCode, subject.getCode());
+                        }
+                    }
+                }
+
                 // Use the shared scheduling method
                 scheduleSubject(timetable, classroom, subject, teacher, true, context);
             }

@@ -1,9 +1,7 @@
 package com.schoolmanagement.backend.service;
 
 import com.schoolmanagement.backend.domain.entity.Province;
-import com.schoolmanagement.backend.domain.entity.Ward;
 import com.schoolmanagement.backend.repo.ProvinceRepository;
-import com.schoolmanagement.backend.repo.WardRepository;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,15 +21,13 @@ public class LocationDataInitService {
     private static final String PROVINCES_API = "https://provinces.open-api.vn/api/v2/?depth=2";
 
     private final ProvinceRepository provinceRepository;
-    private final WardRepository wardRepository;
     private final RestTemplate restTemplate;
 
     @Value("${app.init-location-data:true}")
     private boolean initLocationData;
 
-    public LocationDataInitService(ProvinceRepository provinceRepository, WardRepository wardRepository) {
+    public LocationDataInitService(ProvinceRepository provinceRepository) {
         this.provinceRepository = provinceRepository;
-        this.wardRepository = wardRepository;
         this.restTemplate = new RestTemplate();
     }
 
@@ -70,25 +66,9 @@ public class LocationDataInitService {
                         .phoneCode((Integer) p.get("phone_code"))
                         .build();
                 provinceRepository.save(province);
-
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> wards = (List<Map<String, Object>>) p.get("wards");
-                if (wards != null) {
-                    for (Map<String, Object> w : wards) {
-                        Ward ward = Ward.builder()
-                                .code((Integer) w.get("code"))
-                                .name((String) w.get("name"))
-                                .codename((String) w.get("codename"))
-                                .divisionType((String) w.get("division_type"))
-                                .provinceCode(province.getCode())
-                                .build();
-                        wardRepository.save(ward);
-                    }
-                }
             }
 
-            log.info("Location data initialized: {} provinces, {} wards",
-                    provinceRepository.count(), wardRepository.count());
+            log.info("Location data initialized: {} provinces", provinceRepository.count());
         } catch (Exception e) {
             log.error("Failed to fetch location data: {}", e.getMessage());
         }
