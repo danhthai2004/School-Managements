@@ -5,20 +5,20 @@ import jakarta.validation.constraints.NotBlank;
 import java.time.LocalDate;
 
 public record CreateTeacherRequest(
-                String teacherCode,
+        String teacherCode,
 
-                @NotBlank(message = "Tên giáo viên không được để trống") String fullName,
+        @NotBlank(message = "Tên giáo viên không được để trống") String fullName,
 
-                LocalDate dateOfBirth,
-                Gender gender,
-                String address,
+        LocalDate dateOfBirth,
+        Gender gender,
+        String address,
 
-                String email,
-                String phone,
-                String specialization,
-                String degree,
+        String email,
+        String phone,
+        String specialization,
+        String degree,
 
-                java.util.UUID subjectId,
+        java.util.List<java.util.UUID> subjectIds,
 
-                boolean createAccount) {
+        boolean createAccount) {
 }

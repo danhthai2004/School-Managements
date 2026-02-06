@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,7 +40,7 @@ public class ReportService {
 
         public ReportOverviewDto getSchoolOverview(School school) {
                 long totalStudents = studentRepository.countBySchool(school);
-                long totalTeachers = teacherRepository.findAllBySchoolOrderByFullNameAsc(school).size();
+                long totalTeachers = teacherRepository.countBySchool(school);
                 long totalClasses = classRoomRepository.countBySchool(school);
                 String currentAcademicYear = getCurrentAcademicYear();
 
@@ -262,10 +263,10 @@ public class ReportService {
                 long activeTeachers = allTeachers.stream().filter(t -> "ACTIVE".equals(t.getStatus())).count();
                 long inactiveTeachers = totalTeachers - activeTeachers;
 
-                // Teachers by subject
-                Map<Subject, Long> teachersBySubject = allTeachers.stream()
-                                .filter(t -> t.getPrimarySubject() != null)
-                                .collect(Collectors.groupingBy(Teacher::getPrimarySubject, Collectors.counting()));
+                // Teachers by subject (Count teacher for EACH subject they teach)
+                Map<com.schoolmanagement.backend.domain.entity.Subject, Long> teachersBySubject = allTeachers.stream()
+                                .flatMap(t -> t.getSubjects().stream())
+                                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
                 List<TeacherBySubjectDto> teachersBySubjectList = teachersBySubject.entrySet().stream()
                                 .map(e -> new TeacherBySubjectDto(e.getKey().getId(), e.getKey().getName(),
@@ -287,9 +288,14 @@ public class ReportService {
                                         int totalPeriods = assignments.stream()
                                                         .mapToInt(TeacherAssignment::getLessonsPerWeek)
                                                         .sum();
-                                        String primarySubjectName = t.getPrimarySubject() != null
-                                                        ? t.getPrimarySubject().getName()
-                                                        : "N/A";
+
+                                        String primarySubjectName = t.getSubjects().stream()
+                                                        .map(com.schoolmanagement.backend.domain.entity.Subject::getName)
+                                                        .collect(Collectors.joining(", "));
+                                        if (primarySubjectName.isEmpty()) {
+                                                primarySubjectName = "N/A";
+                                        }
+
                                         return new TeacherWorkloadDto(
                                                         t.getId(), t.getTeacherCode(), t.getFullName(),
                                                         primarySubjectName, assignedClasses, totalPeriods);
