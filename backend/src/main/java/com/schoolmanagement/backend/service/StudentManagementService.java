@@ -1,9 +1,25 @@
 package com.schoolmanagement.backend.service;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.schoolmanagement.backend.domain.ClassRoomStatus;
 import com.schoolmanagement.backend.domain.Role;
 import com.schoolmanagement.backend.domain.StudentStatus;
-import com.schoolmanagement.backend.domain.entity.*;
+import com.schoolmanagement.backend.domain.entity.ClassEnrollment;
+import com.schoolmanagement.backend.domain.entity.ClassRoom;
+import com.schoolmanagement.backend.domain.entity.Guardian;
+import com.schoolmanagement.backend.domain.entity.School;
+import com.schoolmanagement.backend.domain.entity.Student;
+import com.schoolmanagement.backend.domain.entity.User;
 import com.schoolmanagement.backend.dto.BulkAccountCreationResponse;
 import com.schoolmanagement.backend.dto.StudentDto;
 import com.schoolmanagement.backend.dto.UserDto;
@@ -15,16 +31,6 @@ import com.schoolmanagement.backend.repo.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.GuardianRepository;
 import com.schoolmanagement.backend.repo.StudentRepository;
 import com.schoolmanagement.backend.repo.UserRepository;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 @Service
 public class StudentManagementService {
@@ -181,6 +187,15 @@ public class StudentManagementService {
         }
 
         return toStudentDto(student);
+    }
+    
+    // Find student with Guardian ID
+    @Transactional(readOnly = true) 
+    public StudentDto getStudentWithGuardian(String guardianEmail) {
+        Guardian guardian = guardians.findByEmail(guardianEmail)
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy phụ huynh"));
+
+        return toStudentDto(guardian.getStudent());
     }
 
     @Transactional

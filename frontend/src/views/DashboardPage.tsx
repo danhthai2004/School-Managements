@@ -12,6 +12,8 @@ export default function DashboardPage() {
       navigate("/school-admin/dashboard", { replace: true });
     } else if (user?.role === "SYSTEM_ADMIN") {
       navigate("/system/overview", { replace: true });
+    } else if (user?.role === "GUARDIAN") {
+      navigate("/guardian/overview", {replace: true})
     }
   }, [user?.role, navigate]);
 
