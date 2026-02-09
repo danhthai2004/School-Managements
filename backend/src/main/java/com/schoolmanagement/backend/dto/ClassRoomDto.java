@@ -10,6 +10,7 @@ public record ClassRoomDto(
         int maxCapacity,
         String roomNumber,
         String department,
+        String session, // SANG or CHIEU
         String status,
         UUID homeroomTeacherId,
         String homeroomTeacherName,

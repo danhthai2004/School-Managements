@@ -401,14 +401,15 @@ public class ExamScheduleService {
         SubjectType subjectType = subject.getType();
         StreamType subjectStream = subject.getStream();
         
-        // COMPULSORY subjects: all classes take the exam
-        if (subjectType == SubjectType.COMPULSORY) {
-            return classRooms;
+        // COMPULSORY subjects: all classes take the exam (except CC and SHL)
+        // Skip CC and SHL (Chào cờ, Sinh hoạt lớp) - they don't have exams
+        String code = subject.getCode();
+        if ("CC".equals(code) || "SHL".equals(code)) {
+            return new ArrayList<>();
         }
         
-        // ACTIVITY subjects (like chào cờ, sinh hoạt): skip exams
-        if (subjectType == SubjectType.ACTIVITY) {
-            return new ArrayList<>();
+        if (subjectType == SubjectType.COMPULSORY) {
+            return classRooms;
         }
         
         // ELECTIVE or SPECIALIZED subjects: filter by department/stream

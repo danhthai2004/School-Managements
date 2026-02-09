@@ -72,6 +72,8 @@ public class ClassManagementService {
                 .roomNumber(req.roomNumber())
                 .department(req.department() != null ? req.department()
                         : com.schoolmanagement.backend.domain.ClassDepartment.KHONG_PHAN_BAN)
+                .session(req.session() != null ? req.session()
+                        : com.schoolmanagement.backend.domain.SessionType.SANG)
                 .school(school)
                 .homeroomTeacher(teacher)
                 .combination(combination)
@@ -129,6 +131,8 @@ public class ClassManagementService {
         classRoom.setRoomNumber(req.roomNumber());
         classRoom.setDepartment(req.department() != null ? req.department()
                 : com.schoolmanagement.backend.domain.ClassDepartment.KHONG_PHAN_BAN);
+        classRoom.setSession(req.session() != null ? req.session()
+                : com.schoolmanagement.backend.domain.SessionType.SANG);
         classRoom.setHomeroomTeacher(teacher);
         classRoom.setCombination(combination);
 
@@ -178,6 +182,7 @@ public class ClassManagementService {
                 classRoom.getMaxCapacity(),
                 classRoom.getRoomNumber(),
                 classRoom.getDepartment() != null ? classRoom.getDepartment().name() : null,
+                classRoom.getSession() != null ? classRoom.getSession().name() : "SANG",
                 classRoom.getStatus().name(),
                 teacher != null ? teacher.getId() : null,
                 teacher != null ? teacher.getFullName() : null,

@@ -92,6 +92,28 @@ export default function StudentExamSchedulePage() {
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     };
 
+    // Check if exam is completed based on end time (date + startTime + duration)
+    const isExamCompleted = (exam: ExamScheduleDto) => {
+        if (exam.status === "COMPLETED") return true;
+
+        const now = new Date();
+        const examDate = new Date(exam.examDate);
+
+        // Parse start time (HH:mm:ss or HH:mm)
+        const [hours, minutes] = exam.startTime.split(':').map(Number);
+
+        // Calculate end time
+        const endMinutes = hours * 60 + minutes + exam.duration;
+        const endHours = Math.floor(endMinutes / 60);
+        const endMins = endMinutes % 60;
+
+        // Set exam end datetime
+        examDate.setHours(endHours, endMins, 0, 0);
+
+        // If current time is past exam end time, it's completed
+        return now > examDate;
+    };
+
     // Filter exams by type (client-side)
     const filteredExams = exams.filter(exam => {
         if (selectedType !== "all" && exam.examType !== selectedType) {
@@ -109,8 +131,8 @@ export default function StudentExamSchedulePage() {
     const examSummary = {
         midterm: sortedExams.filter(e => e.examType === "MIDTERM").length,
         final: sortedExams.filter(e => e.examType === "FINAL").length,
-        upcoming: sortedExams.filter(e => getDaysUntil(e.examDate) >= 0 && e.status !== "COMPLETED").length,
-        completed: sortedExams.filter(e => e.status === "COMPLETED" || getDaysUntil(e.examDate) < 0).length,
+        upcoming: sortedExams.filter(e => !isExamCompleted(e)).length,
+        completed: sortedExams.filter(e => isExamCompleted(e)).length,
     };
 
     if (loading) {
@@ -210,7 +232,7 @@ export default function StudentExamSchedulePage() {
                     <div className="divide-y divide-gray-100">
                         {sortedExams.map((exam) => {
                             const daysUntil = getDaysUntil(exam.examDate);
-                            const isCompleted = exam.status === "COMPLETED" || daysUntil < 0;
+                            const isCompleted = isExamCompleted(exam);
                             const isUrgent = !isCompleted && daysUntil <= 3 && daysUntil >= 0;
 
                             return (

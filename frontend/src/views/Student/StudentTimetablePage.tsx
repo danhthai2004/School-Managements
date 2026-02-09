@@ -98,9 +98,6 @@ export default function StudentTimetablePage() {
         );
     }
 
-    // Generate 10 periods for the table
-    const periods = Array.from({ length: 10 }, (_, i) => i + 1);
-
     return (
         <div className="animate-fade-in-up space-y-6">
             {/* Header */}
@@ -152,7 +149,44 @@ export default function StudentTimetablePage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {periods.map((period) => (
+                            {/* Morning session header */}
+                            <tr className="bg-blue-50 border-b border-blue-100">
+                                <td colSpan={days.length + 1} className="px-4 py-2 text-center">
+                                    <span className="text-sm font-semibold text-blue-600">🌅 BUỔI SÁNG (Tiết 1-5)</span>
+                                </td>
+                            </tr>
+                            {[1, 2, 3, 4, 5].map((period) => (
+                                <tr key={period} className={`border-b border-gray-50 ${period === 5 ? 'border-b-2 border-gray-200' : ''}`}>
+                                    <td className="px-4 py-2 text-center">
+                                        <span className="text-sm font-medium text-gray-600">{period}</span>
+                                    </td>
+                                    {days.map((day) => {
+                                        const slot = getSlotForDayAndPeriod(day.value, period);
+                                        const colors = slot ? getSubjectColor(slot.subjectName) : null;
+
+                                        return (
+                                            <td key={day.value} className="px-2 py-1.5">
+                                                {slot ? (
+                                                    <div className={`${colors?.bg} ${colors?.text} rounded-lg p-2 text-center min-h-[50px] flex flex-col justify-center`}>
+                                                        <div className="font-medium text-sm">{slot.subjectName}</div>
+                                                        <div className="text-xs opacity-75">{slot.room || ""}</div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="min-h-[50px]"></div>
+                                                )}
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            ))}
+
+                            {/* Afternoon session header */}
+                            <tr className="bg-orange-50 border-b border-orange-100">
+                                <td colSpan={days.length + 1} className="px-4 py-2 text-center">
+                                    <span className="text-sm font-semibold text-orange-600">🌇 BUỔI CHIỀU (Tiết 6-9)</span>
+                                </td>
+                            </tr>
+                            {[6, 7, 8, 9].map((period) => (
                                 <tr key={period} className="border-b border-gray-50 last:border-0">
                                     <td className="px-4 py-2 text-center">
                                         <span className="text-sm font-medium text-gray-600">{period}</span>

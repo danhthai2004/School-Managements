@@ -7,6 +7,7 @@ interface Subject {
     id: string;
     name: string;
     code: string;
+    type?: string;
     isElective?: boolean;
 }
 
@@ -87,8 +88,12 @@ export default function ExamScheduleManagement() {
             });
             if (res.ok) {
                 const data = await res.json();
-                setSubjects(data);
-                setSelectedSubjects(data.map((s: Subject) => s.id));
+                // Filter out ACTIVITY subjects (Chào cờ, Sinh hoạt lớp)
+                const filteredData = data.filter((s: Subject) =>
+                    s.type !== 'ACTIVITY' && s.code !== 'CC' && s.code !== 'SHL'
+                );
+                setSubjects(filteredData);
+                setSelectedSubjects(filteredData.map((s: Subject) => s.id));
             }
         } catch (err) {
             console.error("Error fetching subjects:", err);
