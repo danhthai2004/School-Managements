@@ -263,7 +263,8 @@ public class AuthService {
     private UserDto toDto(User user) {
         UUID schoolId = user.getSchool() != null ? user.getSchool().getId() : null;
         String schoolCode = user.getSchool() != null ? user.getSchool().getCode() : null;
-        return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), schoolId, schoolCode);
+        return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), schoolId, schoolCode,
+                user.isEnabled());
     }
 
     /**

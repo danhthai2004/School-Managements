@@ -19,7 +19,8 @@ public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment
 
     List<ClassEnrollment> findAllByClassRoomAndAcademicYear(ClassRoom classRoom, String academicYear);
 
-    Optional<ClassEnrollment> findByStudentAndAcademicYear(Student student, String academicYear);
+    Optional<ClassEnrollment> findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(Student student,
+            String academicYear);
 
     boolean existsByStudentAndClassRoomAndAcademicYear(Student student, ClassRoom classRoom, String academicYear);
 

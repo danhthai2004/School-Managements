@@ -40,6 +40,86 @@ public class TeacherManagementService {
         this.subjects = subjects;
     }
 
+    // ==================== TEACHER ACCOUNT MANAGEMENT ====================
+
+    @Transactional(readOnly = true)
+    public List<TeacherDto> getTeachersEligibleForAccount(School school) {
+        return teachers.findAllBySchoolOrderByTeacherCodeAsc(school).stream()
+                .filter(t -> "ACTIVE".equals(t.getStatus()) && t.getEmail() != null && !t.getEmail().isBlank()
+                        && t.getUser() == null)
+                .map(this::toTeacherDto)
+                .toList();
+    }
+
+    @Transactional
+    public com.schoolmanagement.backend.dto.UserDto createAccountForTeacher(School school, UUID teacherId) {
+        Teacher teacher = teachers.findById(teacherId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên"));
+
+        if (!teacher.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Giáo viên không thuộc trường này");
+        }
+
+        if (!"ACTIVE".equals(teacher.getStatus())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Chỉ có thể tạo tài khoản cho giáo viên đang hoạt động");
+        }
+
+        if (teacher.getEmail() == null || teacher.getEmail().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Giáo viên chưa có email");
+        }
+
+        if (teacher.getUser() != null) {
+            throw new ApiException(HttpStatus.CONFLICT, "Giáo viên đã có tài khoản");
+        }
+
+        if (users.existsByEmailIgnoreCase(teacher.getEmail())) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Email đã được sử dụng cho tài khoản khác: " + teacher.getEmail());
+        }
+
+        String tempPassword = RandomUtil.generateTempPassword(12);
+
+        User user = User.builder()
+                .email(teacher.getEmail())
+                .fullName(teacher.getFullName())
+                .role(Role.TEACHER)
+                .school(school)
+                .passwordHash(passwordEncoder.encode(tempPassword))
+                .firstLogin(true)
+                .enabled(true)
+                .build();
+
+        user = users.save(user); // Save first to get ID
+        teacher.setUser(user);
+        teachers.save(teacher);
+
+        mailService.sendTempPasswordEmail(user.getEmail(), user.getFullName(), tempPassword);
+
+        return new com.schoolmanagement.backend.dto.UserDto(user.getId(), user.getEmail(), user.getFullName(),
+                user.getRole(), school.getId(),
+                school.getCode(), user.isEnabled());
+    }
+
+    @Transactional
+    public com.schoolmanagement.backend.dto.BulkAccountCreationResponse createAccountsForTeachers(School school,
+            List<UUID> teacherIds) {
+        int created = 0;
+        int skipped = 0;
+        java.util.List<String> errors = new java.util.ArrayList<>();
+
+        for (UUID teacherId : teacherIds) {
+            try {
+                createAccountForTeacher(school, teacherId);
+                created++;
+            } catch (ApiException e) {
+                skipped++;
+                errors.add(teacherId + ": " + e.getMessage());
+            }
+        }
+
+        return new com.schoolmanagement.backend.dto.BulkAccountCreationResponse(created, skipped, errors);
+    }
+
     // ==================== TEACHER MANAGEMENT ====================
 
     @Transactional
