@@ -18,5 +18,7 @@ public record CreateTeacherRequest(
         String specialization,
         String degree,
 
+        java.util.List<java.util.UUID> subjectIds,
+
         boolean createAccount) {
 }

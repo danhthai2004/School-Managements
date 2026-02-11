@@ -17,5 +17,7 @@ public record TeacherDto(
                 String status,
                 UUID homeroomClassId,
                 String homeroomClassName,
+                java.util.List<SubjectDto> subjects,
+                String subjectName,
                 String avatarUrl) {
 }

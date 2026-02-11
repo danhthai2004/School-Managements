@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, Outlet, NavLink } from "react-router-dom";
+import { Link, Outlet, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
     HomeIcon,
@@ -15,10 +15,11 @@ import {
     LockIcon,
     TeacherIcon
 } from "./SchoolAdminIcons";
+import { BookOpen } from "lucide-react";
 
 export default function SchoolAdminLayout() {
     const { user, logout } = useAuth();
-    // const location = useLocation(); // Unused
+    const location = useLocation();
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
@@ -26,10 +27,29 @@ export default function SchoolAdminLayout() {
         { path: "/school-admin/dashboard", label: "Tổng quan", icon: <HomeIcon /> },
         { path: "/school-admin/classes", label: "Quản lý lớp học", icon: <ClassIcon /> },
         { path: "/school-admin/students", label: "Quản lý học sinh", icon: <StudentIcon /> },
-        { path: "/school-admin/teachers", label: "Quản lý giáo viên", icon: <TeacherIcon /> },
+        {
+            label: "Quản lý giáo viên",
+            icon: <TeacherIcon />,
+            children: [
+                { path: "/school-admin/teachers", label: "Danh sách giáo viên" },
+                { path: "/school-admin/assignments", label: "Phân công chuyên môn" }
+            ]
+        },
         { path: "/school-admin/accounts", label: "Quản lý tài khoản", icon: <UsersIcon /> },
-        { path: "/school-admin/schedule", label: "Quản lý lịch học", icon: <CalendarIcon /> },
+        { path: "/school-admin/subjects", label: "Quản lý Môn học & Tổ hợp", icon: <BookOpen className="w-5 h-5" /> },
+        { path: "/school-admin/schedule", label: "Thời khóa biểu", icon: <CalendarIcon /> },
+        { path: "/school-admin/reports", label: "Báo cáo & Thống kê", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> },
     ];
+
+    // State for expanded menus (using labels as keys)
+    const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
+        "Quản lý giáo viên": true
+    });
+
+    const toggleMenu = (label: string) => {
+        setExpandedMenus(prev => ({ ...prev, [label]: !prev[label] }));
+        if (sidebarCollapsed) setSidebarCollapsed(false);
+    };
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -79,25 +99,75 @@ export default function SchoolAdminLayout() {
                 </div>
 
                 {/* Menu */}
-                <nav className="flex-1 p-4 space-y-1">
-                    {menuItems.map((item) => (
-                        <NavLink
-                            key={item.path}
-                            to={item.path}
-                            className={({ isActive }) => `
-                                w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm
-                                ${isActive
-                                    ? "bg-blue-50 text-blue-700 font-medium"
-                                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                                }
-                                ${sidebarCollapsed ? 'justify-center' : ''}
-                            `}
-                            title={sidebarCollapsed ? item.label : undefined}
-                        >
-                            {item.icon}
-                            {!sidebarCollapsed && <span>{item.label}</span>}
-                        </NavLink>
-                    ))}
+                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+                    {menuItems.map((item: any, index) => {
+                        if (item.children) {
+                            const isExpanded = expandedMenus[item.label || ""];
+                            const isActiveParent = item.children.some((child: any) => location.pathname === child.path);
+
+                            return (
+                                <div key={index} className="space-y-1">
+                                    <button
+                                        onClick={() => toggleMenu(item.label || "")}
+                                        className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all text-sm group
+                                            ${isActiveParent ? 'text-blue-700 bg-blue-50 font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}
+                                            ${sidebarCollapsed ? 'justify-center' : ''}
+                                        `}
+                                        title={sidebarCollapsed ? item.label : undefined}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            {item.icon}
+                                            {!sidebarCollapsed && <span>{item.label}</span>}
+                                        </div>
+                                        {!sidebarCollapsed && (
+                                            <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        )}
+                                    </button>
+
+                                    {/* Submenu */}
+                                    {isExpanded && !sidebarCollapsed && (
+                                        <div className="pl-10 space-y-1">
+                                            {item.children.map((child: any) => (
+                                                <NavLink
+                                                    key={child.path}
+                                                    to={child.path}
+                                                    className={({ isActive }) => `
+                                                        block text-sm py-2 px-3 rounded-lg transition-colors
+                                                        ${isActive
+                                                            ? 'text-blue-600 bg-blue-100/50 font-medium'
+                                                            : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}
+                                                    `}
+                                                >
+                                                    {child.label}
+                                                </NavLink>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        }
+
+                        return (
+                            <NavLink
+                                key={item.path}
+                                to={item.path}
+                                className={({ isActive }) => `
+                                    w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm
+                                    ${isActive
+                                        ? "bg-blue-50 text-blue-700 font-medium"
+                                        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                                    }
+                                    ${sidebarCollapsed ? 'justify-center' : ''}
+                                `}
+                                title={sidebarCollapsed ? item.label : undefined}
+                            >
+                                {item.icon}
+                                {!sidebarCollapsed && <span>{item.label}</span>}
+                            </NavLink>
+                        );
+                    })}
                 </nav>
 
                 {/* Logout */}

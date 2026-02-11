@@ -21,6 +21,8 @@ export type ClassRoomDto = {
     homeroomTeacherId: string | null;
     homeroomTeacherName: string | null;
     studentCount: number;
+    combinationId: string | null;
+    combinationName: string | null;
 };
 
 export type CreateClassRoomRequest = {
@@ -31,6 +33,7 @@ export type CreateClassRoomRequest = {
     roomNumber?: string;
     department?: 'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI';
     homeroomTeacherId?: string;
+    combinationId?: string;
 };
 
 export type UserDto = {
@@ -40,6 +43,7 @@ export type UserDto = {
     role: string;
     schoolId: string;
     schoolCode: string;
+    enabled: boolean;
 };
 
 export type GuardianDto = {
@@ -48,6 +52,8 @@ export type GuardianDto = {
     phone: string | null;
     email: string | null;
     relationship: string | null;
+    studentName: string;
+    studentClass: string;
 };
 
 export type StudentDto = {
@@ -66,6 +72,18 @@ export type StudentDto = {
     currentClassName: string | null;
     currentClassId: string | null;
     guardians: GuardianDto[];
+};
+
+export type ClassEnrollmentHistoryDto = {
+    enrollmentId: string;
+    classId: string;
+    className: string;
+    academicYear: string;
+    enrolledAt: string;
+};
+
+export type StudentProfileDto = StudentDto & {
+    enrollmentHistory: ClassEnrollmentHistoryDto[];
 };
 
 export type GuardianRequest = {
@@ -87,6 +105,8 @@ export type CreateStudentRequest = {
     enrollmentDate?: string;
     classId?: string;
     academicYear?: string;
+    department?: 'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI';
+    grade?: number;
     guardians?: GuardianRequest[];
 };
 
@@ -111,6 +131,8 @@ export type UpdateGuardianRequest = {
     email?: string;
     relationship?: string;
 };
+
+
 export type TeacherDto = {
     id: string;
     teacherCode: string;
@@ -125,6 +147,8 @@ export type TeacherDto = {
     status: string;
     homeroomClassId: string | null;
     homeroomClassName: string | null;
+    subjects: SubjectDto[];
+    subjectNames: string | null;
     avatarUrl: string | null;
 };
 
@@ -138,7 +162,20 @@ export type CreateTeacherRequest = {
     phone?: string;
     specialization?: string;
     degree?: string;
+    subjectIds?: string[];
     createAccount: boolean;
+};
+
+export type BulkPromoteRequest = {
+    studentIds: string[];
+    targetGrade: number;
+    targetAcademicYear: string;
+};
+
+export type BulkPromoteResponse = {
+    promoted: number;
+    skipped: number;
+    errors: string[];
 };
 
 // ==================== SERVICE ====================
@@ -158,6 +195,11 @@ export const schoolAdminService = {
 
     createClass: async (req: CreateClassRoomRequest): Promise<ClassRoomDto> => {
         const res = await api.post<ClassRoomDto>("/school/classes", req);
+        return res.data;
+    },
+
+    getClass: async (id: string): Promise<ClassRoomDto> => {
+        const res = await api.get<ClassRoomDto>(`/school/classes/${id}`);
         return res.data;
     },
 
@@ -195,15 +237,41 @@ export const schoolAdminService = {
         await api.delete(`/school/teachers/${teacherId}`);
     },
 
+    // Import teachers from Excel
+    importTeachersFromExcel: async (file: File): Promise<ImportTeacherResult> => {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await api.post<ImportTeacherResult>("/school/teachers/import-excel", formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
+        return res.data;
+    },
+
+
+
     // Users
     listUsers: async (): Promise<UserDto[]> => {
         const res = await api.get<UserDto[]>("/school/users");
         return res.data;
     },
 
+    resetPassword: async (userId: string): Promise<void> => {
+        await api.post(`/school/users/${userId}/reset-password`);
+    },
+
+    updateUserStatus: async (userId: string, enabled: boolean): Promise<void> => {
+        await api.put(`/school/users/${userId}/status`, null, {
+            params: { enabled }
+        });
+    },
+
     // Students
-    listStudents: async (): Promise<StudentDto[]> => {
-        const res = await api.get<StudentDto[]>("/school/students");
+    listStudents: async (classId?: string): Promise<StudentDto[]> => {
+        const params = classId ? { classId } : {};
+        const res = await api.get<StudentDto[]>("/school/students", { params });
         return res.data;
     },
 
@@ -219,6 +287,24 @@ export const schoolAdminService = {
 
     updateStudent: async (studentId: string, req: UpdateStudentRequest): Promise<StudentDto> => {
         const res = await api.put<StudentDto>(`/school/students/${studentId}`, req);
+        return res.data;
+    },
+
+    getStudentProfile: async (studentId: string): Promise<StudentProfileDto> => {
+        const res = await api.get<StudentProfileDto>(`/school/students/${studentId}/profile`);
+        return res.data;
+    },
+
+    transferStudent: async (studentId: string, newClassId: string): Promise<StudentProfileDto> => {
+        const res = await api.post<StudentProfileDto>(`/school/students/${studentId}/transfer`, null, {
+            params: { newClassId }
+        });
+        return res.data;
+    },
+
+    // Bulk Promotion
+    promoteStudents: async (req: BulkPromoteRequest): Promise<BulkPromoteResponse> => {
+        const res = await api.post<BulkPromoteResponse>("/school/students/promote", req);
         return res.data;
     },
 
@@ -257,6 +343,72 @@ export const schoolAdminService = {
         const res = await api.post<BulkAccountCreationResponse>("/school/students/accounts", studentIds);
         return res.data;
     },
+
+    // Teacher Account Management
+    getTeachersEligibleForAccount: async (): Promise<TeacherDto[]> => {
+        const res = await api.get<TeacherDto[]>("/school/teachers/no-account");
+        return res.data;
+    },
+
+    createTeacherAccounts: async (teacherIds: string[]): Promise<BulkAccountCreationResponse> => {
+        const res = await api.post<BulkAccountCreationResponse>("/school/teachers/accounts", teacherIds);
+        return res.data;
+    },
+
+    // Guardian Account Management
+    getGuardiansEligibleForAccount: async (): Promise<GuardianDto[]> => {
+        const res = await api.get<GuardianDto[]>("/school/guardians/eligible-for-account");
+        return res.data;
+    },
+
+    createGuardianAccounts: async (guardianIds: string[]): Promise<BulkAccountCreationResponse> => {
+        const res = await api.post<BulkAccountCreationResponse>("/school/guardians/accounts", guardianIds);
+        return res.data;
+    },
+
+    // Curriculum
+    listSubjects: async (): Promise<SubjectDto[]> => {
+        const res = await api.get<SubjectDto[]>("/school/subjects");
+        return res.data;
+    },
+
+    listCombinations: async (): Promise<CombinationDto[]> => {
+        const res = await api.get<CombinationDto[]>("/school/combinations");
+        return res.data;
+    },
+
+    createCombination: async (req: CreateCombinationRequest): Promise<CombinationDto> => {
+        const res = await api.post<CombinationDto>("/school/combinations", req);
+        return res.data;
+    },
+
+    updateCombination: async (id: string, req: CreateCombinationRequest): Promise<CombinationDto> => {
+        const res = await api.put<CombinationDto>(`/school/combinations/${id}`, req);
+        return res.data;
+    },
+
+    deleteCombination: async (id: string): Promise<void> => {
+        await api.delete(`/school/combinations/${id}`);
+    },
+
+    // Teacher Assignments
+    initializeAssignments: async (): Promise<void> => {
+        await api.post("/school/assignments/init");
+    },
+
+    listAssignments: async (classId?: string): Promise<import("./dtos/TeacherAssignmentDto").TeacherAssignmentDto[]> => {
+        const res = await api.get<import("./dtos/TeacherAssignmentDto").TeacherAssignmentDto[]>("/school/assignments", {
+            params: { classId }
+        });
+        return res.data;
+    },
+
+    assignTeacher: async (assignmentId: string, teacherId: string | null): Promise<import("./dtos/TeacherAssignmentDto").TeacherAssignmentDto> => {
+        const res = await api.put<import("./dtos/TeacherAssignmentDto").TeacherAssignmentDto>(`/school/assignments/${assignmentId}/teacher`, {
+            teacherId
+        });
+        return res.data;
+    },
 };
 
 export type BulkAccountCreationResponse = {
@@ -275,8 +427,56 @@ export type ImportStudentResult = {
     errors: ImportError[];
 };
 
+
 export type ImportError = {
     rowNumber: number;
     studentName: string;
     errorMessage: string;
 };
+
+// ==================== IMPORT TEACHER RESULT TYPE ====================
+
+export type ImportTeacherResult = {
+    totalRows: number;
+    successCount: number;
+    failedCount: number;
+    errors: ImportTeacherError[];
+};
+
+export type ImportTeacherError = {
+    rowNumber: number;
+    teacherName: string;
+    errorMessage: string;
+};
+
+// ==================== CURRICULUM TYPES ====================
+
+export type SubjectDto = {
+    id: string;
+    name: string;
+    code: string | null;
+    type: 'COMPULSORY' | 'ELECTIVE' | 'SPECIALIZED';
+    stream: 'TU_NHIEN' | 'XA_HOI' | null;
+    totalLessons: number | null;
+    active: boolean;
+    description: string | null;
+};
+
+export type CombinationDto = {
+    id: string;
+    name: string;
+    code: string | null;
+    stream: 'TU_NHIEN' | 'XA_HOI';
+    subjects: SubjectDto[];
+};
+
+export type CreateCombinationRequest = {
+    name: string;
+    code?: string;
+    stream: 'TU_NHIEN' | 'XA_HOI';
+    electiveSubjectIds: string[];
+    specializedSubjectIds: string[];
+};
+
+
+

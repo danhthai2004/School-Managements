@@ -41,8 +41,7 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             JwtService jwt,
             MailService mailService,
-            GoogleIdTokenService googleIdTokenService
-    ) {
+            GoogleIdTokenService googleIdTokenService) {
         this.users = users;
         this.challenges = challenges;
         this.passwordEncoder = passwordEncoder;
@@ -54,6 +53,9 @@ public class AuthService {
     public AuthResponse login(String email, String password) {
         var user = users.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng."));
+
+        // Check pending delete first
+        checkPendingDelete(user);
 
         if (!user.isEnabled()) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Tài khoản bị vô hiệu hoá.");
@@ -70,8 +72,7 @@ public class AuthService {
                     null,
                     challenge.getId().toString(),
                     RandomUtil.maskEmail(user.getEmail()),
-                    "Vui lòng nhập mã xác minh."
-            );
+                    "Vui lòng nhập mã xác minh.");
         }
 
         return authenticatedResponse(user);
@@ -90,6 +91,10 @@ public class AuthService {
                     "tài khoản của bạn không thuộc hệ sinh thái, vui lòng liên hệ quản trị viên");
         }
         var user = userOpt.get();
+
+        // Check pending delete first
+        checkPendingDelete(user);
+
         if (!user.isEnabled()) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Tài khoản bị vô hiệu hoá.");
         }
@@ -102,8 +107,7 @@ public class AuthService {
                     null,
                     challenge.getId().toString(),
                     RandomUtil.maskEmail(user.getEmail()),
-                    "Vui lòng nhập mã xác minh."
-            );
+                    "Vui lòng nhập mã xác minh.");
         }
 
         return authenticatedResponse(user);
@@ -124,8 +128,7 @@ public class AuthService {
                 null,
                 challenge.getId().toString(),
                 RandomUtil.maskEmail(user.getEmail()),
-                "Vui lòng nhập mã xác minh."
-        );
+                "Vui lòng nhập mã xác minh.");
     }
 
     public void resendOtp(UUID challengeId) {
@@ -233,8 +236,7 @@ public class AuthService {
                 toDto(user),
                 null,
                 null,
-                "Đăng nhập thành công."
-        );
+                "Đăng nhập thành công.");
     }
 
     private AuthChallenge createOtpChallenge(User user, AuthChallengeType type) {
@@ -261,6 +263,39 @@ public class AuthService {
     private UserDto toDto(User user) {
         UUID schoolId = user.getSchool() != null ? user.getSchool().getId() : null;
         String schoolCode = user.getSchool() != null ? user.getSchool().getCode() : null;
-        return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), schoolId, schoolCode);
+        return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), schoolId, schoolCode,
+                user.isEnabled());
+    }
+
+    /**
+     * Check if user is pending delete and throw with countdown message.
+     */
+    private void checkPendingDelete(User user) {
+        if (user.getPendingDeleteAt() == null) {
+            return;
+        }
+
+        Instant deleteAt = user.getPendingDeleteAt().plus(14, ChronoUnit.DAYS);
+        Instant now = Instant.now();
+
+        if (now.isAfter(deleteAt)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Tài khoản đã bị xóa. Vui lòng liên hệ quản trị viên.");
+        }
+
+        long totalSeconds = java.time.Duration.between(now, deleteAt).getSeconds();
+        long days = totalSeconds / 86400;
+        long hours = (totalSeconds % 86400) / 3600;
+        long minutes = (totalSeconds % 3600) / 60;
+        long seconds = totalSeconds % 60;
+
+        String countdown;
+        if (days > 0) {
+            countdown = String.format("%d ngày %d giờ %d phút", days, hours, minutes);
+        } else {
+            countdown = String.format("%d giờ %d phút", hours, minutes);
+        }
+
+        throw new ApiException(HttpStatus.FORBIDDEN,
+                "Tài khoản sẽ bị xóa sau " + countdown + ". Vui lòng liên hệ quản trị viên.");
     }
 }

@@ -1,8 +1,11 @@
 package com.schoolmanagement.backend.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 public record CreateSchoolRequest(
-        @NotBlank String name,
-        @NotBlank String code
-) {}
+        @NotBlank String schoolName,
+        @NotNull Integer provinceCode,
+        String address // Optional
+) {
+}

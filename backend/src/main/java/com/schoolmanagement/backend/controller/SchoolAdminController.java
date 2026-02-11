@@ -2,15 +2,9 @@ package com.schoolmanagement.backend.controller;
 
 import com.schoolmanagement.backend.domain.Role;
 import com.schoolmanagement.backend.dto.BulkImportResponse;
-import com.schoolmanagement.backend.dto.ClassRoomDto;
-import com.schoolmanagement.backend.dto.ImportStudentResult;
 import com.schoolmanagement.backend.dto.SchoolStatsDto;
-import com.schoolmanagement.backend.dto.StudentDto;
 import com.schoolmanagement.backend.dto.UserDto;
-import com.schoolmanagement.backend.dto.request.CreateClassRoomRequest;
-import com.schoolmanagement.backend.dto.request.CreateStudentRequest;
 import com.schoolmanagement.backend.dto.request.CreateUserRequest;
-import com.schoolmanagement.backend.dto.request.UpdateStudentRequest;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.security.UserPrincipal;
 import com.schoolmanagement.backend.service.SchoolAdminService;
@@ -28,12 +22,14 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/school")
 @Transactional(readOnly = true)
+@lombok.extern.slf4j.Slf4j
 public class SchoolAdminController {
 
     private final SchoolAdminService schoolAdminService;
     private final UserLookupService userLookup;
 
-    public SchoolAdminController(SchoolAdminService schoolAdminService, UserLookupService userLookup) {
+    public SchoolAdminController(SchoolAdminService schoolAdminService,
+            UserLookupService userLookup) {
         this.schoolAdminService = schoolAdminService;
         this.userLookup = userLookup;
     }
@@ -47,127 +43,6 @@ public class SchoolAdminController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         return schoolAdminService.getSchoolStats(admin.getSchool());
-    }
-
-    // ==================== CLASS ROOM MANAGEMENT ====================
-
-    @GetMapping("/classes")
-    public List<ClassRoomDto> listClasses(@AuthenticationPrincipal UserPrincipal principal) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        return schoolAdminService.listClassRooms(admin.getSchool());
-    }
-
-    @Transactional
-    @PostMapping("/classes")
-    public ClassRoomDto createClass(@AuthenticationPrincipal UserPrincipal principal,
-            @Valid @RequestBody CreateClassRoomRequest req) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        return schoolAdminService.createClassRoom(admin.getSchool(), req);
-    }
-
-    @Transactional
-    @PutMapping("/classes/{id}")
-    public ClassRoomDto updateClass(@AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable("id") UUID classId,
-            @Valid @RequestBody CreateClassRoomRequest req) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        return schoolAdminService.updateClassRoom(admin.getSchool(), classId, req);
-    }
-
-    @Transactional
-    @DeleteMapping("/classes/{id}")
-    public void deleteClass(@AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable("id") UUID classId) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        schoolAdminService.deleteClassRoom(admin.getSchool(), classId);
-    }
-
-    // ==================== STUDENT MANAGEMENT ====================
-
-    @GetMapping("/students")
-    public List<StudentDto> listStudents(@AuthenticationPrincipal UserPrincipal principal) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        return schoolAdminService.listStudents(admin.getSchool());
-    }
-
-    @GetMapping("/students/{id}")
-    public StudentDto getStudent(@AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable("id") UUID studentId) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        return schoolAdminService.getStudent(admin.getSchool(), studentId);
-    }
-
-    @Transactional
-    @PostMapping("/students")
-    public StudentDto createStudent(@AuthenticationPrincipal UserPrincipal principal,
-            @Valid @RequestBody CreateStudentRequest req) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        return schoolAdminService.createStudent(admin.getSchool(), req);
-    }
-
-    @Transactional
-    @DeleteMapping("/students/{id}")
-    public void deleteStudent(@AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable("id") UUID studentId) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        schoolAdminService.deleteStudent(admin.getSchool(), studentId);
-    }
-
-    @Transactional
-    @PutMapping("/students/{id}")
-    public StudentDto updateStudent(@AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable("id") UUID studentId,
-            @Valid @RequestBody UpdateStudentRequest req) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        return schoolAdminService.updateStudent(admin.getSchool(), studentId, req);
-    }
-
-    /**
-     * Import students from Excel file with auto class assignment
-     * Excel columns: fullName (required), dateOfBirth, gender, department,
-     * birthPlace, address, email, phone, guardianName, guardianPhone,
-     * guardianRelationship
-     */
-    @Transactional
-    @PostMapping("/students/import-excel")
-    public ImportStudentResult importStudentsFromExcel(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam("file") MultipartFile file,
-            @RequestParam("academicYear") String academicYear,
-            @RequestParam("grade") int grade,
-            @RequestParam(value = "autoAssign", defaultValue = "true") boolean autoAssign) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        return schoolAdminService.importStudentsFromExcel(admin.getSchool(), file, academicYear, grade, autoAssign);
     }
 
     // ==================== USER MANAGEMENT ====================
@@ -232,80 +107,32 @@ public class SchoolAdminController {
         return schoolAdminService.importCsv(admin.getSchool(), file, role);
     }
 
-    // ==================== STUDENT ACCOUNT MANAGEMENT ====================
-
-    /**
-     * Get list of students eligible for account creation
-     * (ACTIVE, has email, no user linked)
-     */
-    @GetMapping("/students/no-account")
-    public List<StudentDto> getStudentsEligibleForAccount(@AuthenticationPrincipal UserPrincipal principal) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        return schoolAdminService.getStudentsEligibleForAccount(admin.getSchool());
-    }
-
-    /**
-     * Create accounts for multiple students (bulk)
-     */
     @Transactional
-    @PostMapping("/students/accounts")
-    public com.schoolmanagement.backend.dto.BulkAccountCreationResponse createStudentAccounts(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @RequestBody List<UUID> studentIds) {
+    @PostMapping("/users/{id}/reset-password")
+    public void resetPassword(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("id") UUID userId) {
+        if (principal.getId().equals(userId)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Không thể đặt lại mật khẩu cho chính mình.");
+        }
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return schoolAdminService.createAccountsForStudents(admin.getSchool(), studentIds);
-    }
-    // ==================== TEACHER MANAGEMENT ====================
-
-    @GetMapping("/teachers/profiles")
-    public List<com.schoolmanagement.backend.dto.TeacherDto> listTeacherProfiles(
-            @AuthenticationPrincipal UserPrincipal principal) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        return schoolAdminService.listTeachersProfile(admin.getSchool());
+        schoolAdminService.resetPassword(admin.getSchool(), userId);
     }
 
     @Transactional
-    @PostMapping("/teachers")
-    public com.schoolmanagement.backend.dto.TeacherDto createTeacher(@AuthenticationPrincipal UserPrincipal principal,
-            @Valid @RequestBody com.schoolmanagement.backend.dto.request.CreateTeacherRequest req) {
+    @PutMapping("/users/{id}/status")
+    public void updateUserStatus(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("id") UUID userId,
+            @RequestParam boolean enabled) {
+        if (principal.getId().equals(userId)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Không thể thay đổi trạng thái tài khoản của chính mình.");
+        }
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return schoolAdminService.createTeacher(admin.getSchool(), req);
-    }
-
-    @Transactional
-    @PutMapping("/teachers/{teacherId}")
-    public com.schoolmanagement.backend.dto.TeacherDto updateTeacher(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable UUID teacherId,
-            @Valid @RequestBody com.schoolmanagement.backend.dto.request.CreateTeacherRequest req) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        return schoolAdminService.updateTeacher(admin.getSchool(), teacherId, req);
-    }
-
-    @Transactional
-    @DeleteMapping("/teachers/{teacherId}")
-    public void deleteTeacher(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable UUID teacherId) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        schoolAdminService.deleteTeacher(admin.getSchool(), teacherId);
+        schoolAdminService.toggleUserStatus(admin.getSchool(), userId, enabled);
     }
 }

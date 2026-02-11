@@ -21,6 +21,8 @@ public interface ClassRoomRepository extends JpaRepository<ClassRoom, UUID> {
 
         long countBySchool(School school);
 
+        Optional<ClassRoom> findByIdAndSchool(UUID id, School school);
+
         boolean existsBySchoolAndName(School school, String name);
 
         boolean existsBySchoolAndNameAndAcademicYear(School school, String name, String academicYear);
