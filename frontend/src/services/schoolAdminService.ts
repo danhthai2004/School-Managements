@@ -43,6 +43,7 @@ export type UserDto = {
     role: string;
     schoolId: string;
     schoolCode: string;
+    enabled: boolean;
 };
 
 export type GuardianDto = {
@@ -51,6 +52,8 @@ export type GuardianDto = {
     phone: string | null;
     email: string | null;
     relationship: string | null;
+    studentName: string;
+    studentClass: string;
 };
 
 export type StudentDto = {
@@ -69,6 +72,18 @@ export type StudentDto = {
     currentClassName: string | null;
     currentClassId: string | null;
     guardians: GuardianDto[];
+};
+
+export type ClassEnrollmentHistoryDto = {
+    enrollmentId: string;
+    classId: string;
+    className: string;
+    academicYear: string;
+    enrolledAt: string;
+};
+
+export type StudentProfileDto = StudentDto & {
+    enrollmentHistory: ClassEnrollmentHistoryDto[];
 };
 
 export type GuardianRequest = {
@@ -151,6 +166,18 @@ export type CreateTeacherRequest = {
     createAccount: boolean;
 };
 
+export type BulkPromoteRequest = {
+    studentIds: string[];
+    targetGrade: number;
+    targetAcademicYear: string;
+};
+
+export type BulkPromoteResponse = {
+    promoted: number;
+    skipped: number;
+    errors: string[];
+};
+
 // ==================== SERVICE ====================
 
 export const schoolAdminService = {
@@ -223,10 +250,22 @@ export const schoolAdminService = {
         return res.data;
     },
 
+
+
     // Users
     listUsers: async (): Promise<UserDto[]> => {
         const res = await api.get<UserDto[]>("/school/users");
         return res.data;
+    },
+
+    resetPassword: async (userId: string): Promise<void> => {
+        await api.post(`/school/users/${userId}/reset-password`);
+    },
+
+    updateUserStatus: async (userId: string, enabled: boolean): Promise<void> => {
+        await api.put(`/school/users/${userId}/status`, null, {
+            params: { enabled }
+        });
     },
 
     // Students
@@ -248,6 +287,24 @@ export const schoolAdminService = {
 
     updateStudent: async (studentId: string, req: UpdateStudentRequest): Promise<StudentDto> => {
         const res = await api.put<StudentDto>(`/school/students/${studentId}`, req);
+        return res.data;
+    },
+
+    getStudentProfile: async (studentId: string): Promise<StudentProfileDto> => {
+        const res = await api.get<StudentProfileDto>(`/school/students/${studentId}/profile`);
+        return res.data;
+    },
+
+    transferStudent: async (studentId: string, newClassId: string): Promise<StudentProfileDto> => {
+        const res = await api.post<StudentProfileDto>(`/school/students/${studentId}/transfer`, null, {
+            params: { newClassId }
+        });
+        return res.data;
+    },
+
+    // Bulk Promotion
+    promoteStudents: async (req: BulkPromoteRequest): Promise<BulkPromoteResponse> => {
+        const res = await api.post<BulkPromoteResponse>("/school/students/promote", req);
         return res.data;
     },
 
@@ -284,6 +341,28 @@ export const schoolAdminService = {
 
     createStudentAccounts: async (studentIds: string[]): Promise<BulkAccountCreationResponse> => {
         const res = await api.post<BulkAccountCreationResponse>("/school/students/accounts", studentIds);
+        return res.data;
+    },
+
+    // Teacher Account Management
+    getTeachersEligibleForAccount: async (): Promise<TeacherDto[]> => {
+        const res = await api.get<TeacherDto[]>("/school/teachers/no-account");
+        return res.data;
+    },
+
+    createTeacherAccounts: async (teacherIds: string[]): Promise<BulkAccountCreationResponse> => {
+        const res = await api.post<BulkAccountCreationResponse>("/school/teachers/accounts", teacherIds);
+        return res.data;
+    },
+
+    // Guardian Account Management
+    getGuardiansEligibleForAccount: async (): Promise<GuardianDto[]> => {
+        const res = await api.get<GuardianDto[]>("/school/guardians/eligible-for-account");
+        return res.data;
+    },
+
+    createGuardianAccounts: async (guardianIds: string[]): Promise<BulkAccountCreationResponse> => {
+        const res = await api.post<BulkAccountCreationResponse>("/school/guardians/accounts", guardianIds);
         return res.data;
     },
 

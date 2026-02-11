@@ -21,6 +21,7 @@ import DashboardOverview from "../views/school-admin/pages/DashboardOverview";
 import ClassManagement from "../views/school-admin/pages/ClassManagement";
 import ClassDetailView from "../views/school-admin/pages/ClassDetailView";
 import StudentManagement from "../views/school-admin/pages/StudentManagement";
+import StudentProfilePage from "../views/school-admin/pages/StudentProfilePage";
 import AccountManagement from "../views/school-admin/pages/AccountManagement";
 import TeacherManagement from "../views/school-admin/pages/TeacherManagement";
 import SubjectManagement from "../views/school-admin/pages/SubjectManagement";
@@ -80,6 +81,7 @@ export default function AppRouter() {
         <Route path="classes" element={<ClassManagement />} />
         <Route path="classes/:id" element={<ClassDetailView />} />
         <Route path="students" element={<StudentManagement />} />
+        <Route path="students/:id" element={<StudentProfilePage />} />
         <Route path="teachers" element={<TeacherManagement />} />
         <Route path="accounts" element={<AccountManagement />} />
         <Route path="subjects" element={<SubjectManagement />} />

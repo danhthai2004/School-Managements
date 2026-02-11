@@ -1,12 +1,12 @@
 package com.schoolmanagement.backend.service;
 
 import com.schoolmanagement.backend.domain.ClassRoomStatus;
-import com.schoolmanagement.backend.domain.Role;
 import com.schoolmanagement.backend.domain.StudentStatus;
 import com.schoolmanagement.backend.domain.entity.*;
-import com.schoolmanagement.backend.dto.BulkAccountCreationResponse;
+import com.schoolmanagement.backend.dto.BulkPromoteResponse;
 import com.schoolmanagement.backend.dto.StudentDto;
-import com.schoolmanagement.backend.dto.UserDto;
+import com.schoolmanagement.backend.dto.StudentProfileDto;
+import com.schoolmanagement.backend.dto.request.BulkPromoteRequest;
 import com.schoolmanagement.backend.dto.request.CreateStudentRequest;
 import com.schoolmanagement.backend.dto.request.UpdateStudentRequest;
 import com.schoolmanagement.backend.exception.ApiException;
@@ -14,9 +14,8 @@ import com.schoolmanagement.backend.repo.ClassEnrollmentRepository;
 import com.schoolmanagement.backend.repo.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.GuardianRepository;
 import com.schoolmanagement.backend.repo.StudentRepository;
-import com.schoolmanagement.backend.repo.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Service
 public class StudentManagementService {
 
@@ -33,20 +33,13 @@ public class StudentManagementService {
     private final GuardianRepository guardians;
     private final ClassRoomRepository classRooms;
     private final ClassEnrollmentRepository enrollments;
-    private final UserRepository users;
-    private final PasswordEncoder passwordEncoder;
-    private final MailService mailService;
 
     public StudentManagementService(StudentRepository students, GuardianRepository guardians,
-            ClassRoomRepository classRooms, ClassEnrollmentRepository enrollments,
-            UserRepository users, PasswordEncoder passwordEncoder, MailService mailService) {
+            ClassRoomRepository classRooms, ClassEnrollmentRepository enrollments) {
         this.students = students;
         this.guardians = guardians;
         this.classRooms = classRooms;
         this.enrollments = enrollments;
-        this.users = users;
-        this.passwordEncoder = passwordEncoder;
-        this.mailService = mailService;
     }
 
     // ==================== STUDENT MANAGEMENT ====================
@@ -97,22 +90,14 @@ public class StudentManagementService {
                         .relationship(g.relationship())
                         .build();
 
-                // If guardian has email, create/link account
+                // If guardian has email, just check validity but DO NOT create account
+                // automatically
+                // Account creation is now handled in Account Management page (Phase 3)
                 if (g.email() != null && !g.email().isBlank()) {
-                    try {
-                        User guardianUser = processGuardianUser(school, g.email(), g.fullName());
-                        guardian.setUser(guardianUser);
-                    } catch (Exception e) {
-                        // Log error but don't fail student creation?
-                        // For now, let's log and proceed, or should we fail?
-                        // User requested this feature, so maybe fail if we can't create account?
-                        // But duplicate email on different role might be an issue.
-                        // Let's rely on processGuardianUser to handle it gracefully.
-                        System.err.println("Failed to create guardian user: " + e.getMessage());
-                    }
+                    // No action needed here
                 }
 
-                guardians.save(guardian);
+                guardian = guardians.save(guardian);
             }
         }
 
@@ -252,6 +237,14 @@ public class StudentManagementService {
                             .email(g.email())
                             .relationship(g.relationship())
                             .build();
+
+                    // If guardian has email, just check validity but DO NOT create account
+                    // automatically
+                    // Account creation is now handled in Account Management page (Phase 3)
+                    if (g.email() != null && !g.email().isBlank()) {
+                        // No action needed here
+                    }
+
                     guardians.save(guardian);
                 }
             }
@@ -265,8 +258,9 @@ public class StudentManagementService {
                             .map(ClassRoom::getAcademicYear)
                             .orElse("");
 
-            Optional<ClassEnrollment> currentEnrollment = enrollments.findByStudentAndAcademicYear(student,
-                    academicYear);
+            Optional<ClassEnrollment> currentEnrollment = enrollments
+                    .findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(student,
+                            academicYear);
 
             // Check if the class is changing
             boolean needsNewEnrollment = currentEnrollment.isEmpty() ||
@@ -313,105 +307,6 @@ public class StudentManagementService {
         return toStudentDto(student);
     }
 
-    // ==================== STUDENT ACCOUNT MANAGEMENT ====================
-
-    /**
-     * Get list of students eligible for account creation:
-     * - Status is ACTIVE
-     * - Has email
-     * - No user linked yet
-     */
-    @Transactional(readOnly = true)
-    public List<StudentDto> getStudentsEligibleForAccount(School school) {
-        return students.findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(school, StudentStatus.ACTIVE)
-                .stream()
-                .map(this::toStudentDto)
-                .toList();
-    }
-
-    /**
-     * Create account for a single student
-     */
-    @Transactional
-    public UserDto createAccountForStudent(School school, UUID studentId) {
-        Student student = students.findById(studentId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
-
-        // Validate student belongs to school
-        if (!student.getSchool().getId().equals(school.getId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Học sinh không thuộc trường này");
-        }
-
-        // Validate status
-        if (student.getStatus() != StudentStatus.ACTIVE) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Chỉ có thể tạo tài khoản cho học sinh đang theo học");
-        }
-
-        // Validate email
-        if (student.getEmail() == null || student.getEmail().isBlank()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Học sinh chưa có email");
-        }
-
-        // Validate no existing user
-        if (student.getUser() != null) {
-            throw new ApiException(HttpStatus.CONFLICT, "Học sinh đã có tài khoản");
-        }
-
-        // Check email unique in Users table
-        if (users.existsByEmailIgnoreCase(student.getEmail())) {
-            throw new ApiException(HttpStatus.CONFLICT,
-                    "Email đã được sử dụng cho tài khoản khác: " + student.getEmail());
-        }
-
-        // Generate temp password
-        String tempPassword = RandomUtil.generateTempPassword(12);
-
-        // Create user
-        User user = User.builder()
-                .email(student.getEmail())
-                .fullName(student.getFullName())
-                .role(Role.STUDENT)
-                .school(school)
-                .passwordHash(passwordEncoder.encode(tempPassword))
-                .firstLogin(true)
-                .enabled(true)
-                .build();
-
-        user = users.save(user);
-
-        // Link user to student
-        student.setUser(user);
-        students.save(student);
-
-        // Send email with temp password
-        mailService.sendTempPasswordEmail(user.getEmail(), user.getFullName(), tempPassword);
-
-        return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), school.getId(),
-                school.getCode());
-    }
-
-    /**
-     * Create accounts for multiple students (bulk)
-     */
-    @Transactional
-    public BulkAccountCreationResponse createAccountsForStudents(School school, List<UUID> studentIds) {
-        int created = 0;
-        int skipped = 0;
-        List<String> errors = new ArrayList<>();
-
-        for (UUID studentId : studentIds) {
-            try {
-                createAccountForStudent(school, studentId);
-                created++;
-            } catch (ApiException e) {
-                skipped++;
-                errors.add(studentId + ": " + e.getMessage());
-            }
-        }
-
-        return new BulkAccountCreationResponse(created, skipped, errors);
-    }
-
     /**
      * Generate next student code in format HS0001, HS0002, etc.
      */
@@ -439,33 +334,6 @@ public class StudentManagementService {
         return String.format("HS%04d", studentCount + 1);
     }
 
-    private User processGuardianUser(School school, String email, String fullName) {
-        // Check if user exists
-        Optional<User> existingUser = users.findByEmailIgnoreCase(email);
-        if (existingUser.isPresent()) {
-            return existingUser.get();
-        }
-
-        // Create new user
-        String tempPassword = RandomUtil.generateTempPassword(12);
-        User user = User.builder()
-                .email(email)
-                .fullName(fullName)
-                .role(Role.GUARDIAN)
-                .school(school)
-                .passwordHash(passwordEncoder.encode(tempPassword))
-                .firstLogin(true)
-                .enabled(true)
-                .build();
-
-        user = users.save(user);
-
-        // Send email
-        mailService.sendTempPasswordEmail(user.getEmail(), user.getFullName(), tempPassword);
-
-        return user;
-    }
-
     private StudentDto toStudentDto(Student student) {
         List<Guardian> studentGuardians = guardians.findAllByStudent(student);
         List<StudentDto.GuardianDto> guardianDtos = studentGuardians.stream()
@@ -476,7 +344,8 @@ public class StudentManagementService {
         // Get current class enrollment
         String currentClassName = null;
         UUID currentClassId = null;
-        Optional<ClassEnrollment> currentEnrollment = enrollments.findByStudentAndAcademicYear(student,
+        Optional<ClassEnrollment> currentEnrollment = enrollments.findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(
+                student,
                 classRooms.findFirstBySchoolOrderByAcademicYearDesc(student.getSchool())
                         .map(ClassRoom::getAcademicYear).orElse(""));
         if (currentEnrollment.isPresent()) {
@@ -565,5 +434,208 @@ public class StudentManagementService {
         }
 
         return false;
+    }
+
+    // ==================== STUDENT PROFILE ====================
+
+    /**
+     * Get detailed student profile with enrollment history.
+     */
+    @Transactional(readOnly = true)
+    public StudentProfileDto getStudentProfile(School school, UUID studentId) {
+        Student student = students.findByIdAndSchool(studentId, school)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+
+        // Get guardians
+        List<Guardian> studentGuardians = guardians.findAllByStudent(student);
+        List<StudentProfileDto.GuardianDto> guardianDtos = studentGuardians.stream()
+                .map(g -> new StudentProfileDto.GuardianDto(g.getId(), g.getFullName(), g.getPhone(), g.getEmail(),
+                        g.getRelationship()))
+                .toList();
+
+        // Get enrollment history
+        List<ClassEnrollment> enrollmentList = enrollments.findAllByStudent(student);
+        List<StudentProfileDto.ClassEnrollmentHistoryDto> historyDtos = enrollmentList.stream()
+                .sorted((a, b) -> b.getEnrolledAt().compareTo(a.getEnrolledAt())) // newest first
+                .map(e -> new StudentProfileDto.ClassEnrollmentHistoryDto(
+                        e.getId(),
+                        e.getClassRoom().getId(),
+                        e.getClassRoom().getName(),
+                        e.getAcademicYear(),
+                        e.getEnrolledAt()))
+                .toList();
+
+        // Get current class info
+        String currentClassName = null;
+        UUID currentClassId = null;
+        Optional<ClassEnrollment> currentEnrollment = enrollments.findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(
+                student,
+                classRooms.findFirstBySchoolOrderByAcademicYearDesc(school)
+                        .map(ClassRoom::getAcademicYear).orElse(""));
+        if (currentEnrollment.isPresent()) {
+            currentClassName = currentEnrollment.get().getClassRoom().getName();
+            currentClassId = currentEnrollment.get().getClassRoom().getId();
+        }
+
+        return new StudentProfileDto(
+                student.getId(),
+                student.getStudentCode(),
+                student.getFullName(),
+                student.getDateOfBirth(),
+                student.getGender() != null ? student.getGender().name() : null,
+                student.getBirthPlace(),
+                student.getAddress(),
+                student.getEmail(),
+                student.getPhone(),
+                student.getAvatarUrl(),
+                student.getStatus().name(),
+                student.getEnrollmentDate(),
+                currentClassName,
+                currentClassId,
+                guardianDtos,
+                historyDtos);
+    }
+
+    /**
+     * Transfer student to a new class. Creates new enrollment, keeps history.
+     */
+    @Transactional
+    public StudentProfileDto transferStudent(School school, UUID studentId, UUID newClassId) {
+        Student student = students.findByIdAndSchool(studentId, school)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+
+        ClassRoom newClass = classRooms.findByIdAndSchool(newClassId, school)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp đích"));
+
+        if (newClass.getStatus() != ClassRoomStatus.ACTIVE) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Lớp đích không đang hoạt động");
+        }
+
+        String academicYear = newClass.getAcademicYear();
+
+        // Check if already in this class for this academic year
+        boolean alreadyEnrolled = enrollments.existsByStudentAndClassRoomAndAcademicYear(student, newClass,
+                academicYear);
+        if (alreadyEnrolled) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Học sinh đã thuộc lớp này trong năm học " + academicYear);
+        }
+
+        // Get existing enrollment for logging
+        Optional<ClassEnrollment> existingEnrollment = enrollments
+                .findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(student, academicYear);
+        // Do not delete existing enrollment to preserve history
+
+        // Create new enrollment
+        ClassEnrollment newEnrollment = ClassEnrollment.builder()
+                .student(student)
+                .classRoom(newClass)
+                .academicYear(academicYear)
+                .enrolledAt(Instant.now())
+                .build();
+        enrollments.save(newEnrollment);
+
+        log.info("Transferred student {} from {} to class {} for year {}",
+                student.getStudentCode(),
+                existingEnrollment.map(e -> e.getClassRoom().getName()).orElse("N/A"),
+                newClass.getName(),
+                academicYear);
+
+        return getStudentProfile(school, studentId);
+    }
+
+    // ==================== BULK PROMOTION ====================
+
+    /**
+     * Promote multiple students to a new grade in a new academic year.
+     * Auto-assigns each student to an available class in the target grade.
+     */
+    @Transactional
+    public BulkPromoteResponse promoteStudents(School school, BulkPromoteRequest request) {
+        int promoted = 0;
+        int skipped = 0;
+        List<String> errors = new ArrayList<>();
+
+        // Find all active classes for the target grade + academic year
+        List<ClassRoom> targetClasses = classRooms.findAllBySchoolAndGradeAndAcademicYearAndStatus(
+                school, request.targetGrade(), request.targetAcademicYear(), ClassRoomStatus.ACTIVE);
+
+        if (targetClasses.isEmpty()) {
+            errors.add("Không có lớp ACTIVE nào ở khối " + request.targetGrade()
+                    + " cho năm học " + request.targetAcademicYear());
+            return new BulkPromoteResponse(0, request.studentIds().size(), errors);
+        }
+
+        // Pre-compute enrollment counts for target classes
+        java.util.Map<UUID, Long> counts = new java.util.HashMap<>();
+        for (ClassRoom c : targetClasses) {
+            counts.put(c.getId(), enrollments.countByClassRoom(c));
+        }
+
+        for (UUID studentId : request.studentIds()) {
+            try {
+                Student student = students.findByIdAndSchool(studentId, school)
+                        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
+                                "Không tìm thấy học sinh (ID: " + studentId + ")"));
+
+                // Skip if not ACTIVE
+                if (student.getStatus() != StudentStatus.ACTIVE) {
+                    skipped++;
+                    errors.add(student.getFullName() + ": Trạng thái không phải Đang học");
+                    continue;
+                }
+
+                // Skip if already has enrollment in target academic year
+                Optional<ClassEnrollment> existing = enrollments
+                        .findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(
+                                student, request.targetAcademicYear());
+                if (existing.isPresent()) {
+                    skipped++;
+                    errors.add(student.getFullName() + ": Đã có lớp ("
+                            + existing.get().getClassRoom().getName() + ") trong năm học "
+                            + request.targetAcademicYear());
+                    continue;
+                }
+
+                // Find a class with available capacity (load-balanced: pick least filled)
+                List<ClassRoom> sorted = targetClasses.stream()
+                        .sorted(java.util.Comparator.comparingLong(c -> counts.get(c.getId())))
+                        .toList();
+
+                boolean assigned = false;
+                for (ClassRoom c : sorted) {
+                    if (counts.get(c.getId()) < c.getMaxCapacity()) {
+                        ClassEnrollment enrollment = ClassEnrollment.builder()
+                                .student(student)
+                                .classRoom(c)
+                                .academicYear(request.targetAcademicYear())
+                                .enrolledAt(Instant.now())
+                                .build();
+                        enrollments.save(enrollment);
+                        counts.put(c.getId(), counts.get(c.getId()) + 1);
+                        promoted++;
+                        assigned = true;
+                        break;
+                    }
+                }
+
+                if (!assigned) {
+                    skipped++;
+                    errors.add(student.getFullName() + ": Tất cả lớp khối "
+                            + request.targetGrade() + " đã đầy");
+                }
+            } catch (ApiException e) {
+                skipped++;
+                errors.add(e.getMessage());
+            } catch (Exception e) {
+                skipped++;
+                errors.add("Lỗi khi xử lý HS (ID: " + studentId + "): " + e.getMessage());
+                log.error("Error promoting student {}", studentId, e);
+            }
+        }
+
+        log.info("Bulk promotion completed: {} promoted, {} skipped out of {} total",
+                promoted, skipped, request.studentIds().size());
+
+        return new BulkPromoteResponse(promoted, skipped, errors);
     }
 }

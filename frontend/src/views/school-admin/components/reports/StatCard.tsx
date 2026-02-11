@@ -1,0 +1,38 @@
+import React from "react";
+
+// ==================== STAT CARD COMPONENT ====================
+const StatCard = ({
+    icon,
+    label,
+    value,
+    color,
+}: {
+    icon: React.ReactNode;
+    label: string;
+    value: number | string;
+    color: "blue" | "green" | "orange" | "purple" | "gray";
+}) => {
+    const colorClasses = {
+        blue: "bg-blue-50 text-blue-500",
+        green: "bg-green-50 text-green-500",
+        orange: "bg-orange-50 text-orange-500",
+        purple: "bg-purple-50 text-purple-500",
+        gray: "bg-gray-50 text-gray-500",
+    };
+
+    return (
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all">
+            <div className="flex items-start gap-4">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${colorClasses[color]}`}>
+                    {icon}
+                </div>
+                <div>
+                    <p className="text-sm text-gray-500 font-medium mb-1">{label}</p>
+                    <p className="text-2xl font-bold text-gray-900">{value}</p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default StatCard;

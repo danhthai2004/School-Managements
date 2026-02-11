@@ -151,7 +151,7 @@ public class SystemAdminService {
                 "SCHOOL_ADMIN created: " + email + " for school " + school.getCode());
 
         return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), school.getId(),
-                school.getCode());
+                school.getCode(), user.isEnabled());
     }
 
     public List<UserListDto> listUsers(Role role, UUID schoolId, Boolean enabled, boolean pendingDelete) {
