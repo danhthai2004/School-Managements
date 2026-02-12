@@ -35,6 +35,10 @@ export default function LoginPage() {
           navigate("/system/overview");
         } else if (role === "SCHOOL_ADMIN") {
           navigate("/school-admin/dashboard");
+        } else if (role === "STUDENT") {
+          navigate("/student/overview");
+        } else if (role === "TEACHER") {
+          navigate("/teacher/dashboard");
         } else {
           navigate("/dashboard");
         }

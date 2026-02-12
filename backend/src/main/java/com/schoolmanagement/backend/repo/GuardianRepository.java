@@ -11,9 +11,10 @@ import java.util.UUID;
 
 @Repository
 public interface GuardianRepository extends JpaRepository<Guardian, UUID> {
-    Optional<Guardian> findByEmail(String email);
+
     List<Guardian> findAllByStudent(Student student);
 
     void deleteAllByStudent(Student student);
-}
 
+    Optional<Guardian> findByEmail(String guardianEmail);
+}

@@ -4,6 +4,7 @@ import com.schoolmanagement.backend.domain.Role;
 import com.schoolmanagement.backend.dto.BulkImportResponse;
 import com.schoolmanagement.backend.dto.ClassRoomDto;
 import com.schoolmanagement.backend.dto.ImportStudentResult;
+import com.schoolmanagement.backend.dto.ImportTeacherResult;
 import com.schoolmanagement.backend.dto.SchoolStatsDto;
 import com.schoolmanagement.backend.dto.StudentDto;
 import com.schoolmanagement.backend.dto.UserDto;
@@ -18,8 +19,10 @@ import com.schoolmanagement.backend.service.CurriculumService;
 import com.schoolmanagement.backend.service.SchoolAdminService;
 import com.schoolmanagement.backend.service.StudentImportService;
 import com.schoolmanagement.backend.service.StudentManagementService;
+import com.schoolmanagement.backend.service.TeacherImportService;
 import com.schoolmanagement.backend.service.TeacherManagementService;
 import com.schoolmanagement.backend.service.UserLookupService;
+import com.schoolmanagement.backend.service.TeacherAssignmentService;
 import com.schoolmanagement.backend.dto.BulkAccountCreationResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -45,6 +48,9 @@ public class SchoolAdminController {
     private final UserLookupService userLookup;
     private final CurriculumService curriculumService;
     private final com.schoolmanagement.backend.service.TeacherAssignmentService teacherAssignmentService;
+    private final com.schoolmanagement.backend.service.NotificationService notificationService;
+    private final com.schoolmanagement.backend.service.ExamScheduleService examScheduleService;
+    private final TeacherImportService teacherImportService;
 
     public SchoolAdminController(SchoolAdminService schoolAdminService,
             ClassManagementService classManagementService,
@@ -53,7 +59,10 @@ public class SchoolAdminController {
             StudentImportService studentImportService,
             UserLookupService userLookup,
             CurriculumService curriculumService,
-            com.schoolmanagement.backend.service.TeacherAssignmentService teacherAssignmentService) {
+            com.schoolmanagement.backend.service.TeacherAssignmentService teacherAssignmentService,
+            com.schoolmanagement.backend.service.NotificationService notificationService,
+            com.schoolmanagement.backend.service.ExamScheduleService examScheduleService,
+            TeacherImportService teacherImportService) {
         this.schoolAdminService = schoolAdminService;
         this.classManagementService = classManagementService;
         this.studentManagementService = studentManagementService;
@@ -62,6 +71,9 @@ public class SchoolAdminController {
         this.userLookup = userLookup;
         this.curriculumService = curriculumService;
         this.teacherAssignmentService = teacherAssignmentService;
+        this.notificationService = notificationService;
+        this.examScheduleService = examScheduleService;
+        this.teacherImportService = teacherImportService;
     }
 
     // ==================== STATISTICS ====================
@@ -346,6 +358,24 @@ public class SchoolAdminController {
         teacherManagementService.deleteTeacher(admin.getSchool(), teacherId);
     }
 
+    /**
+     * Import teachers from Excel file
+     * Excel columns: fullName/Họ tên (required), dateOfBirth/Ngày sinh, gender/Giới
+     * tính,
+     * address/Địa chỉ, email, phone/SĐT, specialization/Chuyên môn, degree/Bằng cấp
+     */
+    @Transactional
+    @PostMapping("/teachers/import-excel")
+    public ImportTeacherResult importTeachersFromExcel(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam("file") MultipartFile file) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return teacherImportService.importTeachersFromExcel(admin.getSchool(), file);
+    }
+
     // ==================== CURRICULUM MANAGEMENT ====================
 
     @GetMapping("/subjects")
@@ -439,5 +469,128 @@ public class SchoolAdminController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         return teacherAssignmentService.assignTeacher(admin.getSchool(), assignmentId, req.teacherId());
+    }
+
+    // ==================== NOTIFICATION MANAGEMENT ====================
+
+    /**
+     * Get all notifications created for this school.
+     */
+    @GetMapping("/notifications")
+    public java.util.List<com.schoolmanagement.backend.dto.NotificationDto> getSchoolNotifications(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("[Notification] GET /notifications - User: {}, Role: {}", principal.getEmail(), principal.getRole());
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return notificationService.getForSchool(admin.getSchool());
+    }
+
+    /**
+     * Get all visible notifications for the school admin (includes system-wide notifications).
+     */
+    @GetMapping("/notifications/visible")
+    public java.util.List<com.schoolmanagement.backend.dto.NotificationDto> getVisibleNotifications(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("[Notification] GET /notifications/visible - User: {}", principal.getEmail());
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return notificationService.getVisibleForUser(admin.getSchool().getId(), Role.SCHOOL_ADMIN);
+    }
+
+    /**
+     * Get count of recent notifications (for badge on bell icon).
+     */
+    @GetMapping("/notifications/count")
+    public NotificationCountResponse getNotificationCount(@AuthenticationPrincipal UserPrincipal principal) {
+        log.info("[Notification] GET /notifications/count - User: {}", principal.getEmail());
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        long count = notificationService.countRecentForSchool(admin.getSchool().getId());
+        return new NotificationCountResponse(count);
+    }
+
+    /**
+     * Create a new notification for the school.
+     */
+    @Transactional
+    @PostMapping("/notifications")
+    public com.schoolmanagement.backend.dto.NotificationDto createNotification(
+            @Valid @RequestBody CreateSchoolNotificationRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("[Notification] POST /notifications - User: {}, Title: {}", principal.getEmail(), request.title());
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return notificationService.createForSchool(
+                request.title(),
+                request.message(),
+                admin.getSchool(),
+                admin);
+    }
+
+    /**
+     * Delete a notification.
+     */
+    @Transactional
+    @DeleteMapping("/notifications/{id}")
+    public void deleteNotification(@PathVariable UUID id, @AuthenticationPrincipal UserPrincipal principal) {
+        var admin = userLookup.requireById(principal.getId());
+        notificationService.delete(id, admin);
+    }
+
+    public record CreateSchoolNotificationRequest(
+            @jakarta.validation.constraints.NotBlank String title,
+            @jakarta.validation.constraints.NotBlank String message
+    ) {}
+
+    public record NotificationCountResponse(long count) {}
+
+    // ==================== EXAM SCHEDULE ====================
+
+    /**
+     * Generate exam schedules for selected subjects and grades.
+     */
+    @PostMapping("/exam-schedules/generate")
+    @Transactional
+    public java.util.List<com.schoolmanagement.backend.dto.ExamScheduleViewDto> generateExamSchedule(
+            @Valid @RequestBody com.schoolmanagement.backend.dto.ExamScheduleGenerateRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("[ExamSchedule] Generating exam schedule - User: {}, ExamType: {}",
+                principal.getEmail(), request.examType());
+        var admin = userLookup.requireById(principal.getId());
+        return examScheduleService.generateExamSchedule(admin.getSchool(), request, admin);
+    }
+
+    /**
+     * Get all exam schedules for the school.
+     */
+    @GetMapping("/exam-schedules")
+    public java.util.List<com.schoolmanagement.backend.dto.ExamScheduleViewDto> getExamSchedules(
+            @RequestParam String academicYear,
+            @RequestParam Integer semester,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        var admin = userLookup.requireById(principal.getId());
+        return examScheduleService.getExamSchedules(admin.getSchool(), academicYear, semester);
+    }
+
+    /**
+     * Delete exam schedules by type and period.
+     */
+    @DeleteMapping("/exam-schedules")
+    @Transactional
+    public void deleteExamSchedules(
+            @RequestParam com.schoolmanagement.backend.domain.ExamType examType,
+            @RequestParam String academicYear,
+            @RequestParam Integer semester,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        var admin = userLookup.requireById(principal.getId());
+        examScheduleService.deleteExistingSchedules(admin.getSchool(), examType, academicYear, semester);
     }
 }

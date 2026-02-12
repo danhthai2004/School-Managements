@@ -3,14 +3,9 @@ import type {TimetableDto} from "../../services/guardianService.ts";
 import type {StudentDataProp} from "../../components/layout/GuardianLayout.tsx";
 // import {useState} from "react";
 
-type TimetableProps = {
-  periods: number[];
-  timetableGrid: (TimetableDto | null)[][];
-  currentDay: number;
-};
-
 export default function StudentTimetable() {
   const {student, timetable} = useOutletContext<StudentDataProp>();
+  console.log(timetable);
   const currentDay = new Date();
 
   const periods: number[] = [1, 2, 3, 4, 5];
@@ -23,7 +18,7 @@ export default function StudentTimetable() {
     "FRIDAY",
     "SATURDAY",
     "SUNDAY",
-  ] as const;
+  ];
 
   const subjectColors: Record<string, { bg: string; text: string }> = {
     "Toán": {bg: "bg-blue-100", text: "text-blue-700"},
@@ -73,6 +68,7 @@ export default function StudentTimetable() {
       }
     }
 
+    console.log(timetableGrid);
     return timetableGrid;
   }
 
@@ -133,43 +129,4 @@ export default function StudentTimetable() {
       </div>
     </div>
   )
-}
-
-function Timetable({periods, timetableGrid, currentDay}: TimetableProps) {
-  const curDay = <span className="text-red-500">(*)</span>;
-  return (
-    <table className="table-fixed rounded-2xl border-collapse bord w-full">
-      <thead className="font-medium">
-      <tr className="border-b border-gray-100 font-medium bg-gray-50">
-        <th className="p-4 font-medium border-r border-gray-100 w-16">Tiết</th>
-        <th className="p-4 font-medium border-r border-gray-100">Thứ 2 {currentDay === 1 ? curDay : null}</th>
-        <th className="p-4 font-medium border-r border-gray-100">Thứ 3 {currentDay === 2 ? curDay : null}</th>
-        <th className="p-4 font-medium border-r border-gray-100">Thứ 4 {currentDay === 3 ? curDay : null}</th>
-        <th className="p-4 font-medium border-r border-gray-100">Thứ 5 {currentDay === 4 ? curDay : null}</th>
-        <th className="p-4 font-medium border-r border-gray-100">Thứ 6 {currentDay === 5 ? curDay : null}</th>
-        <th className="p-4 font-medium border-r border-gray-100">Thứ 7 {currentDay === 6 ? curDay : null}</th>
-        <th className="p-4 font-medium border-r border-gray-100">Chủ Nhật {currentDay === 7 ? curDay : null}</th>
-      </tr>
-      </thead>
-      <tbody>
-      {periods.map((period: number, rowIndex: number) => (
-        <tr key={rowIndex} className="border-b border-gray-100">
-          <td className="text-xl p-4 w-16">{period}</td>
-          {timetableGrid[rowIndex]?.map((cell, colIndex) => {
-              return (
-                <td key={colIndex} className="p-2 rounded-md h-24">
-                  <div
-                    className={`bg-blue-50 border border-blue-200 rounded-lg h-full w-full flex items-center justify-center text-center p-2`}>
-                    {cell ? cell.subjectName : ""}
-                  </div>
-                </td>
-              )
-            }
-          )
-          }
-        </tr>
-      ))}
-      </tbody>
-    </table>
-  );
 }

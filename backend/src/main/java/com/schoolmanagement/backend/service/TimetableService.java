@@ -1,12 +1,10 @@
 package com.schoolmanagement.backend.service;
 
 import com.schoolmanagement.backend.domain.TimetableStatus;
-import com.schoolmanagement.backend.domain.entity.School;
-import com.schoolmanagement.backend.domain.entity.Timetable;
-import com.schoolmanagement.backend.domain.entity.TimetableDetail;
-import com.schoolmanagement.backend.domain.entity.User;
+import com.schoolmanagement.backend.domain.entity.*;
 import com.schoolmanagement.backend.dto.SimpleTimetableDetailDto;
 import com.schoolmanagement.backend.dto.TimetableDetailDto;
+import com.schoolmanagement.backend.repo.ClassEnrollmentRepository;
 import com.schoolmanagement.backend.repo.TimetableRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +21,7 @@ public class TimetableService {
 
   private final TimetableRepository timetableRepository;
   private final com.schoolmanagement.backend.repo.TimetableDetailRepository timetableDetailRepository;
+  private final ClassEnrollmentRepository enrollmentRepository;
 
   public List<Timetable> getTimetables(School school) {
     return timetableRepository.findAllBySchoolOrderByCreatedAtDesc(school);
@@ -52,11 +51,11 @@ public class TimetableService {
   }
 
   // OVERLOADING
-  public List<SimpleTimetableDetailDto> getTimetableDetailsOfStudent(User user, String className) {
-    School school = user.getSchool();
-    Timetable studentTimetable = timetableRepository.findByStatusAndSchoolAndNameContains(TimetableStatus.OFFICIAL, school, className)
+  public List<SimpleTimetableDetailDto> getTimetableDetailsOfStudent(Student student, ClassRoom classRoom) {
+    School school = student.getSchool();
+    Timetable studentTimetable = timetableRepository.findByStatusAndSchoolAndNameContains(TimetableStatus.OFFICIAL, school, classRoom.getName())
             .orElseThrow(() -> new EntityNotFoundException("Timetable not found"));
-    return timetableDetailRepository.findAllByTimetable(studentTimetable)
+    return timetableDetailRepository.findAllByTimetableAndClassRoom(studentTimetable, classRoom)
             .stream()
             .map(d -> new SimpleTimetableDetailDto(
                     d.getClassRoom().getName(),
@@ -67,8 +66,7 @@ public class TimetableService {
             .toList();
   }
 
-  public List<com.schoolmanagement.backend.dto.TimetableDetailDto> getTimetableDetails(UUID timetableId,
-                                                                                       Integer grade, String className) {
+  public List<com.schoolmanagement.backend.dto.TimetableDetailDto> getTimetableDetails(UUID timetableId, Integer grade, String className) {
     Timetable timetable = getTimetable(timetableId);
     return timetableDetailRepository
             .findAllByTimetable(timetable).stream()

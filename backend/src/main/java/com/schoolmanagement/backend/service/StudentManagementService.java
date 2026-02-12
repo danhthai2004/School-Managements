@@ -31,6 +31,16 @@ import com.schoolmanagement.backend.repo.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.GuardianRepository;
 import com.schoolmanagement.backend.repo.StudentRepository;
 import com.schoolmanagement.backend.repo.UserRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class StudentManagementService {
@@ -152,6 +162,15 @@ public class StudentManagementService {
                     .enrolledAt(Instant.now())
                     .build();
             enrollments.save(enrollment);
+        } else if (req.department() != null && req.grade() != null) {
+            // Auto-assign to class based on department
+            String academicYear = req.academicYear() != null ? req.academicYear()
+                    : classRooms.findFirstBySchoolOrderByAcademicYearDesc(school)
+                            .map(ClassRoom::getAcademicYear).orElse("");
+
+            if (!academicYear.isBlank()) {
+                autoAssignStudentToClass(school, student, req.department(), academicYear, req.grade());
+            }
         }
 
         return toStudentDto(student);
@@ -187,6 +206,14 @@ public class StudentManagementService {
         }
 
         return toStudentDto(student);
+    }
+
+    @Transactional(readOnly = true)
+    public Student getSingleStudent(UUID studentId) {
+        Student student = students.findById(studentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+
+        return student;
     }
     
     // Find student with Guardian ID
@@ -506,5 +533,70 @@ public class StudentManagementService {
                 currentClassName,
                 currentClassId,
                 guardianDtos);
+    }
+
+    private void autoAssignStudentToClass(School school, Student student,
+            com.schoolmanagement.backend.domain.ClassDepartment department, String academicYear, int grade) {
+        // Find all active classes for the grade
+        List<ClassRoom> classes = classRooms.findAllBySchoolAndGradeAndAcademicYearAndStatus(
+                school, grade, academicYear, ClassRoomStatus.ACTIVE);
+
+        if (classes.isEmpty())
+            return;
+
+        // Get enrollment counts
+        java.util.Map<UUID, Long> counts = new java.util.HashMap<>();
+        for (ClassRoom c : classes) {
+            counts.put(c.getId(), enrollments.countByClassRoom(c));
+        }
+
+        // Filter by connection to department/stream
+        List<ClassRoom> candidates = classes.stream()
+                .filter(c -> matchesDepartment(c, department))
+                .sorted(java.util.Comparator.comparingLong(c -> counts.get(c.getId())))
+                .toList();
+
+        // Fallback if no matching stream class found: try any class in grade
+        if (candidates.isEmpty()) {
+            candidates = classes.stream()
+                    .sorted(java.util.Comparator.comparingLong(c -> counts.get(c.getId())))
+                    .toList();
+        }
+
+        // Pick first one with capacity
+        for (ClassRoom c : candidates) {
+            if (counts.get(c.getId()) < c.getMaxCapacity()) {
+                ClassEnrollment enrollment = ClassEnrollment.builder()
+                        .student(student)
+                        .classRoom(c)
+                        .academicYear(academicYear)
+                        .enrolledAt(Instant.now())
+                        .build();
+                enrollments.save(enrollment);
+                break;
+            }
+        }
+    }
+
+    private boolean matchesDepartment(ClassRoom classRoom,
+            com.schoolmanagement.backend.domain.ClassDepartment studentDept) {
+        if (studentDept == null || studentDept == com.schoolmanagement.backend.domain.ClassDepartment.KHONG_PHAN_BAN) {
+            return true;
+        }
+
+        // Check combination stream first
+        if (classRoom.getCombination() != null && classRoom.getCombination().getStream() != null) {
+            String streamName = classRoom.getCombination().getStream().name();
+            if (streamName.equals(studentDept.name())) {
+                return true;
+            }
+        }
+
+        // Check class department as fallback
+        if (classRoom.getDepartment() == studentDept) {
+            return true;
+        }
+
+        return false;
     }
 }

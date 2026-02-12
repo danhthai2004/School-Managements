@@ -31,6 +31,10 @@ public record CreateStudentRequest(
                 UUID classId,
                 String academicYear,
 
+                // Auto-assign params
+                com.schoolmanagement.backend.domain.ClassDepartment department,
+                Integer grade,
+
                 // Guardian info
                 List<GuardianRequest> guardians) {
         public record GuardianRequest(

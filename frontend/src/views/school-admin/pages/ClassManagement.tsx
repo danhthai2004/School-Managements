@@ -32,6 +32,7 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, def
     const [maxCapacity, setMaxCapacity] = useState(35);
     const [roomNumber, setRoomNumber] = useState("");
     const [department, setDepartment] = useState<'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI'>("KHONG_PHAN_BAN");
+    const [session, setSession] = useState<'SANG' | 'CHIEU'>('SANG');
     const [combinationId, setCombinationId] = useState("");
     const [homeroomTeacherId, setHomeroomTeacherId] = useState("");
     const [loading, setLoading] = useState(false);
@@ -50,6 +51,7 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, def
                 maxCapacity,
                 roomNumber: roomNumber.trim() || undefined,
                 department,
+                session,
                 combinationId: combinationId || undefined
             };
             if (homeroomTeacherId) {
@@ -61,6 +63,7 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, def
             setMaxCapacity(35);
             setRoomNumber("");
             setDepartment("KHONG_PHAN_BAN");
+            setSession("SANG");
             setCombinationId("");
             setHomeroomTeacherId("");
             onSuccess();
@@ -207,6 +210,20 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, def
                                         />
                                     </div>
                                     <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Buổi học chính <span className="text-red-500">*</span></label>
+                                        <select
+                                            value={session}
+                                            onChange={(e) => setSession(e.target.value as 'SANG' | 'CHIEU')}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm bg-white"
+                                        >
+                                            <option value="SANG">🌅 Buổi sáng</option>
+                                            <option value="CHIEU">🌇 Buổi chiều</option>
+                                        </select>
+                                        <p className="text-xs text-gray-500 mt-1">Thời khóa biểu chính sẽ được xếp vào buổi này</p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Phân ban (Cũ)</label>
                                         <select
                                             value={department}
@@ -300,6 +317,7 @@ function EditClassModal({ isOpen, classData, onClose, onSuccess, teachers, combi
     const [maxCapacity, setMaxCapacity] = useState(35);
     const [roomNumber, setRoomNumber] = useState("");
     const [department, setDepartment] = useState<'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI'>("KHONG_PHAN_BAN");
+    const [session, setSession] = useState<'SANG' | 'CHIEU'>('SANG');
     const [combinationId, setCombinationId] = useState("");
     const [homeroomTeacherId, setHomeroomTeacherId] = useState("");
     const [loading, setLoading] = useState(false);
@@ -313,6 +331,7 @@ function EditClassModal({ isOpen, classData, onClose, onSuccess, teachers, combi
             setMaxCapacity(classData.maxCapacity);
             setRoomNumber(classData.roomNumber || "");
             setDepartment((classData.department as any) || "KHONG_PHAN_BAN");
+            setSession((classData.session as 'SANG' | 'CHIEU') || "SANG");
             setCombinationId(classData.combinationId || "");
             setHomeroomTeacherId(classData.homeroomTeacherId || "");
         }
@@ -332,6 +351,7 @@ function EditClassModal({ isOpen, classData, onClose, onSuccess, teachers, combi
                 maxCapacity,
                 roomNumber: roomNumber.trim() || undefined,
                 department,
+                session,
                 combinationId: combinationId || undefined
             };
             if (homeroomTeacherId) {
@@ -476,6 +496,19 @@ function EditClassModal({ isOpen, classData, onClose, onSuccess, teachers, combi
                                             className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm"
                                         />
                                     </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Buổi học chính</label>
+                                        <select
+                                            value={session}
+                                            onChange={(e) => setSession(e.target.value as 'SANG' | 'CHIEU')}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm bg-white"
+                                        >
+                                            <option value="SANG">🌅 Buổi sáng</option>
+                                            <option value="CHIEU">🌇 Buổi chiều</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Phân ban (Cũ)</label>
                                         <select
@@ -694,6 +727,7 @@ const ClassManagement = () => {
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tên lớp</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Khối</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Năm học</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Buổi</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Phòng</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tổ hợp / Ban</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">GVCN</th>
@@ -715,6 +749,11 @@ const ClassManagement = () => {
                                 </td>
                                 <td className="px-6 py-4 text-gray-600">{cls.grade}</td>
                                 <td className="px-6 py-4 text-gray-600">{cls.academicYear}</td>
+                                <td className="px-6 py-4">
+                                    <span className={`px-2 py-1 text-xs font-medium rounded-lg ${cls.session === 'CHIEU' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
+                                        {cls.session === 'CHIEU' ? '🌇 Chiều' : '🌅 Sáng'}
+                                    </span>
+                                </td>
                                 <td className="px-6 py-4 text-gray-600">{cls.roomNumber || "—"}</td>
                                 <td className="px-6 py-4 text-gray-600">
                                     {cls.combinationName ? (
@@ -753,7 +792,7 @@ const ClassManagement = () => {
                             </tr>
                         ))}
                         {classes.length === 0 && (
-                            <tr><td colSpan={9} className="px-6 py-8 text-center text-gray-500">Chưa có lớp học nào</td></tr>
+                            <tr><td colSpan={10} className="px-6 py-8 text-center text-gray-500">Chưa có lớp học nào</td></tr>
                         )}
                     </tbody>
                 </table>

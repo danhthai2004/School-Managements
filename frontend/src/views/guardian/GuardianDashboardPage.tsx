@@ -1,9 +1,9 @@
 import { BookOpen, Check } from "lucide-react";
 import { NotificationIcon, ScoreIcon } from "./GuardianIcons";
 import {useOutletContext} from "react-router-dom";
-import type {StudentDto} from "../../services/schoolAdminService.ts";
 import type {StudentDataProp} from "../../components/layout/GuardianLayout.tsx";
 import type {TimetableDto} from "../../services/guardianService.ts";
+import {useEffect} from "react";
 
 export default function GuardianDashboardPage() {
   const {student, timetable} = useOutletContext<StudentDataProp>();
@@ -17,6 +17,10 @@ export default function GuardianDashboardPage() {
   for (const slot of timetable ) {
     if (slot.dayOfWeek == currentDay && slot.className == student.currentClassName) currentDaySchedule.push(slot);
   }
+
+  useEffect(() => {
+    console.log(timetable);
+  }, []);
 
   return (
     <div>
@@ -109,20 +113,11 @@ export default function GuardianDashboardPage() {
                   />
                 )
               })}
+              {/* True data type */}
               {/*<ScheduleItem*/}
               {/*  time="07:00 - 07:45"*/}
               {/*  subject="Toán học"*/}
               {/*  teacher="Cô Nguyễn Thị C"*/}
-              {/*/>*/}
-              {/*<ScheduleItem*/}
-              {/*  time="07:55 - 08:40"*/}
-              {/*  subject="Văn học"*/}
-              {/*  teacher="Thầy Trần Văn D"*/}
-              {/*/>*/}
-              {/*<ScheduleItem*/}
-              {/*  time="08:50 - 09:35"*/}
-              {/*  subject="Tiếng Anh"*/}
-              {/*  teacher="Cô Lê Thị E"*/}
               {/*/>*/}
             </div>
           </div>

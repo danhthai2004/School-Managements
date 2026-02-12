@@ -47,4 +47,6 @@ public interface TimetableDetailRepository extends JpaRepository<TimetableDetail
         java.util.Optional<TimetableDetail> findByTimetableAndClassRoomAndDayOfWeekAndSlotIndex(Timetable timetable,
                         com.schoolmanagement.backend.domain.entity.ClassRoom classRoom, java.time.DayOfWeek dayOfWeek,
                         int slotIndex);
+
+        List<TimetableDetail> findByClassRoom(ClassRoom classRoom);
 }

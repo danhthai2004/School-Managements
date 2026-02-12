@@ -14,6 +14,8 @@ export default function DashboardPage() {
       navigate("/system/overview", { replace: true });
     } else if (user?.role === "GUARDIAN") {
       navigate("/guardian/overview", {replace: true})
+    } else if (user?.role === "STUDENT"){
+      navigate("/student/overview",{ replace: true});
     }
   }, [user?.role, navigate]);
 

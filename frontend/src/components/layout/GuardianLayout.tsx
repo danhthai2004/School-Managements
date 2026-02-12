@@ -34,26 +34,26 @@ export default function GuardianLayout() {
   const [student, setStudent] = useState<StudentDto | null>(null);
   const [timetable, setTimetable] = useState<TimetableDto[]>([]);
 
-  const dayRank: Record<string, number> = {
-    MONDAY: 1,
-    TUESDAY: 2,
-    WEDNESDAY: 3,
-    THURSDAY: 4,
-    FRIDAY: 5,
-    SATURDAY: 6,
-    // SUNDAY: 7
-  }
+  function timetableSort(slots: TimetableDto[]): TimetableDto[] {
+    const dayRank: Record<string, number> = {
+      MONDAY: 1,
+      TUESDAY: 2,
+      WEDNESDAY: 3,
+      THURSDAY: 4,
+      FRIDAY: 5,
+      SATURDAY: 6,
+    };
 
-  // UTILITY FUNCTIONS
-  // Sort the array
-  function timetableSort(slots: TimetableDto[]) {
-    return Object.keys(dayRank).map((day) => {
-      return slots
-        .filter((s) => s.dayOfWeek == day)
-        .toSorted((a: TimetableDto, b: TimetableDto) => {
-          return a.slot - b.slot
-        })
-    })
+    return [...slots].sort((a, b) => {
+      // 1️⃣ Sort by day first
+      const dayComparison = dayRank[a.dayOfWeek] - dayRank[b.dayOfWeek];
+      if (dayComparison !== 0) {
+        return dayComparison;
+      }
+
+      // 2️⃣ If same day, sort by slot
+      return a.slot - b.slot;
+    });
   }
 
   function fetchStudentInfo() {
@@ -62,25 +62,23 @@ export default function GuardianLayout() {
     })
   }
 
-  function fetchTimetableInfo() {
-    if (!student?.currentClassName) return;
-    guardianService.getTimetableInfo(student.currentClassName).then((data) => {
-      timetableSort(data);
-      setTimetable(data);
-    })
-  }
-
   useEffect(() => {
     fetchStudentInfo();
   }, []);
 
   useEffect(() => {
-    if (!student?.currentClassName) return;
+    // Safeguard clause (no timetable obtained if student doesn't exist yet)
+    if (!student || !student?.currentClassName) return;
 
     guardianService
-      .getTimetableInfo(student.currentClassName)
+      .getTimetableInfo(student.id)
       .then((data) => {
-        setTimetable(data);
+        // console.table(data);
+        const curData = timetableSort(data);
+        // Stream choose the class
+        console.log("Timetable After Sort");
+        // console.table(curData);
+        setTimetable(curData);
       });
   }, [student]);
 
@@ -92,7 +90,16 @@ export default function GuardianLayout() {
       label: "Thời khóa biểu",
       icon: <TimetableIcon/>,
     },
-    {to: "/guardian/grading", label: "Điểm số", icon: <ScoreIcon/>},
+    {
+      to: "/guardian/examschedule",
+      label: "Lịch kiểm tra",
+      icon: <TimetableIcon/>,
+    },
+    {
+      to: "/guardian/grading",
+      label: "Điểm số",
+      icon: <ScoreIcon/>
+    },
     {
       to: "/guardian/attendance",
       label: "Chuyên cần",
@@ -103,6 +110,7 @@ export default function GuardianLayout() {
       label: "Thông báo",
       icon: <NotificationIcon/>,
     },
+
   ];
 
   const handleLogout = () => {

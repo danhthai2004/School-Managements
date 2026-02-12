@@ -24,6 +24,10 @@ import java.util.UUID;
 @Slf4j
 public class AutoScheduleService {
 
+    // Constants for timetable constraints
+    private static final int MIN_PERIODS_PER_DAY = 4; // Each day should have at least 4 periods
+    private static final int MAX_PERIODS_PER_DAY = 5; // Maximum 5 periods per day
+
     private final TimetableRepository timetableRepository;
     private final TimetableConstraintService constraintService;
     private final SubjectRepository subjectRepository;
@@ -80,6 +84,9 @@ public class AutoScheduleService {
         // Initialize Context
         ScheduleContext context = new ScheduleContext();
 
+        // Step 1: Fixed Activities (Chào cờ, Sinh hoạt lớp)
+        scheduleFixedActivities(timetable, context);
+
         // Step 2: High Frequency Subjects
         scheduleHighFrequencySubjects(timetable, context);
 
@@ -93,6 +100,99 @@ public class AutoScheduleService {
         // ... implementation pending
 
         log.info("Auto-generation completed for Timetable ID: {}", timetableId);
+    }
+
+    /**
+     * Step 1: Schedule fixed activities for all classes.
+     * NEW LOGIC (no more CC/SHL):
+     * - HDTN: Saturday last period of MAIN session (slot 5 for morning, slot 9 for afternoon)
+     * - GDTC: 2 consecutive slots in SECONDARY session (random day Mon-Fri)
+     * - HDTN (additional): 2 consecutive slots in SECONDARY session (random day Mon-Fri, different from GDTC)
+     */
+    private void scheduleFixedActivities(Timetable timetable, ScheduleContext context) {
+        log.info("Step 1: Scheduling fixed activities (HDTN on Saturday, GDTC/HDTN in secondary session)...");
+
+        var allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool());
+
+        // Find HDTN and GDTC subjects
+        Subject hdtnSubject = subjectRepository.findByCode("HDTN").orElse(null);
+        Subject gdtcSubject = subjectRepository.findByCode("GDTC").orElse(null);
+
+        if (hdtnSubject == null) {
+            log.warn("Subject HDTN not found, skipping fixed HDTN scheduling");
+        }
+        if (gdtcSubject == null) {
+            log.warn("Subject GDTC not found, skipping fixed GDTC scheduling");
+        }
+
+        // Days available for secondary session activities (Mon-Fri, not Saturday)
+        DayOfWeek[] availableDays = {DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY};
+        java.util.Random random = new java.util.Random();
+
+        for (var classroom : allClasses) {
+            if (!classroom.getAcademicYear().equals(timetable.getAcademicYear()))
+                continue;
+
+            // Determine session type (morning or afternoon main session)
+            com.schoolmanagement.backend.domain.SessionType session = classroom.getSession();
+            boolean isMorningMain = (session == null || session == com.schoolmanagement.backend.domain.SessionType.SANG);
+
+            // ===== HDTN: Saturday last period of MAIN session =====
+            // Saturday has only 4 periods, HDTN is the last one
+            // Morning main: Saturday slot 4 (last of 4 morning slots)
+            // Afternoon main: Saturday slot 9 (last afternoon slot)
+            if (hdtnSubject != null) {
+                int saturdaySlot = isMorningMain ? 4 : 9;
+                createFixedDetail(timetable, classroom, hdtnSubject, DayOfWeek.SATURDAY, saturdaySlot, context);
+                log.debug("Scheduled HDTN for {} on Saturday slot {}", classroom.getName(), saturdaySlot);
+            }
+
+            // Shuffle days for random selection
+            java.util.List<DayOfWeek> shuffledDays = new java.util.ArrayList<>(java.util.Arrays.asList(availableDays));
+            java.util.Collections.shuffle(shuffledDays, random);
+
+            // ===== GDTC: 2 consecutive slots in SECONDARY session (random day) =====
+            if (gdtcSubject != null) {
+                int gdtcStartSlot = isMorningMain ? 6 : 1;
+                DayOfWeek gdtcDay = shuffledDays.get(0); // First random day
+                // Schedule 2 consecutive GDTC slots
+                createFixedDetail(timetable, classroom, gdtcSubject, gdtcDay, gdtcStartSlot, context);
+                createFixedDetail(timetable, classroom, gdtcSubject, gdtcDay, gdtcStartSlot + 1, context);
+                log.debug("Scheduled GDTC for {} on {} slots {},{}", classroom.getName(), gdtcDay, gdtcStartSlot, gdtcStartSlot + 1);
+            }
+
+            // ===== HDTN (additional): 2 consecutive slots in SECONDARY session (different random day) =====
+            if (hdtnSubject != null) {
+                int hdtnStartSlot = isMorningMain ? 6 : 1;
+                DayOfWeek hdtnDay = shuffledDays.get(1); // Second random day (different from GDTC)
+                // Schedule 2 consecutive HDTN slots
+                createFixedDetail(timetable, classroom, hdtnSubject, hdtnDay, hdtnStartSlot, context);
+                createFixedDetail(timetable, classroom, hdtnSubject, hdtnDay, hdtnStartSlot + 1, context);
+                log.debug("Scheduled HDTN for {} on {} slots {},{}", classroom.getName(), hdtnDay, hdtnStartSlot, hdtnStartSlot + 1);
+            }
+        }
+    }
+
+    /**
+     * Create a fixed timetable detail that cannot be moved/swapped.
+     */
+    private void createFixedDetail(Timetable timetable, ClassRoom classroom,
+            Subject subject, DayOfWeek day, int slotIndex, ScheduleContext context) {
+        var detail = TimetableDetail.builder()
+                .timetable(timetable)
+                .classRoom(classroom)
+                .subject(subject)
+                .teacher(null) // Usually no specific teacher for activities
+                .dayOfWeek(day)
+                .slotIndex(slotIndex)
+                .isFixed(true) // Mark as fixed - cannot be swapped
+                .build();
+        timetableDetailRepository.save(detail);
+
+        // Mark context immediately
+        context.markOccupied(classroom.getId(), null, day, slotIndex);
+        log.debug("Fixed activity: {} for class {} on {} period {}",
+                subject.getCode(), classroom.getName(), day, slotIndex);
     }
 
     private void scheduleHighFrequencySubjects(Timetable timetable, ScheduleContext context) {
@@ -155,9 +255,15 @@ public class AutoScheduleService {
             if (assignedToday >= limitPerDay)
                 continue;
 
-            java.util.List<Integer> slots = new java.util.ArrayList<>(java.util.List.of(1, 2, 3, 4, 5));
-            if (randomize)
-                java.util.Collections.shuffle(slots);
+            // Prioritize contiguous slots
+            // Saturday has only 4 periods (T1-T4), with T4 reserved for HDTN
+            // Other days have 5 periods (T1-T5)
+            java.util.List<Integer> slots;
+            if (day == DayOfWeek.SATURDAY) {
+                slots = new java.util.ArrayList<>(java.util.List.of(1, 2, 3)); // T4 reserved for HDTN
+            } else {
+                slots = new java.util.ArrayList<>(java.util.List.of(1, 2, 3, 4, 5));
+            }
 
             for (int slot : slots) {
                 if (assignedCount >= lessonsToAssign)
@@ -333,8 +439,10 @@ public class AutoScheduleService {
     }
 
     private boolean isSkippedSubject(String code) {
-        // High Freq only
-        return java.util.List.of("TOAN", "VAN", "ANH").contains(code);
+        // High Freq handled separately
+        // CC/SHL not scheduled at all
+        // GDTC/HDTN already scheduled as fixed activities
+        return java.util.List.of("TOAN", "VAN", "ANH", "CC", "SHL", "GDTC", "HDTN").contains(code);
     }
 
     private void scheduleSpecializedSubjects(Timetable timetable, ScheduleContext context) {

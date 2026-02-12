@@ -278,14 +278,30 @@ export default function TeacherAssignment() {
                                 {teachers
                                     .filter(t => {
                                         if (!currentAssignment?.subjectId) return true;
-                                        // Exact match (normal case)
-                                        if (t.subjectId === currentAssignment.subjectId) return true;
-
-                                        // Specialized subject match (e.g. "Chuyên đề Toán" vs "Toán")
-                                        if (t.subjectName && currentAssignment.subjectName &&
-                                            currentAssignment.subjectName.includes(t.subjectName)) {
+                                        // Exact match using subjects array
+                                        if (t.subjects && t.subjects.some((s: any) => s.id === currentAssignment.subjectId)) {
                                             return true;
                                         }
+
+                                        // Specialized subject match (e.g. "CD_TOAN" checking against subject codes or names)
+                                        // If strict match failed, maybe check names?
+                                        // For now, let's trust the ID match. The backend allows specialization matching,
+                                        // but frontend list should probably be strict or check all subjects.
+
+                                        // Also check if any of teacher's subjects is a "parent" of the assignment subject
+                                        // e.g. Assignment is "Chuyên đề Toán" (CD_TOAN), Teacher has "Toán" (TOAN)
+                                        // The backend logic: if (assignmentCode.contains(teacherSubjectCode))
+
+                                        // We don't have codes easily here unless SubjectDto has it.
+                                        // SubjectDto has 'code'. teacher.subjects is SubjectDto[].
+
+                                        if (t.subjects && currentAssignment.subjectName) {
+                                            return t.subjects.some((s: any) => {
+                                                // Name match fallback (e.g. "Toán" in "Chuyên đề Toán")
+                                                return currentAssignment.subjectName.includes(s.name);
+                                            });
+                                        }
+
                                         return false;
                                     })
                                     .map(t => (

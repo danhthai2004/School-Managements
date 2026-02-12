@@ -67,11 +67,17 @@ public class TeacherManagementService {
             }
         }
 
-        // Find Subject
-        com.schoolmanagement.backend.domain.entity.Subject subject = null;
-        if (req.subjectId() != null) {
-            subject = subjects.findById(req.subjectId())
-                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy môn học"));
+        // Find Subjects
+        java.util.Set<com.schoolmanagement.backend.domain.entity.Subject> subjectEntities = new java.util.HashSet<>();
+        if (req.subjectIds() != null && !req.subjectIds().isEmpty()) {
+            List<com.schoolmanagement.backend.domain.entity.Subject> foundSubjects = subjects
+                    .findAllById(req.subjectIds());
+            if (foundSubjects.size() != req.subjectIds().size()) {
+                // warning or error? Let's just use what we found or strict check.
+                // Strict check is better.
+                throw new ApiException(HttpStatus.NOT_FOUND, "Một số môn học không tìm thấy");
+            }
+            subjectEntities.addAll(foundSubjects);
         }
 
         // Create teacher
@@ -85,7 +91,7 @@ public class TeacherManagementService {
                 .phone(req.phone())
                 .specialization(req.specialization())
                 .degree(req.degree())
-                .primarySubject(subject)
+                .subjects(subjectEntities)
                 .school(school)
                 .status("ACTIVE")
                 .build();
@@ -96,8 +102,6 @@ public class TeacherManagementService {
         if (req.createAccount() && req.email() != null && !req.email().isBlank()) {
             // Check if email already used for an account
             if (users.existsByEmailIgnoreCase(req.email())) {
-                // If user exists, we might want to link it (if role is TEACHER), or error.
-                // For simplicity, error if email conflict.
                 throw new ApiException(HttpStatus.CONFLICT, "Email đã được sử dụng cho một tài khoản khác");
             }
 
@@ -160,12 +164,12 @@ public class TeacherManagementService {
         teacher.setSpecialization(req.specialization());
         teacher.setDegree(req.degree());
 
-        if (req.subjectId() != null) {
-            com.schoolmanagement.backend.domain.entity.Subject subject = subjects.findById(req.subjectId())
-                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy môn học"));
-            teacher.setPrimarySubject(subject);
+        if (req.subjectIds() != null) {
+            List<com.schoolmanagement.backend.domain.entity.Subject> foundSubjects = subjects
+                    .findAllById(req.subjectIds());
+            teacher.setSubjects(new java.util.HashSet<>(foundSubjects));
         } else {
-            teacher.setPrimarySubject(null);
+            teacher.getSubjects().clear();
         }
 
         teacher = teachers.save(teacher);
@@ -224,6 +228,19 @@ public class TeacherManagementService {
             }
         }
 
+        // Map subjects
+        List<com.schoolmanagement.backend.dto.SubjectDto> subjectDtos = teacher.getSubjects().stream()
+                .map(s -> new com.schoolmanagement.backend.dto.SubjectDto(
+                        s.getId(), s.getName(), s.getCode(),
+                        s.getType(),
+                        s.getStream(),
+                        s.getTotalLessons(), s.isActive(), s.getDescription()))
+                .collect(java.util.stream.Collectors.toList());
+
+        String subjectNames = teacher.getSubjects().stream()
+                .map(com.schoolmanagement.backend.domain.entity.Subject::getName)
+                .collect(java.util.stream.Collectors.joining(", "));
+
         return new TeacherDto(
                 teacher.getId(),
                 teacher.getTeacherCode(),
@@ -238,8 +255,8 @@ public class TeacherManagementService {
                 teacher.getStatus(),
                 homeroomClassId,
                 homeroomClassName,
-                teacher.getPrimarySubject() != null ? teacher.getPrimarySubject().getId() : null,
-                teacher.getPrimarySubject() != null ? teacher.getPrimarySubject().getName() : null,
+                subjectDtos,
+                subjectNames,
                 null);
     }
 }

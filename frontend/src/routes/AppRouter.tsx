@@ -28,6 +28,8 @@ import CombinationManagement from "../views/school-admin/pages/CombinationManage
 import TeacherAssignment from "../views/school-admin/pages/TeacherAssignment";
 import TimetableManagement from "../views/school-admin/pages/TimetableManagement";
 import TimetableDetailView from "../views/school-admin/pages/TimetableDetailView";
+import NotificationManagement from "../views/school-admin/pages/NotificationManagement";
+import ExamScheduleManagement from "../views/school-admin/pages/ExamScheduleManagement";
 import ReportsPage from "../views/school-admin/pages/ReportsPage";
 import GuardianLayout from "../components/layout/GuardianLayout";
 import GuardianNotification from "../views/guardian/GuardianNotification";
@@ -36,7 +38,15 @@ import StudentScore from "../views/guardian/StudentScore";
 import StudentTimetable from "../views/guardian/StudentTimetable";
 import GuardianDashboardPage from "../views/guardian/GuardianDashboardPage";
 
-
+// Student
+import StudentLayout from "../components/layout/StudentLayout";
+import StudentOverviewPage from "../views/Student/StudentOverviewPage";
+import StudentTimetablePage from "../views/Student/StudentTimetablePage";
+import StudentExamSchedulePage from "../views/Student/StudentExamSchedulePage.tsx";
+import StudentScoresPage from "../views/Student/StudentScoresPage";
+import StudentAttendancePage from "../views/Student/StudentAttendancePage";
+import StudentAnalysisPage from "../views/Student/StudentAnalysisPage";
+import GuardianStudentExamSchedulePage from "../views/guardian/GuardianStudentExamSchedulePage.tsx";
 
 
 export default function AppRouter() {
@@ -93,9 +103,11 @@ export default function AppRouter() {
         <Route path="assignments" element={<TeacherAssignment />} />
         <Route path="schedule" element={<TimetableManagement />} />
         <Route path="schedule/:id" element={<TimetableDetailView />} />
+        <Route path="notifications" element={<NotificationManagement />} />
+        <Route path="exam-schedules" element={<ExamScheduleManagement />} />
         <Route path="reports" element={<ReportsPage />} />
       </Route>
-      
+
       <Route path="/guardian" element={
         <ProtectedRoute>
           <GuardianLayout/>
@@ -107,6 +119,21 @@ export default function AppRouter() {
         <Route path="attendance" element={<StudentAttendance/>} />
         <Route path="notification" element={<GuardianNotification/>}/>
         <Route path="timetable" element={<StudentTimetable/>}/>
+        <Route path="examschedule" element={<GuardianStudentExamSchedulePage/>}/>
+      </Route>
+
+      <Route path="/student" element={
+        <ProtectedRoute requiredRole="STUDENT">
+          <StudentLayout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<Navigate to="overview" replace />} />
+        <Route path="overview" element={<StudentOverviewPage />} />
+        <Route path="timetable" element={<StudentTimetablePage />} />
+        <Route path="exam-schedule" element={<StudentExamSchedulePage />} />
+        <Route path="scores" element={<StudentScoresPage />} />
+        <Route path="attendance" element={<StudentAttendancePage />} />
+        <Route path="analysis" element={<StudentAnalysisPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />

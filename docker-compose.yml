@@ -38,6 +38,7 @@ services:
     container_name: school_backend
     ports:
       - "8081:8081"
+      - "5005:5005"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/school_db
       SPRING_DATASOURCE_USERNAME: postgres
