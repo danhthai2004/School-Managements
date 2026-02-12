@@ -18,6 +18,10 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
 
     boolean existsBySchoolAndStudentCode(School school, String studentCode);
 
+    boolean existsBySchoolAndEmail(School school, String email);
+
+    Optional<Student> findBySchoolAndEmail(School school, String email);
+
     Optional<Student> findTopBySchoolOrderByStudentCodeDesc(School school);
 
     long countBySchool(School school);
@@ -28,4 +32,22 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     // linked
     List<Student> findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(School school,
             com.schoolmanagement.backend.domain.StudentStatus status);
+
+    // --- Bulk Delete Optimization ---
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM Attendance a WHERE a.student.id = :studentId")
+    void deleteAttendanceByStudentId(@org.springframework.data.repository.query.Param("studentId") UUID studentId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM Grade g WHERE g.student.id = :studentId")
+    void deleteGradesByStudentId(@org.springframework.data.repository.query.Param("studentId") UUID studentId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM FacialRecognitionData b WHERE b.student.id = :studentId")
+    void deleteBiometricsByStudentId(@org.springframework.data.repository.query.Param("studentId") UUID studentId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM Guardian g WHERE g.student.id = :studentId")
+    void deleteGuardiansByStudentId(@org.springframework.data.repository.query.Param("studentId") UUID studentId);
 }

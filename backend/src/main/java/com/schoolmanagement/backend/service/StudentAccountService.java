@@ -6,6 +6,7 @@ import com.schoolmanagement.backend.domain.entity.*;
 import com.schoolmanagement.backend.dto.BulkAccountCreationResponse;
 import com.schoolmanagement.backend.dto.GuardianDto;
 import com.schoolmanagement.backend.dto.StudentDto;
+import com.schoolmanagement.backend.dto.StudentGuardianDto;
 import com.schoolmanagement.backend.dto.UserDto;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.repo.ClassEnrollmentRepository;
@@ -255,8 +256,8 @@ public class StudentAccountService {
 
     private StudentDto toStudentDto(Student student) {
         List<Guardian> studentGuardians = guardians.findAllByStudent(student);
-        List<StudentDto.GuardianDto> guardianDtos = studentGuardians.stream()
-                .map(g -> new StudentDto.GuardianDto(g.getId(), g.getFullName(), g.getPhone(), g.getEmail(),
+        List<StudentGuardianDto> guardianDtos = studentGuardians.stream()
+                .map(g -> new StudentGuardianDto(g.getId(), g.getFullName(), g.getPhone(), g.getEmail(),
                         g.getRelationship()))
                 .toList();
 
@@ -287,6 +288,7 @@ public class StudentAccountService {
                 student.getEnrollmentDate(),
                 currentClassName,
                 currentClassId,
+                student.getUser() != null,
                 guardianDtos);
     }
 }

@@ -71,6 +71,7 @@ export type StudentDto = {
     enrollmentDate: string | null;
     currentClassName: string | null;
     currentClassId: string | null;
+    hasAccount: boolean;
     guardians: GuardianDto[];
 };
 
@@ -149,6 +150,7 @@ export type TeacherDto = {
     homeroomClassName: string | null;
     subjects: SubjectDto[];
     subjectNames: string | null;
+    hasAccount: boolean;
     avatarUrl: string | null;
 };
 
@@ -175,6 +177,16 @@ export type BulkPromoteRequest = {
 export type BulkPromoteResponse = {
     promoted: number;
     skipped: number;
+    errors: string[];
+};
+
+export type BulkDeleteRequest = {
+    ids: string[];
+};
+
+export type BulkDeleteResponse = {
+    deleted: number;
+    failed: number;
     errors: string[];
 };
 
@@ -235,6 +247,11 @@ export const schoolAdminService = {
 
     deleteTeacher: async (teacherId: string): Promise<void> => {
         await api.delete(`/school/teachers/${teacherId}`);
+    },
+
+    bulkDeleteTeachers: async (ids: string[]): Promise<BulkDeleteResponse> => {
+        const res = await api.post<BulkDeleteResponse>("/school/teachers/bulk-delete", { ids });
+        return res.data;
     },
 
     // Import teachers from Excel
@@ -331,6 +348,11 @@ export const schoolAdminService = {
 
     deleteStudent: async (studentId: string): Promise<void> => {
         await api.delete(`/school/students/${studentId}`);
+    },
+
+    bulkDeleteStudents: async (ids: string[]): Promise<BulkDeleteResponse> => {
+        const res = await api.post<BulkDeleteResponse>("/school/students/bulk-delete", { ids });
+        return res.data;
     },
 
     // Student Account Management

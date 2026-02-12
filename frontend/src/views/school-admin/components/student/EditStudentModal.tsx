@@ -298,9 +298,13 @@ function EditStudentModal({ isOpen, student, classes, onClose, onSuccess }: Edit
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-600 mb-1.5">Email</label>
-                                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                                    <input type="email" value={email}
+                                        onChange={student?.hasAccount ? undefined : (e) => setEmail(e.target.value)}
+                                        readOnly={!!student?.hasAccount}
+                                        disabled={!!student?.hasAccount}
                                         placeholder="example@email.com"
-                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all" />
+                                        className={`w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none transition-all ${student?.hasAccount ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'}`} />
+                                    {student?.hasAccount && <p className="mt-1 text-xs text-slate-400">Email không thể chỉnh sửa khi đã có tài khoản</p>}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-600 mb-1.5">Số điện thoại</label>

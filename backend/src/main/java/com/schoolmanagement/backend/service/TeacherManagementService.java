@@ -19,7 +19,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Service
+@Slf4j
 public class TeacherManagementService {
 
     private final TeacherRepository teachers;
@@ -28,6 +31,9 @@ public class TeacherManagementService {
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
     private final com.schoolmanagement.backend.repo.SubjectRepository subjects;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private BulkDeleteHelperService bulkDeleteHelper;
 
     public TeacherManagementService(TeacherRepository teachers, UserRepository users,
             ClassRoomRepository classRooms, PasswordEncoder passwordEncoder,
@@ -256,25 +262,42 @@ public class TeacherManagementService {
         return toTeacherDto(teacher);
     }
 
-    @Transactional
-    public void deleteTeacher(School school, UUID teacherId) {
-        Teacher teacher = teachers.findById(teacherId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên"));
+    // @Transactional - REMOVED to allow partial success
+    public com.schoolmanagement.backend.dto.BulkDeleteResponse deleteTeachers(School school,
+            com.schoolmanagement.backend.dto.request.BulkDeleteRequest request) {
+        int deleted = 0;
+        int failed = 0;
+        List<String> errors = new java.util.ArrayList<>();
 
-        if (!teacher.getSchool().getId().equals(school.getId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Giáo viên không thuộc trường này");
-        }
+        for (UUID id : request.ids()) {
+            Teacher teacher = null;
+            try {
+                // Ensure teacher belongs to school
+                teacher = teachers.findById(id)
+                        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên"));
+                if (!teacher.getSchool().getId().equals(school.getId())) {
+                    throw new ApiException(HttpStatus.FORBIDDEN, "Giáo viên không thuộc trường này");
+                }
 
-        // Check if teacher is homeroom teacher of any class
-        if (teacher.getUser() != null) {
-            var homeroomClass = classRooms.findByHomeroomTeacher(teacher.getUser());
-            if (homeroomClass.isPresent()) {
-                throw new ApiException(HttpStatus.CONFLICT,
-                        "Không thể xóa giáo viên đang chủ nhiệm lớp " + homeroomClass.get().getName());
+                // Call helper for isolated transaction
+                bulkDeleteHelper.deleteSingleTeacher(id);
+                deleted++;
+            } catch (ApiException e) {
+                failed++;
+                errors.add(e.getMessage());
+            } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                failed++;
+                String teacherName = (teacher != null) ? teacher.getFullName() : "không xác định";
+                errors.add("Không thể xóa giáo viên (" + teacherName + ") do dữ liệu liên quan.");
+                log.error("Data integrity violation deleting teacher {}", id, e);
+            } catch (Exception e) {
+                failed++;
+                errors.add("Lỗi hệ thống: " + e.getMessage());
+                log.error("Error deleting teacher {}", id, e);
             }
         }
 
-        teachers.delete(teacher);
+        return new com.schoolmanagement.backend.dto.BulkDeleteResponse(deleted, failed, errors);
     }
 
     public String generateNextTeacherCode(School school) {
@@ -337,6 +360,7 @@ public class TeacherManagementService {
                 homeroomClassName,
                 subjectDtos,
                 subjectNames,
+                teacher.getUser() != null,
                 null);
     }
 }
