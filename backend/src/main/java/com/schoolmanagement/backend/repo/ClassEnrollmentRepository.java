@@ -4,6 +4,8 @@ import com.schoolmanagement.backend.domain.entity.ClassEnrollment;
 import com.schoolmanagement.backend.domain.entity.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.Student;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -26,5 +28,7 @@ public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment
 
     long countByClassRoom(ClassRoom classRoom);
 
-    void deleteAllByStudent(Student student);
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM ClassEnrollment c WHERE c.student = :student")
+    void deleteAllByStudent(@Param("student") Student student);
 }

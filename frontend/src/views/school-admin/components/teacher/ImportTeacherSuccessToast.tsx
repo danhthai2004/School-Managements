@@ -10,7 +10,7 @@ interface ImportTeacherSuccessToastProps {
 
 function ImportTeacherSuccessToast({ result, onClose }: ImportTeacherSuccessToastProps) {
     useEffect(() => {
-        if (result) {
+        if (result && result.failedCount === 0) {
             const timer = setTimeout(() => {
                 onClose();
             }, 3000);
@@ -23,7 +23,7 @@ function ImportTeacherSuccessToast({ result, onClose }: ImportTeacherSuccessToas
     return createPortal(
         <div className="fixed inset-0 z-[110] flex items-center justify-center">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 duration-200">
                 <div className={`px-6 py-4 ${result.failedCount > 0 ? 'bg-amber-500' : 'bg-emerald-500'}`}>
                     <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-white">Kết quả Import</h3>
@@ -62,12 +62,15 @@ function ImportTeacherSuccessToast({ result, onClose }: ImportTeacherSuccessToas
                         </div>
                     )}
 
-                    <button
-                        onClick={onClose}
-                        className="w-full mt-4 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition-colors"
-                    >
-                        Đóng
-                    </button>
+                    <div className="mt-4 flex flex-col gap-2">
+                        {result.failedCount === 0 && <p className="text-xs text-center text-slate-400">Tự động đóng sau 3 giây</p>}
+                        <button
+                            onClick={onClose}
+                            className="w-full px-4 py-2.5 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition-colors"
+                        >
+                            Đóng
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>,

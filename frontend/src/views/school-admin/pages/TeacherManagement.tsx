@@ -5,13 +5,16 @@ import {
     type ImportTeacherResult
 } from "../../../services/schoolAdminService";
 import { PlusIcon } from "../SchoolAdminIcons";
-import { TeacherStatusBadge } from "../../../components/common";
+import { TeacherStatusBadge } from '../../../components/common/StatusBadge';
+import BatchDeleteModal from '../../../components/common/BatchDeleteModal';
+
 import AddTeacherModal from "../components/teacher/AddTeacherModal";
 import TeacherDetailModal from "../components/teacher/TeacherDetailModal";
 import EditTeacherModal from "../components/teacher/EditTeacherModal";
 import DeleteTeacherModal from "../components/teacher/DeleteTeacherModal";
 import ImportTeacherExcelModal from "../components/teacher/ImportTeacherExcelModal";
 import ImportTeacherSuccessToast from "../components/teacher/ImportTeacherSuccessToast";
+import SuccessToast from "../../../components/common/SuccessToast";
 
 // ==================== PAGE COMPONENT ======================================
 
@@ -28,6 +31,15 @@ const TeacherManagement = () => {
     const [editingTeacher, setEditingTeacher] = useState<TeacherDto | null>(null);
     const [deletingTeacher, setDeletingTeacher] = useState<TeacherDto | null>(null);
 
+    // Bulk selection
+    const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
+    const [selectedTeacherIds, setSelectedTeacherIds] = useState<Set<string>>(new Set());
+
+
+    // Success toast state
+    const [successToastOpen, setSuccessToastOpen] = useState(false);
+    const [successMessage, setSuccessMessage] = useState("");
+
     // New State for Filter & Sort
     const [subjects, setSubjects] = useState<any[]>([]);
     const [filterSubjectId, setFilterSubjectId] = useState<string>("");
@@ -36,17 +48,19 @@ const TeacherManagement = () => {
     useEffect(() => {
         fetchData();
         fetchSubjects();
+        setSelectedTeacherIds(new Set());
     }, []);
 
-    const fetchData = async () => {
+
+    const fetchData = async (silent = false) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const data = await schoolAdminService.listTeacherProfiles();
             setTeachers(data);
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tải dữ liệu.");
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
@@ -58,6 +72,47 @@ const TeacherManagement = () => {
             console.error("Failed to fetch subjects:", error);
         }
     };
+
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            const allIds = filteredTeachers.map(t => t.id);
+            setSelectedTeacherIds(new Set(allIds));
+        } else {
+            setSelectedTeacherIds(new Set());
+        }
+    };
+
+    const handleSelectOne = (id: string) => {
+        const newSelected = new Set(selectedTeacherIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedTeacherIds(newSelected);
+    };
+
+
+
+    const handleBulkDelete = async () => {
+        try {
+            const result = await schoolAdminService.bulkDeleteTeachers(Array.from(selectedTeacherIds));
+
+            if (result.deleted > 0) {
+                await fetchData(true); // Silent refresh
+                setSelectedTeacherIds(new Set());
+                setSuccessMessage(`Đã xóa thành công ${result.deleted} giáo viên`);
+                setSuccessToastOpen(true);
+            }
+
+            return result;
+        } catch (error) {
+            console.error("Failed to delete teachers:", error);
+            alert("Có lỗi xảy ra khi xóa giáo viên");
+            return { deleted: 0, failed: selectedTeacherIds.size, errors: ["Lỗi hệ thống"] };
+        }
+    };
+
 
     // Filter & Sort Logic
     const filteredTeachers = React.useMemo(() => {
@@ -149,6 +204,18 @@ const TeacherManagement = () => {
                             <option key={sub.id} value={sub.id}>{sub.name}</option>
                         ))}
                     </select>
+                    {selectedTeacherIds.size > 0 && (
+                        <button
+                            onClick={() => setShowBatchDeleteModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-all border border-red-200"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span>Xóa {selectedTeacherIds.size} mục</span>
+                        </button>
+                    )}
+
                     <button
                         onClick={() => setShowImportModal(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
@@ -176,7 +243,16 @@ const TeacherManagement = () => {
                     <table className="w-full">
                         <thead className="bg-gray-50">
                             <tr>
+                                <th className="px-6 py-3 w-4">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        checked={filteredTeachers.length > 0 && Array.from(selectedTeacherIds).length === filteredTeachers.length && filteredTeachers.every(t => selectedTeacherIds.has(t.id))}
+                                        onChange={handleSelectAll}
+                                    />
+                                </th>
                                 <SortHeader label="Mã GV" sortKey="teacherCode" />
+
                                 <SortHeader label="Họ tên" sortKey="fullName" />
                                 <SortHeader label="Email" sortKey="email" />
                                 <SortHeader label="Điện thoại" sortKey="phone" />
@@ -189,7 +265,16 @@ const TeacherManagement = () => {
                         <tbody className="divide-y divide-gray-100">
                             {filteredTeachers.map((teacher) => (
                                 <tr key={teacher.id} className="hover:bg-blue-50 transition-colors cursor-pointer" onClick={() => setSelectedTeacher(teacher)}>
+                                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                        <input
+                                            type="checkbox"
+                                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            checked={selectedTeacherIds.has(teacher.id)}
+                                            onChange={() => handleSelectOne(teacher.id)}
+                                        />
+                                    </td>
                                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{teacher.teacherCode}</td>
+
                                     <td className="px-6 py-4 text-sm text-gray-700">{teacher.fullName}</td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{teacher.email || '—'}</td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{teacher.phone || '—'}</td>
@@ -223,7 +308,7 @@ const TeacherManagement = () => {
                             ))}
                             {teachers.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                                         Chưa có giáo viên nào. Bấm "Thêm giáo viên" để bắt đầu.
                                     </td>
                                 </tr>
@@ -236,7 +321,11 @@ const TeacherManagement = () => {
             <AddTeacherModal
                 isOpen={showAddTeacherModal}
                 onClose={() => setShowAddTeacherModal(false)}
-                onSuccess={fetchData}
+                onSuccess={() => {
+                    fetchData();
+                    setSuccessMessage("Thêm giáo viên thành công!");
+                    setSuccessToastOpen(true);
+                }}
             />
             <TeacherDetailModal
                 isOpen={selectedTeacher !== null}
@@ -255,7 +344,11 @@ const TeacherManagement = () => {
                 isOpen={editingTeacher !== null}
                 teacher={editingTeacher}
                 onClose={() => setEditingTeacher(null)}
-                onSuccess={fetchData}
+                onSuccess={() => {
+                    fetchData();
+                    setSuccessMessage("Cập nhật thông tin giáo viên thành công!");
+                    setSuccessToastOpen(true);
+                }}
             />
             <DeleteTeacherModal
                 isOpen={deletingTeacher !== null}
@@ -263,6 +356,16 @@ const TeacherManagement = () => {
                 onClose={() => setDeletingTeacher(null)}
                 onSuccess={fetchData}
             />
+            <BatchDeleteModal
+                isOpen={showBatchDeleteModal}
+                onClose={() => setShowBatchDeleteModal(false)}
+                onConfirm={handleBulkDelete}
+                title="Xóa giáo viên"
+                message={`Bạn có chắc chắn muốn xóa ${selectedTeacherIds.size} giáo viên đã chọn?`}
+                itemCount={selectedTeacherIds.size}
+                itemName="giáo viên"
+            />
+
             <ImportTeacherExcelModal
                 isOpen={showImportModal}
                 onClose={() => setShowImportModal(false)}
@@ -272,6 +375,12 @@ const TeacherManagement = () => {
             <ImportTeacherSuccessToast
                 result={importResult}
                 onClose={() => setImportResult(null)}
+            />
+            <SuccessToast
+                isOpen={successToastOpen}
+                onClose={() => setSuccessToastOpen(false)}
+                message={successMessage}
+                subtitle="Tự động đóng sau 3 giây"
             />
         </div>
     );

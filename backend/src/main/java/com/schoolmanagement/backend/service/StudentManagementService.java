@@ -5,6 +5,7 @@ import com.schoolmanagement.backend.domain.StudentStatus;
 import com.schoolmanagement.backend.domain.entity.*;
 import com.schoolmanagement.backend.dto.BulkPromoteResponse;
 import com.schoolmanagement.backend.dto.StudentDto;
+import com.schoolmanagement.backend.dto.StudentGuardianDto;
 import com.schoolmanagement.backend.dto.StudentProfileDto;
 import com.schoolmanagement.backend.dto.request.BulkPromoteRequest;
 import com.schoolmanagement.backend.dto.request.CreateStudentRequest;
@@ -33,6 +34,9 @@ public class StudentManagementService {
     private final GuardianRepository guardians;
     private final ClassRoomRepository classRooms;
     private final ClassEnrollmentRepository enrollments;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private BulkDeleteHelperService bulkDeleteHelper;
 
     public StudentManagementService(StudentRepository students, GuardianRepository guardians,
             ClassRoomRepository classRooms, ClassEnrollmentRepository enrollments) {
@@ -177,19 +181,51 @@ public class StudentManagementService {
         return toStudentDto(student);
     }
 
-    @Transactional
-    public void deleteStudent(School school, UUID studentId) {
-        Student student = students.findById(studentId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+    // @Transactional - REMOVED to allow partial success (each delete is its own
+    // transaction)
+    public com.schoolmanagement.backend.dto.BulkDeleteResponse deleteStudents(School school,
+            com.schoolmanagement.backend.dto.request.BulkDeleteRequest request) {
+        log.info("Starting bulk delete for {} students", request.ids().size());
 
-        if (!student.getSchool().getId().equals(school.getId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Học sinh không thuộc trường này");
+        int deleted = 0;
+        int failed = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (UUID id : request.ids()) {
+            Student student = null;
+            try {
+                // Ensure student belongs to school first
+                student = students.findById(id)
+                        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+                if (!student.getSchool().getId().equals(school.getId())) {
+                    throw new ApiException(HttpStatus.FORBIDDEN, "Học sinh không thuộc trường này");
+                }
+
+                if (student.getUser() != null) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST,
+                            "Không thể xóa học sinh đã có tài khoản người dùng (" + student.getFullName()
+                                    + "). Vui lòng xóa tài khoản trước.");
+                }
+
+                // Call helper for isolated transaction deletion
+                bulkDeleteHelper.deleteSingleStudent(id);
+                deleted++;
+            } catch (ApiException e) {
+                failed++;
+                errors.add(e.getMessage());
+            } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                failed++;
+                String name = (student != null) ? student.getFullName() : "ID " + id;
+                errors.add("Không thể xóa học sinh (" + name + ") do dữ liệu liên quan.");
+                log.error("Data integrity violation deleting student {}", id, e);
+            } catch (Exception e) {
+                failed++;
+                errors.add("Lỗi hệ thống: " + e.getMessage());
+                log.error("Error deleting student {}", id, e);
+            }
         }
 
-        // Delete related records
-        enrollments.deleteAllByStudent(student);
-        guardians.deleteAllByStudent(student);
-        students.delete(student);
+        return new com.schoolmanagement.backend.dto.BulkDeleteResponse(deleted, failed, errors);
     }
 
     @Transactional
@@ -336,8 +372,8 @@ public class StudentManagementService {
 
     private StudentDto toStudentDto(Student student) {
         List<Guardian> studentGuardians = guardians.findAllByStudent(student);
-        List<StudentDto.GuardianDto> guardianDtos = studentGuardians.stream()
-                .map(g -> new StudentDto.GuardianDto(g.getId(), g.getFullName(), g.getPhone(), g.getEmail(),
+        List<StudentGuardianDto> guardianDtos = studentGuardians.stream()
+                .map(g -> new StudentGuardianDto(g.getId(), g.getFullName(), g.getPhone(), g.getEmail(),
                         g.getRelationship()))
                 .toList();
 
@@ -368,6 +404,7 @@ public class StudentManagementService {
                 student.getEnrollmentDate(),
                 currentClassName,
                 currentClassId,
+                student.getUser() != null,
                 guardianDtos);
     }
 

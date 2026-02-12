@@ -31,3 +31,5 @@ export {
 } from "./StatusBadge";
 export type { StudentStatus, TeacherStatus } from "./StatusBadge";
 
+export { default as BatchDeleteModal } from "./BatchDeleteModal";
+

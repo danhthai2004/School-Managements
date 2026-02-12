@@ -26,4 +26,12 @@ public interface AttendanceSessionRepository extends JpaRepository<AttendanceSes
     long countBySchool(School school);
 
     long countByClassRoom(ClassRoom classRoom);
+
+    List<com.schoolmanagement.backend.domain.entity.AttendanceSession> findAllByTeacher(
+            com.schoolmanagement.backend.domain.entity.Teacher teacher);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM AttendanceSession e WHERE e.teacher = :teacher")
+    void deleteAllByTeacher(
+            @org.springframework.data.repository.query.Param("teacher") com.schoolmanagement.backend.domain.entity.Teacher teacher);
 }

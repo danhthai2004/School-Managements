@@ -13,7 +13,9 @@ public interface GuardianRepository extends JpaRepository<Guardian, UUID> {
 
     List<Guardian> findAllByStudent(Student student);
 
-    void deleteAllByStudent(Student student);
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM Guardian e WHERE e.student = :student")
+    void deleteAllByStudent(@org.springframework.data.repository.query.Param("student") Student student);
 
     @org.springframework.data.jpa.repository.Query("SELECT g FROM Guardian g JOIN g.student s WHERE s.school = :school AND g.email IS NOT NULL AND g.email != '' AND g.user IS NULL")
     List<Guardian> findOrphanGuardians(

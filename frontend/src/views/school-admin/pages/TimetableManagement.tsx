@@ -5,6 +5,7 @@ import api from "../../../services/api";
 import { Plus, Play, Calendar, Eye, Loader2, X, AlertCircle, CheckCircle2, Trash2 } from "lucide-react";
 
 import { schoolAdminService } from "../../../services/schoolAdminService";
+import SuccessToast from "../../../components/common/SuccessToast";
 
 interface Timetable {
     id: string;
@@ -239,41 +240,6 @@ function GenerateConfirmationModal({ isOpen, onClose, onConfirm, itemName }: Gen
     );
 }
 
-// Auto-Close Success Modal
-interface SuccessModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    message: string;
-}
-
-function AutoCloseSuccessModal({ isOpen, onClose, message }: SuccessModalProps) {
-    useEffect(() => {
-        if (isOpen) {
-            const timer = setTimeout(() => {
-                onClose();
-            }, 2500); // Auto close after 2.5s
-            return () => clearTimeout(timer);
-        }
-    }, [isOpen, onClose]);
-
-    if (!isOpen) return null;
-
-    return createPortal(
-        <div className="fixed inset-0 z-[120] flex items-center justify-center pointer-events-none">
-            {/* Transparent backdrop so user can see behind, but maybe slightly dimmed? Let's keep it minimal for "notification" feel or full modal? User said "Modal xuất hiện... rồi tự tắt" -> likely a center modal. */}
-            <div className="absolute inset-0 bg-black/20" />
-            <div className="relative bg-white/90 backdrop-blur-md border border-white/50 shadow-2xl rounded-2xl p-6 min-w-[300px] transform transition-all animate-in fade-in zoom-in duration-300 pointer-events-auto">
-                <div className="flex flex-col items-center justify-center text-center">
-                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3 text-green-600">
-                        <CheckCircle2 size={32} />
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-800">{message}</h3>
-                </div>
-            </div>
-        </div>,
-        document.body
-    );
-}
 
 export default function TimetableManagement() {
     const [timetables, setTimetables] = useState<Timetable[]>([]);
@@ -551,11 +517,12 @@ export default function TimetableManagement() {
                 itemName={selectedGenerateTimetable?.name || ""}
             />
 
-            {/* Auto-Close Success Modal */}
-            <AutoCloseSuccessModal
+            {/* Auto-Close Success Toast */}
+            <SuccessToast
                 isOpen={successModalOpen}
                 onClose={() => setSuccessModalOpen(false)}
                 message={successMessage}
+                subtitle="Tự động đóng sau 3 giây"
             />
         </div>
     );

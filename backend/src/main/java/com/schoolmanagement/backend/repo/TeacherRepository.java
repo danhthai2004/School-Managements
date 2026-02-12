@@ -27,4 +27,14 @@ public interface TeacherRepository extends JpaRepository<Teacher, UUID> {
     boolean existsBySchoolAndTeacherCodeAndIdNot(School school, String teacherCode, UUID id);
 
     long countBySchool(School school);
+
+    // --- Bulk Delete Optimization ---
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("UPDATE TimetableDetail t SET t.teacher = null WHERE t.teacher.id = :teacherId")
+    void removeTeacherFromTimetable(@org.springframework.data.repository.query.Param("teacherId") UUID teacherId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM TeacherAssignment ta WHERE ta.teacher.id = :teacherId")
+    void removeTeacherAssignments(@org.springframework.data.repository.query.Param("teacherId") UUID teacherId);
 }
