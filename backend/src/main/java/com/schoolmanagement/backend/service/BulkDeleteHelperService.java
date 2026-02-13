@@ -23,6 +23,11 @@ public class BulkDeleteHelperService {
     private final TeacherRepository teacherRepo;
     private final ClassRoomRepository classRepo;
     private final ClassEnrollmentRepository enrollmentRepo;
+    private final GradeRepository gradeRepo;
+    private final AttendanceRepository attendanceRepo;
+    private final GuardianRepository guardianRepo;
+
+    private final UserRepository userRepo;
 
     // Additional Repos for cleanup if not covered by main repo methods
     // In this plan, we put JPQL in main repos, so we trigger them here.
@@ -39,16 +44,66 @@ public class BulkDeleteHelperService {
         Student student = studentRepo.findById(studentId)
                 .orElseThrow(() -> new RuntimeException("Student not found: " + studentId));
 
-        // 2. Cleanup related data (JPQL for performance)
-        studentRepo.deleteAttendanceByStudentId(studentId);
-        studentRepo.deleteGradesByStudentId(studentId);
+        // 2. BLOCK if active data exists (Smart Delete)
+        if (gradeRepo.existsByStudent(student)) {
+            throw new com.schoolmanagement.backend.exception.ApiException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Không thể xóa do học sinh đã có dữ liệu điểm số.");
+        }
+        if (attendanceRepo.existsByStudent(student)) {
+            throw new com.schoolmanagement.backend.exception.ApiException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Không thể xóa do học sinh đã có dữ liệu điểm danh.");
+        }
+
+        // 3. Cleanup Garbage Data
+        // Clean metrics/enrollments (Safe to delete)
         studentRepo.deleteBiometricsByStudentId(studentId);
-        studentRepo.deleteGuardiansByStudentId(studentId);
         enrollmentRepo.deleteAllByStudent(student);
 
-        // 3. Delete Student
+        // Smart Guardian Cleanup
+        List<com.schoolmanagement.backend.domain.entity.Guardian> guardians = guardianRepo.findAllByStudent(student);
+        for (com.schoolmanagement.backend.domain.entity.Guardian g : guardians) {
+            com.schoolmanagement.backend.domain.entity.User parentUser = g.getUser();
+
+            // Delete the link first
+            guardianRepo.delete(g);
+            // Check if parent account should be deleted
+            if (parentUser != null) {
+                // Check if this parent has other links (using the method we just added)
+                // Note: We just deleted one link, so we check if any remain.
+                // However, countByUser might query the DB. If we haven't flushed,
+                // the count might still include the one we just "deleted" in the persistence
+                // context?
+                // JPA delete is deferred.
+
+                // Better approach: Count BEFORE delete, or rely on flushed state.
+                // Let's rely on count ignoring the one we occupy? No, countByUser counts all.
+                // Let's count all. If count > 1, then safe. If count == 1, then this is the
+                // last one.
+                long count = guardianRepo.countByUser(parentUser);
+                if (count <= 1) {
+                    log.info("Deleting orphan parent account: {}", parentUser.getEmail());
+                    userRepo.delete(parentUser);
+                }
+            }
+        }
+
+        // Remove User account if exists
+        com.schoolmanagement.backend.domain.entity.User user = student.getUser();
+
+        // 4. Delete Student
         studentRepo.delete(student);
+
+        if (user != null) {
+            log.info("Deleting associated user account for student: {}", user.getEmail());
+            userRepo.delete(user);
+        }
     }
+
+    // Inject Repos needed for checks
+    private final TeacherAssignmentRepository assignmentRepo;
+    private final TimetableDetailRepository timetableRepo;
 
     /**
      * Delete a single teacher in an isolated transaction.
@@ -58,31 +113,50 @@ public class BulkDeleteHelperService {
         log.info("Processing isolated deletion for teacher: {}", teacherId);
 
         Teacher teacher = teacherRepo.findById(teacherId)
-                .orElseThrow(() -> new RuntimeException("Teacher not found: " + teacherId));
+                .orElseThrow(() -> new com.schoolmanagement.backend.exception.ApiException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Giáo viên không tồn tại: " + teacherId));
 
         // 1. Check Homeroom Logic
         // Find if teacher is homeroom for any class
-        var classRoomOpt = classRepo.findByHomeroomTeacher(teacher.getUser());
-        if (classRoomOpt.isPresent()) {
-            ClassRoom classRoom = classRoomOpt.get();
-            long studentCount = enrollmentRepo.countByClassRoom(classRoom);
-
-            if (studentCount > 0) {
-                throw new RuntimeException("Giáo viên đang chủ nhiệm lớp " + classRoom.getName() + " có " + studentCount
-                        + " học sinh. Không thể xóa.");
-            } else {
-                // Empty class -> Unassign teacher
-                log.info("Teacher is homeroom of empty class {}. Unassigning...", classRoom.getName());
-                classRoom.setHomeroomTeacher(null);
-                classRepo.save(classRoom);
+        if (teacher.getUser() != null) {
+            var classRoomOpt = classRepo.findByHomeroomTeacher(teacher.getUser());
+            if (classRoomOpt.isPresent()) {
+                ClassRoom classRoom = classRoomOpt.get();
+                throw new com.schoolmanagement.backend.exception.ApiException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST,
+                        "Giáo viên " + teacher.getFullName() + " đang chủ nhiệm lớp " + classRoom.getName()
+                                + ". Vui lòng gỡ bỏ quyền chủ nhiệm trước khi xóa.");
             }
         }
 
-        // 2. Cleanup related data
-        teacherRepo.removeTeacherFromTimetable(teacherId); // Set teacher = NULL
-        teacherRepo.removeTeacherAssignments(teacherId); // Delete rows
+        // 2. Check Assignments
+        if (assignmentRepo.existsByTeacher(teacher)) {
+            throw new com.schoolmanagement.backend.exception.ApiException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Giáo viên " + teacher.getFullName()
+                            + " đang được phân công giảng dạy các môn học. Vui lòng gỡ bỏ phân công trước khi xóa.");
+        }
 
-        // 3. Delete Teacher
+        // 3. Check Timetable
+        if (timetableRepo.existsByTeacher(teacher)) {
+            throw new com.schoolmanagement.backend.exception.ApiException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Giáo viên " + teacher.getFullName()
+                            + " đang có lịch giảng dạy trong thời khóa biểu. Vui lòng cập nhật thời khóa biểu trước khi xóa.");
+        }
+
+        // 4. Cleanup and Delete (If passed all checks)
+
+        // Capture user before deleting teacher
+        com.schoolmanagement.backend.domain.entity.User user = teacher.getUser();
+
+        // Delete Teacher
         teacherRepo.delete(teacher);
+
+        // 5. Delete associated User account
+        if (user != null) {
+            log.info("Deleting associated user account for teacher: {}", user.getEmail());
+            userRepo.delete(user);
+        }
     }
 }

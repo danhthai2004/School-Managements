@@ -466,7 +466,6 @@ const AccountManagement = () => {
                                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Mã GV</th>
                                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Họ tên</th>
                                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Chuyên môn</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -483,7 +482,7 @@ const AccountManagement = () => {
                                         <td className="px-6 py-4 text-sm font-medium text-gray-900">{teacher.teacherCode}</td>
                                         <td className="px-6 py-4 text-sm text-gray-700">{teacher.fullName}</td>
                                         <td className="px-6 py-4 text-sm text-gray-600">{teacher.email}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-600">{teacher.specialization || '—'}</td>
+
                                     </tr>
                                 ))}
                                 {eligibleTeachers.length === 0 && (

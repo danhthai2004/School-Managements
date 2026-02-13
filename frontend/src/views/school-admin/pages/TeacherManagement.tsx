@@ -11,7 +11,6 @@ import BatchDeleteModal from '../../../components/common/BatchDeleteModal';
 import AddTeacherModal from "../components/teacher/AddTeacherModal";
 import TeacherDetailModal from "../components/teacher/TeacherDetailModal";
 import EditTeacherModal from "../components/teacher/EditTeacherModal";
-import DeleteTeacherModal from "../components/teacher/DeleteTeacherModal";
 import ImportTeacherExcelModal from "../components/teacher/ImportTeacherExcelModal";
 import ImportTeacherSuccessToast from "../components/teacher/ImportTeacherSuccessToast";
 import SuccessToast from "../../../components/common/SuccessToast";
@@ -29,7 +28,6 @@ const TeacherManagement = () => {
     const [importResult, setImportResult] = useState<ImportTeacherResult | null>(null);
     const [selectedTeacher, setSelectedTeacher] = useState<TeacherDto | null>(null);
     const [editingTeacher, setEditingTeacher] = useState<TeacherDto | null>(null);
-    const [deletingTeacher, setDeletingTeacher] = useState<TeacherDto | null>(null);
 
     // Bulk selection
     const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
@@ -257,7 +255,6 @@ const TeacherManagement = () => {
                                 <SortHeader label="Email" sortKey="email" />
                                 <SortHeader label="Điện thoại" sortKey="phone" />
                                 <SortHeader label="Bộ môn" sortKey="subjectName" />
-                                <SortHeader label="Chuyên môn" sortKey="specialization" />
                                 <SortHeader label="Lớp CN" sortKey="homeroomClassName" />
                                 <SortHeader label="Trạng thái" sortKey="status" />
                             </tr>
@@ -291,7 +288,7 @@ const TeacherManagement = () => {
                                             <span className="text-gray-400 italic">--</span>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">{teacher.specialization || '—'}</td>
+
                                     <td className="px-6 py-4">
                                         {teacher.homeroomClassName ? (
                                             <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
@@ -335,10 +332,6 @@ const TeacherManagement = () => {
                     setSelectedTeacher(null);
                     setEditingTeacher(t);
                 }}
-                onDelete={(t) => {
-                    setSelectedTeacher(null);
-                    setDeletingTeacher(t);
-                }}
             />
             <EditTeacherModal
                 isOpen={editingTeacher !== null}
@@ -349,12 +342,6 @@ const TeacherManagement = () => {
                     setSuccessMessage("Cập nhật thông tin giáo viên thành công!");
                     setSuccessToastOpen(true);
                 }}
-            />
-            <DeleteTeacherModal
-                isOpen={deletingTeacher !== null}
-                teacher={deletingTeacher}
-                onClose={() => setDeletingTeacher(null)}
-                onSuccess={fetchData}
             />
             <BatchDeleteModal
                 isOpen={showBatchDeleteModal}

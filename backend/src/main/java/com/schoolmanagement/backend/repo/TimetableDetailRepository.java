@@ -51,4 +51,6 @@ public interface TimetableDetailRepository extends JpaRepository<TimetableDetail
         @org.springframework.data.jpa.repository.Modifying
         @org.springframework.data.jpa.repository.Query("UPDATE TimetableDetail t SET t.teacher = null WHERE t.teacher = :teacher")
         void unlinkTeacherFromTimetable(@org.springframework.data.repository.query.Param("teacher") Teacher teacher);
+
+        boolean existsByTeacher(Teacher teacher);
 }
