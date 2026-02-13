@@ -19,6 +19,8 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
 
         List<Attendance> findAllByStudent(Student student);
 
+        boolean existsByStudent(Student student);
+
         List<Attendance> findAllBySessionIn(List<AttendanceSession> sessions);
 
         long countBySessionAndStatus(AttendanceSession session, String status);

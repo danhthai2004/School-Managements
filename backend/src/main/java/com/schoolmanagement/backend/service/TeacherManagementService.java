@@ -175,7 +175,7 @@ public class TeacherManagementService {
                 .address(req.address())
                 .email(req.email())
                 .phone(req.phone())
-                .specialization(req.specialization())
+                .phone(req.phone())
                 .degree(req.degree())
                 .subjects(subjectEntities)
                 .school(school)
@@ -247,7 +247,6 @@ public class TeacherManagementService {
         teacher.setAddress(req.address());
         teacher.setEmail(req.email());
         teacher.setPhone(req.phone());
-        teacher.setSpecialization(req.specialization());
         teacher.setDegree(req.degree());
 
         if (req.subjectIds() != null) {
@@ -353,7 +352,6 @@ public class TeacherManagementService {
                 teacher.getAddress(),
                 teacher.getEmail(),
                 teacher.getPhone(),
-                teacher.getSpecialization(),
                 teacher.getDegree(),
                 teacher.getStatus(),
                 homeroomClassId,

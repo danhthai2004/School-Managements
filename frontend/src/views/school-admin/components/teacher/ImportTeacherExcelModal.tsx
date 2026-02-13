@@ -80,7 +80,7 @@ function ImportTeacherExcelModal({ isOpen, onClose, onSuccess, onImportComplete 
                         <ul className="text-blue-700 space-y-1 list-disc list-inside">
                             <li>File Excel phải có cột <strong>Họ tên</strong> (bắt buộc)</li>
                             <li>Các cột tùy chọn: Ngày sinh, Giới tính, Địa chỉ, Email, SĐT</li>
-                            <li>Thông tin chuyên môn: Chuyên môn, Bằng cấp</li>
+                            <li>Thông tin bổ sung: Bằng cấp. (Cột "Chuyên môn" dùng để xác định Môn học)</li>
                         </ul>
                     </div>
 

@@ -19,11 +19,17 @@ function DeleteStudentModal({ isOpen, student, onClose, onSuccess }: DeleteStude
         setError(null);
 
         try {
-            await schoolAdminService.deleteStudent(student.id);
-            onSuccess();
-            onClose();
+            const result = await schoolAdminService.bulkDeleteStudents([student.id]);
+            if (result.deleted > 0) {
+                onSuccess();
+                onClose();
+            } else if (result.failed > 0 && result.errors.length > 0) {
+                setError(result.errors[0]);
+            } else {
+                setError("Không thể xóa học sinh. Vui lòng thử lại.");
+            }
         } catch (err: any) {
-            setError(err?.response?.data?.message || "Không thể xóa học sinh.");
+            setError(err?.response?.data?.message || "Lỗi hệ thống.");
         } finally {
             setLoading(false);
         }

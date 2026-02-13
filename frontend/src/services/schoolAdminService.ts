@@ -143,7 +143,6 @@ export type TeacherDto = {
     address: string | null;
     email: string | null;
     phone: string | null;
-    specialization: string | null;
     degree: string | null;
     status: string;
     homeroomClassId: string | null;
@@ -162,7 +161,6 @@ export type CreateTeacherRequest = {
     address?: string;
     email?: string;
     phone?: string;
-    specialization?: string;
     degree?: string;
     subjectIds?: string[];
     createAccount: boolean;

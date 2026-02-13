@@ -19,6 +19,8 @@ public interface GradeRepository extends JpaRepository<Grade, UUID> {
 
         List<Grade> findAllByStudent(Student student);
 
+        boolean existsByStudent(Student student);
+
         @Modifying
         @Query("DELETE FROM Grade e WHERE e.student = :student")
         void deleteAllByStudent(@Param("student") Student student);

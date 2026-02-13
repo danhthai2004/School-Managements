@@ -23,4 +23,6 @@ public interface TeacherAssignmentRepository extends JpaRepository<TeacherAssign
             com.schoolmanagement.backend.domain.entity.Subject subject);
 
     void deleteAllByTeacher(com.schoolmanagement.backend.domain.entity.Teacher teacher);
+
+    boolean existsByTeacher(com.schoolmanagement.backend.domain.entity.Teacher teacher);
 }

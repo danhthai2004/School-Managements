@@ -13,6 +13,8 @@ public interface GuardianRepository extends JpaRepository<Guardian, UUID> {
 
     List<Guardian> findAllByStudent(Student student);
 
+    long countByUser(com.schoolmanagement.backend.domain.entity.User user);
+
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("DELETE FROM Guardian e WHERE e.student = :student")
     void deleteAllByStudent(@org.springframework.data.repository.query.Param("student") Student student);

@@ -24,7 +24,6 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
     const [address, setAddress] = useState("");
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
-    const [specialization, setSpecialization] = useState("");
     const [degree, setDegree] = useState("");
     const [subjectIds, setSubjectIds] = useState<string[]>([]);
     const [createAccount, setCreateAccount] = useState(true);
@@ -65,7 +64,6 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
                 address: address.trim() || undefined,
                 email: email.trim() || undefined,
                 phone: phone.trim() || undefined,
-                specialization: specialization.trim() || undefined,
                 degree: degree.trim() || undefined,
                 subjectIds: subjectIds.length > 0 ? subjectIds : undefined,
                 createAccount,
@@ -73,7 +71,7 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
             await schoolAdminService.createTeacher(req);
             // Reset form
             setFullName(""); setDateOfBirth(null); setDateInputValue(""); setGender("MALE");
-            setAddress(""); setEmail(""); setPhone(""); setSpecialization(""); setDegree("");
+            setAddress(""); setEmail(""); setPhone(""); setDegree("");
             setSubjectIds([]);
             setCreateAccount(true);
             onSuccess();
@@ -275,12 +273,6 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
                                     <label className="block text-sm font-medium text-slate-600 mb-1.5">Bằng cấp</label>
                                     <input type="text" value={degree} onChange={(e) => setDegree(e.target.value)}
                                         placeholder="Cử nhân, Thạc sĩ, Tiến sĩ..."
-                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all" />
-                                </div>
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-slate-600 mb-1.5">Chuyên môn (Ghi chú)</label>
-                                    <input type="text" value={specialization} onChange={(e) => setSpecialization(e.target.value)}
-                                        placeholder="Toán, Văn, Anh..."
                                         className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all" />
                                 </div>
                             </div>

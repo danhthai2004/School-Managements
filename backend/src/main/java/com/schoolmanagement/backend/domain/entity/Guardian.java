@@ -19,6 +19,7 @@ public class Guardian {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "student_id", nullable = false)
+    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
     private Student student;
 
     @Column(name = "full_name", nullable = false, length = 100)

@@ -10,10 +10,9 @@ interface TeacherDetailModalProps {
     teacher: TeacherDto | null;
     onClose: () => void;
     onEdit: (teacher: TeacherDto) => void;
-    onDelete: (teacher: TeacherDto) => void;
 }
 
-function TeacherDetailModal({ isOpen, teacher, onClose, onEdit, onDelete }: TeacherDetailModalProps) {
+function TeacherDetailModal({ isOpen, teacher, onClose, onEdit }: TeacherDetailModalProps) {
     if (!isOpen || !teacher) return null;
 
     const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
@@ -65,32 +64,23 @@ function TeacherDetailModal({ isOpen, teacher, onClose, onEdit, onDelete }: Teac
                                 ) : '—'
                             }
                         />
-                        <InfoRow label="Chuyên môn (Ghi chú)" value={teacher.specialization} />
                         <InfoRow label="Bằng cấp" value={teacher.degree} />
                         <InfoRow label="Lớp chủ nhiệm" value={teacher.homeroomClassName} />
                     </div>
 
-                    <div className="mt-6 pt-4 border-t border-gray-200 flex justify-between">
+                    <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end gap-2">
                         <button
-                            onClick={() => onDelete(teacher)}
-                            className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-medium transition-colors"
+                            onClick={onClose}
+                            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
                         >
-                            Xóa
+                            Đóng
                         </button>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={onClose}
-                                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-                            >
-                                Đóng
-                            </button>
-                            <button
-                                onClick={() => onEdit(teacher)}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                            >
-                                Chỉnh sửa
-                            </button>
-                        </div>
+                        <button
+                            onClick={() => onEdit(teacher)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                        >
+                            Chỉnh sửa
+                        </button>
                     </div>
                 </div>
             </div>
