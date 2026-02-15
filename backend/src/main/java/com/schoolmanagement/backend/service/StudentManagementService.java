@@ -81,29 +81,39 @@ public class StudentManagementService {
                 .school(school)
                 .build();
 
-        student = students.save(student);
+        // Process Guardian
+        if (req.guardian() != null) {
+            CreateStudentRequest.GuardianRequest g = req.guardian();
+            if (g.fullName() != null && !g.fullName().isBlank()) {
+                Guardian guardian = null;
 
-        // Save guardians
-        if (req.guardians() != null && !req.guardians().isEmpty()) {
-            for (CreateStudentRequest.GuardianRequest g : req.guardians()) {
-                Guardian guardian = Guardian.builder()
-                        .student(student)
-                        .fullName(g.fullName())
-                        .phone(g.phone())
-                        .email(g.email())
-                        .relationship(g.relationship())
-                        .build();
-
-                // If guardian has email, just check validity but DO NOT create account
-                // automatically
-                // Account creation is now handled in Account Management page (Phase 3)
+                // 1. Find or Create Guardian
                 if (g.email() != null && !g.email().isBlank()) {
-                    // No action needed here
+                    Optional<Guardian> existing = guardians.findByEmail(g.email());
+                    if (existing.isPresent()) {
+                        guardian = existing.get();
+                    } else {
+                        guardian = Guardian.builder()
+                                .fullName(g.fullName())
+                                .phone(g.phone())
+                                .email(g.email())
+                                .build();
+                        guardian = guardians.save(guardian);
+                    }
+                } else {
+                    // No email -> Force create
+                    guardian = Guardian.builder()
+                            .fullName(g.fullName())
+                            .phone(g.phone())
+                            .email(null)
+                            .build();
+                    guardian = guardians.save(guardian);
                 }
-
-                guardian = guardians.save(guardian);
+                student.setGuardian(guardian);
             }
         }
+
+        student = students.save(student);
 
         // Enroll in class if provided
         if (req.classId() != null) {
@@ -256,35 +266,39 @@ public class StudentManagementService {
             student.setStatus(req.status());
         }
 
-        student = students.save(student);
+        // Update guardian
+        if (req.guardian() != null) {
+            UpdateStudentRequest.GuardianRequest g = req.guardian();
+            if (g.fullName() != null && !g.fullName().isBlank()) {
+                Guardian guardian = null;
 
-        // Update guardians - replace all existing guardians with new ones
-        if (req.guardians() != null) {
-            // Delete existing guardians
-            guardians.deleteAllByStudent(student);
-
-            // Create new guardians
-            for (UpdateStudentRequest.GuardianRequest g : req.guardians()) {
-                if (g.fullName() != null && !g.fullName().isBlank()) {
-                    Guardian guardian = Guardian.builder()
-                            .student(student)
+                // 1. Find or Create Guardian
+                if (g.email() != null && !g.email().isBlank()) {
+                    Optional<Guardian> existing = guardians.findByEmail(g.email());
+                    if (existing.isPresent()) {
+                        guardian = existing.get();
+                    } else {
+                        guardian = Guardian.builder()
+                                .fullName(g.fullName())
+                                .phone(g.phone())
+                                .email(g.email())
+                                .build();
+                        guardian = guardians.save(guardian);
+                    }
+                } else {
+                    // No email -> Force create
+                    guardian = Guardian.builder()
                             .fullName(g.fullName())
                             .phone(g.phone())
-                            .email(g.email())
-                            .relationship(g.relationship())
+                            .email(null)
                             .build();
-
-                    // If guardian has email, just check validity but DO NOT create account
-                    // automatically
-                    // Account creation is now handled in Account Management page (Phase 3)
-                    if (g.email() != null && !g.email().isBlank()) {
-                        // No action needed here
-                    }
-
-                    guardians.save(guardian);
+                    guardian = guardians.save(guardian);
                 }
+                student.setGuardian(guardian);
             }
         }
+
+        student = students.save(student);
 
         // Handle class enrollment change
         if (req.classId() != null) {
@@ -371,11 +385,16 @@ public class StudentManagementService {
     }
 
     private StudentDto toStudentDto(Student student) {
-        List<Guardian> studentGuardians = guardians.findAllByStudent(student);
-        List<StudentGuardianDto> guardianDtos = studentGuardians.stream()
-                .map(g -> new StudentGuardianDto(g.getId(), g.getFullName(), g.getPhone(), g.getEmail(),
-                        g.getRelationship()))
-                .toList();
+        StudentGuardianDto guardianDto = null;
+        if (student.getGuardian() != null) {
+            guardianDto = new StudentGuardianDto(
+                    student.getGuardian().getId(),
+                    student.getGuardian().getFullName(),
+                    student.getGuardian().getPhone(),
+                    student.getGuardian().getEmail(),
+                    "Phụ huynh" // Default relationship
+            );
+        }
 
         // Get current class enrollment
         String currentClassName = null;
@@ -405,7 +424,7 @@ public class StudentManagementService {
                 currentClassName,
                 currentClassId,
                 student.getUser() != null,
-                guardianDtos);
+                guardianDto);
     }
 
     private void autoAssignStudentToClass(School school, Student student,
@@ -483,12 +502,17 @@ public class StudentManagementService {
         Student student = students.findByIdAndSchool(studentId, school)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
 
-        // Get guardians
-        List<Guardian> studentGuardians = guardians.findAllByStudent(student);
-        List<StudentProfileDto.GuardianDto> guardianDtos = studentGuardians.stream()
-                .map(g -> new StudentProfileDto.GuardianDto(g.getId(), g.getFullName(), g.getPhone(), g.getEmail(),
-                        g.getRelationship()))
-                .toList();
+        // Get guardian (Many-to-One)
+        StudentProfileDto.GuardianDto guardianDto = null;
+        if (student.getGuardian() != null) {
+            guardianDto = new StudentProfileDto.GuardianDto(
+                    student.getGuardian().getId(),
+                    student.getGuardian().getFullName(),
+                    student.getGuardian().getPhone(),
+                    student.getGuardian().getEmail(),
+                    "Phụ huynh" // Default relationship
+            );
+        }
 
         // Get enrollment history
         List<ClassEnrollment> enrollmentList = enrollments.findAllByStudent(student);
@@ -529,7 +553,7 @@ public class StudentManagementService {
                 student.getEnrollmentDate(),
                 currentClassName,
                 currentClassId,
-                guardianDtos,
+                guardianDto,
                 historyDtos);
     }
 

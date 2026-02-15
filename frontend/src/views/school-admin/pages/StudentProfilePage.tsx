@@ -352,16 +352,14 @@ export default function StudentProfilePage() {
                             <h2 className="text-lg font-semibold text-gray-900">Phụ huynh</h2>
                         </div>
                         <div className="p-6">
-                            {profile.guardians && profile.guardians.length > 0 ? (
+                            {profile.guardian ? (
                                 <div className="space-y-3">
-                                    {profile.guardians.map((g, idx) => (
-                                        <div key={g.id || idx} className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-4 border border-slate-200/60">
-                                            <p className="font-semibold text-gray-900">{g.fullName}</p>
-                                            {g.relationship && <p className="text-xs text-blue-600 font-medium">{g.relationship}</p>}
-                                            {g.phone && <p className="text-sm text-gray-600 mt-1">📞 {g.phone}</p>}
-                                            {g.email && <p className="text-sm text-gray-600">✉️ {g.email}</p>}
-                                        </div>
-                                    ))}
+                                    <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-4 border border-slate-200/60">
+                                        <p className="font-semibold text-gray-900">{profile.guardian.fullName}</p>
+                                        {profile.guardian.relationship && <p className="text-xs text-blue-600 font-medium">{profile.guardian.relationship}</p>}
+                                        {profile.guardian.phone && <p className="text-sm text-gray-600 mt-1">📞 {profile.guardian.phone}</p>}
+                                        {profile.guardian.email && <p className="text-sm text-gray-600">✉️ {profile.guardian.email}</p>}
+                                    </div>
                                 </div>
                             ) : (
                                 <p className="text-gray-500 text-sm">Chưa có thông tin phụ huynh</p>

@@ -70,13 +70,12 @@ function EditStudentModal({ isOpen, student, classes, onClose, onSuccess }: Edit
                 setDateInputValue("");
             }
 
-            // Set guardian info (first guardian only for simplicity)
-            if (student.guardians && student.guardians.length > 0) {
-                const guardian = student.guardians[0];
-                setGuardianName(guardian.fullName || "");
-                setGuardianPhone(guardian.phone || "");
-                setGuardianEmail(guardian.email || "");
-                setGuardianRelationship(guardian.relationship || "");
+            // Set guardian info
+            if (student.guardian) {
+                setGuardianName(student.guardian.fullName || "");
+                setGuardianPhone(student.guardian.phone || "");
+                setGuardianEmail(student.guardian.email || "");
+                setGuardianRelationship(student.guardian.relationship || "");
             } else {
                 setGuardianName("");
                 setGuardianPhone("");
@@ -133,12 +132,13 @@ function EditStudentModal({ isOpen, student, classes, onClose, onSuccess }: Edit
                 phone: phone.trim() || undefined,
                 status,
                 classId: classId || undefined,
-                guardians: guardianName ? [{
+                guardian: guardianName ? {
+                    id: student.guardian?.id,
                     fullName: guardianName.trim(),
                     phone: guardianPhone.trim() || undefined,
                     email: guardianEmail.trim() || undefined,
                     relationship: guardianRelationship.trim() || undefined,
-                }] : [],
+                } : undefined,
             };
 
             await schoolAdminService.updateStudent(student.id, req);

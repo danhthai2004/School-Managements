@@ -133,8 +133,7 @@ public class StudentImportService {
                             "tenphuhuynh");
                     String guardianPhone = getValueFromRow(row, columnMap, "guardianphone", "sđt phụ huynh",
                             "sdtphuhuynh");
-                    String guardianRelationship = getValueFromRow(row, columnMap, "guardianrelationship", "quan hệ",
-                            "quanhe");
+                    // guardianRelationship is no longer used in Many-to-One
 
                     // Generate student code
                     String studentCode = generateNextStudentCode(school);
@@ -159,15 +158,45 @@ public class StudentImportService {
                     // Store student with their parsed department (can be null if not provided)
                     studentDepartmentMap.put(student, department);
 
-                    // Save guardian if provided
+                    // Process Guardian Logic (Many-to-One Refactor)
                     if (guardianName != null && !guardianName.isBlank()) {
-                        Guardian guardian = Guardian.builder()
-                                .student(student)
-                                .fullName(guardianName.trim())
-                                .phone(guardianPhone)
-                                .relationship(guardianRelationship)
-                                .build();
-                        guardians.save(guardian);
+                        Guardian guardian = null;
+
+                        // Sanitize email
+                        String guardianEmail = null;
+                        String rawGuardianEmail = getValueFromRow(row, columnMap, "guardianemail", "email phụ huynh",
+                                "emailphuhuynh");
+                        if (rawGuardianEmail != null && !rawGuardianEmail.isBlank()) {
+                            guardianEmail = rawGuardianEmail.trim().toLowerCase();
+                        }
+
+                        if (guardianEmail != null) {
+                            // Case 1: Has Email -> Find or Create
+                            Optional<Guardian> existingGuardian = guardians.findByEmail(guardianEmail);
+                            if (existingGuardian.isPresent()) {
+                                guardian = existingGuardian.get();
+                            } else {
+                                // Create new
+                                guardian = Guardian.builder()
+                                        .fullName(guardianName.trim())
+                                        .phone(guardianPhone)
+                                        .email(guardianEmail)
+                                        .build();
+                                guardian = guardians.save(guardian);
+                            }
+                        } else {
+                            // Case 2: No Email -> Force Create (No User Account)
+                            guardian = Guardian.builder()
+                                    .fullName(guardianName.trim())
+                                    .phone(guardianPhone)
+                                    .email(null) // Generic null
+                                    .build();
+                            guardian = guardians.save(guardian);
+                        }
+
+                        // Link directly to student
+                        student.setGuardian(guardian);
+                        students.save(student);
                     }
 
                     successCount++;

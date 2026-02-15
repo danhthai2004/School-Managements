@@ -108,34 +108,30 @@ function StudentDetailModal({ isOpen, student, onClose, onEdit, onDelete }: Stud
                     </div>
 
                     {/* Guardians Information */}
-                    {student.guardians && student.guardians.length > 0 && (
+                    {student.guardian && (
                         <div>
                             <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 border-b pb-2">
                                 Người giám hộ
                             </h4>
-                            <div className="space-y-3">
-                                {student.guardians.map((guardian, index) => (
-                                    <div key={guardian.id || index} className="bg-gray-50 rounded-lg p-4">
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <span className="text-xs text-gray-500">Họ tên</span>
-                                                <p className="text-sm font-medium text-gray-900">{guardian.fullName}</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-xs text-gray-500">Quan hệ</span>
-                                                <p className="text-sm font-medium text-gray-900">{guardian.relationship || '—'}</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-xs text-gray-500">Số điện thoại</span>
-                                                <p className="text-sm font-medium text-gray-900">{guardian.phone || '—'}</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-xs text-gray-500">Email</span>
-                                                <p className="text-sm font-medium text-gray-900">{guardian.email || '—'}</p>
-                                            </div>
-                                        </div>
+                            <div className="bg-gray-50 rounded-lg p-4">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <span className="text-xs text-gray-500">Họ tên</span>
+                                        <p className="text-sm font-medium text-gray-900">{student.guardian.fullName}</p>
                                     </div>
-                                ))}
+                                    <div>
+                                        <span className="text-xs text-gray-500">Quan hệ</span>
+                                        <p className="text-sm font-medium text-gray-900">{student.guardian.relationship || '—'}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-xs text-gray-500">Số điện thoại</span>
+                                        <p className="text-sm font-medium text-gray-900">{student.guardian.phone || '—'}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-xs text-gray-500">Email</span>
+                                        <p className="text-sm font-medium text-gray-900">{student.guardian.email || '—'}</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}

@@ -72,7 +72,7 @@ export type StudentDto = {
     currentClassName: string | null;
     currentClassId: string | null;
     hasAccount: boolean;
-    guardians: GuardianDto[];
+    guardian: GuardianDto | null;
 };
 
 export type ClassEnrollmentHistoryDto = {
@@ -108,7 +108,7 @@ export type CreateStudentRequest = {
     academicYear?: string;
     department?: 'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI';
     grade?: number;
-    guardians?: GuardianRequest[];
+    guardian?: GuardianRequest;
 };
 
 export type UpdateStudentRequest = {
@@ -122,7 +122,7 @@ export type UpdateStudentRequest = {
     status?: 'ACTIVE' | 'GRADUATED' | 'TRANSFERRED' | 'SUSPENDED';
     classId?: string;
     academicYear?: string;
-    guardians?: UpdateGuardianRequest[];
+    guardian?: UpdateGuardianRequest;
 };
 
 export type UpdateGuardianRequest = {

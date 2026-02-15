@@ -61,43 +61,48 @@ public class BulkDeleteHelperService {
         studentRepo.deleteBiometricsByStudentId(studentId);
         enrollmentRepo.deleteAllByStudent(student);
 
-        // Smart Guardian Cleanup
-        List<com.schoolmanagement.backend.domain.entity.Guardian> guardians = guardianRepo.findAllByStudent(student);
-        for (com.schoolmanagement.backend.domain.entity.Guardian g : guardians) {
-            com.schoolmanagement.backend.domain.entity.User parentUser = g.getUser();
+        // Smart Guardian Cleanup (Many-to-One Refactor)
+        com.schoolmanagement.backend.domain.entity.Guardian guardian = student.getGuardian();
+        com.schoolmanagement.backend.domain.entity.User guardianUser = null;
+        boolean shouldDeleteGuardian = false;
 
-            // Delete the link first
-            guardianRepo.delete(g);
-            // Check if parent account should be deleted
-            if (parentUser != null) {
-                // Check if this parent has other links (using the method we just added)
-                // Note: We just deleted one link, so we check if any remain.
-                // However, countByUser might query the DB. If we haven't flushed,
-                // the count might still include the one we just "deleted" in the persistence
-                // context?
-                // JPA delete is deferred.
+        if (guardian != null) {
+            // Check if this is the last student for this guardian
+            // We use the students list from guardian (lazy loaded, but transaction is open)
+            // Or careful: if we haven't fetched it, it might trigger query.
+            // Filter out the student we are about to delete (just in case it's still in
+            // list)
+            long otherStudentsCount = guardian.getStudents().stream()
+                    .filter(s -> !s.getId().equals(studentId))
+                    .count();
 
-                // Better approach: Count BEFORE delete, or rely on flushed state.
-                // Let's rely on count ignoring the one we occupy? No, countByUser counts all.
-                // Let's count all. If count > 1, then safe. If count == 1, then this is the
-                // last one.
-                long count = guardianRepo.countByUser(parentUser);
-                if (count <= 1) {
-                    log.info("Deleting orphan parent account: {}", parentUser.getEmail());
-                    userRepo.delete(parentUser);
-                }
+            if (otherStudentsCount == 0) {
+                shouldDeleteGuardian = true;
+                guardianUser = guardian.getUser();
             }
         }
 
-        // Remove User account if exists
-        com.schoolmanagement.backend.domain.entity.User user = student.getUser();
+        // Remove User account for student if exists
+        com.schoolmanagement.backend.domain.entity.User studentUser = student.getUser();
 
         // 4. Delete Student
+        student.setGuardian(null); // Unlink first
         studentRepo.delete(student);
 
-        if (user != null) {
-            log.info("Deleting associated user account for student: {}", user.getEmail());
-            userRepo.delete(user);
+        if (studentUser != null) {
+            log.info("Deleting associated user account for student: {}", studentUser.getEmail());
+            userRepo.delete(studentUser);
+        }
+
+        // 5. Delete Guardian if "Smart Delete" triggered
+        if (shouldDeleteGuardian && guardian != null) {
+            log.info("Deleting orphan guardian and account: {}", guardian.getFullName());
+            guardianRepo.delete(guardian);
+
+            if (guardianUser != null) {
+                log.info("Deleting associated user account for guardian: {}", guardianUser.getEmail());
+                userRepo.delete(guardianUser);
+            }
         }
     }
 

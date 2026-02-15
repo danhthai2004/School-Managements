@@ -10,17 +10,16 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "guardians")
+@Table(name = "guardians", uniqueConstraints = {
+        @UniqueConstraint(columnNames = "email")
+})
 public class Guardian {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "student_id", nullable = false)
-    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
-    private Student student;
+    // student_id removed (moved to join table)
 
     @Column(name = "full_name", nullable = false, length = 100)
     private String fullName;
@@ -31,10 +30,13 @@ public class Guardian {
     @Column(length = 254)
     private String email;
 
-    @Column(length = 50)
-    private String relationship; // Cha, Mẹ, Ông, Bà, Khác
+    // relationship removed (moved to join table)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
+
+    @OneToMany(mappedBy = "guardian")
+    @Builder.Default
+    private java.util.List<Student> students = new java.util.ArrayList<>();
 }
