@@ -9,10 +9,10 @@ interface StudentDetailModalProps {
     student: StudentDto | null;
     onClose: () => void;
     onEdit?: () => void;
-    onDelete?: () => void;
+
 }
 
-function StudentDetailModal({ isOpen, student, onClose, onEdit, onDelete }: StudentDetailModalProps) {
+function StudentDetailModal({ isOpen, student, onClose, onEdit }: StudentDetailModalProps) {
     if (!isOpen || !student) return null;
 
     const genderText = student.gender === 'MALE' ? 'Nam' : student.gender === 'FEMALE' ? 'Nữ' : student.gender === 'OTHER' ? 'Khác' : '—';
@@ -137,29 +137,21 @@ function StudentDetailModal({ isOpen, student, onClose, onEdit, onDelete }: Stud
                     )}
 
                     {/* Action buttons */}
-                    <div className="pt-4 flex gap-3">
+                    <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end gap-2">
+                        <button
+                            onClick={onClose}
+                            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                        >
+                            Đóng
+                        </button>
                         {onEdit && (
                             <button
                                 onClick={onEdit}
-                                className="flex-1 px-4 py-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 font-medium hover:bg-blue-100 transition-all"
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
                             >
                                 Chỉnh sửa
                             </button>
                         )}
-                        {onDelete && (
-                            <button
-                                onClick={onDelete}
-                                className="flex-1 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 font-medium hover:bg-red-100 transition-all"
-                            >
-                                Xóa
-                            </button>
-                        )}
-                        <button
-                            onClick={onClose}
-                            className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-all"
-                        >
-                            Đóng
-                        </button>
                     </div>
                 </div>
             </div>

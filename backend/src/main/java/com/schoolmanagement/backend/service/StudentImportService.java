@@ -172,9 +172,9 @@ public class StudentImportService {
 
                         if (guardianEmail != null) {
                             // Case 1: Has Email -> Find or Create
-                            Optional<Guardian> existingGuardian = guardians.findByEmail(guardianEmail);
-                            if (existingGuardian.isPresent()) {
-                                guardian = existingGuardian.get();
+                            List<Guardian> existingGuardians = guardians.findByEmailIgnoreCase(guardianEmail);
+                            if (!existingGuardians.isEmpty()) {
+                                guardian = existingGuardians.get(0);
                             } else {
                                 // Create new
                                 guardian = Guardian.builder()

@@ -74,7 +74,7 @@ public class StudentManagementService {
                 .gender(req.gender())
                 .birthPlace(req.birthPlace())
                 .address(req.address())
-                .email(req.email())
+                .email(req.email() != null ? req.email().trim().toLowerCase() : null)
                 .phone(req.phone())
                 .enrollmentDate(req.enrollmentDate() != null ? req.enrollmentDate() : java.time.LocalDate.now())
                 .status(StudentStatus.ACTIVE)
@@ -89,22 +89,24 @@ public class StudentManagementService {
 
                 // 1. Find or Create Guardian
                 if (g.email() != null && !g.email().isBlank()) {
-                    Optional<Guardian> existing = guardians.findByEmail(g.email());
-                    if (existing.isPresent()) {
-                        guardian = existing.get();
+                    String cleanEmail = g.email().trim().toLowerCase();
+                    List<Guardian> existing = guardians.findByEmailIgnoreCase(cleanEmail);
+                    if (!existing.isEmpty()) {
+                        guardian = existing.get(0);
                     } else {
+
                         guardian = Guardian.builder()
-                                .fullName(g.fullName())
-                                .phone(g.phone())
-                                .email(g.email())
+                                .fullName(g.fullName().trim())
+                                .phone(g.phone() != null ? g.phone().trim() : null)
+                                .email(cleanEmail)
                                 .build();
                         guardian = guardians.save(guardian);
                     }
                 } else {
-                    // No email -> Force create
+                    // No email -> Force create with NULL email
                     guardian = Guardian.builder()
-                            .fullName(g.fullName())
-                            .phone(g.phone())
+                            .fullName(g.fullName() != null ? g.fullName().trim() : "Phụ huynh") // Fallback name
+                            .phone(g.phone() != null ? g.phone().trim() : null)
                             .email(null)
                             .build();
                     guardian = guardians.save(guardian);
@@ -258,7 +260,7 @@ public class StudentManagementService {
         student.setGender(req.gender());
         student.setBirthPlace(req.birthPlace());
         student.setAddress(req.address());
-        student.setEmail(req.email());
+        student.setEmail(req.email() != null ? req.email().trim().toLowerCase() : null);
         student.setPhone(req.phone());
 
         // Update status if provided
@@ -274,22 +276,29 @@ public class StudentManagementService {
 
                 // 1. Find or Create Guardian
                 if (g.email() != null && !g.email().isBlank()) {
-                    Optional<Guardian> existing = guardians.findByEmail(g.email());
-                    if (existing.isPresent()) {
-                        guardian = existing.get();
+                    String cleanEmail = g.email().trim().toLowerCase();
+                    List<Guardian> existing = guardians.findByEmailIgnoreCase(cleanEmail);
+                    if (!existing.isEmpty()) {
+                        guardian = existing.get(0);
+                        // Update existing guardian details
+                        guardian.setFullName(g.fullName().trim());
+                        if (g.phone() != null)
+                            guardian.setPhone(g.phone().trim());
+                        guardian = guardians.save(guardian);
                     } else {
                         guardian = Guardian.builder()
-                                .fullName(g.fullName())
-                                .phone(g.phone())
-                                .email(g.email())
+                                .fullName(g.fullName().trim())
+                                .phone(g.phone() != null ? g.phone().trim() : null)
+                                .email(cleanEmail)
                                 .build();
                         guardian = guardians.save(guardian);
                     }
                 } else {
-                    // No email -> Force create
+
+                    // No email -> Force create with NULL email
                     guardian = Guardian.builder()
-                            .fullName(g.fullName())
-                            .phone(g.phone())
+                            .fullName(g.fullName() != null ? g.fullName().trim() : "Phụ huynh") // Fallback name
+                            .phone(g.phone() != null ? g.phone().trim() : null)
                             .email(null)
                             .build();
                     guardian = guardians.save(guardian);

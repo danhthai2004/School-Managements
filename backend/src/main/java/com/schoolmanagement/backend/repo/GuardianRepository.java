@@ -11,7 +11,9 @@ import java.util.UUID;
 @Repository
 public interface GuardianRepository extends JpaRepository<Guardian, UUID> {
 
-    java.util.Optional<Guardian> findByEmail(String email);
+    List<Guardian> findByEmail(String email);
+
+    java.util.List<Guardian> findByEmailIgnoreCase(String email);
 
     long countByUser(com.schoolmanagement.backend.domain.entity.User user);
 
