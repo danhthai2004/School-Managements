@@ -14,6 +14,7 @@ import com.schoolmanagement.backend.repo.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.GuardianRepository;
 import com.schoolmanagement.backend.repo.StudentRepository;
 import com.schoolmanagement.backend.repo.UserRepository;
+import com.schoolmanagement.backend.util.RandomUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -159,20 +160,34 @@ public class StudentAccountService {
         String currentAcademicYear = classRooms.findFirstBySchoolOrderByAcademicYearDesc(school)
                 .map(ClassRoom::getAcademicYear).orElse("");
 
-        return guardians.findOrphanGuardians(school).stream()
+        return guardians.findGuardiansWithoutAccount(school).stream()
                 .map(g -> {
-                    String className = enrollments
-                            .findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(g.getStudent(), currentAcademicYear)
-                            .map(e -> e.getClassRoom().getName())
-                            .orElse("N/A");
+                    // Try to find one student for this guardian to display info
+                    // We pick the first one for simplicity in the list view (Many-to-One Refactor)
+                    // Updated to use g.getStudents() instead of studentGuardianRepo
+                    List<Student> students = g.getStudents();
+                    String studentName = students.isEmpty() ? "N/A" : students.get(0).getFullName();
+                    // Relationship is no longer stored in link table. Hardcode or generic?
+                    // In Many-to-One, guardian is parent.
+                    String relationship = "Phụ huynh";
+
+                    Student student = students.isEmpty() ? null : students.get(0);
+                    String className = "N/A";
+
+                    if (student != null) {
+                        className = enrollments
+                                .findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(student, currentAcademicYear)
+                                .map(e -> e.getClassRoom().getName())
+                                .orElse("N/A");
+                    }
 
                     return new GuardianDto(
                             g.getId(),
                             g.getFullName(),
                             g.getEmail(),
                             g.getPhone(),
-                            g.getRelationship(),
-                            g.getStudent().getFullName(),
+                            relationship,
+                            studentName,
                             className);
                 })
                 .toList();
@@ -190,7 +205,13 @@ public class StudentAccountService {
                 Guardian guardian = guardians.findById(id)
                         .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy phụ huynh"));
 
-                if (!guardian.getStudent().getSchool().getId().equals(school.getId())) {
+                // Verify guardian belongs to school (indirectly via students)
+                // We check if ANY of the students belong to this school
+                // Update to use g.getStudents() (Many-to-One Refactor)
+                boolean belongsToSchool = guardian.getStudents().stream()
+                        .anyMatch(s -> s.getSchool().getId().equals(school.getId()));
+
+                if (!belongsToSchool) {
                     throw new ApiException(HttpStatus.FORBIDDEN, "Phụ huynh không thuộc trường này");
                 }
 
@@ -255,11 +276,16 @@ public class StudentAccountService {
     }
 
     private StudentDto toStudentDto(Student student) {
-        List<Guardian> studentGuardians = guardians.findAllByStudent(student);
-        List<StudentGuardianDto> guardianDtos = studentGuardians.stream()
-                .map(g -> new StudentGuardianDto(g.getId(), g.getFullName(), g.getPhone(), g.getEmail(),
-                        g.getRelationship()))
-                .toList();
+        StudentGuardianDto guardianDto = null;
+        if (student.getGuardian() != null) {
+            guardianDto = new StudentGuardianDto(
+                    student.getGuardian().getId(),
+                    student.getGuardian().getFullName(),
+                    student.getGuardian().getPhone(),
+                    student.getGuardian().getEmail(),
+                    "Phụ huynh" // Default relationship
+            );
+        }
 
         // Get current class enrollment
         String currentClassName = null;
@@ -289,6 +315,6 @@ public class StudentAccountService {
                 currentClassName,
                 currentClassId,
                 student.getUser() != null,
-                guardianDtos);
+                guardianDto);
     }
 }
