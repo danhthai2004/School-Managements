@@ -1,679 +1,21 @@
 import React, { useEffect, useState } from "react";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import {
     schoolAdminService,
     type TeacherDto,
-    type CreateTeacherRequest
+    type ImportTeacherResult
 } from "../../../services/schoolAdminService";
-import { PlusIcon, XIcon } from "../SchoolAdminIcons";
+import { PlusIcon } from "../SchoolAdminIcons";
+import { TeacherStatusBadge } from '../../../components/common/StatusBadge';
+import BatchDeleteModal from '../../../components/common/BatchDeleteModal';
 
-// ==================== DATE INPUT HELPERS ====================
+import AddTeacherModal from "../components/teacher/AddTeacherModal";
+import TeacherDetailModal from "../components/teacher/TeacherDetailModal";
+import EditTeacherModal from "../components/teacher/EditTeacherModal";
+import ImportTeacherExcelModal from "../components/teacher/ImportTeacherExcelModal";
+import ImportTeacherSuccessToast from "../components/teacher/ImportTeacherSuccessToast";
+import SuccessToast from "../../../components/common/SuccessToast";
 
-const formatDateInput = (value: string, isDeleting: boolean = false): string => {
-    const numbers = value.replace(/\D/g, '');
-    const limited = numbers.slice(0, 8);
-
-    if (limited.length >= 5) {
-        return `${limited.slice(0, 2)}/${limited.slice(2, 4)}/${limited.slice(4)}`;
-    }
-
-    if (limited.length >= 3) {
-        if (limited.length === 4 && !isDeleting) {
-            return `${limited.slice(0, 2)}/${limited.slice(2)}/`;
-        }
-        return `${limited.slice(0, 2)}/${limited.slice(2)}`;
-    }
-
-    if (limited.length === 2 && !isDeleting) {
-        return `${limited}/`;
-    }
-
-    return limited;
-};
-
-const parseDateDDMMYYYY = (dateStr: string): string | undefined => {
-    if (!dateStr || !dateStr.trim()) return undefined;
-
-    const parts = dateStr.split('/');
-    if (parts.length !== 3) return undefined;
-
-    const day = parts[0].padStart(2, '0');
-    const month = parts[1].padStart(2, '0');
-    const year = parts[2];
-
-    const dayNum = parseInt(day);
-    const monthNum = parseInt(month);
-    const yearNum = parseInt(year);
-
-    if (dayNum < 1 || dayNum > 31 || monthNum < 1 || monthNum > 12 || yearNum < 1900) {
-        return undefined;
-    }
-
-    return `${year}-${month}-${day}`;
-};
-
-const CustomDateInput = React.forwardRef<HTMLInputElement, {
-    value?: string;
-    onClick?: () => void;
-    onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    placeholder?: string;
-    rawValue?: string;
-}>(({ onClick, onChange, placeholder, rawValue, ...props }, ref) => (
-    <input
-        {...props}
-        ref={ref}
-        type="text"
-        value={rawValue}
-        onClick={onClick}
-        onChange={onChange}
-        placeholder={placeholder}
-        maxLength={10}
-        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none"
-    />
-));
-
-// ==================== MODAL COMPONENT ====================
-
-interface AddTeacherModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    onSuccess: () => void;
-}
-
-function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
-    const [fullName, setFullName] = useState("");
-    const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
-    const [dateInputValue, setDateInputValue] = useState("");
-    const [gender, setGender] = useState<'MALE' | 'FEMALE' | 'OTHER'>("MALE");
-    const [address, setAddress] = useState("");
-    const [email, setEmail] = useState("");
-    const [phone, setPhone] = useState("");
-    const [specialization, setSpecialization] = useState("");
-    const [degree, setDegree] = useState("");
-    const [subjectId, setSubjectId] = useState("");
-    const [createAccount, setCreateAccount] = useState(true);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [subjects, setSubjects] = useState<any[]>([]);
-
-    useEffect(() => {
-        const fetchSubjects = async () => {
-            try {
-                const data = await schoolAdminService.listSubjects();
-                setSubjects(data);
-            } catch (err) {
-                console.error("Failed to fetch subjects");
-            }
-        };
-        if (isOpen) fetchSubjects();
-    }, [isOpen]);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError(null);
-
-        try {
-            let dateOfBirthStr: string | undefined = undefined;
-            if (dateOfBirth) {
-                const year = dateOfBirth.getFullYear();
-                const month = String(dateOfBirth.getMonth() + 1).padStart(2, '0');
-                const day = String(dateOfBirth.getDate()).padStart(2, '0');
-                dateOfBirthStr = `${year}-${month}-${day}`;
-            }
-
-            const req: CreateTeacherRequest = {
-                fullName: fullName.trim(),
-                dateOfBirth: dateOfBirthStr,
-                gender,
-                address: address.trim() || undefined,
-                email: email.trim() || undefined,
-                phone: phone.trim() || undefined,
-                specialization: specialization.trim() || undefined,
-                degree: degree.trim() || undefined,
-                subjectId: subjectId || undefined,
-                createAccount,
-            };
-            await schoolAdminService.createTeacher(req);
-            // Reset form
-            setFullName(""); setDateOfBirth(null); setDateInputValue(""); setGender("MALE");
-            setAddress(""); setEmail(""); setPhone(""); setSpecialization(""); setDegree("");
-            setSubjectId("");
-            setCreateAccount(true);
-            onSuccess();
-            onClose();
-        } catch (err: any) {
-            setError(err?.response?.data?.message || "Không thể thêm giáo viên.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] overflow-y-auto">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 sticky top-0">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-semibold text-white">Thêm giáo viên mới</h2>
-                        <button onClick={onClose} className="text-white/80 hover:text-white"><XIcon /></button>
-                    </div>
-                </div>
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>}
-
-                    <h3 className="font-semibold text-gray-700 border-b pb-2">Thông tin cá nhân</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Họ và tên *</label>
-                            <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} required
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" />
-                        </div>
-                        <div className="relative">
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Ngày sinh *</label>
-                            <DatePicker
-                                selected={dateOfBirth}
-                                onChange={(date: Date | null) => {
-                                    setDateOfBirth(date);
-                                    if (date) {
-                                        const day = String(date.getDate()).padStart(2, '0');
-                                        const month = String(date.getMonth() + 1).padStart(2, '0');
-                                        const year = date.getFullYear();
-                                        setDateInputValue(`${day}/${month}/${year}`);
-                                    } else {
-                                        setDateInputValue('');
-                                    }
-                                }}
-                                onChangeRaw={(e) => {
-                                    if (!e) return;
-                                    const target = e.target as HTMLInputElement;
-                                    const nativeEvent = e.nativeEvent as unknown as InputEvent;
-                                    const isDeleting = nativeEvent.inputType?.startsWith('delete') || false;
-                                    const formatted = formatDateInput(target.value, isDeleting);
-                                    setDateInputValue(formatted);
-
-                                    const parsed = parseDateDDMMYYYY(formatted);
-                                    if (parsed && formatted.length >= 10) {
-                                        const [year, month, day] = parsed.split('-').map(Number);
-                                        setDateOfBirth(new Date(year, month - 1, day));
-                                    } else if (!formatted) {
-                                        setDateOfBirth(null);
-                                    }
-                                }}
-                                dateFormat="dd/MM/yyyy"
-                                placeholderText="VD: 20/01/1990"
-                                showYearDropdown
-                                scrollableYearDropdown
-                                yearDropdownItemNumber={100}
-                                maxDate={new Date()}
-                                wrapperClassName="w-full block"
-                                customInput={
-                                    <CustomDateInput
-                                        value={dateInputValue}
-                                        rawValue={dateInputValue}
-                                        placeholder="dd/mm/yyyy (VD: 20/01/1990)"
-                                        {...{ className: "w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" }}
-                                    />
-                                }
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Giới tính</label>
-                            <select value={gender} onChange={(e) => setGender(e.target.value as 'MALE' | 'FEMALE' | 'OTHER')}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none bg-white">
-                                <option value="MALE">Nam</option>
-                                <option value="FEMALE">Nữ</option>
-                                <option value="OTHER">Khác</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Email *</label>
-                            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
-                                placeholder="example@school.edu.vn"
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Số điện thoại</label>
-                            <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)}
-                                placeholder="09xxxxxxxx"
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Địa chỉ</label>
-                            <input type="text" value={address} onChange={(e) => setAddress(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" />
-                        </div>
-                    </div>
-
-                    <h3 className="font-semibold text-gray-700 border-b pb-2 mt-6">Thông tin chuyên môn</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Bộ môn giảng dạy</label>
-                            <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none bg-white">
-                                <option value="">-- Chọn bộ môn --</option>
-                                {subjects.map((sub: any) => (
-                                    <option key={sub.id} value={sub.id}>{sub.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Chuyên môn (Ghi chú)</label>
-                            <input type="text" value={specialization} onChange={(e) => setSpecialization(e.target.value)}
-                                placeholder="Toán, Văn, Anh..."
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Bằng cấp</label>
-                            <input type="text" value={degree} onChange={(e) => setDegree(e.target.value)}
-                                placeholder="Cử nhân, Thạc sĩ..."
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" />
-                        </div>
-                    </div>
-
-                    <div className="bg-gray-50 p-4 rounded-xl mt-4">
-                        <label className="flex items-center gap-3 cursor-pointer">
-                            <input type="checkbox" checked={createAccount} onChange={(e) => setCreateAccount(e.target.checked)}
-                                className="w-5 h-5 rounded border-gray-300" />
-                            <span className="font-medium text-gray-700">Tạo tài khoản đăng nhập cho giáo viên này</span>
-                        </label>
-                        <ul className="list-disc pl-10 mt-2 text-xs text-gray-500">
-                            <li>Tài khoản sẽ sử dụng Email ở trên để đăng nhập</li>
-                            <li>Mật khẩu ngẫu nhiên sẽ được gửi về Email</li>
-                            <li>Quyền hạn: TEACHER</li>
-                        </ul>
-                    </div>
-
-                    <div className="flex gap-3 pt-4">
-                        <button type="button" onClick={onClose} className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-medium hover:bg-slate-50">Hủy</button>
-                        <button type="submit" disabled={loading} className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-medium hover:shadow-lg disabled:opacity-50">
-                            {loading ? "Đang thêm..." : "Thêm giáo viên"}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-}
-
-// ==================== TEACHER DETAIL MODAL ====================
-
-interface TeacherDetailModalProps {
-    isOpen: boolean;
-    teacher: TeacherDto | null;
-    onClose: () => void;
-    onEdit: (teacher: TeacherDto) => void;
-    onDelete: (teacher: TeacherDto) => void;
-}
-
-const formatDisplayDate = (dateString: string | null | undefined): string => {
-    if (!dateString) return '—';
-    try {
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) return '—';
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
-    } catch {
-        return '—';
-    }
-};
-
-function TeacherDetailModal({ isOpen, teacher, onClose, onEdit, onDelete }: TeacherDetailModalProps) {
-    if (!isOpen || !teacher) return null;
-
-    const InfoRow = ({ label, value }: { label: string; value: string | null | undefined }) => (
-        <div className="py-3 border-b border-gray-100 last:border-0">
-            <div className="text-xs text-gray-500 mb-1">{label}</div>
-            <div className="text-sm text-gray-900 font-medium">{value || '—'}</div>
-        </div>
-    );
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-semibold text-white">Thông tin giáo viên</h2>
-                        <button onClick={onClose} className="text-white/80 hover:text-white"><XIcon /></button>
-                    </div>
-                </div>
-                <div className="p-6">
-                    <div className="flex items-center gap-4 mb-6 pb-4 border-b border-gray-200">
-                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-2xl">
-                            {teacher.fullName.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-semibold text-gray-900">{teacher.fullName}</h3>
-                            <p className="text-sm text-gray-500">Mã GV: {teacher.teacherCode}</p>
-                        </div>
-                        <span className={`ml-auto px-3 py-1 text-xs font-medium rounded-full ${teacher.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                            {teacher.status === 'ACTIVE' ? 'Đang làm' : teacher.status}
-                        </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-x-6">
-                        <InfoRow label="Email" value={teacher.email} />
-                        <InfoRow label="Điện thoại" value={teacher.phone} />
-                        <InfoRow label="Ngày sinh" value={formatDisplayDate(teacher.dateOfBirth)} />
-                        <InfoRow label="Giới tính" value={teacher.gender === 'MALE' ? 'Nam' : teacher.gender === 'FEMALE' ? 'Nữ' : teacher.gender} />
-                        <InfoRow label="Địa chỉ" value={teacher.address} />
-                        <InfoRow label="Chuyên môn" value={teacher.specialization} />
-                        <InfoRow label="Bằng cấp" value={teacher.degree} />
-                        <InfoRow label="Lớp chủ nhiệm" value={teacher.homeroomClassName} />
-                    </div>
-
-                    <div className="mt-6 pt-4 border-t border-gray-200 flex justify-between">
-                        <button
-                            onClick={() => onDelete(teacher)}
-                            className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-medium transition-colors"
-                        >
-                            Xóa
-                        </button>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={onClose}
-                                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-                            >
-                                Đóng
-                            </button>
-                            <button
-                                onClick={() => onEdit(teacher)}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                            >
-                                Chỉnh sửa
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// ==================== EDIT TEACHER MODAL ====================
-
-interface EditTeacherModalProps {
-    isOpen: boolean;
-    teacher: TeacherDto | null;
-    onClose: () => void;
-    onSuccess: () => void;
-}
-
-function EditTeacherModal({ isOpen, teacher, onClose, onSuccess }: EditTeacherModalProps) {
-    const [fullName, setFullName] = useState("");
-    const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
-    const [dateInputValue, setDateInputValue] = useState("");
-    const [gender, setGender] = useState<'MALE' | 'FEMALE' | 'OTHER'>("MALE");
-    const [address, setAddress] = useState("");
-    const [email, setEmail] = useState("");
-    const [phone, setPhone] = useState("");
-    const [specialization, setSpecialization] = useState("");
-    const [degree, setDegree] = useState("");
-    const [subjectId, setSubjectId] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [subjects, setSubjects] = useState<any[]>([]);
-
-    useEffect(() => {
-        const fetchSubjects = async () => {
-            try {
-                const data = await schoolAdminService.listSubjects();
-                setSubjects(data);
-            } catch (err) {
-                console.error("Failed to fetch subjects");
-            }
-        };
-        if (isOpen) fetchSubjects();
-    }, [isOpen]);
-
-    useEffect(() => {
-        if (teacher) {
-            setFullName(teacher.fullName || "");
-            setGender((teacher.gender as 'MALE' | 'FEMALE' | 'OTHER') || "MALE");
-            setAddress(teacher.address || "");
-            setEmail(teacher.email || "");
-            setPhone(teacher.phone || "");
-            setSpecialization(teacher.specialization || "");
-            setDegree(teacher.degree || "");
-            setSubjectId(teacher.subjectId || "");
-            if (teacher.dateOfBirth) {
-                const d = new Date(teacher.dateOfBirth);
-                setDateOfBirth(d);
-                const day = String(d.getDate()).padStart(2, '0');
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const year = d.getFullYear();
-                setDateInputValue(`${day}/${month}/${year}`);
-            } else {
-                setDateOfBirth(null);
-                setDateInputValue("");
-            }
-        }
-    }, [teacher]);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!teacher) return;
-        setLoading(true);
-        setError(null);
-
-        try {
-            let dateOfBirthStr: string | undefined = undefined;
-            if (dateOfBirth) {
-                const year = dateOfBirth.getFullYear();
-                const month = String(dateOfBirth.getMonth() + 1).padStart(2, '0');
-                const day = String(dateOfBirth.getDate()).padStart(2, '0');
-                dateOfBirthStr = `${year}-${month}-${day}`;
-            }
-
-            const req: CreateTeacherRequest = {
-                fullName: fullName.trim(),
-                dateOfBirth: dateOfBirthStr,
-                gender,
-                address: address.trim() || undefined,
-                email: email.trim() || undefined,
-                phone: phone.trim() || undefined,
-                specialization: specialization.trim() || undefined,
-                degree: degree.trim() || undefined,
-                subjectId: subjectId || undefined,
-                createAccount: false, // Don't create account on edit
-            };
-            await schoolAdminService.updateTeacher(teacher.id, req);
-            onSuccess();
-            onClose();
-        } catch (err: any) {
-            setError(err?.response?.data?.message || "Không thể cập nhật giáo viên.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    if (!isOpen || !teacher) return null;
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] overflow-y-auto">
-                <div className="bg-gradient-to-r from-amber-600 to-amber-500 px-6 py-4 sticky top-0">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-semibold text-white">Chỉnh sửa giáo viên</h2>
-                        <button onClick={onClose} className="text-white/80 hover:text-white"><XIcon /></button>
-                    </div>
-                </div>
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>}
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Họ và tên *</label>
-                            <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} required
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Ngày sinh</label>
-                            <DatePicker
-                                selected={dateOfBirth}
-                                onChange={(date: Date | null) => {
-                                    setDateOfBirth(date);
-                                    if (date) {
-                                        const day = String(date.getDate()).padStart(2, '0');
-                                        const month = String(date.getMonth() + 1).padStart(2, '0');
-                                        const year = date.getFullYear();
-                                        setDateInputValue(`${day}/${month}/${year}`);
-                                    } else {
-                                        setDateInputValue('');
-                                    }
-                                }}
-                                onChangeRaw={(e) => {
-                                    if (!e) return;
-                                    const target = e.target as HTMLInputElement;
-                                    const nativeEvent = e.nativeEvent as unknown as InputEvent;
-                                    const isDeleting = nativeEvent.inputType?.startsWith('delete') || false;
-                                    const formatted = formatDateInput(target.value, isDeleting);
-                                    setDateInputValue(formatted);
-                                    const parsed = parseDateDDMMYYYY(formatted);
-                                    if (parsed && formatted.length >= 10) {
-                                        const [year, month, day] = parsed.split('-').map(Number);
-                                        setDateOfBirth(new Date(year, month - 1, day));
-                                    } else if (!formatted) {
-                                        setDateOfBirth(null);
-                                    }
-                                }}
-                                dateFormat="dd/MM/yyyy"
-                                placeholderText="VD: 20/01/1990"
-                                showYearDropdown
-                                scrollableYearDropdown
-                                yearDropdownItemNumber={100}
-                                maxDate={new Date()}
-                                wrapperClassName="w-full block"
-                                customInput={
-                                    <CustomDateInput
-                                        rawValue={dateInputValue}
-                                        placeholder="dd/mm/yyyy"
-                                    />
-                                }
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Giới tính</label>
-                            <select value={gender} onChange={(e) => setGender(e.target.value as 'MALE' | 'FEMALE' | 'OTHER')}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none bg-white">
-                                <option value="MALE">Nam</option>
-                                <option value="FEMALE">Nữ</option>
-                                <option value="OTHER">Khác</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Số điện thoại</label>
-                            <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Địa chỉ</label>
-                            <input type="text" value={address} onChange={(e) => setAddress(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Bộ môn giảng dạy</label>
-                            <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none bg-white">
-                                <option value="">-- Chọn bộ môn --</option>
-                                {subjects.map((sub: any) => (
-                                    <option key={sub.id} value={sub.id}>{sub.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Bằng cấp</label>
-                            <input type="text" value={degree} onChange={(e) => setDegree(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Chuyên môn (Ghi chú)</label>
-                            <input type="text" value={specialization} onChange={(e) => setSpecialization(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none" />
-                        </div>
-                    </div>
-
-                    <div className="flex gap-3 pt-4">
-                        <button type="button" onClick={onClose} className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-medium hover:bg-slate-50">Hủy</button>
-                        <button type="submit" disabled={loading} className="flex-1 px-4 py-3 rounded-xl bg-amber-600 text-white font-medium hover:shadow-lg disabled:opacity-50">
-                            {loading ? "Đang lưu..." : "Lưu thay đổi"}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-}
-
-// ==================== DELETE TEACHER MODAL ====================
-
-interface DeleteTeacherModalProps {
-    isOpen: boolean;
-    teacher: TeacherDto | null;
-    onClose: () => void;
-    onSuccess: () => void;
-}
-
-function DeleteTeacherModal({ isOpen, teacher, onClose, onSuccess }: DeleteTeacherModalProps) {
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    const handleDelete = async () => {
-        if (!teacher) return;
-        setLoading(true);
-        setError(null);
-
-        try {
-            await schoolAdminService.deleteTeacher(teacher.id);
-            onSuccess();
-            onClose();
-        } catch (err: any) {
-            setError(err?.response?.data?.message || "Không thể xóa giáo viên.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    if (!isOpen || !teacher) return null;
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6">
-                <div className="text-center">
-                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Xóa giáo viên?</h3>
-                    <p className="text-gray-600 mb-4">Bạn có chắc muốn xóa giáo viên <span className="font-semibold text-gray-900">{teacher.fullName}</span>? Hành động này không thể hoàn tác.</p>
-                    {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm mb-4">{error}</div>}
-                    <div className="flex gap-3">
-                        <button onClick={onClose} className="flex-1 px-4 py-2 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50">Hủy</button>
-                        <button onClick={handleDelete} disabled={loading} className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50">
-                            {loading ? "Đang xóa..." : "Xóa"}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// ==================== PAGE COMPONENT ====================
+// ==================== PAGE COMPONENT ======================================
 
 const TeacherManagement = () => {
 
@@ -682,37 +24,213 @@ const TeacherManagement = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showAddTeacherModal, setShowAddTeacherModal] = useState(false);
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [importResult, setImportResult] = useState<ImportTeacherResult | null>(null);
     const [selectedTeacher, setSelectedTeacher] = useState<TeacherDto | null>(null);
     const [editingTeacher, setEditingTeacher] = useState<TeacherDto | null>(null);
-    const [deletingTeacher, setDeletingTeacher] = useState<TeacherDto | null>(null);
+
+    // Bulk selection
+    const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
+    const [selectedTeacherIds, setSelectedTeacherIds] = useState<Set<string>>(new Set());
+
+
+    // Success toast state
+    const [successToastOpen, setSuccessToastOpen] = useState(false);
+    const [successMessage, setSuccessMessage] = useState("");
+
+    // New State for Filter & Sort
+    const [subjects, setSubjects] = useState<any[]>([]);
+    const [filterSubjectId, setFilterSubjectId] = useState<string>("");
+    const [sortConfig, setSortConfig] = useState<{ key: keyof TeacherDto | 'subjectName'; direction: 'asc' | 'desc' } | null>(null);
 
     useEffect(() => {
         fetchData();
+        fetchSubjects();
+        setSelectedTeacherIds(new Set());
     }, []);
 
-    const fetchData = async () => {
+
+    const fetchData = async (silent = false) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const data = await schoolAdminService.listTeacherProfiles();
             setTeachers(data);
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tải dữ liệu.");
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
+
+    const fetchSubjects = async () => {
+        try {
+            const data = await schoolAdminService.listSubjects();
+            setSubjects(data);
+        } catch (error) {
+            console.error("Failed to fetch subjects:", error);
+        }
+    };
+
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            const allIds = filteredTeachers.map(t => t.id);
+            setSelectedTeacherIds(new Set(allIds));
+        } else {
+            setSelectedTeacherIds(new Set());
+        }
+    };
+
+    const handleSelectOne = (id: string) => {
+        const newSelected = new Set(selectedTeacherIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedTeacherIds(newSelected);
+    };
+
+
+
+    const handleBulkDelete = async () => {
+        try {
+            const result = await schoolAdminService.bulkDeleteTeachers(Array.from(selectedTeacherIds));
+
+            if (result.deleted > 0) {
+                await fetchData(true); // Silent refresh
+                setSelectedTeacherIds(new Set());
+                setSuccessMessage(`Đã xóa thành công ${result.deleted} giáo viên`);
+                setSuccessToastOpen(true);
+            }
+
+            return result;
+        } catch (error) {
+            console.error("Failed to delete teachers:", error);
+            alert("Có lỗi xảy ra khi xóa giáo viên");
+            return { deleted: 0, failed: selectedTeacherIds.size, errors: ["Lỗi hệ thống"] };
+        }
+    };
+
+
+    // Filter & Sort Logic
+    const filteredTeachers = React.useMemo(() => {
+        let result = [...teachers];
+
+        // 1. Filter by Subject
+        if (filterSubjectId) {
+            const filterSubject = subjects.find(s => s.id === filterSubjectId);
+            if (filterSubject) {
+                result = result.filter(t => {
+                    if (t.subjects && t.subjects.some(s => s.id === filterSubjectId)) {
+                        return true;
+                    }
+                    if (t.subjects) {
+                        return false;
+                    }
+                    return false;
+                });
+            }
+        }
+
+        // 2. Sort
+        if (sortConfig) {
+            result.sort((a, b) => {
+                let aValue: any = sortConfig.key === 'subjectName' ? (a.subjectNames || '') : a[sortConfig.key as keyof TeacherDto];
+                let bValue: any = sortConfig.key === 'subjectName' ? (b.subjectNames || '') : b[sortConfig.key as keyof TeacherDto];
+
+                // Handle null/undefined
+                if (!aValue) aValue = "";
+                if (!bValue) bValue = "";
+
+                if (typeof aValue === 'string') {
+                    return sortConfig.direction === 'asc'
+                        ? aValue.localeCompare(bValue as string)
+                        : (bValue as string).localeCompare(aValue);
+                }
+
+                // Fallback for non-string
+                if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        return result;
+    }, [teachers, filterSubjectId, sortConfig]);
+
+    const handleSort = (key: keyof TeacherDto | 'subjectName') => {
+        setSortConfig(current => {
+            if (current?.key === key) {
+                if (current.direction === 'asc') return { key, direction: 'desc' };
+                return null; // Reset sort
+            }
+            return { key, direction: 'asc' };
+        });
+    };
+
+    // Helper to render sort icon
+    const SortHeader = ({ label, sortKey, className = "" }: { label: string, sortKey: keyof TeacherDto | 'subjectName', className?: string }) => (
+        <th
+            className={`px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100 hover:text-blue-600 transition-colors select-none ${className}`}
+            onClick={() => handleSort(sortKey)}
+        >
+            <div className="flex items-center gap-1">
+                {label}
+                <span className="text-gray-400">
+                    {sortConfig?.key === sortKey ? (
+                        sortConfig.direction === 'asc' ? '↑' : '↓'
+                    ) : (
+                        <span className="opacity-0 group-hover:opacity-50">⇅</span>
+                    )}
+                </span>
+            </div>
+        </th>
+    );
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 animate-fade-in-up">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">Danh sách giáo viên</h2>
-                <button
-                    onClick={() => setShowAddTeacherModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
-                >
-                    <PlusIcon />
-                    <span>Thêm giáo viên</span>
-                </button>
+                <div className="flex gap-2">
+                    <select
+                        value={filterSubjectId}
+                        onChange={(e) => setFilterSubjectId(e.target.value)}
+                        className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none focus:border-blue-500 bg-gray-50 hover:bg-white transition-colors cursor-pointer"
+                    >
+                        <option value="">Tất cả bộ môn</option>
+                        {subjects.map((sub: any) => (
+                            <option key={sub.id} value={sub.id}>{sub.name}</option>
+                        ))}
+                    </select>
+                    {selectedTeacherIds.size > 0 && (
+                        <button
+                            onClick={() => setShowBatchDeleteModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-all border border-red-200"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span>Xóa {selectedTeacherIds.size} mục</span>
+                        </button>
+                    )}
+
+                    <button
+                        onClick={() => setShowImportModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        <span>Import Excel</span>
+                    </button>
+                    <button
+                        onClick={() => setShowAddTeacherModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
+                    >
+                        <PlusIcon />
+                        <span>Thêm giáo viên</span>
+                    </button>
+                </div>
             </div>
 
             {loading && <div className="p-8 text-center text-gray-500">Đang tải danh sách...</div>}
@@ -723,23 +241,54 @@ const TeacherManagement = () => {
                     <table className="w-full">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Mã GV</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Họ tên</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Điện thoại</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Chuyên môn</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Lớp CN</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Trạng thái</th>
+                                <th className="px-6 py-3 w-4">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        checked={filteredTeachers.length > 0 && Array.from(selectedTeacherIds).length === filteredTeachers.length && filteredTeachers.every(t => selectedTeacherIds.has(t.id))}
+                                        onChange={handleSelectAll}
+                                    />
+                                </th>
+                                <SortHeader label="Mã GV" sortKey="teacherCode" />
+
+                                <SortHeader label="Họ tên" sortKey="fullName" />
+                                <SortHeader label="Email" sortKey="email" />
+                                <SortHeader label="Điện thoại" sortKey="phone" />
+                                <SortHeader label="Bộ môn" sortKey="subjectName" />
+                                <SortHeader label="Lớp CN" sortKey="homeroomClassName" />
+                                <SortHeader label="Trạng thái" sortKey="status" />
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {teachers.map((teacher) => (
-                                <tr key={teacher.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedTeacher(teacher)}>
+                            {filteredTeachers.map((teacher) => (
+                                <tr key={teacher.id} className="hover:bg-blue-50 transition-colors cursor-pointer" onClick={() => setSelectedTeacher(teacher)}>
+                                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                        <input
+                                            type="checkbox"
+                                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            checked={selectedTeacherIds.has(teacher.id)}
+                                            onChange={() => handleSelectOne(teacher.id)}
+                                        />
+                                    </td>
                                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{teacher.teacherCode}</td>
+
                                     <td className="px-6 py-4 text-sm text-gray-700">{teacher.fullName}</td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{teacher.email || '—'}</td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{teacher.phone || '—'}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">{teacher.specialization || '—'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">
+                                        {teacher.subjects && teacher.subjects.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1">
+                                                {teacher.subjects.map(sub => (
+                                                    <span key={sub.id} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100">
+                                                        {sub.name}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <span className="text-gray-400 italic">--</span>
+                                        )}
+                                    </td>
+
                                     <td className="px-6 py-4">
                                         {teacher.homeroomClassName ? (
                                             <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
@@ -750,15 +299,13 @@ const TeacherManagement = () => {
                                         )}
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${teacher.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                                            {teacher.status === 'ACTIVE' ? 'Đang làm' : teacher.status}
-                                        </span>
+                                        <TeacherStatusBadge status={teacher.status || 'ACTIVE'} />
                                     </td>
                                 </tr>
                             ))}
                             {teachers.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                                         Chưa có giáo viên nào. Bấm "Thêm giáo viên" để bắt đầu.
                                     </td>
                                 </tr>
@@ -771,7 +318,11 @@ const TeacherManagement = () => {
             <AddTeacherModal
                 isOpen={showAddTeacherModal}
                 onClose={() => setShowAddTeacherModal(false)}
-                onSuccess={fetchData}
+                onSuccess={() => {
+                    fetchData();
+                    setSuccessMessage("Thêm giáo viên thành công!");
+                    setSuccessToastOpen(true);
+                }}
             />
             <TeacherDetailModal
                 isOpen={selectedTeacher !== null}
@@ -781,22 +332,42 @@ const TeacherManagement = () => {
                     setSelectedTeacher(null);
                     setEditingTeacher(t);
                 }}
-                onDelete={(t) => {
-                    setSelectedTeacher(null);
-                    setDeletingTeacher(t);
-                }}
             />
             <EditTeacherModal
                 isOpen={editingTeacher !== null}
                 teacher={editingTeacher}
                 onClose={() => setEditingTeacher(null)}
-                onSuccess={fetchData}
+                onSuccess={() => {
+                    fetchData();
+                    setSuccessMessage("Cập nhật thông tin giáo viên thành công!");
+                    setSuccessToastOpen(true);
+                }}
             />
-            <DeleteTeacherModal
-                isOpen={deletingTeacher !== null}
-                teacher={deletingTeacher}
-                onClose={() => setDeletingTeacher(null)}
+            <BatchDeleteModal
+                isOpen={showBatchDeleteModal}
+                onClose={() => setShowBatchDeleteModal(false)}
+                onConfirm={handleBulkDelete}
+                title="Xóa giáo viên"
+                message={`Bạn có chắc chắn muốn xóa ${selectedTeacherIds.size} giáo viên đã chọn?`}
+                itemCount={selectedTeacherIds.size}
+                itemName="giáo viên"
+            />
+
+            <ImportTeacherExcelModal
+                isOpen={showImportModal}
+                onClose={() => setShowImportModal(false)}
                 onSuccess={fetchData}
+                onImportComplete={(result) => setImportResult(result)}
+            />
+            <ImportTeacherSuccessToast
+                result={importResult}
+                onClose={() => setImportResult(null)}
+            />
+            <SuccessToast
+                isOpen={successToastOpen}
+                onClose={() => setSuccessToastOpen(false)}
+                message={successMessage}
+                subtitle="Tự động đóng sau 3 giây"
             />
         </div>
     );

@@ -57,7 +57,8 @@ public class StudentImportService {
         }
 
         List<ImportStudentResult.ImportError> errors = new ArrayList<>();
-        List<Student> createdStudents = new ArrayList<>();
+        // Use a map to store student along with their department for assignment
+        Map<Student, ClassDepartment> studentDepartmentMap = new LinkedHashMap<>(); // Preserve order
         int totalRows = 0;
         int successCount = 0;
         int failedCount = 0;
@@ -132,8 +133,7 @@ public class StudentImportService {
                             "tenphuhuynh");
                     String guardianPhone = getValueFromRow(row, columnMap, "guardianphone", "sđt phụ huynh",
                             "sdtphuhuynh");
-                    String guardianRelationship = getValueFromRow(row, columnMap, "guardianrelationship", "quan hệ",
-                            "quanhe");
+                    // guardianRelationship is no longer used in Many-to-One
 
                     // Generate student code
                     String studentCode = generateNextStudentCode(school);
@@ -154,17 +154,49 @@ public class StudentImportService {
                             .build();
 
                     student = students.save(student);
-                    createdStudents.add(student);
 
-                    // Save guardian if provided
+                    // Store student with their parsed department (can be null if not provided)
+                    studentDepartmentMap.put(student, department);
+
+                    // Process Guardian Logic (Many-to-One Refactor)
                     if (guardianName != null && !guardianName.isBlank()) {
-                        Guardian guardian = Guardian.builder()
-                                .student(student)
-                                .fullName(guardianName.trim())
-                                .phone(guardianPhone)
-                                .relationship(guardianRelationship)
-                                .build();
-                        guardians.save(guardian);
+                        Guardian guardian = null;
+
+                        // Sanitize email
+                        String guardianEmail = null;
+                        String rawGuardianEmail = getValueFromRow(row, columnMap, "guardianemail", "email phụ huynh",
+                                "emailphuhuynh");
+                        if (rawGuardianEmail != null && !rawGuardianEmail.isBlank()) {
+                            guardianEmail = rawGuardianEmail.trim().toLowerCase();
+                        }
+
+                        if (guardianEmail != null) {
+                            // Case 1: Has Email -> Find or Create
+                            List<Guardian> existingGuardians = guardians.findByEmailIgnoreCase(guardianEmail);
+                            if (!existingGuardians.isEmpty()) {
+                                guardian = existingGuardians.get(0);
+                            } else {
+                                // Create new
+                                guardian = Guardian.builder()
+                                        .fullName(guardianName.trim())
+                                        .phone(guardianPhone)
+                                        .email(guardianEmail)
+                                        .build();
+                                guardian = guardians.save(guardian);
+                            }
+                        } else {
+                            // Case 2: No Email -> Force Create (No User Account)
+                            guardian = Guardian.builder()
+                                    .fullName(guardianName.trim())
+                                    .phone(guardianPhone)
+                                    .email(null) // Generic null
+                                    .build();
+                            guardian = guardians.save(guardian);
+                        }
+
+                        // Link directly to student
+                        student.setGuardian(guardian);
+                        students.save(student);
                     }
 
                     successCount++;
@@ -185,8 +217,8 @@ public class StudentImportService {
 
         // Auto assign students to classes if requested
         int assignedCount = 0;
-        if (autoAssign && !createdStudents.isEmpty()) {
-            assignedCount = autoAssignStudentsToClasses(school, createdStudents, academicYear, grade);
+        if (autoAssign && !studentDepartmentMap.isEmpty()) {
+            assignedCount = autoAssignStudentsToClasses(school, studentDepartmentMap, academicYear, grade);
         }
 
         return new ImportStudentResult(totalRows, successCount, failedCount, assignedCount, errors);
@@ -196,39 +228,49 @@ public class StudentImportService {
      * Auto-assign students to classes based on department
      * Uses round-robin distribution to balance class sizes
      */
-    private int autoAssignStudentsToClasses(School school, List<Student> studentsToAssign,
+    private int autoAssignStudentsToClasses(School school, Map<Student, ClassDepartment> studentDepartmentMap,
             String academicYear, int grade) {
         int assignedCount = 0;
 
-        // Group students by department (extracted during import, we'll need to store it
-        // temporarily)
-        // For now, assign to any available class in the grade
-        List<ClassRoom> availableClasses = classRooms.findAllBySchoolAndGradeAndAcademicYearAndStatus(
+        // Get all available classes
+        List<ClassRoom> allClasses = classRooms.findAllBySchoolAndGradeAndAcademicYearAndStatus(
                 school, grade, academicYear, ClassRoomStatus.ACTIVE);
 
-        if (availableClasses.isEmpty()) {
+        if (allClasses.isEmpty()) {
             return 0; // No classes available
         }
 
         // Get current enrollment counts for each class
         Map<UUID, Long> classEnrollmentCounts = new HashMap<>();
-        for (ClassRoom classRoom : availableClasses) {
+        for (ClassRoom classRoom : allClasses) {
             classEnrollmentCounts.put(classRoom.getId(), enrollments.countByClassRoom(classRoom));
         }
 
-        // Sort classes by current enrollment (ascending) to balance
-        availableClasses.sort(Comparator.comparingLong(c -> classEnrollmentCounts.get(c.getId())));
+        for (Map.Entry<Student, ClassDepartment> entry : studentDepartmentMap.entrySet()) {
+            Student student = entry.getKey();
+            ClassDepartment studentDept = entry.getValue();
 
-        int classIndex = 0;
-        for (Student student : studentsToAssign) {
-            // Find next available class with capacity
-            int attempts = 0;
-            while (attempts < availableClasses.size()) {
-                ClassRoom classRoom = availableClasses.get(classIndex % availableClasses.size());
+            // Filter classes matching student's department
+            List<ClassRoom> candidateClasses = allClasses.stream()
+                    .filter(c -> matchesDepartment(c, studentDept))
+                    .sorted(Comparator.comparingLong(c -> classEnrollmentCounts.get(c.getId())))
+                    .toList();
+
+            // If no matching classes found (e.g. specialized stream student but no
+            // specialized class),
+            // fallback to any class with space (or maybe skip? for now fallback to any
+            // class)
+            if (candidateClasses.isEmpty()) {
+                candidateClasses = allClasses.stream()
+                        .sorted(Comparator.comparingLong(c -> classEnrollmentCounts.get(c.getId())))
+                        .toList();
+            }
+
+            // Try to assign to the class with least students that has capacity
+            for (ClassRoom classRoom : candidateClasses) {
                 long currentCount = classEnrollmentCounts.get(classRoom.getId());
-
                 if (currentCount < classRoom.getMaxCapacity()) {
-                    // Assign student to this class
+                    // Assign
                     ClassEnrollment enrollment = ClassEnrollment.builder()
                             .student(student)
                             .classRoom(classRoom)
@@ -240,16 +282,45 @@ public class StudentImportService {
                     // Update count
                     classEnrollmentCounts.put(classRoom.getId(), currentCount + 1);
                     assignedCount++;
-                    classIndex++;
-                    break;
-                }
 
-                classIndex++;
-                attempts++;
+                    // Update student current class name (optional but good for consistency if we
+                    // have that field denormalized)
+                    // student.setCurrentClassName(classRoom.getName());
+                    // students.save(student);
+
+                    break; // Move to next student
+                }
             }
         }
 
         return assignedCount;
+    }
+
+    private boolean matchesDepartment(ClassRoom classRoom, ClassDepartment studentDept) {
+        // If student has no department or is KHONG_PHAN_BAN, they can go to any class
+        // BUT ideally we prefer KHONG_PHAN_BAN classes if any.
+        // For simplicity: if student dept is null/NONE, return true (can be assigned
+        // anywhere,
+        // sorting logic will prefer emptier classes)
+        if (studentDept == null || studentDept == ClassDepartment.KHONG_PHAN_BAN) {
+            return true;
+        }
+
+        // Check combination stream first (stronger link)
+        if (classRoom.getCombination() != null && classRoom.getCombination().getStream() != null) {
+            String streamName = classRoom.getCombination().getStream().name();
+            // Assuming StreamType names match ClassDepartment names (TU_NHIEN, XA_HOI)
+            if (streamName.equals(studentDept.name())) {
+                return true;
+            }
+        }
+
+        // Check class department as fallback
+        if (classRoom.getDepartment() == studentDept) {
+            return true;
+        }
+
+        return false;
     }
 
     // ==================== EXCEL HELPER METHODS ====================

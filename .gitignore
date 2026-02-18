@@ -18,3 +18,8 @@ Thumbs.db
 # Docker volumes
 postgres_data/
 ISS-key.pem
+
+# Java Crash Logs
+hs_err_pid*.log
+replay_pid*.log
+*_logs.txt

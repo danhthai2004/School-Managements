@@ -46,9 +46,6 @@ public class Teacher {
     private String phone;
 
     @Column(length = 100)
-    private String specialization;
-
-    @Column(length = 100)
     private String degree;
 
     @Builder.Default
@@ -64,7 +61,7 @@ public class Teacher {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "subject_id")
-    private Subject primarySubject;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "teacher_subjects", joinColumns = @JoinColumn(name = "teacher_id"), inverseJoinColumns = @JoinColumn(name = "subject_id"))
+    private java.util.Set<Subject> subjects = new java.util.HashSet<>();
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { schoolAdminService, type ClassRoomDto } from "../../../services/schoolAdminService";
 import type { TeacherAssignmentDto } from "../../../services/dtos/TeacherAssignmentDto";
 import { RefreshCw, CheckCircle, AlertCircle, UserPlus, X, Filter as FilterIcon } from "lucide-react";
@@ -208,7 +209,7 @@ export default function TeacherAssignment() {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {assignments.map(assign => (
-                                <tr key={assign.id} className="hover:bg-gray-50">
+                                <tr key={assign.id} className="hover:bg-blue-50 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center">
                                             <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs mr-3">
@@ -250,19 +251,22 @@ export default function TeacherAssignment() {
             )}
 
             {/* Assign Modal */}
-            {isModalOpen && currentAssignment && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-900">
-                                Phân công: {currentAssignment.subjectName}
-                            </h3>
-                            <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                                <X className="w-5 h-5" />
-                            </button>
+            {isModalOpen && currentAssignment && createPortal(
+                <div className="fixed inset-0 z-[100] flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] flex flex-col z-[100]">
+                        <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 flex-none z-[110]">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-bold text-white">
+                                    Phân công: {currentAssignment.subjectName}
+                                </h3>
+                                <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
                         </div>
 
-                        <div className="mb-4">
+                        <div className="p-6 space-y-4 overflow-y-auto">
                             <p className="text-sm text-gray-500 mb-2">Lớp: {currentAssignment.className}</p>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Chọn Giáo viên</label>
                             <select
@@ -272,7 +276,34 @@ export default function TeacherAssignment() {
                             >
                                 <option value="">-- Chưa gán --</option>
                                 {teachers
-                                    .filter(t => !currentAssignment?.subjectId || t.subjectId === currentAssignment.subjectId)
+                                    .filter(t => {
+                                        if (!currentAssignment?.subjectId) return true;
+                                        // Exact match using subjects array
+                                        if (t.subjects && t.subjects.some((s: any) => s.id === currentAssignment.subjectId)) {
+                                            return true;
+                                        }
+
+                                        // Specialized subject match (e.g. "CD_TOAN" checking against subject codes or names)
+                                        // If strict match failed, maybe check names? 
+                                        // For now, let's trust the ID match. The backend allows specialization matching, 
+                                        // but frontend list should probably be strict or check all subjects.
+
+                                        // Also check if any of teacher's subjects is a "parent" of the assignment subject
+                                        // e.g. Assignment is "Chuyên đề Toán" (CD_TOAN), Teacher has "Toán" (TOAN)
+                                        // The backend logic: if (assignmentCode.contains(teacherSubjectCode))
+
+                                        // We don't have codes easily here unless SubjectDto has it. 
+                                        // SubjectDto has 'code'. teacher.subjects is SubjectDto[].
+
+                                        if (t.subjects && currentAssignment.subjectName) {
+                                            return t.subjects.some((s: any) => {
+                                                // Name match fallback (e.g. "Toán" in "Chuyên đề Toán")
+                                                return currentAssignment.subjectName.includes(s.name);
+                                            });
+                                        }
+
+                                        return false;
+                                    })
                                     .map(t => (
                                         <option key={t.id} value={t.id}>{t.fullName} ({t.email})</option>
                                     ))}
@@ -282,22 +313,23 @@ export default function TeacherAssignment() {
                             </p>
                         </div>
 
-                        <div className="flex justify-end gap-3">
+                        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 flex-none">
                             <button
                                 onClick={() => setIsModalOpen(false)}
-                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-white font-medium"
                             >
                                 Hủy
                             </button>
                             <button
                                 onClick={handleSaveAssignment}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg hover:shadow-lg font-medium"
                             >
                                 Lưu thay đổi
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

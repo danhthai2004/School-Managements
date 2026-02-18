@@ -18,11 +18,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import com.schoolmanagement.backend.util.RandomUtil;
 
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 @Service
 public class SchoolAdminService {
@@ -33,21 +35,25 @@ public class SchoolAdminService {
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
 
+    private final com.schoolmanagement.backend.repo.TeacherRepository teachers;
+
     public SchoolAdminService(UserRepository users, ClassRoomRepository classRooms,
             StudentRepository students,
-            PasswordEncoder passwordEncoder, MailService mailService) {
+            PasswordEncoder passwordEncoder, MailService mailService,
+            com.schoolmanagement.backend.repo.TeacherRepository teachers) {
         this.users = users;
         this.classRooms = classRooms;
         this.students = students;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
+        this.teachers = teachers;
     }
 
     // ==================== SCHOOL STATS ====================
 
     public SchoolStatsDto getSchoolStats(School school) {
         long totalClasses = classRooms.countBySchool(school);
-        long totalTeachers = users.countBySchoolAndRole(school, Role.TEACHER);
+        long totalTeachers = teachers.countBySchool(school);
         long totalStudents = students.countBySchool(school);
 
         int year = java.time.LocalDate.now().getYear();
@@ -88,14 +94,14 @@ public class SchoolAdminService {
         mailService.sendTempPasswordEmail(user.getEmail(), user.getFullName(), tempPassword);
 
         return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), school.getId(),
-                school.getCode());
+                school.getCode(), user.isEnabled());
     }
 
     public List<UserDto> listUsersInSchool(School school) {
         return users.findBySchoolId(school.getId()).stream()
                 .filter(u -> u.getRole() != Role.SYSTEM_ADMIN)
                 .map(u -> new UserDto(u.getId(), u.getEmail(), u.getFullName(), u.getRole(), school.getId(),
-                        school.getCode()))
+                        school.getCode(), u.isEnabled()))
                 .toList();
     }
 
@@ -104,7 +110,7 @@ public class SchoolAdminService {
                 .filter(u -> u.getSchool() != null && u.getSchool().getId().equals(school.getId())
                         && u.getRole() == Role.TEACHER)
                 .map(u -> new UserDto(u.getId(), u.getEmail(), u.getFullName(), u.getRole(), school.getId(),
-                        school.getCode()))
+                        school.getCode(), u.isEnabled()))
                 .toList();
     }
 
@@ -183,6 +189,50 @@ public class SchoolAdminService {
         }
 
         return new BulkImportResponse(created, skipped, emailed);
+    }
+
+    // ==================== ACCOUNT MANAGEMENT ====================
+
+    @Transactional
+    public void resetPassword(School school, UUID userId) {
+        User user = users.findById(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng."));
+
+        if (!user.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Người dùng không thuộc trường này.");
+        }
+
+        if (user.getRole() == Role.SYSTEM_ADMIN) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Không thể reset mật khẩu của System Admin.");
+        }
+
+        String tempPassword = RandomUtil.generateTempPassword(12);
+        user.setPasswordHash(passwordEncoder.encode(tempPassword));
+        user.setFirstLogin(true); // Force change password on next login
+        users.save(user);
+
+        mailService.sendTempPasswordEmail(user.getEmail(), user.getFullName(), tempPassword);
+    }
+
+    @Transactional
+    public void toggleUserStatus(School school, UUID userId, boolean enabled) {
+        User user = users.findById(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng."));
+
+        if (!user.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Người dùng không thuộc trường này.");
+        }
+
+        if (user.getRole() == Role.SYSTEM_ADMIN || user.getRole() == Role.SCHOOL_ADMIN) {
+            // Self-lock check should be in controller or allowed?
+            //
+            // Prevent locking school admin via this generic endpoint for safety, unless
+            // it's another admin?
+            // For now, let's allow locking other admins but maybe block self-locking in UI
+        }
+
+        user.setEnabled(enabled);
+        users.save(user);
     }
 
 }

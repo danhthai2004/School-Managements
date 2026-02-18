@@ -19,7 +19,9 @@ import ActivityLogsPage from "../views/system/ActivityLogsPage";
 import SchoolAdminLayout from "../views/school-admin/SchoolAdminLayout";
 import DashboardOverview from "../views/school-admin/pages/DashboardOverview";
 import ClassManagement from "../views/school-admin/pages/ClassManagement";
+import ClassDetailView from "../views/school-admin/pages/ClassDetailView";
 import StudentManagement from "../views/school-admin/pages/StudentManagement";
+import StudentProfilePage from "../views/school-admin/pages/StudentProfilePage";
 import AccountManagement from "../views/school-admin/pages/AccountManagement";
 import TeacherManagement from "../views/school-admin/pages/TeacherManagement";
 import SubjectManagement from "../views/school-admin/pages/SubjectManagement";
@@ -27,6 +29,8 @@ import CombinationManagement from "../views/school-admin/pages/CombinationManage
 import TeacherAssignment from "../views/school-admin/pages/TeacherAssignment";
 import TimetableManagement from "../views/school-admin/pages/TimetableManagement";
 import TimetableDetailView from "../views/school-admin/pages/TimetableDetailView";
+import ReportsPage from "../views/school-admin/pages/ReportsPage";
+
 
 
 
@@ -75,7 +79,9 @@ export default function AppRouter() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<DashboardOverview />} />
         <Route path="classes" element={<ClassManagement />} />
+        <Route path="classes/:id" element={<ClassDetailView />} />
         <Route path="students" element={<StudentManagement />} />
+        <Route path="students/:id" element={<StudentProfilePage />} />
         <Route path="teachers" element={<TeacherManagement />} />
         <Route path="accounts" element={<AccountManagement />} />
         <Route path="subjects" element={<SubjectManagement />} />
@@ -83,7 +89,7 @@ export default function AppRouter() {
         <Route path="assignments" element={<TeacherAssignment />} />
         <Route path="schedule" element={<TimetableManagement />} />
         <Route path="schedule/:id" element={<TimetableDetailView />} />
-
+        <Route path="reports" element={<ReportsPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />

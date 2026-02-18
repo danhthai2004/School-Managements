@@ -14,12 +14,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.schoolmanagement.backend.util.RandomUtil;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Service
+@Slf4j
 public class TeacherManagementService {
 
     private final TeacherRepository teachers;
@@ -28,6 +32,9 @@ public class TeacherManagementService {
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
     private final com.schoolmanagement.backend.repo.SubjectRepository subjects;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private BulkDeleteHelperService bulkDeleteHelper;
 
     public TeacherManagementService(TeacherRepository teachers, UserRepository users,
             ClassRoomRepository classRooms, PasswordEncoder passwordEncoder,
@@ -38,6 +45,86 @@ public class TeacherManagementService {
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
         this.subjects = subjects;
+    }
+
+    // ==================== TEACHER ACCOUNT MANAGEMENT ====================
+
+    @Transactional(readOnly = true)
+    public List<TeacherDto> getTeachersEligibleForAccount(School school) {
+        return teachers.findAllBySchoolOrderByTeacherCodeAsc(school).stream()
+                .filter(t -> "ACTIVE".equals(t.getStatus()) && t.getEmail() != null && !t.getEmail().isBlank()
+                        && t.getUser() == null)
+                .map(this::toTeacherDto)
+                .toList();
+    }
+
+    @Transactional
+    public com.schoolmanagement.backend.dto.UserDto createAccountForTeacher(School school, UUID teacherId) {
+        Teacher teacher = teachers.findById(teacherId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên"));
+
+        if (!teacher.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Giáo viên không thuộc trường này");
+        }
+
+        if (!"ACTIVE".equals(teacher.getStatus())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Chỉ có thể tạo tài khoản cho giáo viên đang hoạt động");
+        }
+
+        if (teacher.getEmail() == null || teacher.getEmail().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Giáo viên chưa có email");
+        }
+
+        if (teacher.getUser() != null) {
+            throw new ApiException(HttpStatus.CONFLICT, "Giáo viên đã có tài khoản");
+        }
+
+        if (users.existsByEmailIgnoreCase(teacher.getEmail())) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Email đã được sử dụng cho tài khoản khác: " + teacher.getEmail());
+        }
+
+        String tempPassword = RandomUtil.generateTempPassword(12);
+
+        User user = User.builder()
+                .email(teacher.getEmail())
+                .fullName(teacher.getFullName())
+                .role(Role.TEACHER)
+                .school(school)
+                .passwordHash(passwordEncoder.encode(tempPassword))
+                .firstLogin(true)
+                .enabled(true)
+                .build();
+
+        user = users.save(user); // Save first to get ID
+        teacher.setUser(user);
+        teachers.save(teacher);
+
+        mailService.sendTempPasswordEmail(user.getEmail(), user.getFullName(), tempPassword);
+
+        return new com.schoolmanagement.backend.dto.UserDto(user.getId(), user.getEmail(), user.getFullName(),
+                user.getRole(), school.getId(),
+                school.getCode(), user.isEnabled());
+    }
+
+    @Transactional
+    public com.schoolmanagement.backend.dto.BulkAccountCreationResponse createAccountsForTeachers(School school,
+            List<UUID> teacherIds) {
+        int created = 0;
+        int skipped = 0;
+        java.util.List<String> errors = new java.util.ArrayList<>();
+
+        for (UUID teacherId : teacherIds) {
+            try {
+                createAccountForTeacher(school, teacherId);
+                created++;
+            } catch (ApiException e) {
+                skipped++;
+                errors.add(teacherId + ": " + e.getMessage());
+            }
+        }
+
+        return new com.schoolmanagement.backend.dto.BulkAccountCreationResponse(created, skipped, errors);
     }
 
     // ==================== TEACHER MANAGEMENT ====================
@@ -67,11 +154,17 @@ public class TeacherManagementService {
             }
         }
 
-        // Find Subject
-        com.schoolmanagement.backend.domain.entity.Subject subject = null;
-        if (req.subjectId() != null) {
-            subject = subjects.findById(req.subjectId())
-                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy môn học"));
+        // Find Subjects
+        java.util.Set<com.schoolmanagement.backend.domain.entity.Subject> subjectEntities = new java.util.HashSet<>();
+        if (req.subjectIds() != null && !req.subjectIds().isEmpty()) {
+            List<com.schoolmanagement.backend.domain.entity.Subject> foundSubjects = subjects
+                    .findAllById(req.subjectIds());
+            if (foundSubjects.size() != req.subjectIds().size()) {
+                // warning or error? Let's just use what we found or strict check.
+                // Strict check is better.
+                throw new ApiException(HttpStatus.NOT_FOUND, "Một số môn học không tìm thấy");
+            }
+            subjectEntities.addAll(foundSubjects);
         }
 
         // Create teacher
@@ -83,9 +176,9 @@ public class TeacherManagementService {
                 .address(req.address())
                 .email(req.email())
                 .phone(req.phone())
-                .specialization(req.specialization())
+                .phone(req.phone())
                 .degree(req.degree())
-                .primarySubject(subject)
+                .subjects(subjectEntities)
                 .school(school)
                 .status("ACTIVE")
                 .build();
@@ -96,8 +189,6 @@ public class TeacherManagementService {
         if (req.createAccount() && req.email() != null && !req.email().isBlank()) {
             // Check if email already used for an account
             if (users.existsByEmailIgnoreCase(req.email())) {
-                // If user exists, we might want to link it (if role is TEACHER), or error.
-                // For simplicity, error if email conflict.
                 throw new ApiException(HttpStatus.CONFLICT, "Email đã được sử dụng cho một tài khoản khác");
             }
 
@@ -157,40 +248,56 @@ public class TeacherManagementService {
         teacher.setAddress(req.address());
         teacher.setEmail(req.email());
         teacher.setPhone(req.phone());
-        teacher.setSpecialization(req.specialization());
         teacher.setDegree(req.degree());
 
-        if (req.subjectId() != null) {
-            com.schoolmanagement.backend.domain.entity.Subject subject = subjects.findById(req.subjectId())
-                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy môn học"));
-            teacher.setPrimarySubject(subject);
+        if (req.subjectIds() != null) {
+            List<com.schoolmanagement.backend.domain.entity.Subject> foundSubjects = subjects
+                    .findAllById(req.subjectIds());
+            teacher.setSubjects(new java.util.HashSet<>(foundSubjects));
         } else {
-            teacher.setPrimarySubject(null);
+            teacher.getSubjects().clear();
         }
 
         teacher = teachers.save(teacher);
         return toTeacherDto(teacher);
     }
 
-    @Transactional
-    public void deleteTeacher(School school, UUID teacherId) {
-        Teacher teacher = teachers.findById(teacherId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên"));
+    // @Transactional - REMOVED to allow partial success
+    public com.schoolmanagement.backend.dto.BulkDeleteResponse deleteTeachers(School school,
+            com.schoolmanagement.backend.dto.request.BulkDeleteRequest request) {
+        int deleted = 0;
+        int failed = 0;
+        List<String> errors = new java.util.ArrayList<>();
 
-        if (!teacher.getSchool().getId().equals(school.getId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Giáo viên không thuộc trường này");
-        }
+        for (UUID id : request.ids()) {
+            Teacher teacher = null;
+            try {
+                // Ensure teacher belongs to school
+                teacher = teachers.findById(id)
+                        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên"));
+                if (!teacher.getSchool().getId().equals(school.getId())) {
+                    throw new ApiException(HttpStatus.FORBIDDEN, "Giáo viên không thuộc trường này");
+                }
 
-        // Check if teacher is homeroom teacher of any class
-        if (teacher.getUser() != null) {
-            var homeroomClass = classRooms.findByHomeroomTeacher(teacher.getUser());
-            if (homeroomClass.isPresent()) {
-                throw new ApiException(HttpStatus.CONFLICT,
-                        "Không thể xóa giáo viên đang chủ nhiệm lớp " + homeroomClass.get().getName());
+                // Call helper for isolated transaction
+                bulkDeleteHelper.deleteSingleTeacher(id);
+                deleted++;
+            } catch (ApiException e) {
+                failed++;
+                errors.add(e.getMessage());
+            } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                failed++;
+                String teacherName = (teacher != null) ? teacher.getFullName() : "không xác định";
+                errors.add("Không thể xóa giáo viên (" + teacherName + ") do dữ liệu liên quan.");
+                log.error("Data integrity violation deleting teacher {}", id, e);
+            } catch (Exception e) {
+                failed++;
+                errors.add("Lỗi hệ thống: " + e.getMessage());
+                log.error("Error deleting teacher {}", id, e);
             }
         }
 
-        teachers.delete(teacher);
+        return new com.schoolmanagement.backend.dto.BulkDeleteResponse(deleted, failed, errors);
     }
 
     public String generateNextTeacherCode(School school) {
@@ -224,6 +331,19 @@ public class TeacherManagementService {
             }
         }
 
+        // Map subjects
+        List<com.schoolmanagement.backend.dto.SubjectDto> subjectDtos = teacher.getSubjects().stream()
+                .map(s -> new com.schoolmanagement.backend.dto.SubjectDto(
+                        s.getId(), s.getName(), s.getCode(),
+                        s.getType(),
+                        s.getStream(),
+                        s.getTotalLessons(), s.isActive(), s.getDescription()))
+                .collect(java.util.stream.Collectors.toList());
+
+        String subjectNames = teacher.getSubjects().stream()
+                .map(com.schoolmanagement.backend.domain.entity.Subject::getName)
+                .collect(java.util.stream.Collectors.joining(", "));
+
         return new TeacherDto(
                 teacher.getId(),
                 teacher.getTeacherCode(),
@@ -233,13 +353,13 @@ public class TeacherManagementService {
                 teacher.getAddress(),
                 teacher.getEmail(),
                 teacher.getPhone(),
-                teacher.getSpecialization(),
                 teacher.getDegree(),
                 teacher.getStatus(),
                 homeroomClassId,
                 homeroomClassName,
-                teacher.getPrimarySubject() != null ? teacher.getPrimarySubject().getId() : null,
-                teacher.getPrimarySubject() != null ? teacher.getPrimarySubject().getName() : null,
+                subjectDtos,
+                subjectNames,
+                teacher.getUser() != null,
                 null);
     }
 }

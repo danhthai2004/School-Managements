@@ -1,4 +1,4 @@
-package com.schoolmanagement.backend.service;
+package com.schoolmanagement.backend.util;
 
 import java.security.SecureRandom;
 
@@ -7,7 +7,8 @@ public final class RandomUtil {
     private static final SecureRandom RNG = new SecureRandom();
     private static final String TEMP_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
 
-    private RandomUtil() {}
+    private RandomUtil() {
+    }
 
     public static String generateOtp6() {
         int n = RNG.nextInt(1_000_000);
@@ -23,7 +24,8 @@ public final class RandomUtil {
     }
 
     public static String maskEmail(String email) {
-        if (email == null || !email.contains("@")) return email;
+        if (email == null || !email.contains("@"))
+            return email;
         String[] parts = email.split("@", 2);
         String local = parts[0];
         String domain = parts[1];

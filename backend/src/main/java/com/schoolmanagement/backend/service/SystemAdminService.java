@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.schoolmanagement.backend.util.RandomUtil;
 
 import java.time.Instant;
 import java.util.List;
@@ -295,7 +296,7 @@ public class SystemAdminService {
                 "SCHOOL_ADMIN created: " + email + " for school " + school.getCode());
 
         return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), school.getId(),
-                school.getCode());
+                school.getCode(), user.isEnabled());
     }
 
     public List<UserListDto> listUsers(Role role, UUID schoolId, Boolean enabled, boolean pendingDelete) {

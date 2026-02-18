@@ -1,0 +1,144 @@
+import { useEffect, useState } from "react";
+import schoolReportService, {
+    type ReportOverviewDto,
+    type StudentReportDto,
+    type TeacherReportDto,
+    type ClassReportDto,
+    type AttendanceReportDto,
+    type AcademicReportDto,
+    type TimetableReportDto,
+} from "../../../services/schoolReportService";
+import {
+    StudentIcon,
+    TeacherIcon,
+    ClassIcon,
+    CalendarIcon,
+} from "../SchoolAdminIcons";
+import { CheckIcon, BookIcon, TimetableIcon } from "../components/reports/ReportIcons";
+import OverviewTab from "../components/reports/OverviewTab";
+import StudentTab from "../components/reports/StudentTab";
+import TeacherTab from "../components/reports/TeacherTab";
+import ClassTab from "../components/reports/ClassTab";
+import AttendanceTab from "../components/reports/AttendanceTab";
+import AcademicTab from "../components/reports/AcademicTab";
+import TimetableTab from "../components/reports/TimetableTab";
+
+type TabType = "overview" | "students" | "teachers" | "classes" | "attendance" | "academic" | "timetable";
+
+const ReportsPage = () => {
+    const [activeTab, setActiveTab] = useState<TabType>("overview");
+    const [loading, setLoading] = useState(false);
+
+    // Data states
+    const [overview, setOverview] = useState<ReportOverviewDto | null>(null);
+    const [studentReport, setStudentReport] = useState<StudentReportDto | null>(null);
+    const [teacherReport, setTeacherReport] = useState<TeacherReportDto | null>(null);
+    const [classReport, setClassReport] = useState<ClassReportDto | null>(null);
+    const [attendanceReport, setAttendanceReport] = useState<AttendanceReportDto | null>(null);
+    const [academicReport, setAcademicReport] = useState<AcademicReportDto | null>(null);
+    const [timetableReport, setTimetableReport] = useState<TimetableReportDto | null>(null);
+
+    useEffect(() => {
+        fetchData(activeTab);
+    }, [activeTab]);
+
+    const fetchData = async (tab: TabType) => {
+        setLoading(true);
+        try {
+            switch (tab) {
+                case "overview":
+                    const overviewData = await schoolReportService.getDashboardOverview();
+                    setOverview(overviewData);
+                    break;
+                case "students":
+                    const studentData = await schoolReportService.getStudentReport();
+                    setStudentReport(studentData);
+                    break;
+                case "teachers":
+                    const teacherData = await schoolReportService.getTeacherReport();
+                    setTeacherReport(teacherData);
+                    break;
+                case "classes":
+                    const classData = await schoolReportService.getClassReport();
+                    setClassReport(classData);
+                    break;
+                case "attendance":
+                    const attendanceData = await schoolReportService.getAttendanceReport();
+                    setAttendanceReport(attendanceData);
+                    break;
+                case "academic":
+                    const academicData = await schoolReportService.getAcademicReport();
+                    setAcademicReport(academicData);
+                    break;
+                case "timetable":
+                    const timetableData = await schoolReportService.getTimetableReport();
+                    setTimetableReport(timetableData);
+                    break;
+            }
+        } catch (error) {
+            console.error("Failed to fetch report data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const tabs = [
+        { id: "overview" as TabType, label: "Tổng quan", icon: <CalendarIcon /> },
+        { id: "students" as TabType, label: "Học sinh", icon: <StudentIcon /> },
+        { id: "teachers" as TabType, label: "Giáo viên", icon: <TeacherIcon /> },
+        { id: "classes" as TabType, label: "Lớp học", icon: <ClassIcon /> },
+        { id: "attendance" as TabType, label: "Điểm danh", icon: <CheckIcon /> },
+        { id: "academic" as TabType, label: "Học tập", icon: <BookIcon /> },
+        { id: "timetable" as TabType, label: "Thời khóa biểu", icon: <TimetableIcon /> },
+    ];
+
+    return (
+        <div className="p-6 max-w-7xl mx-auto space-y-6 animate-fade-in-up">
+            {/* Header */}
+            <div>
+                <h1 className="text-2xl font-bold text-gray-900">Báo cáo & Thống kê</h1>
+                <p className="text-sm text-gray-500 mt-1">Xem thống kê chi tiết về trường học</p>
+            </div>
+
+            {/* Tabs */}
+            <div className="border-b border-gray-200">
+                <nav className="-mb-px flex gap-6 overflow-x-auto" aria-label="Tabs">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`
+                                whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors
+                                ${activeTab === tab.id
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+                            `}
+                        >
+                            {tab.icon}
+                            {tab.label}
+                        </button>
+                    ))}
+                </nav>
+            </div>
+
+            {/* Content */}
+            {loading ? (
+                <div className="flex items-center justify-center h-64">
+                    <div className="text-gray-500">Đang tải dữ liệu...</div>
+                </div>
+            ) : (
+                <>
+                    {activeTab === "overview" && overview && <OverviewTab data={overview} />}
+                    {activeTab === "students" && studentReport && <StudentTab data={studentReport} />}
+                    {activeTab === "teachers" && teacherReport && <TeacherTab data={teacherReport} />}
+                    {activeTab === "classes" && classReport && <ClassTab data={classReport} />}
+                    {activeTab === "attendance" && attendanceReport && <AttendanceTab data={attendanceReport} />}
+                    {activeTab === "academic" && academicReport && <AcademicTab data={academicReport} />}
+                    {activeTab === "timetable" && timetableReport && <TimetableTab data={timetableReport} />}
+                </>
+            )}
+        </div>
+    );
+};
+
+export default ReportsPage;

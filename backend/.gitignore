@@ -30,4 +30,15 @@ build/
 !**/src/test/**/build/
 
 ### VS Code ###
+### VS Code ###
 .vscode/
+
+### Custom Logs ###
+compile_log*.txt
+clean_compile_log*.txt
+debug_log.txt
+errors_v*.txt
+build.log
+build_log.txt
+errors.txt
+compile_try*.txt
