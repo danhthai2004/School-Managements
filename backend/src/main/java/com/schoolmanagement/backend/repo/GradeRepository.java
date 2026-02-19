@@ -6,6 +6,7 @@ import com.schoolmanagement.backend.domain.entity.School;
 import com.schoolmanagement.backend.domain.entity.Student;
 import com.schoolmanagement.backend.domain.entity.Subject;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -16,26 +17,38 @@ import java.util.UUID;
 @Repository
 public interface GradeRepository extends JpaRepository<Grade, UUID> {
 
-    List<Grade> findAllByStudent(Student student);
+        List<Grade> findAllByStudent(Student student);
 
-    List<Grade> findAllByClassRoom(ClassRoom classRoom);
+        boolean existsByStudent(Student student);
 
-    List<Grade> findAllByClassRoomAndSemester(ClassRoom classRoom, int semester);
+        @Modifying
+        @Query("DELETE FROM Grade e WHERE e.student = :student")
+        void deleteAllByStudent(@Param("student") Student student);
 
-    List<Grade> findAllBySubject(Subject subject);
+        List<Grade> findAllByClassRoom(ClassRoom classRoom);
 
-    @Query("SELECT g FROM Grade g WHERE g.classRoom.school = :school")
-    List<Grade> findAllBySchool(@Param("school") School school);
+        List<Grade> findAllByClassRoomAndSemester(ClassRoom classRoom, int semester);
 
-    @Query("SELECT g FROM Grade g WHERE g.classRoom.school = :school AND g.academicYear = :academicYear")
-    List<Grade> findAllBySchoolAndAcademicYear(@Param("school") School school,
-            @Param("academicYear") String academicYear);
+        List<Grade> findAllBySubject(Subject subject);
 
-    @Query("SELECT g FROM Grade g WHERE g.classRoom.school = :school AND g.academicYear = :academicYear AND g.semester = :semester")
-    List<Grade> findAllBySchoolAndAcademicYearAndSemester(
-            @Param("school") School school,
-            @Param("academicYear") String academicYear,
-            @Param("semester") int semester);
+        @Query("SELECT g FROM Grade g WHERE g.classRoom.school = :school")
+        List<Grade> findAllBySchool(@Param("school") School school);
 
-    long countByClassRoom(ClassRoom classRoom);
+        @Query("SELECT g FROM Grade g WHERE g.classRoom.school = :school AND g.academicYear = :academicYear")
+        List<Grade> findAllBySchoolAndAcademicYear(@Param("school") School school,
+                        @Param("academicYear") String academicYear);
+
+        @Query("SELECT g FROM Grade g WHERE g.classRoom.school = :school AND g.academicYear = :academicYear AND g.semester = :semester")
+        List<Grade> findAllBySchoolAndAcademicYearAndSemester(
+                        @Param("school") School school,
+                        @Param("academicYear") String academicYear,
+                        @Param("semester") int semester);
+
+        long countByClassRoom(ClassRoom classRoom);
+
+        List<Grade> findAllByTeacher(com.schoolmanagement.backend.domain.entity.Teacher teacher);
+
+        @Modifying
+        @Query("DELETE FROM Grade e WHERE e.teacher = :teacher")
+        void deleteAllByTeacher(@Param("teacher") com.schoolmanagement.backend.domain.entity.Teacher teacher);
 }

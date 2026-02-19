@@ -3,9 +3,13 @@ import { createPortal } from "react-dom";
 import { schoolAdminService, type ClassRoomDto } from "../../../services/schoolAdminService";
 import type { TeacherAssignmentDto } from "../../../services/dtos/TeacherAssignmentDto";
 import { RefreshCw, CheckCircle, AlertCircle, UserPlus, X, Filter as FilterIcon } from "lucide-react";
-import toast from "react-hot-toast";
+import { useToast } from "../../../context/ToastContext";
+import { useConfirmation } from "../../../hooks/useConfirmation";
 
 export default function TeacherAssignment() {
+    const { showSuccess } = useToast();
+    const { confirm, ConfirmationDialog } = useConfirmation();
+
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>("");
     const [gradeFilter, setGradeFilter] = useState<string>("ALL");
@@ -41,7 +45,7 @@ export default function TeacherAssignment() {
             }
         } catch (error) {
             console.error(error);
-            toast.error("Không thể tải danh sách lớp");
+            console.error("Không thể tải danh sách lớp", error);
         }
     };
 
@@ -67,25 +71,39 @@ export default function TeacherAssignment() {
             }
         } catch (error) {
             console.error(error);
-            toast.error("Không thể tải phân công chuyên môn");
+            console.error("Không thể tải phân công chuyên môn", error);
         } finally {
             setLoading(false);
         }
     };
 
     const handleInit = async () => {
-        if (!confirm("Hệ thống sẽ tự động tạo danh sách phân công cho tất cả các lớp dựa trên Tổ hợp môn. Bạn có chắc chắn?")) return;
-        try {
-            setLoading(true);
-            await schoolAdminService.initializeAssignments();
-            toast.success("Khởi tạo thành công!");
-            if (selectedClassId) fetchAssignments(selectedClassId);
-        } catch (error) {
-            console.error(error);
-            toast.error("Lỗi khởi tạo");
-        } finally {
-            setLoading(false);
-        }
+        confirm({
+            title: "Khởi tạo dữ liệu phân công",
+            message: (
+                <span>
+                    Hệ thống sẽ tự động tạo danh sách phân công cho tất cả các lớp dựa trên <strong>Tổ hợp môn</strong>.<br />
+                    <span className="text-sm text-gray-500 mt-2 block">
+                        Lưu ý: Các phân công đã có sẽ không bị ảnh hưởng.
+                    </span>
+                </span>
+            ),
+            confirmText: "Khởi tạo ngay",
+            onConfirm: async () => {
+                try {
+                    setLoading(true);
+                    await schoolAdminService.initializeAssignments();
+                    showSuccess("Khởi tạo dữ liệu thành công!");
+                    if (selectedClassId) fetchAssignments(selectedClassId);
+                } catch (error) {
+                    console.error(error);
+                    // keep simple alert or use a error toast if available, sticking to console/alert for error is distinct from confirmation request
+                    alert("Lỗi khởi tạo dữ liệu");
+                } finally {
+                    setLoading(false);
+                }
+            }
+        });
     };
 
     const handleOpenAssign = (assignment: TeacherAssignmentDto) => {
@@ -98,12 +116,12 @@ export default function TeacherAssignment() {
         if (!currentAssignment) return;
         try {
             await schoolAdminService.assignTeacher(currentAssignment.id, selectedTeacherId || null);
-            toast.success("Đã cập nhật giáo viên");
+            showSuccess("Đã cập nhật giáo viên phụ trách");
             setIsModalOpen(false);
             fetchAssignments(selectedClassId);
         } catch (error) {
             console.error(error);
-            toast.error("Lỗi cập nhật");
+            alert("Lỗi cập nhật phân công");
         }
     };
 
@@ -331,6 +349,9 @@ export default function TeacherAssignment() {
                 </div>,
                 document.body
             )}
+
+            {/* Confirmation Dialog */}
+            <ConfirmationDialog />
         </div>
     );
 }

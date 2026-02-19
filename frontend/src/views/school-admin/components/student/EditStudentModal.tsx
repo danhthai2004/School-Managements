@@ -70,13 +70,12 @@ function EditStudentModal({ isOpen, student, classes, onClose, onSuccess }: Edit
                 setDateInputValue("");
             }
 
-            // Set guardian info (first guardian only for simplicity)
-            if (student.guardians && student.guardians.length > 0) {
-                const guardian = student.guardians[0];
-                setGuardianName(guardian.fullName || "");
-                setGuardianPhone(guardian.phone || "");
-                setGuardianEmail(guardian.email || "");
-                setGuardianRelationship(guardian.relationship || "");
+            // Set guardian info
+            if (student.guardian) {
+                setGuardianName(student.guardian.fullName || "");
+                setGuardianPhone(student.guardian.phone || "");
+                setGuardianEmail(student.guardian.email || "");
+                setGuardianRelationship(student.guardian.relationship || "");
             } else {
                 setGuardianName("");
                 setGuardianPhone("");
@@ -133,12 +132,13 @@ function EditStudentModal({ isOpen, student, classes, onClose, onSuccess }: Edit
                 phone: phone.trim() || undefined,
                 status,
                 classId: classId || undefined,
-                guardians: guardianName ? [{
+                guardian: guardianName ? {
+                    id: student.guardian?.id,
                     fullName: guardianName.trim(),
                     phone: guardianPhone.trim() || undefined,
                     email: guardianEmail.trim() || undefined,
                     relationship: guardianRelationship.trim() || undefined,
-                }] : [],
+                } : undefined,
             };
 
             await schoolAdminService.updateStudent(student.id, req);
@@ -298,9 +298,13 @@ function EditStudentModal({ isOpen, student, classes, onClose, onSuccess }: Edit
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-600 mb-1.5">Email</label>
-                                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                                    <input type="email" value={email}
+                                        onChange={student?.hasAccount ? undefined : (e) => setEmail(e.target.value)}
+                                        readOnly={!!student?.hasAccount}
+                                        disabled={!!student?.hasAccount}
                                         placeholder="example@email.com"
-                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all" />
+                                        className={`w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none transition-all ${student?.hasAccount ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'}`} />
+                                    {student?.hasAccount && <p className="mt-1 text-xs text-slate-400">Email không thể chỉnh sửa khi đã có tài khoản</p>}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-600 mb-1.5">Số điện thoại</label>

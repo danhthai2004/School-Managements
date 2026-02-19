@@ -7,14 +7,20 @@ import {
     type ImportStudentResult
 } from "../../../services/schoolAdminService";
 import { PlusIcon } from "../SchoolAdminIcons";
-import { StatusBadge } from "../../../components/common";
+import { StatusBadge } from '../../../components/common/StatusBadge';
+import BatchDeleteModal from '../../../components/common/BatchDeleteModal';
 import { formatDate } from "../../../utils/dateHelpers";
+// ... (imports)
+import { useToast } from "../../../context/ToastContext";
+
+
+
 
 // Extracted modal components
-import ImportSuccessToast from "../components/student/ImportSuccessToast";
+import ImportStudentResultModal from "../components/student/ImportStudentResultModal";
 import AddStudentModal from "../components/student/AddStudentModal";
 import StudentDetailModal from "../components/student/StudentDetailModal";
-import DeleteStudentModal from "../components/student/DeleteStudentModal";
+
 import EditStudentModal from "../components/student/EditStudentModal";
 import ImportExcelModal from "../components/student/ImportExcelModal";
 
@@ -30,21 +36,28 @@ const StudentManagement = () => {
 
     // Modal states
     const [showAddStudentModal, setShowAddStudentModal] = useState(false);
-    const [deletingStudent, setDeletingStudent] = useState<StudentDto | null>(null);
-    const [showDeleteStudentModal, setShowDeleteStudentModal] = useState(false);
+
     const [selectedStudent, setSelectedStudent] = useState<StudentDto | null>(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
     const [editingStudent, setEditingStudent] = useState<StudentDto | null>(null);
     const [showEditModal, setShowEditModal] = useState(false);
     const [importToastResult, setImportToastResult] = useState<ImportStudentResult | null>(null);
+    const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
+
+
+    // Bulk selection state
+    const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
+
+    // Success toast state - Replaced by global useToast
+    const { showSuccess } = useToast();
 
     // Filter states
     const [searchTerm, setSearchTerm] = useState("");
     const [gradeFilter, setGradeFilter] = useState<string>("");
     const [classFilter, setClassFilter] = useState<string>("");
     const [statusFilter, setStatusFilter] = useState<string>("");
-    const [genderFilter, setGenderFilter] = useState<string>("");
+
 
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
@@ -68,15 +81,14 @@ const StudentManagement = () => {
         if (classFilter && stu.currentClassId !== classFilter) return false;
         // Filter by status
         if (statusFilter && stu.status !== statusFilter) return false;
-        // Filter by gender
-        if (genderFilter && stu.gender !== genderFilter) return false;
+
         return true;
     });
 
     // Reset to page 1 when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, gradeFilter, classFilter, statusFilter, genderFilter]);
+    }, [searchTerm, gradeFilter, classFilter, statusFilter]);
 
     // Pagination computed values
     const totalPages = Math.ceil(filteredStudents.length / pageSize);
@@ -87,6 +99,7 @@ const StudentManagement = () => {
 
     useEffect(() => {
         fetchData();
+        setSelectedStudentIds(new Set()); // Reset selection on fetch
     }, []);
 
     useEffect(() => {
@@ -99,9 +112,9 @@ const StudentManagement = () => {
         }
     }, [searchParams, setSearchParams]);
 
-    const fetchData = async () => {
+    const fetchData = async (silent = false) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const [studentsData, classesData, statsData] = await Promise.all([
                 schoolAdminService.listStudents(searchParams.get("classId") || undefined),
                 schoolAdminService.listClasses(),
@@ -115,9 +128,53 @@ const StudentManagement = () => {
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tải dữ liệu.");
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
+
+
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            // Select all visible students
+            const allIds = paginatedStudents.map(s => s.id);
+            setSelectedStudentIds(new Set(allIds));
+        } else {
+            setSelectedStudentIds(new Set());
+        }
+    };
+
+    const handleSelectOne = (id: string) => {
+        const newSelected = new Set(selectedStudentIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedStudentIds(newSelected);
+    };
+
+
+
+    const handleBulkDelete = async () => {
+        try {
+            const result = await schoolAdminService.bulkDeleteStudents(Array.from(selectedStudentIds));
+
+            if (result.deleted > 0) {
+                await fetchData(true); // Silent refresh
+                setSelectedStudentIds(new Set());
+                // Optional: Toast can still optionally show success if desired, but modal handles it too.
+                // Keeping toast for consistency if users like it.
+                showSuccess(`Đã xóa thành công ${result.deleted} học sinh`);
+            }
+
+            return result; // RETURN result for BatchDeleteModal
+        } catch (error) {
+            alert("Có lỗi xảy ra khi xóa học sinh");
+            return { deleted: 0, failed: selectedStudentIds.size, errors: ["Lỗi hệ thống"] };
+        }
+    };
+
+
 
     if (loading) {
         return <div className="p-8 text-center text-gray-500">Đang tải danh sách học sinh...</div>;
@@ -132,6 +189,17 @@ const StudentManagement = () => {
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">Danh sách học sinh</h2>
                 <div className="flex items-center gap-3">
+                    {selectedStudentIds.size > 0 && (
+                        <button
+                            onClick={() => setShowBatchDeleteModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-all border border-red-200"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span>Xóa {selectedStudentIds.size} mục</span>
+                        </button>
+                    )}
                     <button
                         onClick={() => {
                             // Export to CSV
@@ -232,17 +300,7 @@ const StudentManagement = () => {
                     <option value="SUSPENDED">Tạm nghỉ</option>
                 </select>
 
-                {/* Gender Filter */}
-                <select
-                    value={genderFilter}
-                    onChange={(e) => setGenderFilter(e.target.value)}
-                    className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm focus:border-blue-500 outline-none"
-                >
-                    <option value="">Tất cả giới tính</option>
-                    <option value="MALE">Nam</option>
-                    <option value="FEMALE">Nữ</option>
-                    <option value="OTHER">Khác</option>
-                </select>
+
 
                 {/* Results count */}
                 <span className="text-sm text-slate-500 ml-auto">
@@ -254,14 +312,25 @@ const StudentManagement = () => {
                 <table className="w-full">
                     <thead className="bg-gray-50">
                         <tr>
+
+                            <th className="px-6 py-3 w-4">
+                                <input
+                                    type="checkbox"
+                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    checked={paginatedStudents.length > 0 && Array.from(selectedStudentIds).length === paginatedStudents.length && paginatedStudents.every(s => selectedStudentIds.has(s.id))}
+                                    onChange={handleSelectAll}
+                                />
+                            </th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Mã HS</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Họ tên</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Giới tính</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Ngày sinh</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Lớp</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Trạng thái</th>
+
                         </tr>
                     </thead>
+
                     <tbody className="divide-y divide-gray-100">
                         {paginatedStudents.map((stu) => (
                             <tr
@@ -272,6 +341,15 @@ const StudentManagement = () => {
                                     setShowDetailModal(true);
                                 }}
                             >
+
+                                <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        checked={selectedStudentIds.has(stu.id)}
+                                        onChange={() => handleSelectOne(stu.id)}
+                                    />
+                                </td>
                                 <td className="px-6 py-4 text-sm font-medium text-gray-900">{stu.studentCode}</td>
                                 <td className="px-6 py-4 text-sm text-blue-600 hover:underline" onClick={(e) => { e.stopPropagation(); window.location.href = `/school-admin/students/${stu.id}`; }}>{stu.fullName}</td>
                                 <td className="px-6 py-4 text-sm text-gray-600">
@@ -282,6 +360,7 @@ const StudentManagement = () => {
                                 <td className="px-6 py-4">
                                     <StatusBadge status={stu.status || 'ACTIVE'} />
                                 </td>
+
                             </tr>
                         ))}
                         {paginatedStudents.length === 0 && (
@@ -293,6 +372,7 @@ const StudentManagement = () => {
                                 </td>
                             </tr>
                         )}
+
                     </tbody>
                 </table>
             </div>
@@ -351,18 +431,13 @@ const StudentManagement = () => {
             <AddStudentModal
                 isOpen={showAddStudentModal}
                 onClose={() => setShowAddStudentModal(false)}
-                onSuccess={fetchData}
+                onSuccess={() => {
+                    fetchData();
+                    showSuccess("Thêm học sinh thành công!");
+                }}
                 classes={classes}
             />
-            <DeleteStudentModal
-                isOpen={showDeleteStudentModal}
-                student={deletingStudent}
-                onClose={() => {
-                    setShowDeleteStudentModal(false);
-                    setDeletingStudent(null);
-                }}
-                onSuccess={fetchData}
-            />
+
             <StudentDetailModal
                 isOpen={showDetailModal}
                 student={selectedStudent}
@@ -375,11 +450,7 @@ const StudentManagement = () => {
                     setEditingStudent(selectedStudent);
                     setShowEditModal(true);
                 }}
-                onDelete={() => {
-                    setShowDetailModal(false);
-                    setDeletingStudent(selectedStudent);
-                    setShowDeleteStudentModal(true);
-                }}
+
             />
             <EditStudentModal
                 isOpen={showEditModal}
@@ -389,19 +460,50 @@ const StudentManagement = () => {
                     setShowEditModal(false);
                     setEditingStudent(null);
                 }}
-                onSuccess={fetchData}
+                onSuccess={() => {
+                    fetchData();
+                    showSuccess("Cập nhật thông tin học sinh thành công!");
+                }}
             />
             <ImportExcelModal
                 isOpen={showImportModal}
                 onClose={() => setShowImportModal(false)}
                 onSuccess={fetchData}
-                onImportComplete={(result) => setImportToastResult(result)}
+                onImportComplete={(result) => {
+                    if (result.failedCount === 0) {
+                        showSuccess(`Import thành công ${result.successCount} học sinh!`);
+                        // No need to show modal for perfect success
+                        setImportToastResult(null);
+                    } else {
+                        // Show modal for errors/mixed results
+                        setImportToastResult(result);
+                    }
+                }}
                 defaultAcademicYear={currentAcademicYear}
             />
-            <ImportSuccessToast
+            <ImportStudentResultModal
                 result={importToastResult}
                 onClose={() => setImportToastResult(null)}
             />
+            <BatchDeleteModal
+                isOpen={showBatchDeleteModal}
+                onClose={() => setShowBatchDeleteModal(false)}
+                onConfirm={handleBulkDelete}
+                title="Xóa học sinh"
+                message={
+                    Array.from(selectedStudentIds).filter(id => students.find(s => s.id === id)?.hasAccount).length > 0
+                        ? `Trong đó có ${Array.from(selectedStudentIds).filter(id => students.find(s => s.id === id)?.hasAccount).length} học sinh đang có tài khoản hệ thống. Tài khoản đăng nhập của các học sinh này cũng sẽ bị xóa vĩnh viễn.`
+                        : `Bạn có chắc chắn muốn xóa ${selectedStudentIds.size} học sinh đã chọn?`
+                }
+                itemCount={selectedStudentIds.size}
+                itemName="học sinh"
+                confirmLabel={
+                    Array.from(selectedStudentIds).some(id => students.find(s => s.id === id)?.hasAccount)
+                        ? "Tôi xác nhận xóa hồ sơ và tài khoản của các học sinh này"
+                        : undefined
+                }
+            />
+
         </div>
     );
 };

@@ -46,9 +46,6 @@ public class Teacher {
     private String phone;
 
     @Column(length = 100)
-    private String specialization;
-
-    @Column(length = 100)
     private String degree;
 
     @Builder.Default

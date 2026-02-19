@@ -1,22 +1,15 @@
-import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { type ImportStudentResult } from "../../../../services/schoolAdminService";
+import { type ImportTeacherResult } from "../../../../services/schoolAdminService";
 import { XIcon } from "../../SchoolAdminIcons";
 
-interface ImportSuccessToastProps {
-    result: ImportStudentResult | null;
+interface ImportTeacherResultModalProps {
+    result: ImportTeacherResult | null;
     onClose: () => void;
 }
 
-function ImportSuccessToast({ result, onClose }: ImportSuccessToastProps) {
-    useEffect(() => {
-        if (result) {
-            const timer = setTimeout(() => {
-                onClose();
-            }, 3000);
-            return () => clearTimeout(timer);
-        }
-    }, [result, onClose]);
+export default function ImportTeacherResultModal({ result, onClose }: ImportTeacherResultModalProps) {
+    // Timer removed as this is now a result modal for errors/warnings.
+    // Pure success case is handled by parent toast.
 
     if (!result) return null;
 
@@ -48,15 +41,6 @@ function ImportSuccessToast({ result, onClose }: ImportSuccessToastProps) {
                         </div>
                     </div>
 
-                    {result.assignedToClassCount > 0 && (
-                        <div className="mt-2 bg-blue-50 rounded-lg p-3 text-center mb-4">
-                            <p className="text-sm text-blue-700 font-medium">
-                                <span className="font-bold text-lg mr-1">{result.assignedToClassCount}</span>
-                                học sinh đã được phân lớp
-                            </p>
-                        </div>
-                    )}
-
                     {result.errors && result.errors.length > 0 && (
                         <div className="mt-4">
                             <p className="text-sm font-medium text-slate-700 mb-2">Chi tiết lỗi:</p>
@@ -64,7 +48,7 @@ function ImportSuccessToast({ result, onClose }: ImportSuccessToastProps) {
                                 {result.errors.map((err, idx) => (
                                     <div key={idx} className="text-red-700 py-1 border-b border-red-100 last:border-0">
                                         <span className="font-medium">Dòng {err.rowNumber}</span>
-                                        {err.studentName && <span> ({err.studentName})</span>}: {err.errorMessage}
+                                        {err.teacherName && <span> ({err.teacherName})</span>}: {err.errorMessage}
                                     </div>
                                 ))}
                             </div>
@@ -72,7 +56,7 @@ function ImportSuccessToast({ result, onClose }: ImportSuccessToastProps) {
                     )}
 
                     <div className="mt-4 flex flex-col gap-2">
-                        <p className="text-xs text-center text-slate-400">Tự động đóng sau 3 giây</p>
+                        {result.failedCount === 0 && <p className="text-xs text-center text-slate-400">Tự động đóng sau 3 giây</p>}
                         <button
                             onClick={onClose}
                             className="w-full px-4 py-2.5 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition-colors"
@@ -86,5 +70,3 @@ function ImportSuccessToast({ result, onClose }: ImportSuccessToastProps) {
         document.body
     );
 }
-
-export default ImportSuccessToast;

@@ -4,7 +4,7 @@ import com.schoolmanagement.backend.domain.Gender;
 import jakarta.validation.constraints.*;
 
 import java.time.LocalDate;
-import java.util.List;
+
 import java.util.UUID;
 
 public record CreateStudentRequest(
@@ -36,7 +36,7 @@ public record CreateStudentRequest(
                 Integer grade,
 
                 // Guardian info
-                List<GuardianRequest> guardians) {
+                GuardianRequest guardian) {
         public record GuardianRequest(
                         @NotBlank(message = "Tên người giám hộ không được để trống") @Size(max = 100, message = "Tên tối đa 100 ký tự") String fullName,
 

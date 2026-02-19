@@ -70,15 +70,16 @@ public class StudentController {
         return studentManagementService.createStudent(admin.getSchool(), req);
     }
 
-    @Transactional
-    @DeleteMapping("/students/{id}")
-    public void deleteStudent(@AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable("id") UUID studentId) {
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    @PostMapping("/students/bulk-delete") // Changed to POST for reliable body payload support
+    public com.schoolmanagement.backend.dto.BulkDeleteResponse bulkDeleteStudents(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody com.schoolmanagement.backend.dto.request.BulkDeleteRequest request) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        studentManagementService.deleteStudent(admin.getSchool(), studentId);
+        return studentManagementService.deleteStudents(admin.getSchool(), request);
     }
 
     @Transactional

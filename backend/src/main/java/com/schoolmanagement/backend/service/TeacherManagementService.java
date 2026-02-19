@@ -14,12 +14,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.schoolmanagement.backend.util.RandomUtil;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Service
+@Slf4j
 public class TeacherManagementService {
 
     private final TeacherRepository teachers;
@@ -28,16 +32,29 @@ public class TeacherManagementService {
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
     private final com.schoolmanagement.backend.repo.SubjectRepository subjects;
+    private final com.schoolmanagement.backend.repo.StudentRepository students;
+    private final com.schoolmanagement.backend.repo.GuardianRepository guardians;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private TeacherManagementService self;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private BulkDeleteHelperService bulkDeleteHelper;
 
     public TeacherManagementService(TeacherRepository teachers, UserRepository users,
             ClassRoomRepository classRooms, PasswordEncoder passwordEncoder,
-            MailService mailService, com.schoolmanagement.backend.repo.SubjectRepository subjects) {
+            MailService mailService, com.schoolmanagement.backend.repo.SubjectRepository subjects,
+            com.schoolmanagement.backend.repo.StudentRepository students,
+            com.schoolmanagement.backend.repo.GuardianRepository guardians) {
         this.teachers = teachers;
         this.users = users;
         this.classRooms = classRooms;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
         this.subjects = subjects;
+        this.students = students;
+        this.guardians = guardians;
     }
 
     // ==================== TEACHER ACCOUNT MANAGEMENT ====================
@@ -51,7 +68,7 @@ public class TeacherManagementService {
                 .toList();
     }
 
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public com.schoolmanagement.backend.dto.UserDto createAccountForTeacher(School school, UUID teacherId) {
         Teacher teacher = teachers.findById(teacherId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên"));
@@ -80,7 +97,7 @@ public class TeacherManagementService {
         String tempPassword = RandomUtil.generateTempPassword(12);
 
         User user = User.builder()
-                .email(teacher.getEmail())
+                .email(teacher.getEmail().trim().toLowerCase())
                 .fullName(teacher.getFullName())
                 .role(Role.TEACHER)
                 .school(school)
@@ -100,7 +117,7 @@ public class TeacherManagementService {
                 school.getCode(), user.isEnabled());
     }
 
-    @Transactional
+    // @Transactional - Removed
     public com.schoolmanagement.backend.dto.BulkAccountCreationResponse createAccountsForTeachers(School school,
             List<UUID> teacherIds) {
         int created = 0;
@@ -109,7 +126,7 @@ public class TeacherManagementService {
 
         for (UUID teacherId : teacherIds) {
             try {
-                createAccountForTeacher(school, teacherId);
+                self.createAccountForTeacher(school, teacherId);
                 created++;
             } catch (ApiException e) {
                 skipped++;
@@ -142,8 +159,19 @@ public class TeacherManagementService {
 
         // Validate email uniqueness if provided
         if (req.email() != null && !req.email().isBlank()) {
-            if (teachers.existsByEmailIgnoreCase(req.email())) {
+            String email = req.email().trim().toLowerCase();
+            if (teachers.existsByEmailIgnoreCase(email)) {
                 throw new ApiException(HttpStatus.CONFLICT, "Email giáo viên đã tồn tại trong hệ thống");
+            }
+            if (students.existsByEmail(email)) {
+                throw new ApiException(HttpStatus.CONFLICT, "Email giáo viên trùng với email của một Học sinh");
+            }
+            if (!guardians.findByEmailIgnoreCase(email).isEmpty()) {
+                throw new ApiException(HttpStatus.CONFLICT, "Email giáo viên trùng với email của một Phụ huynh");
+            }
+            Optional<User> u = users.findByEmailIgnoreCase(email);
+            if (u.isPresent() && u.get().getRole() != Role.TEACHER) {
+                throw new ApiException(HttpStatus.CONFLICT, "Email đã được sử dụng bởi tài khoản " + u.get().getRole());
             }
         }
 
@@ -167,9 +195,9 @@ public class TeacherManagementService {
                 .dateOfBirth(req.dateOfBirth())
                 .gender(req.gender())
                 .address(req.address())
-                .email(req.email())
+                .email(req.email() != null ? req.email().trim().toLowerCase() : null)
                 .phone(req.phone())
-                .specialization(req.specialization())
+                .phone(req.phone())
                 .degree(req.degree())
                 .subjects(subjectEntities)
                 .school(school)
@@ -187,7 +215,7 @@ public class TeacherManagementService {
 
             String tempPassword = RandomUtil.generateTempPassword(12);
             User user = User.builder()
-                    .email(req.email())
+                    .email(req.email().trim().toLowerCase())
                     .fullName(req.fullName())
                     .role(Role.TEACHER)
                     .school(school)
@@ -229,8 +257,22 @@ public class TeacherManagementService {
 
         // Validate email uniqueness if changed
         if (req.email() != null && !req.email().isBlank()) {
-            if (!req.email().equalsIgnoreCase(teacher.getEmail()) && teachers.existsByEmailIgnoreCase(req.email())) {
-                throw new ApiException(HttpStatus.CONFLICT, "Email giáo viên đã tồn tại trong hệ thống");
+            String email = req.email().trim().toLowerCase();
+            if (!email.equalsIgnoreCase(teacher.getEmail())) {
+                if (teachers.existsByEmailIgnoreCase(email)) {
+                    throw new ApiException(HttpStatus.CONFLICT, "Email giáo viên đã tồn tại trong hệ thống");
+                }
+                if (students.existsByEmail(email)) {
+                    throw new ApiException(HttpStatus.CONFLICT, "Email giáo viên trùng với email của một Học sinh");
+                }
+                if (!guardians.findByEmailIgnoreCase(email).isEmpty()) {
+                    throw new ApiException(HttpStatus.CONFLICT, "Email giáo viên trùng với email của một Phụ huynh");
+                }
+                Optional<User> u = users.findByEmailIgnoreCase(email);
+                if (u.isPresent() && u.get().getRole() != Role.TEACHER) {
+                    throw new ApiException(HttpStatus.CONFLICT,
+                            "Email đã được sử dụng bởi tài khoản " + u.get().getRole());
+                }
             }
         }
 
@@ -239,9 +281,8 @@ public class TeacherManagementService {
         teacher.setDateOfBirth(req.dateOfBirth());
         teacher.setGender(req.gender());
         teacher.setAddress(req.address());
-        teacher.setEmail(req.email());
+        teacher.setEmail(req.email() != null ? req.email().trim().toLowerCase() : null);
         teacher.setPhone(req.phone());
-        teacher.setSpecialization(req.specialization());
         teacher.setDegree(req.degree());
 
         if (req.subjectIds() != null) {
@@ -256,25 +297,42 @@ public class TeacherManagementService {
         return toTeacherDto(teacher);
     }
 
-    @Transactional
-    public void deleteTeacher(School school, UUID teacherId) {
-        Teacher teacher = teachers.findById(teacherId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên"));
+    // @Transactional - REMOVED to allow partial success
+    public com.schoolmanagement.backend.dto.BulkDeleteResponse deleteTeachers(School school,
+            com.schoolmanagement.backend.dto.request.BulkDeleteRequest request) {
+        int deleted = 0;
+        int failed = 0;
+        List<String> errors = new java.util.ArrayList<>();
 
-        if (!teacher.getSchool().getId().equals(school.getId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Giáo viên không thuộc trường này");
-        }
+        for (UUID id : request.ids()) {
+            Teacher teacher = null;
+            try {
+                // Ensure teacher belongs to school
+                teacher = teachers.findById(id)
+                        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên"));
+                if (!teacher.getSchool().getId().equals(school.getId())) {
+                    throw new ApiException(HttpStatus.FORBIDDEN, "Giáo viên không thuộc trường này");
+                }
 
-        // Check if teacher is homeroom teacher of any class
-        if (teacher.getUser() != null) {
-            var homeroomClass = classRooms.findByHomeroomTeacher(teacher.getUser());
-            if (homeroomClass.isPresent()) {
-                throw new ApiException(HttpStatus.CONFLICT,
-                        "Không thể xóa giáo viên đang chủ nhiệm lớp " + homeroomClass.get().getName());
+                // Call helper for isolated transaction
+                bulkDeleteHelper.deleteSingleTeacher(id);
+                deleted++;
+            } catch (ApiException e) {
+                failed++;
+                errors.add(e.getMessage());
+            } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                failed++;
+                String teacherName = (teacher != null) ? teacher.getFullName() : "không xác định";
+                errors.add("Không thể xóa giáo viên (" + teacherName + ") do dữ liệu liên quan.");
+                log.error("Data integrity violation deleting teacher {}", id, e);
+            } catch (Exception e) {
+                failed++;
+                errors.add("Lỗi hệ thống: " + e.getMessage());
+                log.error("Error deleting teacher {}", id, e);
             }
         }
 
-        teachers.delete(teacher);
+        return new com.schoolmanagement.backend.dto.BulkDeleteResponse(deleted, failed, errors);
     }
 
     public String generateNextTeacherCode(School school) {
@@ -330,13 +388,13 @@ public class TeacherManagementService {
                 teacher.getAddress(),
                 teacher.getEmail(),
                 teacher.getPhone(),
-                teacher.getSpecialization(),
                 teacher.getDegree(),
                 teacher.getStatus(),
                 homeroomClassId,
                 homeroomClassName,
                 subjectDtos,
                 subjectNames,
+                teacher.getUser() != null,
                 null);
     }
 }

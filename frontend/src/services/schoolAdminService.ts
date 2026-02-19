@@ -71,7 +71,8 @@ export type StudentDto = {
     enrollmentDate: string | null;
     currentClassName: string | null;
     currentClassId: string | null;
-    guardians: GuardianDto[];
+    hasAccount: boolean;
+    guardian: GuardianDto | null;
 };
 
 export type ClassEnrollmentHistoryDto = {
@@ -107,7 +108,7 @@ export type CreateStudentRequest = {
     academicYear?: string;
     department?: 'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI';
     grade?: number;
-    guardians?: GuardianRequest[];
+    guardian?: GuardianRequest;
 };
 
 export type UpdateStudentRequest = {
@@ -121,7 +122,7 @@ export type UpdateStudentRequest = {
     status?: 'ACTIVE' | 'GRADUATED' | 'TRANSFERRED' | 'SUSPENDED';
     classId?: string;
     academicYear?: string;
-    guardians?: UpdateGuardianRequest[];
+    guardian?: UpdateGuardianRequest;
 };
 
 export type UpdateGuardianRequest = {
@@ -142,13 +143,13 @@ export type TeacherDto = {
     address: string | null;
     email: string | null;
     phone: string | null;
-    specialization: string | null;
     degree: string | null;
     status: string;
     homeroomClassId: string | null;
     homeroomClassName: string | null;
     subjects: SubjectDto[];
     subjectNames: string | null;
+    hasAccount: boolean;
     avatarUrl: string | null;
 };
 
@@ -160,7 +161,6 @@ export type CreateTeacherRequest = {
     address?: string;
     email?: string;
     phone?: string;
-    specialization?: string;
     degree?: string;
     subjectIds?: string[];
     createAccount: boolean;
@@ -175,6 +175,16 @@ export type BulkPromoteRequest = {
 export type BulkPromoteResponse = {
     promoted: number;
     skipped: number;
+    errors: string[];
+};
+
+export type BulkDeleteRequest = {
+    ids: string[];
+};
+
+export type BulkDeleteResponse = {
+    deleted: number;
+    failed: number;
     errors: string[];
 };
 
@@ -237,6 +247,11 @@ export const schoolAdminService = {
         await api.delete(`/school/teachers/${teacherId}`);
     },
 
+    bulkDeleteTeachers: async (ids: string[]): Promise<BulkDeleteResponse> => {
+        const res = await api.post<BulkDeleteResponse>("/school/teachers/bulk-delete", { ids });
+        return res.data;
+    },
+
     // Import teachers from Excel
     importTeachersFromExcel: async (file: File): Promise<ImportTeacherResult> => {
         const formData = new FormData();
@@ -266,6 +281,10 @@ export const schoolAdminService = {
         await api.put(`/school/users/${userId}/status`, null, {
             params: { enabled }
         });
+    },
+
+    deleteUser: async (userId: string): Promise<void> => {
+        await api.delete(`/school/users/${userId}`);
     },
 
     // Students
@@ -333,6 +352,11 @@ export const schoolAdminService = {
         await api.delete(`/school/students/${studentId}`);
     },
 
+    bulkDeleteStudents: async (ids: string[]): Promise<BulkDeleteResponse> => {
+        const res = await api.post<BulkDeleteResponse>("/school/students/bulk-delete", { ids });
+        return res.data;
+    },
+
     // Student Account Management
     getStudentsEligibleForAccount: async (): Promise<StudentDto[]> => {
         const res = await api.get<StudentDto[]>("/school/students/no-account");
@@ -342,6 +366,10 @@ export const schoolAdminService = {
     createStudentAccounts: async (studentIds: string[]): Promise<BulkAccountCreationResponse> => {
         const res = await api.post<BulkAccountCreationResponse>("/school/students/accounts", studentIds);
         return res.data;
+    },
+
+    deleteStudentAccount: async (studentId: string): Promise<void> => {
+        await api.delete(`/school/students/${studentId}/account`);
     },
 
     // Teacher Account Management

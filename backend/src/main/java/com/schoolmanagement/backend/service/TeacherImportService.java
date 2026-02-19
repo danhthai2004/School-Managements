@@ -160,7 +160,6 @@ public class TeacherImportService {
                             .address(address)
                             .email(email)
                             .phone(phone)
-                            .specialization(specialization)
                             .degree(degree)
                             .school(school)
                             .status("ACTIVE")

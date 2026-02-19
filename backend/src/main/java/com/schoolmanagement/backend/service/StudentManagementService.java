@@ -5,6 +5,7 @@ import com.schoolmanagement.backend.domain.StudentStatus;
 import com.schoolmanagement.backend.domain.entity.*;
 import com.schoolmanagement.backend.dto.BulkPromoteResponse;
 import com.schoolmanagement.backend.dto.StudentDto;
+import com.schoolmanagement.backend.dto.StudentGuardianDto;
 import com.schoolmanagement.backend.dto.StudentProfileDto;
 import com.schoolmanagement.backend.dto.request.BulkPromoteRequest;
 import com.schoolmanagement.backend.dto.request.CreateStudentRequest;
@@ -33,13 +34,22 @@ public class StudentManagementService {
     private final GuardianRepository guardians;
     private final ClassRoomRepository classRooms;
     private final ClassEnrollmentRepository enrollments;
+    private final StudentAccountService studentAccountService;
+    private final com.schoolmanagement.backend.repo.UserRepository users;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private BulkDeleteHelperService bulkDeleteHelper;
 
     public StudentManagementService(StudentRepository students, GuardianRepository guardians,
-            ClassRoomRepository classRooms, ClassEnrollmentRepository enrollments) {
+            ClassRoomRepository classRooms, ClassEnrollmentRepository enrollments,
+            StudentAccountService studentAccountService,
+            com.schoolmanagement.backend.repo.UserRepository users) {
         this.students = students;
         this.guardians = guardians;
         this.classRooms = classRooms;
         this.enrollments = enrollments;
+        this.studentAccountService = studentAccountService;
+        this.users = users;
     }
 
     // ==================== STUDENT MANAGEMENT ====================
@@ -62,6 +72,20 @@ public class StudentManagementService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Ngày sinh phải nhỏ hơn ngày hiện tại");
         }
 
+        // Validate Email
+        String email = req.email() != null ? req.email().trim().toLowerCase() : null;
+        if (email != null && !email.isBlank()) {
+            // Check collision with Guardian
+            if (!guardians.findByEmailIgnoreCase(email).isEmpty()) {
+                throw new ApiException(HttpStatus.CONFLICT, "Email học sinh trùng với email của một Phụ huynh.");
+            }
+            // Check collision with User (Role != STUDENT)
+            Optional<User> u = users.findByEmailIgnoreCase(email);
+            if (u.isPresent() && u.get().getRole() != com.schoolmanagement.backend.domain.Role.STUDENT) {
+                throw new ApiException(HttpStatus.CONFLICT, "Email đã được sử dụng bởi tài khoản " + u.get().getRole());
+            }
+        }
+
         // Create student
         Student student = Student.builder()
                 .studentCode(studentCode)
@@ -70,36 +94,64 @@ public class StudentManagementService {
                 .gender(req.gender())
                 .birthPlace(req.birthPlace())
                 .address(req.address())
-                .email(req.email())
+                .email(req.email() != null ? req.email().trim().toLowerCase() : null)
                 .phone(req.phone())
                 .enrollmentDate(req.enrollmentDate() != null ? req.enrollmentDate() : java.time.LocalDate.now())
                 .status(StudentStatus.ACTIVE)
                 .school(school)
                 .build();
 
-        student = students.save(student);
+        // Process Guardian
+        if (req.guardian() != null) {
+            CreateStudentRequest.GuardianRequest g = req.guardian();
+            if (g.fullName() != null && !g.fullName().isBlank()) {
+                Guardian guardian = null;
 
-        // Save guardians
-        if (req.guardians() != null && !req.guardians().isEmpty()) {
-            for (CreateStudentRequest.GuardianRequest g : req.guardians()) {
-                Guardian guardian = Guardian.builder()
-                        .student(student)
-                        .fullName(g.fullName())
-                        .phone(g.phone())
-                        .email(g.email())
-                        .relationship(g.relationship())
-                        .build();
-
-                // If guardian has email, just check validity but DO NOT create account
-                // automatically
-                // Account creation is now handled in Account Management page (Phase 3)
+                // 1. Find or Create Guardian
                 if (g.email() != null && !g.email().isBlank()) {
-                    // No action needed here
-                }
+                    String cleanEmail = g.email().trim().toLowerCase();
 
-                guardian = guardians.save(guardian);
+                    // Validate Guardian Email vs Student
+                    if (students.existsByEmail(cleanEmail)) {
+                        throw new ApiException(HttpStatus.CONFLICT,
+                                "Email phụ huynh trùng với email của một Học sinh.");
+                    }
+                    if (email != null && email.equals(cleanEmail)) {
+                        throw new ApiException(HttpStatus.CONFLICT,
+                                "Email học sinh và phụ huynh không được trùng nhau.");
+                    }
+                    Optional<User> u = users.findByEmailIgnoreCase(cleanEmail);
+                    if (u.isPresent() && u.get().getRole() != com.schoolmanagement.backend.domain.Role.GUARDIAN) {
+                        throw new ApiException(HttpStatus.CONFLICT,
+                                "Email phụ huynh đã được sử dụng bởi tài khoản " + u.get().getRole());
+                    }
+
+                    List<Guardian> existing = guardians.findByEmailIgnoreCase(cleanEmail);
+                    if (!existing.isEmpty()) {
+                        guardian = existing.get(0);
+                    } else {
+
+                        guardian = Guardian.builder()
+                                .fullName(g.fullName().trim())
+                                .phone(g.phone() != null ? g.phone().trim() : null)
+                                .email(cleanEmail)
+                                .build();
+                        guardian = guardians.save(guardian);
+                    }
+                } else {
+                    // No email -> Force create with NULL email
+                    guardian = Guardian.builder()
+                            .fullName(g.fullName() != null ? g.fullName().trim() : "Phụ huynh") // Fallback name
+                            .phone(g.phone() != null ? g.phone().trim() : null)
+                            .email(null)
+                            .build();
+                    guardian = guardians.save(guardian);
+                }
+                student.setGuardian(guardian);
             }
         }
+
+        student = students.save(student);
 
         // Enroll in class if provided
         if (req.classId() != null) {
@@ -177,19 +229,58 @@ public class StudentManagementService {
         return toStudentDto(student);
     }
 
-    @Transactional
-    public void deleteStudent(School school, UUID studentId) {
-        Student student = students.findById(studentId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+    // @Transactional - REMOVED to allow partial success (each delete is its own
+    // transaction)
+    public com.schoolmanagement.backend.dto.BulkDeleteResponse deleteStudents(School school,
+            com.schoolmanagement.backend.dto.request.BulkDeleteRequest request) {
+        log.info("Starting bulk delete for {} students", request.ids().size());
 
-        if (!student.getSchool().getId().equals(school.getId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Học sinh không thuộc trường này");
+        int deleted = 0;
+        int failed = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (UUID id : request.ids()) {
+            Student student = null;
+            try {
+                // Ensure student belongs to school first
+                student = students.findById(id)
+                        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+                if (!student.getSchool().getId().equals(school.getId())) {
+                    throw new ApiException(HttpStatus.FORBIDDEN, "Học sinh không thuộc trường này");
+                }
+
+                if (student.getUser() != null) {
+                    // Automatically delete account if exists
+                    try {
+                        studentAccountService.deleteAccountForStudent(school, student.getId());
+                    } catch (Exception e) {
+                        log.warn("Failed to delete account for student {}: {}", id, e.getMessage());
+                        // Continue to try deleting student, or maybe throw?
+                        // If account deletion fails, student deletion will likely fail too due to FK.
+                        throw new ApiException(HttpStatus.BAD_REQUEST,
+                                "Không thể xóa tài khoản của học sinh: " + e.getMessage());
+                    }
+                }
+
+                // Call helper for isolated transaction deletion
+                bulkDeleteHelper.deleteSingleStudent(id);
+                deleted++;
+            } catch (ApiException e) {
+                failed++;
+                errors.add(e.getMessage());
+            } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                failed++;
+                String name = (student != null) ? student.getFullName() : "ID " + id;
+                errors.add("Không thể xóa học sinh (" + name + ") do dữ liệu liên quan.");
+                log.error("Data integrity violation deleting student {}", id, e);
+            } catch (Exception e) {
+                failed++;
+                errors.add("Lỗi hệ thống: " + e.getMessage());
+                log.error("Error deleting student {}", id, e);
+            }
         }
 
-        // Delete related records
-        enrollments.deleteAllByStudent(student);
-        guardians.deleteAllByStudent(student);
-        students.delete(student);
+        return new com.schoolmanagement.backend.dto.BulkDeleteResponse(deleted, failed, errors);
     }
 
     @Transactional
@@ -212,7 +303,37 @@ public class StudentManagementService {
         student.setGender(req.gender());
         student.setBirthPlace(req.birthPlace());
         student.setAddress(req.address());
-        student.setEmail(req.email());
+        student.setAddress(req.address());
+
+        // Validate Email Update
+        String newEmail = req.email() != null ? req.email().trim().toLowerCase() : null;
+        if (newEmail != null && !newEmail.isBlank()) {
+            // Only check if email changed
+            if (!newEmail.equals(student.getEmail())) {
+                // Check collision with Guardian
+                if (!guardians.findByEmailIgnoreCase(newEmail).isEmpty()) {
+                    throw new ApiException(HttpStatus.CONFLICT, "Email học sinh trùng với email của một Phụ huynh.");
+                }
+                // Check collision with User (Role != STUDENT)
+                Optional<User> u = users.findByEmailIgnoreCase(newEmail);
+                if (u.isPresent() && u.get().getRole() != com.schoolmanagement.backend.domain.Role.STUDENT) {
+                    throw new ApiException(HttpStatus.CONFLICT,
+                            "Email đã được sử dụng bởi tài khoản " + u.get().getRole());
+                }
+                // Check duplicate student email (other students) - handled by DB constraint
+                // usually, but service check is safer
+                if (students.existsByEmail(newEmail)) { // This might return true for self if not careful, but
+                                                        // existsByEmail matches ANY.
+                    // Need exclude self. Repository doesn't have it standard.
+                    // Let DB constraint handle same-table duplicate for now or fetch.
+                    // students.findByEmail(newEmail) -> if present and id != studentId -> Conflict.
+                }
+                student.setEmail(newEmail);
+            }
+        } else {
+            student.setEmail(null);
+        }
+
         student.setPhone(req.phone());
 
         // Update status if provided
@@ -220,35 +341,62 @@ public class StudentManagementService {
             student.setStatus(req.status());
         }
 
-        student = students.save(student);
+        // Update guardian
+        if (req.guardian() != null) {
+            UpdateStudentRequest.GuardianRequest g = req.guardian();
+            if (g.fullName() != null && !g.fullName().isBlank()) {
+                Guardian guardian = null;
 
-        // Update guardians - replace all existing guardians with new ones
-        if (req.guardians() != null) {
-            // Delete existing guardians
-            guardians.deleteAllByStudent(student);
+                // 1. Find or Create Guardian
+                if (g.email() != null && !g.email().isBlank()) {
+                    String cleanEmail = g.email().trim().toLowerCase();
 
-            // Create new guardians
-            for (UpdateStudentRequest.GuardianRequest g : req.guardians()) {
-                if (g.fullName() != null && !g.fullName().isBlank()) {
-                    Guardian guardian = Guardian.builder()
-                            .student(student)
-                            .fullName(g.fullName())
-                            .phone(g.phone())
-                            .email(g.email())
-                            .relationship(g.relationship())
-                            .build();
-
-                    // If guardian has email, just check validity but DO NOT create account
-                    // automatically
-                    // Account creation is now handled in Account Management page (Phase 3)
-                    if (g.email() != null && !g.email().isBlank()) {
-                        // No action needed here
+                    // Validate Guardian Email vs Student
+                    if (students.existsByEmail(cleanEmail)) {
+                        throw new ApiException(HttpStatus.CONFLICT,
+                                "Email phụ huynh trùng với email của một Học sinh.");
+                    }
+                    if (student.getEmail() != null && student.getEmail().equals(cleanEmail)) {
+                        throw new ApiException(HttpStatus.CONFLICT,
+                                "Email học sinh và phụ huynh không được trùng nhau.");
+                    }
+                    Optional<User> u = users.findByEmailIgnoreCase(cleanEmail);
+                    if (u.isPresent() && u.get().getRole() != com.schoolmanagement.backend.domain.Role.GUARDIAN) {
+                        throw new ApiException(HttpStatus.CONFLICT,
+                                "Email phụ huynh đã được sử dụng bởi tài khoản " + u.get().getRole());
                     }
 
-                    guardians.save(guardian);
+                    List<Guardian> existing = guardians.findByEmailIgnoreCase(cleanEmail);
+                    if (!existing.isEmpty()) {
+                        guardian = existing.get(0);
+                        // Update existing guardian details
+                        guardian.setFullName(g.fullName().trim());
+                        if (g.phone() != null)
+                            guardian.setPhone(g.phone().trim());
+                        guardian = guardians.save(guardian);
+                    } else {
+                        guardian = Guardian.builder()
+                                .fullName(g.fullName().trim())
+                                .phone(g.phone() != null ? g.phone().trim() : null)
+                                .email(cleanEmail)
+                                .build();
+                        guardian = guardians.save(guardian);
+                    }
+                } else {
+
+                    // No email -> Force create with NULL email
+                    guardian = Guardian.builder()
+                            .fullName(g.fullName() != null ? g.fullName().trim() : "Phụ huynh") // Fallback name
+                            .phone(g.phone() != null ? g.phone().trim() : null)
+                            .email(null)
+                            .build();
+                    guardian = guardians.save(guardian);
                 }
+                student.setGuardian(guardian);
             }
         }
+
+        student = students.save(student);
 
         // Handle class enrollment change
         if (req.classId() != null) {
@@ -335,11 +483,16 @@ public class StudentManagementService {
     }
 
     private StudentDto toStudentDto(Student student) {
-        List<Guardian> studentGuardians = guardians.findAllByStudent(student);
-        List<StudentDto.GuardianDto> guardianDtos = studentGuardians.stream()
-                .map(g -> new StudentDto.GuardianDto(g.getId(), g.getFullName(), g.getPhone(), g.getEmail(),
-                        g.getRelationship()))
-                .toList();
+        StudentGuardianDto guardianDto = null;
+        if (student.getGuardian() != null) {
+            guardianDto = new StudentGuardianDto(
+                    student.getGuardian().getId(),
+                    student.getGuardian().getFullName(),
+                    student.getGuardian().getPhone(),
+                    student.getGuardian().getEmail(),
+                    "Phụ huynh" // Default relationship
+            );
+        }
 
         // Get current class enrollment
         String currentClassName = null;
@@ -368,7 +521,8 @@ public class StudentManagementService {
                 student.getEnrollmentDate(),
                 currentClassName,
                 currentClassId,
-                guardianDtos);
+                student.getUser() != null,
+                guardianDto);
     }
 
     private void autoAssignStudentToClass(School school, Student student,
@@ -446,12 +600,17 @@ public class StudentManagementService {
         Student student = students.findByIdAndSchool(studentId, school)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
 
-        // Get guardians
-        List<Guardian> studentGuardians = guardians.findAllByStudent(student);
-        List<StudentProfileDto.GuardianDto> guardianDtos = studentGuardians.stream()
-                .map(g -> new StudentProfileDto.GuardianDto(g.getId(), g.getFullName(), g.getPhone(), g.getEmail(),
-                        g.getRelationship()))
-                .toList();
+        // Get guardian (Many-to-One)
+        StudentProfileDto.GuardianDto guardianDto = null;
+        if (student.getGuardian() != null) {
+            guardianDto = new StudentProfileDto.GuardianDto(
+                    student.getGuardian().getId(),
+                    student.getGuardian().getFullName(),
+                    student.getGuardian().getPhone(),
+                    student.getGuardian().getEmail(),
+                    "Phụ huynh" // Default relationship
+            );
+        }
 
         // Get enrollment history
         List<ClassEnrollment> enrollmentList = enrollments.findAllByStudent(student);
@@ -492,7 +651,7 @@ public class StudentManagementService {
                 student.getEnrollmentDate(),
                 currentClassName,
                 currentClassId,
-                guardianDtos,
+                guardianDto,
                 historyDtos);
     }
 
