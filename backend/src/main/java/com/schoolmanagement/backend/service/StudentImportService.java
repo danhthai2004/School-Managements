@@ -30,13 +30,16 @@ public class StudentImportService {
     private final GuardianRepository guardians;
     private final ClassRoomRepository classRooms;
     private final ClassEnrollmentRepository enrollments;
+    private final com.schoolmanagement.backend.repo.UserRepository users;
 
     public StudentImportService(StudentRepository students, GuardianRepository guardians,
-            ClassRoomRepository classRooms, ClassEnrollmentRepository enrollments) {
+            ClassRoomRepository classRooms, ClassEnrollmentRepository enrollments,
+            com.schoolmanagement.backend.repo.UserRepository users) {
         this.students = students;
         this.guardians = guardians;
         this.classRooms = classRooms;
         this.enrollments = enrollments;
+        this.users = users;
     }
 
     // ==================== EXCEL IMPORT ====================
@@ -126,6 +129,34 @@ public class StudentImportService {
                     String birthPlace = getValueFromRow(row, columnMap, "birthplace", "nơi sinh", "noisinh");
                     String address = getValueFromRow(row, columnMap, "address", "địa chỉ", "diachi");
                     String email = getValueFromRow(row, columnMap, "email");
+                    if (email != null && !email.isBlank()) {
+                        email = email.trim().toLowerCase();
+                        // Validation: Email must not be used by Guardian or other Role
+                        if (guardians.findByEmailIgnoreCase(email).size() > 0) {
+                            errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
+                                    "Email học sinh trùng với email Phụ huynh khác."));
+                            failedCount++;
+                            continue;
+                        }
+                        if (users.existsByEmailIgnoreCase(email)) {
+                            // Check role? For now strict: if used by any user, be careful.
+                            // Actually, if it's a STUDENT user, it's a duplicate student check (handled by
+                            // unique constraint?).
+                            // If it's a GUARDIAN/TEACHER user -> Block.
+                            // Let's just block if any user exists to be safe and force unique new data,
+                            // OR check specific role collisions if we allow re-importing existing students.
+                            // Assuming new students:
+                            Optional<User> u = users.findByEmailIgnoreCase(email);
+                            if (u.isPresent()
+                                    && u.get().getRole() != com.schoolmanagement.backend.domain.Role.STUDENT) {
+                                errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
+                                        "Email đã được sử dụng bởi tài khoản " + u.get().getRole()));
+                                failedCount++;
+                                continue;
+                            }
+                        }
+                    }
+
                     String phone = getValueFromRow(row, columnMap, "phone", "sđt", "số điện thoại", "sodienthoai");
 
                     // Guardian info
@@ -133,7 +164,36 @@ public class StudentImportService {
                             "tenphuhuynh");
                     String guardianPhone = getValueFromRow(row, columnMap, "guardianphone", "sđt phụ huynh",
                             "sdtphuhuynh");
-                    // guardianRelationship is no longer used in Many-to-One
+
+                    // Sanitize guardian email early for validation
+                    String guardianEmail = null;
+                    String rawGuardianEmail = getValueFromRow(row, columnMap, "guardianemail", "email phụ huynh",
+                            "emailphuhuynh");
+                    if (rawGuardianEmail != null && !rawGuardianEmail.isBlank()) {
+                        guardianEmail = rawGuardianEmail.trim().toLowerCase();
+                        // Validation: Guardian Email must not be used by Student
+                        if (students.existsByEmail(guardianEmail)) {
+                            errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
+                                    "Email phụ huynh trùng với email của một Học sinh."));
+                            failedCount++;
+                            continue;
+                        }
+                        // Check collision with Student Email in THIS ROW
+                        if (email != null && email.equals(guardianEmail)) {
+                            errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
+                                    "Email học sinh và phụ huynh không được trùng nhau."));
+                            failedCount++;
+                            continue;
+                        }
+
+                        Optional<User> u = users.findByEmailIgnoreCase(guardianEmail);
+                        if (u.isPresent() && u.get().getRole() != com.schoolmanagement.backend.domain.Role.GUARDIAN) {
+                            errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
+                                    "Email phụ huynh đã được sử dụng bởi tài khoản " + u.get().getRole()));
+                            failedCount++;
+                            continue;
+                        }
+                    }
 
                     // Generate student code
                     String studentCode = generateNextStudentCode(school);
@@ -163,12 +223,13 @@ public class StudentImportService {
                         Guardian guardian = null;
 
                         // Sanitize email
-                        String guardianEmail = null;
-                        String rawGuardianEmail = getValueFromRow(row, columnMap, "guardianemail", "email phụ huynh",
-                                "emailphuhuynh");
-                        if (rawGuardianEmail != null && !rawGuardianEmail.isBlank()) {
-                            guardianEmail = rawGuardianEmail.trim().toLowerCase();
-                        }
+                        // String guardianEmail = null; // Already parsed above
+                        // String rawGuardianEmail = getValueFromRow(row, columnMap, "guardianemail",
+                        // "email phụ huynh",
+                        // "emailphuhuynh");
+                        // if (rawGuardianEmail != null && !rawGuardianEmail.isBlank()) {
+                        // guardianEmail = rawGuardianEmail.trim().toLowerCase();
+                        // }
 
                         if (guardianEmail != null) {
                             // Case 1: Has Email -> Find or Create

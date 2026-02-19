@@ -27,11 +27,14 @@ public class SchoolAdminController {
 
     private final SchoolAdminService schoolAdminService;
     private final UserLookupService userLookup;
+    private final com.schoolmanagement.backend.service.StudentAccountService studentAccountService;
 
     public SchoolAdminController(SchoolAdminService schoolAdminService,
-            UserLookupService userLookup) {
+            UserLookupService userLookup,
+            com.schoolmanagement.backend.service.StudentAccountService studentAccountService) {
         this.schoolAdminService = schoolAdminService;
         this.userLookup = userLookup;
+        this.studentAccountService = studentAccountService;
     }
 
     // ==================== STATISTICS ====================
@@ -134,5 +137,30 @@ public class SchoolAdminController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         schoolAdminService.toggleUserStatus(admin.getSchool(), userId, enabled);
+    }
+
+    @Transactional
+    @DeleteMapping("/students/{id}/account")
+    public void deleteStudentAccount(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("id") UUID studentId) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        studentAccountService.deleteAccountForStudent(admin.getSchool(), studentId);
+    }
+
+    @Transactional
+    @DeleteMapping("/users/{id}")
+    public void deleteUser(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("id") UUID userId) {
+        if (principal.getId().equals(userId)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Không thể xóa tài khoản của chính mình.");
+        }
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        schoolAdminService.deleteUser(admin.getSchool(), userId);
     }
 }

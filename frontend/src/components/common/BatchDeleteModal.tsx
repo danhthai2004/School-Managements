@@ -10,6 +10,7 @@ interface BatchDeleteModalProps {
     message: string;
     itemCount: number;
     itemName: string;
+    confirmLabel?: string; // New prop for explicit confirmation checkbox
 }
 
 const BatchDeleteModal: React.FC<BatchDeleteModalProps> = ({
@@ -19,12 +20,20 @@ const BatchDeleteModal: React.FC<BatchDeleteModalProps> = ({
     title,
     message,
     itemCount,
-    itemName
+    itemName,
+    confirmLabel
 }) => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [result, setResult] = useState<{ deleted: number; failed: number; errors: string[] } | null>(null);
+    const [isConfirmed, setIsConfirmed] = useState(false); // State for checkbox
+
+    // Reset checkbox when opening/closing
+    React.useEffect(() => {
+        if (isOpen) setIsConfirmed(false);
+    }, [isOpen]);
 
     const handleConfirm = async () => {
+        if (confirmLabel && !isConfirmed) return; // Prevent if not confirmed
         setIsDeleting(true);
         try {
             const res = await onConfirm();
@@ -72,6 +81,18 @@ const BatchDeleteModal: React.FC<BatchDeleteModalProps> = ({
                             </div>
                         </div>
 
+                        {/* Explicit Confirmation Checkbox */}
+                        {confirmLabel && (
+                            <div className="mb-6 flex items-start gap-3 text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer" onClick={() => setIsConfirmed(!isConfirmed)}>
+                                <div className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors ${isConfirmed ? 'bg-blue-600 border-blue-600' : 'border-gray-400 bg-white'}`}>
+                                    {isConfirmed && <CheckCircle className="w-3.5 h-3.5 text-white" />}
+                                </div>
+                                <label className="text-sm font-medium text-gray-700 cursor-pointer select-none flex-1">
+                                    {confirmLabel}
+                                </label>
+                            </div>
+                        )}
+
                         <div className="flex gap-3">
                             <button
                                 onClick={onClose}
@@ -82,7 +103,7 @@ const BatchDeleteModal: React.FC<BatchDeleteModalProps> = ({
                             </button>
                             <button
                                 onClick={handleConfirm}
-                                disabled={isDeleting}
+                                disabled={isDeleting || (!!confirmLabel && !isConfirmed)}
                                 className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white font-medium hover:bg-red-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-red-600/20"
                             >
                                 {isDeleting ? (
