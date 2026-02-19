@@ -36,17 +36,23 @@ public class SchoolAdminService {
     private final MailService mailService;
 
     private final com.schoolmanagement.backend.repo.TeacherRepository teachers;
+    private final com.schoolmanagement.backend.repo.GuardianRepository guardians;
+    private final com.schoolmanagement.backend.repo.AuthChallengeRepository authChallenges;
 
     public SchoolAdminService(UserRepository users, ClassRoomRepository classRooms,
             StudentRepository students,
             PasswordEncoder passwordEncoder, MailService mailService,
-            com.schoolmanagement.backend.repo.TeacherRepository teachers) {
+            com.schoolmanagement.backend.repo.TeacherRepository teachers,
+            com.schoolmanagement.backend.repo.GuardianRepository guardians,
+            com.schoolmanagement.backend.repo.AuthChallengeRepository authChallenges) {
         this.users = users;
         this.classRooms = classRooms;
         this.students = students;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
         this.teachers = teachers;
+        this.guardians = guardians;
+        this.authChallenges = authChallenges;
     }
 
     // ==================== SCHOOL STATS ====================
@@ -71,13 +77,28 @@ public class SchoolAdminService {
     // ==================== USER MANAGEMENT ====================
 
     @Transactional
-    public UserDto createUserForSchool(School school, String email, String fullName, Role role) {
+    public UserDto createUserForSchool(School school, String rawEmail, String fullName, Role role) {
+        String email = rawEmail != null ? rawEmail.trim().toLowerCase() : null;
+        if (email == null || email.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Email không được để trống.");
+        }
         if (role == Role.SYSTEM_ADMIN || role == Role.SCHOOL_ADMIN) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Role không hợp lệ cho trường.");
         }
         if (users.existsByEmailIgnoreCase(email)) {
             throw new ApiException(HttpStatus.CONFLICT, "Email đã tồn tại.");
         }
+        // Check collision with Entities
+        if (students.existsByEmail(email)) {
+            throw new ApiException(HttpStatus.CONFLICT, "Email này đang thuộc về một Học sinh.");
+        }
+        if (teachers.existsByEmailIgnoreCase(email)) {
+            throw new ApiException(HttpStatus.CONFLICT, "Email này đang thuộc về một Giáo viên.");
+        }
+        if (!guardians.findByEmailIgnoreCase(email).isEmpty()) {
+            throw new ApiException(HttpStatus.CONFLICT, "Email này đang thuộc về một Phụ huynh.");
+        }
+
         String tempPassword = RandomUtil.generateTempPassword(12);
 
         User user = User.builder()
@@ -147,6 +168,12 @@ public class SchoolAdminService {
                 }
 
                 if (users.existsByEmailIgnoreCase(email)) {
+                    skipped++;
+                    continue;
+                }
+                // Check collision with Entities
+                if (students.existsByEmail(email) || teachers.existsByEmailIgnoreCase(email)
+                        || !guardians.findByEmailIgnoreCase(email).isEmpty()) {
                     skipped++;
                     continue;
                 }
@@ -233,6 +260,39 @@ public class SchoolAdminService {
 
         user.setEnabled(enabled);
         users.save(user);
+    }
+
+    @Transactional
+    public void deleteUser(School school, UUID userId) {
+        User user = users.findById(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng."));
+
+        if (user.getSchool() != null && !user.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Người dùng không thuộc trường này.");
+        }
+
+        if (user.getRole() == Role.SYSTEM_ADMIN || user.getRole() == Role.SCHOOL_ADMIN) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Không thể xóa tài khoản quản trị viên.");
+        }
+
+        // Unlink associated entity (Check ALL roles to handle dirty/shared data)
+        students.findByUser(user).ifPresent(s -> {
+            s.setUser(null);
+            students.save(s);
+        });
+
+        teachers.findByUser(user).ifPresent(t -> {
+            t.setUser(null);
+            teachers.save(t);
+        });
+
+        guardians.findByUser(user).ifPresent(g -> {
+            g.setUser(null);
+            guardians.save(g);
+        });
+
+        authChallenges.deleteByUser(user);
+        users.delete(user);
     }
 
 }

@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import com.schoolmanagement.backend.repo.AuthChallengeRepository;
 
 /**
  * Handles account creation for students and guardians.
@@ -41,10 +42,16 @@ public class StudentAccountService {
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
+    private final AuthChallengeRepository authChallenges;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private StudentAccountService self;
 
     public StudentAccountService(StudentRepository students, GuardianRepository guardians,
             ClassRoomRepository classRooms, ClassEnrollmentRepository enrollments,
-            UserRepository users, PasswordEncoder passwordEncoder, MailService mailService) {
+            UserRepository users, PasswordEncoder passwordEncoder, MailService mailService,
+            AuthChallengeRepository authChallenges) {
         this.students = students;
         this.guardians = guardians;
         this.classRooms = classRooms;
@@ -52,6 +59,7 @@ public class StudentAccountService {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
+        this.authChallenges = authChallenges;
     }
 
     // ==================== STUDENT ACCOUNT MANAGEMENT ====================
@@ -73,7 +81,7 @@ public class StudentAccountService {
     /**
      * Create account for a single student
      */
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public UserDto createAccountForStudent(School school, UUID studentId) {
         Student student = students.findById(studentId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
@@ -109,7 +117,7 @@ public class StudentAccountService {
 
         // Create user
         User user = User.builder()
-                .email(student.getEmail())
+                .email(student.getEmail().trim().toLowerCase())
                 .fullName(student.getFullName())
                 .role(Role.STUDENT)
                 .school(school)
@@ -132,9 +140,43 @@ public class StudentAccountService {
     }
 
     /**
-     * Create accounts for multiple students (bulk)
+     * Delete/Unlink account for a student
      */
     @Transactional
+    public void deleteAccountForStudent(School school, UUID studentId) {
+        Student student = students.findById(studentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+
+        if (!student.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Học sinh không thuộc trường này");
+        }
+
+        User user = student.getUser();
+        if (user == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Học sinh chưa có tài khoản");
+        }
+
+        // Unlink user from student first
+        student.setUser(null);
+        students.save(student);
+
+        // Unlink from guardian if referenced (to resolve FK constraint)
+        Optional<Guardian> linkedGuardian = guardians.findByUser(user);
+        if (linkedGuardian.isPresent()) {
+            Guardian g = linkedGuardian.get();
+            g.setUser(null);
+            guardians.save(g);
+        }
+
+        // Delete user
+        authChallenges.deleteByUser(user);
+        users.delete(user);
+    }
+
+    /**
+     * Create accounts for multiple students (bulk)
+     */
+    // @Transactional - Removed to allow partial success
     public BulkAccountCreationResponse createAccountsForStudents(School school, List<UUID> studentIds) {
         int created = 0;
         int skipped = 0;
@@ -142,7 +184,7 @@ public class StudentAccountService {
 
         for (UUID studentId : studentIds) {
             try {
-                createAccountForStudent(school, studentId);
+                self.createAccountForStudent(school, studentId);
                 created++;
             } catch (ApiException e) {
                 skipped++;
@@ -193,7 +235,7 @@ public class StudentAccountService {
                 .toList();
     }
 
-    @Transactional
+    // @Transactional - Removed
     public BulkAccountCreationResponse createAccountsForGuardians(School school, List<UUID> guardianIds) {
         int created = 0;
         int linked = 0;
@@ -202,40 +244,16 @@ public class StudentAccountService {
 
         for (UUID id : guardianIds) {
             try {
-                Guardian guardian = guardians.findById(id)
-                        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy phụ huynh"));
-
-                // Verify guardian belongs to school (indirectly via students)
-                // We check if ANY of the students belong to this school
-                // Update to use g.getStudents() (Many-to-One Refactor)
-                boolean belongsToSchool = guardian.getStudents().stream()
-                        .anyMatch(s -> s.getSchool().getId().equals(school.getId()));
-
-                if (!belongsToSchool) {
-                    throw new ApiException(HttpStatus.FORBIDDEN, "Phụ huynh không thuộc trường này");
-                }
-
-                if (guardian.getUser() != null) {
-                    skipped++; // Already processed
-                    continue;
-                }
-
-                if (guardian.getEmail() == null || guardian.getEmail().isBlank()) {
-                    skipped++;
-                    errors.add(guardian.getFullName() + ": Không có email");
-                    continue;
-                }
-
-                boolean isNewUser = !users.existsByEmailIgnoreCase(guardian.getEmail());
-                User user = processGuardianUser(school, guardian.getEmail(), guardian.getFullName());
-                guardian.setUser(user);
-                guardians.save(guardian);
-
-                if (isNewUser) {
+                int result = self.createAccountForGuardian(school, id);
+                if (result == 1)
                     created++;
-                } else {
+                else if (result == 2)
                     linked++;
-                }
+                else
+                    skipped++; // Should not happen if exception thrown for errors
+            } catch (ApiException e) {
+                skipped++;
+                errors.add(id + ": " + e.getMessage());
             } catch (Exception e) {
                 skipped++;
                 errors.add("ID " + id + ": " + e.getMessage());
@@ -244,6 +262,38 @@ public class StudentAccountService {
         }
 
         return new BulkAccountCreationResponse(created + linked, skipped, errors);
+
+    }
+
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public int createAccountForGuardian(School school, UUID id) {
+        Guardian guardian = guardians.findById(id)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy phụ huynh"));
+
+        // Verify guardian belongs to school (indirectly via students)
+        // We check if ANY of the students belong to this school
+        boolean belongsToSchool = guardian.getStudents().stream()
+                .anyMatch(s -> s.getSchool().getId().equals(school.getId()));
+
+        if (!belongsToSchool) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Phụ huynh không thuộc trường này");
+        }
+
+        if (guardian.getUser() != null) {
+            throw new ApiException(HttpStatus.CONFLICT, "Phụ huynh đã có tài khoản");
+        }
+
+        if (guardian.getEmail() == null || guardian.getEmail().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, guardian.getFullName() + ": Không có email");
+        }
+
+        boolean isNewUser = !users.existsByEmailIgnoreCase(guardian.getEmail());
+        User user = processGuardianUser(school, guardian.getEmail().trim().toLowerCase(),
+                guardian.getFullName());
+        guardian.setUser(user);
+        guardians.saveAndFlush(guardian);
+
+        return isNewUser ? 1 : 2; // 1=Created, 2=Linked
     }
 
     // ==================== PRIVATE HELPERS ====================
@@ -252,13 +302,20 @@ public class StudentAccountService {
         // Check if user exists
         Optional<User> existingUser = users.findByEmailIgnoreCase(email);
         if (existingUser.isPresent()) {
-            return existingUser.get();
+            User user = existingUser.get();
+            // Only allow linking if the existing user is also a GUARDIAN
+            if (user.getRole() != Role.GUARDIAN) {
+                throw new ApiException(HttpStatus.CONFLICT,
+                        "Email đã được sử dụng cho tài khoản " + user.getRole()
+                                + ". Không thể liên kết làm Phụ huynh.");
+            }
+            return user;
         }
 
         // Create new user
         String tempPassword = RandomUtil.generateTempPassword(12);
         User user = User.builder()
-                .email(email)
+                .email(email.trim().toLowerCase())
                 .fullName(fullName)
                 .role(Role.GUARDIAN)
                 .school(school)

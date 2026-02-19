@@ -12,8 +12,10 @@ import AddTeacherModal from "../components/teacher/AddTeacherModal";
 import TeacherDetailModal from "../components/teacher/TeacherDetailModal";
 import EditTeacherModal from "../components/teacher/EditTeacherModal";
 import ImportTeacherExcelModal from "../components/teacher/ImportTeacherExcelModal";
-import ImportTeacherSuccessToast from "../components/teacher/ImportTeacherSuccessToast";
-import SuccessToast from "../../../components/common/SuccessToast";
+import ImportTeacherResultModal from "../components/teacher/ImportTeacherResultModal";
+import { useToast } from "../../../context/ToastContext";
+
+
 
 // ==================== PAGE COMPONENT ======================================
 
@@ -34,9 +36,8 @@ const TeacherManagement = () => {
     const [selectedTeacherIds, setSelectedTeacherIds] = useState<Set<string>>(new Set());
 
 
-    // Success toast state
-    const [successToastOpen, setSuccessToastOpen] = useState(false);
-    const [successMessage, setSuccessMessage] = useState("");
+    // Success toast state - Replaced by global useToast
+    const { showSuccess } = useToast();
 
     // New State for Filter & Sort
     const [subjects, setSubjects] = useState<any[]>([]);
@@ -99,8 +100,7 @@ const TeacherManagement = () => {
             if (result.deleted > 0) {
                 await fetchData(true); // Silent refresh
                 setSelectedTeacherIds(new Set());
-                setSuccessMessage(`Đã xóa thành công ${result.deleted} giáo viên`);
-                setSuccessToastOpen(true);
+                showSuccess(`Đã xóa thành công ${result.deleted} giáo viên`);
             }
 
             return result;
@@ -320,8 +320,7 @@ const TeacherManagement = () => {
                 onClose={() => setShowAddTeacherModal(false)}
                 onSuccess={() => {
                     fetchData();
-                    setSuccessMessage("Thêm giáo viên thành công!");
-                    setSuccessToastOpen(true);
+                    showSuccess("Thêm giáo viên thành công!");
                 }}
             />
             <TeacherDetailModal
@@ -339,8 +338,7 @@ const TeacherManagement = () => {
                 onClose={() => setEditingTeacher(null)}
                 onSuccess={() => {
                     fetchData();
-                    setSuccessMessage("Cập nhật thông tin giáo viên thành công!");
-                    setSuccessToastOpen(true);
+                    showSuccess("Cập nhật thông tin giáo viên thành công!");
                 }}
             />
             <BatchDeleteModal
@@ -357,18 +355,20 @@ const TeacherManagement = () => {
                 isOpen={showImportModal}
                 onClose={() => setShowImportModal(false)}
                 onSuccess={fetchData}
-                onImportComplete={(result) => setImportResult(result)}
+                onImportComplete={(result) => {
+                    if (result.failedCount === 0) {
+                        showSuccess(`Import thành công ${result.successCount} giáo viên!`);
+                        setImportResult(null);
+                    } else {
+                        setImportResult(result);
+                    }
+                }}
             />
-            <ImportTeacherSuccessToast
+            <ImportTeacherResultModal
                 result={importResult}
                 onClose={() => setImportResult(null)}
             />
-            <SuccessToast
-                isOpen={successToastOpen}
-                onClose={() => setSuccessToastOpen(false)}
-                message={successMessage}
-                subtitle="Tự động đóng sau 3 giây"
-            />
+
         </div>
     );
 };

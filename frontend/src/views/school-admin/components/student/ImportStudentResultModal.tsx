@@ -1,22 +1,15 @@
-import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { type ImportStudentResult } from "../../../../services/schoolAdminService";
 import { XIcon } from "../../SchoolAdminIcons";
 
-interface ImportSuccessToastProps {
+interface ImportResultModalProps {
     result: ImportStudentResult | null;
     onClose: () => void;
 }
 
-function ImportSuccessToast({ result, onClose }: ImportSuccessToastProps) {
-    useEffect(() => {
-        if (result && result.failedCount === 0) {
-            const timer = setTimeout(() => {
-                onClose();
-            }, 3000);
-            return () => clearTimeout(timer);
-        }
-    }, [result, onClose]);
+export default function ImportStudentResultModal({ result, onClose }: ImportResultModalProps) {
+    // Timer removed as this is now a result modal for errors/warnings.
+    // Pure success case is handled by parent toast.
 
     if (!result) return null;
 
@@ -98,4 +91,4 @@ function ImportSuccessToast({ result, onClose }: ImportSuccessToastProps) {
     );
 }
 
-export default ImportSuccessToast;
+// function is exported directly above as default

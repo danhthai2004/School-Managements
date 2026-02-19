@@ -4,27 +4,40 @@ import {
     type StudentDto,
     type UserDto,
     type TeacherDto,
-    type BulkAccountCreationResponse
+    type BulkAccountCreationResponse,
+    type GuardianDto
 } from "../../../services/schoolAdminService";
-import { PlusIcon, StudentIcon, UsersIcon, KeyIcon, LockIcon, UnlockIcon } from "../SchoolAdminIcons";
+import { UsersIcon, StudentIcon, KeyIcon, LockIcon, UnlockIcon, TrashIcon } from "../SchoolAdminIcons";
 import { useAuth } from "../../../context/AuthContext";
+import BulkAccountResultModal from "../components/account/BulkAccountResultModal";
+import AccountCreationTable from "../components/account/AccountCreationTable";
+import { useToast } from "../../../context/ToastContext";
+import { useConfirmation } from "../../../hooks/useConfirmation";
 
 const AccountManagement = () => {
     const [activeTab, setActiveTab] = useState<'users' | 'create-student-accounts' | 'create-teacher-accounts' | 'create-guardian-accounts'>('users');
     const [users, setUsers] = useState<UserDto[]>([]);
     const [eligibleStudents, setEligibleStudents] = useState<StudentDto[]>([]);
     const [eligibleTeachers, setEligibleTeachers] = useState<TeacherDto[]>([]);
-    const [eligibleGuardians, setEligibleGuardians] = useState<import("../../../services/schoolAdminService").GuardianDto[]>([]);
+    const [eligibleGuardians, setEligibleGuardians] = useState<GuardianDto[]>([]);
 
-    const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const { user: currentUser } = useAuth();
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
+
+    // UI State
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<BulkAccountCreationResponse | null>(null);
 
     const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'LOCKED'>('ALL');
     const [roleFilter, setRoleFilter] = useState<'ALL' | 'STUDENT' | 'TEACHER' | 'GUARDIAN' | 'SCHOOL_ADMIN'>('ALL');
+
+    const [bulkResultModalOpen, setBulkResultModalOpen] = useState(false);
+
+    // Hooks
+    const { showSuccess } = useToast();
+    const { confirm, ConfirmationDialog } = useConfirmation();
 
     const filteredUsers = users.filter(user => {
         if (statusFilter !== 'ALL') {
@@ -38,6 +51,10 @@ const AccountManagement = () => {
     });
 
     useEffect(() => {
+        // Reset selection when tab changes
+        setSelectedIds(new Set());
+        setError(null);
+
         if (activeTab === 'users') {
             fetchUsers();
         } else if (activeTab === 'create-student-accounts') {
@@ -52,7 +69,6 @@ const AccountManagement = () => {
     const fetchUsers = async () => {
         try {
             setLoading(true);
-            setError(null);
             const data = await schoolAdminService.listUsers();
             setUsers(data);
         } catch (err: any) {
@@ -65,10 +81,8 @@ const AccountManagement = () => {
     const fetchEligibleStudents = async () => {
         try {
             setLoading(true);
-            setError(null);
             const data = await schoolAdminService.getStudentsEligibleForAccount();
             setEligibleStudents(data);
-            setSelectedStudents(new Set());
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tải danh sách học sinh.");
         } finally {
@@ -79,10 +93,8 @@ const AccountManagement = () => {
     const fetchEligibleTeachers = async () => {
         try {
             setLoading(true);
-            setError(null);
             const data = await schoolAdminService.getTeachersEligibleForAccount();
             setEligibleTeachers(data);
-            setSelectedStudents(new Set());
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tải danh sách giáo viên.");
         } finally {
@@ -93,10 +105,8 @@ const AccountManagement = () => {
     const fetchEligibleGuardians = async () => {
         try {
             setLoading(true);
-            setError(null);
             const data = await schoolAdminService.getGuardiansEligibleForAccount();
             setEligibleGuardians(data);
-            setSelectedStudents(new Set());
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tải danh sách phụ huynh.");
         } finally {
@@ -105,25 +115,25 @@ const AccountManagement = () => {
     };
 
     const toggleSelect = (id: string) => {
-        const newSet = new Set(selectedStudents);
+        const newSet = new Set(selectedIds);
         if (newSet.has(id)) {
             newSet.delete(id);
         } else {
             newSet.add(id);
         }
-        setSelectedStudents(newSet);
+        setSelectedIds(newSet);
     };
 
     const toggleSelectAll = (list: any[]) => {
-        if (selectedStudents.size === list.length && list.length > 0) {
-            setSelectedStudents(new Set());
+        if (selectedIds.size === list.length && list.length > 0) {
+            setSelectedIds(new Set());
         } else {
-            setSelectedStudents(new Set(list.map(i => i.id)));
+            setSelectedIds(new Set(list.map(i => i.id)));
         }
     };
 
     const handleCreateAccounts = async () => {
-        if (selectedStudents.size === 0) return;
+        if (selectedIds.size === 0) return;
 
         try {
             setCreating(true);
@@ -132,17 +142,21 @@ const AccountManagement = () => {
             let response: BulkAccountCreationResponse;
 
             if (activeTab === 'create-student-accounts') {
-                response = await schoolAdminService.createStudentAccounts(Array.from(selectedStudents));
+                response = await schoolAdminService.createStudentAccounts(Array.from(selectedIds));
                 await fetchEligibleStudents();
             } else if (activeTab === 'create-teacher-accounts') {
-                response = await schoolAdminService.createTeacherAccounts(Array.from(selectedStudents));
+                response = await schoolAdminService.createTeacherAccounts(Array.from(selectedIds));
                 await fetchEligibleTeachers();
             } else {
-                response = await schoolAdminService.createGuardianAccounts(Array.from(selectedStudents));
+                response = await schoolAdminService.createGuardianAccounts(Array.from(selectedIds));
                 await fetchEligibleGuardians();
             }
 
             setResult(response);
+            setBulkResultModalOpen(true);
+            if (response.created > 0) {
+                setSelectedIds(new Set());
+            }
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tạo tài khoản.");
         } finally {
@@ -150,37 +164,104 @@ const AccountManagement = () => {
         }
     };
 
-    const handleResetPassword = async (userId: string, email: string) => {
-        if (!window.confirm(`Bạn có chắc chắn muốn đặt lại mật khẩu cho ${email}? Mật khẩu mới sẽ được gửi qua email.`)) {
-            return;
-        }
-
-        try {
-            setLoading(true);
-            await schoolAdminService.resetPassword(userId);
-            alert(`Đã đặt lại mật khẩu cho thành công. Vui lòng kiểm tra email.`);
-        } catch (err: any) {
-            alert(err?.response?.data?.message || "Không thể đặt lại mật khẩu.");
-        } finally {
-            setLoading(false);
-        }
+    const handleResetPassword = (userId: string, email: string) => {
+        confirm({
+            title: "Đặt lại mật khẩu",
+            message: (
+                <span>
+                    Bạn có chắc chắn muốn đặt lại mật khẩu cho <strong>{email}</strong>? Mật khẩu mới sẽ được gửi qua email.
+                </span>
+            ),
+            confirmText: "Đặt lại mật khẩu",
+            onConfirm: async () => {
+                try {
+                    setLoading(true);
+                    await schoolAdminService.resetPassword(userId);
+                    showSuccess("Đã đặt lại mật khẩu thành công. Vui lòng kiểm tra email.");
+                } catch (err: any) {
+                    setError(err?.response?.data?.message || "Không thể đặt lại mật khẩu.");
+                } finally {
+                    setLoading(false);
+                }
+            }
+        });
     };
 
-    const handleToggleStatus = async (userId: string, currentStatus: boolean) => {
+    const handleToggleStatus = (userId: string, currentStatus: boolean, email: string) => {
         const action = currentStatus ? "khóa" : "mở khóa";
-        if (!window.confirm(`Bạn có chắc chắn muốn ${action} tài khoản này?`)) {
-            return;
-        }
-
-        try {
-            setLoading(true);
-            await schoolAdminService.updateUserStatus(userId, !currentStatus);
-            await fetchUsers(); // Refresh list
-        } catch (err: any) {
-            alert(err?.response?.data?.message || `Không thể ${action} tài khoản.`);
-            setLoading(false);
-        }
+        confirm({
+            title: `${action.charAt(0).toUpperCase() + action.slice(1)} tài khoản`,
+            message: (
+                <span>
+                    Bạn có chắc chắn muốn {action} tài khoản của <strong>{email}</strong>?
+                </span>
+            ),
+            variant: currentStatus ? 'warning' : 'success',
+            confirmText: action.charAt(0).toUpperCase() + action.slice(1),
+            onConfirm: async () => {
+                try {
+                    setLoading(true);
+                    await schoolAdminService.updateUserStatus(userId, !currentStatus);
+                    await fetchUsers();
+                    showSuccess(`Đã ${action} tài khoản thành công.`);
+                } catch (err: any) {
+                    setError(err?.response?.data?.message || `Không thể ${action} tài khoản.`);
+                } finally {
+                    setLoading(false);
+                }
+            }
+        });
     };
+
+    const handleDeleteUser = (user: UserDto) => {
+        confirm({
+            title: "Xóa tài khoản",
+            message: (
+                <div>
+                    <p>Bạn có chắc chắn muốn xóa tài khoản của <strong>{user.fullName}</strong> ({user.email})?</p>
+                    <p className="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded border border-red-100">
+                        Lưu ý: Hành động này sẽ gỡ liên kết tài khoản khỏi hồ sơ (nếu có), nhưng KHÔNG xóa hồ sơ học sinh/giáo viên.
+                    </p>
+                </div>
+            ),
+            variant: 'danger',
+            confirmText: "Xóa tài khoản",
+            onConfirm: async () => {
+                try {
+                    setLoading(true);
+                    await schoolAdminService.deleteUser(user.id);
+                    showSuccess("Đã xóa tài khoản thành công.");
+                    await fetchUsers();
+                } catch (err: any) {
+                    setError(err?.response?.data?.message || "Không thể xóa tài khoản.");
+                } finally {
+                    setLoading(false);
+                }
+            }
+        });
+    };
+
+    // Columns definitions
+    const studentColumns = [
+        { header: "Mã HS", accessor: (item: StudentDto) => <span className="text-sm font-medium text-gray-900">{item.studentCode}</span> },
+        { header: "Họ tên", accessor: (item: StudentDto) => <span className="text-sm text-gray-700">{item.fullName}</span> },
+        { header: "Email", accessor: (item: StudentDto) => <span className="text-sm text-gray-600">{item.email}</span> },
+        { header: "Lớp", accessor: (item: StudentDto) => <span className="text-sm text-gray-600">{item.currentClassName || '—'}</span> },
+    ];
+
+    const teacherColumns = [
+        { header: "Mã GV", accessor: (item: TeacherDto) => <span className="text-sm font-medium text-gray-900">{item.teacherCode}</span> },
+        { header: "Họ tên", accessor: (item: TeacherDto) => <span className="text-sm text-gray-700">{item.fullName}</span> },
+        { header: "Email", accessor: (item: TeacherDto) => <span className="text-sm text-gray-600">{item.email}</span> },
+    ];
+
+    const guardianColumns = [
+        { header: "Họ tên PH", accessor: (item: GuardianDto) => <span className="text-sm font-medium text-gray-900">{item.fullName}</span> },
+        { header: "Email", accessor: (item: GuardianDto) => <span className="text-sm text-gray-700">{item.email}</span> },
+        { header: "SĐT", accessor: (item: GuardianDto) => <span className="text-sm text-gray-600">{item.phone || '—'}</span> },
+        { header: "Phụ huynh của", accessor: (item: GuardianDto) => <span className="text-sm text-gray-600">{item.studentName}</span> },
+        { header: "Lớp", accessor: (item: GuardianDto) => <span className="text-sm text-gray-600">{item.studentClass}</span> },
+    ];
 
     return (
         <div className="animate-fade-in-up">
@@ -191,10 +272,10 @@ const AccountManagement = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 mb-6 border-b border-gray-200">
+            <div className="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto">
                 <button
                     onClick={() => setActiveTab('users')}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'users'
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'users'
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700'
                         }`}
@@ -206,7 +287,7 @@ const AccountManagement = () => {
                 </button>
                 <button
                     onClick={() => setActiveTab('create-student-accounts')}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'create-student-accounts'
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'create-student-accounts'
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700'
                         }`}
@@ -218,7 +299,7 @@ const AccountManagement = () => {
                 </button>
                 <button
                     onClick={() => setActiveTab('create-teacher-accounts')}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'create-teacher-accounts'
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'create-teacher-accounts'
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700'
                         }`}
@@ -230,7 +311,7 @@ const AccountManagement = () => {
                 </button>
                 <button
                     onClick={() => setActiveTab('create-guardian-accounts')}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'create-guardian-accounts'
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'create-guardian-accounts'
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700'
                         }`}
@@ -248,23 +329,7 @@ const AccountManagement = () => {
                 </div>
             )}
 
-            {result && (
-                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm mb-4">
-                    <p className="font-medium">Kết quả xử lý:</p>
-                    <p>Đã xử lý thành công (Tạo mới/Liên kết): {result.created}</p>
-                    {result.skipped > 0 && <p>Bỏ qua/Lỗi: {result.skipped}</p>}
-                    {result.errors.length > 0 && (
-                        <ul className="mt-2 text-xs">
-                            {result.errors.slice(0, 5).map((e, i) => {
-                                const message = e.includes(': ') ? e.split(': ').slice(1).join(': ') : e;
-                                return <li key={i}>• {message}</li>;
-                            })}
-                        </ul>
-                    )}
-                </div>
-            )}
-
-            {loading ? (
+            {loading && activeTab === 'users' ? (
                 <div className="p-8 text-center text-gray-500">Đang tải...</div>
             ) : activeTab === 'users' ? (
                 /* Users List */
@@ -341,7 +406,7 @@ const AccountManagement = () => {
                                                     <KeyIcon className="w-4 h-4" />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleToggleStatus(user.id, user.enabled)}
+                                                    onClick={() => handleToggleStatus(user.id, user.enabled, user.email)}
                                                     disabled={currentUser?.id === user.id}
                                                     className={`p-1.5 rounded-lg transition-colors ${currentUser?.id === user.id
                                                         ? 'text-gray-300 cursor-not-allowed'
@@ -354,6 +419,19 @@ const AccountManagement = () => {
                                                         : user.enabled ? "Khóa tài khoản" : "Mở khóa tài khoản"}
                                                 >
                                                     {user.enabled ? <LockIcon className="w-4 h-4" /> : <UnlockIcon className="w-4 h-4" />}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteUser(user)}
+                                                    disabled={currentUser?.id === user.id || user.role === 'SCHOOL_ADMIN' || user.role === 'SYSTEM_ADMIN'}
+                                                    className={`p-1.5 rounded-lg transition-colors ${currentUser?.id === user.id || user.role === 'SCHOOL_ADMIN' || user.role === 'SYSTEM_ADMIN'
+                                                        ? 'text-gray-300 cursor-not-allowed'
+                                                        : 'text-gray-500 hover:text-red-600 hover:bg-red-50'
+                                                        }`}
+                                                    title={currentUser?.id === user.id
+                                                        ? "Không thể xóa chính mình"
+                                                        : (user.role === 'SCHOOL_ADMIN' || user.role === 'SYSTEM_ADMIN') ? "Không thể xóa quản trị viên" : "Xóa tài khoản"}
+                                                >
+                                                    <TrashIcon className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         </td>
@@ -371,202 +449,56 @@ const AccountManagement = () => {
                     </div>
                 </div>
             ) : activeTab === 'create-student-accounts' ? (
-                /* Create Student Accounts */
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-                    <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                        <div>
-                            <h2 className="text-lg font-semibold text-gray-900">Học sinh chưa có tài khoản</h2>
-                            <p className="text-sm text-gray-500">Chọn học sinh để tạo tài khoản đăng nhập</p>
-                        </div>
-                        <button
-                            onClick={handleCreateAccounts}
-                            disabled={selectedStudents.size === 0 || creating}
-                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <PlusIcon />
-                            <span>{creating ? 'Đang tạo...' : `Tạo tài khoản (${selectedStudents.size})`}</span>
-                        </button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedStudents.size === eligibleStudents.length && eligibleStudents.length > 0}
-                                            onChange={() => toggleSelectAll(eligibleStudents)}
-                                            className="w-4 h-4 text-blue-600 rounded border-gray-300"
-                                        />
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Mã HS</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Họ tên</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Lớp</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {eligibleStudents.map((stu) => (
-                                    <tr key={stu.id} className="hover:bg-blue-50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedStudents.has(stu.id)}
-                                                onChange={() => toggleSelect(stu.id)}
-                                                className="w-4 h-4 text-blue-600 rounded border-gray-300"
-                                            />
-                                        </td>
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{stu.studentCode}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-700">{stu.fullName}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-600">{stu.email}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-600">{stu.currentClassName || '—'}</td>
-                                    </tr>
-                                ))}
-                                {eligibleStudents.length === 0 && (
-                                    <tr>
-                                        <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                                            Không có học sinh nào đủ điều kiện tạo tài khoản.<br />
-                                            <span className="text-xs">(Cần có email và chưa có tài khoản)</span>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <AccountCreationTable
+                    title="Học sinh chưa có tài khoản"
+                    subtitle="Chọn học sinh để tạo tài khoản đăng nhập"
+                    data={eligibleStudents}
+                    columns={studentColumns}
+                    selectedIds={selectedIds}
+                    onToggleSelect={toggleSelect}
+                    onToggleSelectAll={() => toggleSelectAll(eligibleStudents)}
+                    onCreate={handleCreateAccounts}
+                    creating={creating}
+                    emptyMessage={<>Không có học sinh nào đủ điều kiện tạo tài khoản.<br /><span className="text-xs">(Cần có email và chưa có tài khoản)</span></>}
+                />
             ) : activeTab === 'create-teacher-accounts' ? (
-                /* Create Teacher Accounts */
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-                    <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                        <div>
-                            <h2 className="text-lg font-semibold text-gray-900">Giáo viên chưa có tài khoản</h2>
-                            <p className="text-sm text-gray-500">Chọn giáo viên để tạo tài khoản đăng nhập</p>
-                        </div>
-                        <button
-                            onClick={handleCreateAccounts}
-                            disabled={selectedStudents.size === 0 || creating}
-                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <PlusIcon />
-                            <span>{creating ? 'Đang tạo...' : `Tạo tài khoản (${selectedStudents.size})`}</span>
-                        </button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedStudents.size === eligibleTeachers.length && eligibleTeachers.length > 0}
-                                            onChange={() => toggleSelectAll(eligibleTeachers)}
-                                            className="w-4 h-4 text-blue-600 rounded border-gray-300"
-                                        />
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Mã GV</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Họ tên</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {eligibleTeachers.map((teacher) => (
-                                    <tr key={teacher.id} className="hover:bg-blue-50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedStudents.has(teacher.id)}
-                                                onChange={() => toggleSelect(teacher.id)}
-                                                className="w-4 h-4 text-blue-600 rounded border-gray-300"
-                                            />
-                                        </td>
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{teacher.teacherCode}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-700">{teacher.fullName}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-600">{teacher.email}</td>
-
-                                    </tr>
-                                ))}
-                                {eligibleTeachers.length === 0 && (
-                                    <tr>
-                                        <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                                            Không có giáo viên nào đủ điều kiện tạo tài khoản.<br />
-                                            <span className="text-xs">(Cần có email và chưa có tài khoản)</span>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <AccountCreationTable
+                    title="Giáo viên chưa có tài khoản"
+                    subtitle="Chọn giáo viên để tạo tài khoản đăng nhập"
+                    data={eligibleTeachers}
+                    columns={teacherColumns}
+                    selectedIds={selectedIds}
+                    onToggleSelect={toggleSelect}
+                    onToggleSelectAll={() => toggleSelectAll(eligibleTeachers)}
+                    onCreate={handleCreateAccounts}
+                    creating={creating}
+                    emptyMessage={<>Không có giáo viên nào đủ điều kiện tạo tài khoản.<br /><span className="text-xs">(Cần có email và chưa có tài khoản)</span></>}
+                />
             ) : (
-                /* Create Guardian Accounts */
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-                    <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                        <div>
-                            <h2 className="text-lg font-semibold text-gray-900">Phụ huynh chưa có tài khoản</h2>
-                            <p className="text-sm text-gray-500">Chọn phụ huynh để tạo hoặc liên kết tài khoản</p>
-                        </div>
-                        <button
-                            onClick={handleCreateAccounts}
-                            disabled={selectedStudents.size === 0 || creating}
-                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <PlusIcon />
-                            <span>{creating ? 'Đang xử lý...' : `Tạo/Liên kết tài khoản (${selectedStudents.size})`}</span>
-                        </button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedStudents.size === eligibleGuardians.length && eligibleGuardians.length > 0}
-                                            onChange={() => toggleSelectAll(eligibleGuardians)}
-                                            className="w-4 h-4 text-blue-600 rounded border-gray-300"
-                                        />
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Họ tên PH</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">SĐT</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Phụ huynh của</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Lớp</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {eligibleGuardians.map((guardian) => (
-                                    <tr key={guardian.id} className="hover:bg-blue-50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedStudents.has(guardian.id)}
-                                                onChange={() => toggleSelect(guardian.id)}
-                                                className="w-4 h-4 text-blue-600 rounded border-gray-300"
-                                            />
-                                        </td>
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{guardian.fullName}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-700">{guardian.email}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-600">{guardian.phone || '—'}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-600">{guardian.studentName}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-600">{guardian.studentClass}</td>
-                                    </tr>
-                                ))}
-                                {eligibleGuardians.length === 0 && (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                                            Không có phụ huynh nào đủ điều kiện tạo tài khoản.<br />
-                                            <span className="text-xs">(Cần có email và chưa có tài khoản)</span>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <AccountCreationTable
+                    title="Phụ huynh chưa có tài khoản"
+                    subtitle="Chọn phụ huynh để tạo hoặc liên kết tài khoản"
+                    data={eligibleGuardians}
+                    columns={guardianColumns}
+                    selectedIds={selectedIds}
+                    onToggleSelect={toggleSelect}
+                    onToggleSelectAll={() => toggleSelectAll(eligibleGuardians)}
+                    onCreate={handleCreateAccounts}
+                    creating={creating}
+                    createButtonLabel={`Tạo/Liên kết tài khoản (${selectedIds.size})`}
+                    emptyMessage={<>Không có phụ huynh nào đủ điều kiện tạo tài khoản.<br /><span className="text-xs">(Cần có email và chưa có tài khoản)</span></>}
+                />
             )}
+
+            <ConfirmationDialog />
+
+            <BulkAccountResultModal
+                isOpen={bulkResultModalOpen}
+                onClose={() => setBulkResultModalOpen(false)}
+                result={result}
+            />
         </div>
     );
 };
-
 
 export default AccountManagement;
