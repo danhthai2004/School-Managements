@@ -38,6 +38,9 @@ public class StudentManagementService {
     private final com.schoolmanagement.backend.repo.UserRepository users;
 
     @org.springframework.beans.factory.annotation.Autowired
+    private FileStorageService fileStorageService;
+
+    @org.springframework.beans.factory.annotation.Autowired
     private BulkDeleteHelperService bulkDeleteHelper;
 
     public StudentManagementService(StudentRepository students, GuardianRepository guardians,
@@ -227,6 +230,27 @@ public class StudentManagementService {
         }
 
         return toStudentDto(student);
+    }
+
+    @Transactional
+    public String uploadAvatar(School school, UUID studentId, org.springframework.web.multipart.MultipartFile file) {
+        Student student = students.findById(studentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+
+        if (!student.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Học sinh không thuộc trường này");
+        }
+
+        try {
+            // "avatars" is the folder name in Cloudinary
+            String url = fileStorageService.uploadFile(file, "avatars");
+            student.setAvatarUrl(url);
+            students.save(student);
+            return url;
+        } catch (java.io.IOException e) {
+            log.error("Error uploading avatar for student {}", studentId, e);
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi khi upload ảnh đại diện: " + e.getMessage());
+        }
     }
 
     // @Transactional - REMOVED to allow partial success (each delete is its own

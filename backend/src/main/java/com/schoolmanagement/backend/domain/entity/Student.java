@@ -51,12 +51,6 @@ public class Student {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
-    @Column(name = "cccd_url")
-    private String cccdUrl;
-
-    @Column(name = "birth_cert_url")
-    private String birthCertUrl;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
