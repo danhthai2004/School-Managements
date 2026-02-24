@@ -22,6 +22,7 @@ public record StudentDto(
         UUID currentClassId,
         // Guardians
         List<GuardianDto> guardians) {
+
     public record GuardianDto(
             UUID id,
             String fullName,

@@ -76,7 +76,7 @@ export default function StudentTimetable() {
   const curDay = <span className="text-red-500">(*)</span>;
 
   return (
-    <div>
+    <div className="animate-fade-in-up">
       <div>
         <h1 className="text-2xl text-gray-700 font-semibold">
           Thời khóa biểu lớp {student?.currentClassName}

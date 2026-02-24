@@ -47,14 +47,15 @@ import StudentScoresPage from "../views/Student/StudentScoresPage";
 import StudentAttendancePage from "../views/Student/StudentAttendancePage";
 import StudentAnalysisPage from "../views/Student/StudentAnalysisPage";
 import GuardianStudentExamSchedulePage from "../views/guardian/GuardianStudentExamSchedulePage.tsx";
+import GuardianProfile from "../views/guardian/GuardianProfile.tsx";
 
 
 export default function AppRouter() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/login" element={<LoginPage/>} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage/>} />
       <Route path="/verify" element={<VerifyPage />} />
       <Route path="/new-password" element={<NewPasswordPage />} />
 
@@ -120,6 +121,7 @@ export default function AppRouter() {
         <Route path="notification" element={<GuardianNotification/>}/>
         <Route path="timetable" element={<StudentTimetable/>}/>
         <Route path="examschedule" element={<GuardianStudentExamSchedulePage/>}/>
+        <Route path="profile" element={<GuardianProfile/>}/>
       </Route>
 
       <Route path="/student" element={

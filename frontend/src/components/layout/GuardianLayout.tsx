@@ -119,7 +119,7 @@ export default function GuardianLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 mb-4">
+    <div className="animate-fade-in-up min-h-screen bg-gray-50 mb-4">
       {/* Sidebar - Fixed */}
       <aside
         className={`fixed top-0 left-0 h-full bg-white border-r border-gray-200 flex flex-col z-40 transition-all duration-300 ${
@@ -297,7 +297,9 @@ export default function GuardianLayout() {
                         onClick={() => setProfileDropdownOpen(false)}
                       >
                         <UserIcon/>
-                        <span>Thông tin cá nhân</span>
+                        <Link to="/guardian/profile">
+                          <span>Thông tin cá nhân</span>
+                        </Link>
                       </button>
                       <button
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"

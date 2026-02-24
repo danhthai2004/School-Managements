@@ -10,6 +10,14 @@ export type TimetableDto = {
   subjectName: string
 }
 
+export type GuardianDto = {
+  id: string,
+  fullName: string,
+  phone: string,
+  email: string,
+  relationship: string,
+}
+
 // ========== SERVICE ==============
 export const guardianService = {
   getStudentInfo: async (): Promise<StudentDto> => {
@@ -29,7 +37,16 @@ export const guardianService = {
       });
       return res.data;
     } catch (err) {
-      throw new Error("An erorr occured" + err);
+      throw new Error("An error occured" + err);
+    }
+  },
+
+  getUserProfileInfo: async(): Promise<GuardianDto> => {
+    try {
+      const res = await api.get("/guardian/profile");
+      return res.data;
+    } catch (err) {
+      throw new Error("An error occured" + err);
     }
   }
 }

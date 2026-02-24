@@ -23,7 +23,7 @@ export default function GuardianDashboardPage() {
   }, []);
 
   return (
-    <div>
+    <div className="animate-fade-in-up">
       <div>
         <h1 className="text-2xl text-gray-700 font-semibold">
           Tổng quan học tập
