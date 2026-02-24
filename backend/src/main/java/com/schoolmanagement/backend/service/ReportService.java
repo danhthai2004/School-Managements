@@ -10,7 +10,6 @@ import com.schoolmanagement.backend.dto.report.StudentReportDto.EnrollmentStatDt
 import com.schoolmanagement.backend.dto.report.StudentReportDto.GenderStats;
 import com.schoolmanagement.backend.dto.report.TeacherReportDto.*;
 import com.schoolmanagement.backend.dto.report.ClassReportDto.*;
-import com.schoolmanagement.backend.dto.report.EnrollmentTrendDto.EnrollmentByGradeDto;
 import com.schoolmanagement.backend.repo.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

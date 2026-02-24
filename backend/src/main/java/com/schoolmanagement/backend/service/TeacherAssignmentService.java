@@ -5,7 +5,6 @@ import com.schoolmanagement.backend.dto.TeacherAssignmentDto;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.repo.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.TeacherAssignmentRepository;
-import com.schoolmanagement.backend.repo.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
