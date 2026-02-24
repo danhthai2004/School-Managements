@@ -21,7 +21,9 @@ public class TeacherAssignmentService {
 
     private final TeacherAssignmentRepository assignments;
     private final ClassRoomRepository classRooms;
-    private final UserRepository users;
+    // private final UserRepository users; // No longer needed directly for
+    // assignment
+    private final com.schoolmanagement.backend.repo.TeacherRepository teachers;
 
     /**
      * Initialize empty assignments for all classes based on their combinations.
@@ -76,11 +78,49 @@ public class TeacherAssignmentService {
             throw new ApiException(HttpStatus.FORBIDDEN, "Không có quyền chỉnh sửa");
         }
 
-        User teacher = null;
+        Teacher teacher = null;
         if (teacherId != null) {
-            teacher = users.findById(teacherId)
+            teacher = teachers.findById(teacherId)
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên"));
-            // TODO: Verify teacher role?
+
+            if (!teacher.getSchool().getId().equals(school.getId())) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Giáo viên không thuộc trường này");
+            }
+
+            // Validate Subject
+            // Validate Subject
+            boolean canTeach = false;
+            if (teacher.getSubjects() == null || teacher.getSubjects().isEmpty()) {
+                // If no subjects listed, maybe allow? Let's assume strict rule: must have
+                // subject.
+                // Or maybe allow if "Specialization" string matches?
+                // Let's stick to strict: must match one of the assigned subjects.
+            } else {
+                for (com.schoolmanagement.backend.domain.entity.Subject s : teacher.getSubjects()) {
+                    if (s.getId().equals(assignment.getSubject().getId())) {
+                        canTeach = true;
+                        break;
+                    }
+                    // Smart check: Allow if assignment is SPECIALIZED equivalent of a teacher
+                    // subject
+                    String teacherSubjectCode = s.getCode();
+                    String assignmentSubjectCode = assignment.getSubject().getCode();
+                    if (assignmentSubjectCode.startsWith("CD_") && assignmentSubjectCode.contains(teacherSubjectCode)) {
+                        canTeach = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!canTeach && !teacher.getSubjects().isEmpty()) {
+                // Format list of subjects
+                String subjectNames = teacher.getSubjects().stream()
+                        .map(com.schoolmanagement.backend.domain.entity.Subject::getName)
+                        .collect(Collectors.joining(", "));
+                throw new ApiException(HttpStatus.BAD_REQUEST,
+                        "Giáo viên có chuyên môn [" + subjectNames + "] không thể dạy môn "
+                                + assignment.getSubject().getName());
+            }
         }
 
         assignment.setTeacher(teacher);

@@ -23,14 +23,11 @@ public class School {
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false, unique = true, length = 10)
+    @Column(nullable = false, unique = true, length = 20)
     private String code;
 
     @Column(name = "province_code")
     private Integer provinceCode;
-
-    @Column(name = "ward_code")
-    private Integer wardCode;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "school_level")
@@ -46,7 +43,6 @@ public class School {
     @JoinColumn(name = "province_code", insertable = false, updatable = false)
     private Province province;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ward_code", insertable = false, updatable = false)
-    private Ward ward;
+    // Ward relationship removed
+
 }

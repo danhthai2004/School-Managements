@@ -17,6 +17,7 @@ export type ClassRoomDto = {
     maxCapacity: number;
     roomNumber: string | null;
     department: string | null;
+    session: 'SANG' | 'CHIEU' | null;
     status: string;
     homeroomTeacherId: string | null;
     homeroomTeacherName: string | null;
@@ -32,6 +33,7 @@ export type CreateClassRoomRequest = {
     maxCapacity: number;
     roomNumber?: string;
     department?: 'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI';
+    session?: 'SANG' | 'CHIEU';
     homeroomTeacherId?: string;
     combinationId?: string;
 };
@@ -90,6 +92,8 @@ export type CreateStudentRequest = {
     enrollmentDate?: string;
     classId?: string;
     academicYear?: string;
+    department?: 'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI';
+    grade?: number;
     guardians?: GuardianRequest[];
 };
 
@@ -130,6 +134,8 @@ export type TeacherDto = {
     status: string;
     homeroomClassId: string | null;
     homeroomClassName: string | null;
+    subjects: SubjectDto[];
+    subjectNames: string | null;
     avatarUrl: string | null;
 };
 
@@ -143,6 +149,7 @@ export type CreateTeacherRequest = {
     phone?: string;
     specialization?: string;
     degree?: string;
+    subjectIds?: string[];
     createAccount: boolean;
 };
 
@@ -163,6 +170,11 @@ export const schoolAdminService = {
 
     createClass: async (req: CreateClassRoomRequest): Promise<ClassRoomDto> => {
         const res = await api.post<ClassRoomDto>("/school/classes", req);
+        return res.data;
+    },
+
+    getClass: async (id: string): Promise<ClassRoomDto> => {
+        const res = await api.get<ClassRoomDto>(`/school/classes/${id}`);
         return res.data;
     },
 
@@ -200,6 +212,19 @@ export const schoolAdminService = {
         await api.delete(`/school/teachers/${teacherId}`);
     },
 
+    // Import teachers from Excel
+    importTeachersFromExcel: async (file: File): Promise<ImportTeacherResult> => {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await api.post<ImportTeacherResult>("/school/teachers/import-excel", formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
+        return res.data;
+    },
+
     // Users
     listUsers: async (): Promise<UserDto[]> => {
         const res = await api.get<UserDto[]>("/school/users");
@@ -207,8 +232,9 @@ export const schoolAdminService = {
     },
 
     // Students
-    listStudents: async (): Promise<StudentDto[]> => {
-        const res = await api.get<StudentDto[]>("/school/students");
+    listStudents: async (classId?: string): Promise<StudentDto[]> => {
+        const params = classId ? { classId } : {};
+        const res = await api.get<StudentDto[]>("/school/students", { params });
         return res.data;
     },
 
@@ -331,13 +357,28 @@ export type ImportError = {
     errorMessage: string;
 };
 
+// ==================== IMPORT TEACHER RESULT TYPE ====================
+
+export type ImportTeacherResult = {
+    totalRows: number;
+    successCount: number;
+    failedCount: number;
+    errors: ImportTeacherError[];
+};
+
+export type ImportTeacherError = {
+    rowNumber: number;
+    teacherName: string;
+    errorMessage: string;
+};
+
 // ==================== CURRICULUM TYPES ====================
 
 export type SubjectDto = {
     id: string;
     name: string;
     code: string | null;
-    type: 'COMPULSORY' | 'ELECTIVE' | 'SPECIALIZED';
+    type: 'COMPULSORY' | 'ELECTIVE' | 'SPECIALIZED' | 'ACTIVITY';
     stream: 'TU_NHIEN' | 'XA_HOI' | null;
     totalLessons: number | null;
     active: boolean;

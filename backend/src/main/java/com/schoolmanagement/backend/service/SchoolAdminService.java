@@ -10,6 +10,7 @@ import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.repo.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.StudentRepository;
 import com.schoolmanagement.backend.repo.UserRepository;
+import com.schoolmanagement.backend.util.TimeUtils;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -33,31 +34,28 @@ public class SchoolAdminService {
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
 
+    private final com.schoolmanagement.backend.repo.TeacherRepository teachers;
+
     public SchoolAdminService(UserRepository users, ClassRoomRepository classRooms,
             StudentRepository students,
-            PasswordEncoder passwordEncoder, MailService mailService) {
+            PasswordEncoder passwordEncoder, MailService mailService,
+            com.schoolmanagement.backend.repo.TeacherRepository teachers) {
         this.users = users;
         this.classRooms = classRooms;
         this.students = students;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
+        this.teachers = teachers;
     }
 
     // ==================== SCHOOL STATS ====================
 
     public SchoolStatsDto getSchoolStats(School school) {
         long totalClasses = classRooms.countBySchool(school);
-        long totalTeachers = users.countBySchoolAndRole(school, Role.TEACHER);
+        long totalTeachers = teachers.countBySchool(school);
         long totalStudents = students.countBySchool(school);
 
-        int year = java.time.LocalDate.now().getYear();
-        int month = java.time.LocalDate.now().getMonthValue();
-        String currentAcademicYear;
-        if (month >= 9) {
-            currentAcademicYear = year + "-" + (year + 1);
-        } else {
-            currentAcademicYear = (year - 1) + "-" + year;
-        }
+        String currentAcademicYear = TimeUtils.getCurrentAcademicYear();
 
         return new SchoolStatsDto(totalClasses, totalTeachers, totalStudents, currentAcademicYear);
     }
@@ -92,9 +90,8 @@ public class SchoolAdminService {
     }
 
     public List<UserDto> listUsersInSchool(School school) {
-        // naive: load all then filter. For small class demo OK.
-        return users.findAll().stream()
-                .filter(u -> u.getSchool() != null && u.getSchool().getId().equals(school.getId()))
+        return users.findBySchoolId(school.getId()).stream()
+                .filter(u -> u.getRole() != Role.SYSTEM_ADMIN)
                 .map(u -> new UserDto(u.getId(), u.getEmail(), u.getFullName(), u.getRole(), school.getId(),
                         school.getCode()))
                 .toList();

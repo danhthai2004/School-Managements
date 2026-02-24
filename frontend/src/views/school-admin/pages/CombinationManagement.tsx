@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { schoolAdminService, type CombinationDto, type SubjectDto, type CreateCombinationRequest } from "../../../services/schoolAdminService";
 import { Plus, X, Check, AlertCircle, Edit, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -138,7 +139,10 @@ export default function CombinationManagement() {
     const electives = subjects.filter(s => s.type === 'ELECTIVE' && s.active && s.stream === formData.stream);
     // Relaxed filtering for Specialized Subjects: Show ALL active specialized subjects
     const specialized = subjects.filter(s => s.type === 'SPECIALIZED' && s.active);
-    const compulsory = subjects.filter(s => s.type === 'COMPULSORY' && s.active);
+    // Filter out ACTIVITY subjects (Chào cờ, Sinh hoạt lớp)
+    const compulsory = subjects.filter(s =>
+        s.type === 'COMPULSORY' && s.active && s.code !== 'CC' && s.code !== 'SHL'
+    );
 
     return (
         <div className="p-4 space-y-6">
@@ -170,7 +174,7 @@ export default function CombinationManagement() {
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <h3 className="font-bold text-gray-900 text-lg">{combo.name}</h3>
-                                        <span className={`text-[10px] px-2 py-0.5 rounded-full border ${combo.stream === 'TU_NHIEN'
+                                        <span className={`text-[10px] px-2.5 py-0.5 rounded-full border ${combo.stream === 'TU_NHIEN'
                                             ? 'bg-blue-50 text-blue-700 border-blue-100'
                                             : 'bg-pink-50 text-pink-700 border-pink-100'
                                             }`}>
@@ -200,7 +204,7 @@ export default function CombinationManagement() {
                                 <p className="text-sm font-medium text-gray-700 mb-2">Môn lựa chọn:</p>
                                 <div className="flex flex-wrap gap-2 mb-4">
                                     {combo.subjects.filter(s => s.type === 'ELECTIVE').map(s => (
-                                        <span key={s.id} className="bg-green-50 text-green-700 border border-green-100 text-xs px-2 py-1 rounded-full">
+                                        <span key={s.id} className="bg-green-50 text-green-700 border border-green-100 text-xs px-2.5 py-0.5 rounded-full">
                                             {s.name}
                                         </span>
                                     ))}
@@ -209,7 +213,7 @@ export default function CombinationManagement() {
                                 <p className="text-sm font-medium text-gray-700 mb-2">Chuyên đề:</p>
                                 <div className="flex flex-wrap gap-2">
                                     {combo.subjects.filter(s => s.type === 'SPECIALIZED').map(s => (
-                                        <span key={s.id} className="bg-purple-50 text-purple-700 border border-purple-100 text-xs px-2 py-1 rounded-full">
+                                        <span key={s.id} className="bg-purple-50 text-purple-700 border border-purple-100 text-xs px-2.5 py-0.5 rounded-full">
                                             {s.name}
                                         </span>
                                     ))}
@@ -227,17 +231,18 @@ export default function CombinationManagement() {
             )}
 
             {/* Create Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-                        <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
+            {isModalOpen && createPortal(
+                <div className="fixed inset-0 z-[100] flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 overflow-hidden max-h-[90vh] flex flex-col z-[100]">
+                        <div className="bg-white px-6 py-4 border-b border-gray-100 flex justify-between items-center flex-none z-[110]">
                             <h2 className="text-xl font-bold text-gray-900">{editingId ? 'Cập nhật Tổ hợp' : 'Tạo Tổ hợp mới'}</h2>
                             <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
                                 <X className="w-6 h-6" />
                             </button>
                         </div>
 
-                        <div className="p-6 space-y-6">
+                        <div className="p-6 space-y-6 overflow-y-auto">
                             {/* Basic Info */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -374,7 +379,7 @@ export default function CombinationManagement() {
 
                         </div>
 
-                        <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 sticky bottom-0">
+                        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 flex-none">
                             <button
                                 onClick={() => setIsModalOpen(false)}
                                 className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-white font-medium"
@@ -393,7 +398,8 @@ export default function CombinationManagement() {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

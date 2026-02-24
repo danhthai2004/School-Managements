@@ -1,9 +1,25 @@
 package com.schoolmanagement.backend.service;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.schoolmanagement.backend.domain.ClassRoomStatus;
 import com.schoolmanagement.backend.domain.Role;
 import com.schoolmanagement.backend.domain.StudentStatus;
-import com.schoolmanagement.backend.domain.entity.*;
+import com.schoolmanagement.backend.domain.entity.ClassEnrollment;
+import com.schoolmanagement.backend.domain.entity.ClassRoom;
+import com.schoolmanagement.backend.domain.entity.Guardian;
+import com.schoolmanagement.backend.domain.entity.School;
+import com.schoolmanagement.backend.domain.entity.Student;
+import com.schoolmanagement.backend.domain.entity.User;
 import com.schoolmanagement.backend.dto.BulkAccountCreationResponse;
 import com.schoolmanagement.backend.dto.StudentDto;
 import com.schoolmanagement.backend.dto.UserDto;
@@ -96,6 +112,22 @@ public class StudentManagementService {
                         .email(g.email())
                         .relationship(g.relationship())
                         .build();
+
+                // If guardian has email, create/link account
+                if (g.email() != null && !g.email().isBlank()) {
+                    try {
+                        User guardianUser = processGuardianUser(school, g.email(), g.fullName());
+                        guardian.setUser(guardianUser);
+                    } catch (Exception e) {
+                        // Log error but don't fail student creation?
+                        // For now, let's log and proceed, or should we fail?
+                        // User requested this feature, so maybe fail if we can't create account?
+                        // But duplicate email on different role might be an issue.
+                        // Let's rely on processGuardianUser to handle it gracefully.
+                        System.err.println("Failed to create guardian user: " + e.getMessage());
+                    }
+                }
+
                 guardians.save(guardian);
             }
         }
@@ -130,13 +162,35 @@ public class StudentManagementService {
                     .enrolledAt(Instant.now())
                     .build();
             enrollments.save(enrollment);
+        } else if (req.department() != null && req.grade() != null) {
+            // Auto-assign to class based on department
+            String academicYear = req.academicYear() != null ? req.academicYear()
+                    : classRooms.findFirstBySchoolOrderByAcademicYearDesc(school)
+                            .map(ClassRoom::getAcademicYear).orElse("");
+
+            if (!academicYear.isBlank()) {
+                autoAssignStudentToClass(school, student, req.department(), academicYear, req.grade());
+            }
         }
 
         return toStudentDto(student);
     }
 
     @Transactional(readOnly = true)
-    public List<StudentDto> listStudents(School school) {
+    public List<StudentDto> listStudents(School school, UUID classId) {
+        if (classId != null) {
+            ClassRoom classRoom = classRooms.findById(classId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học"));
+
+            if (!classRoom.getSchool().getId().equals(school.getId())) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "Lớp học không thuộc trường này");
+            }
+
+            return enrollments.findAllByClassRoom(classRoom).stream()
+                    .map(enrollment -> toStudentDto(enrollment.getStudent()))
+                    .toList();
+        }
+
         return students.findAllBySchoolOrderByFullNameAsc(school).stream()
                 .map(this::toStudentDto)
                 .toList();
@@ -152,6 +206,23 @@ public class StudentManagementService {
         }
 
         return toStudentDto(student);
+    }
+
+    @Transactional(readOnly = true)
+    public Student getSingleStudent(UUID studentId) {
+        Student student = students.findById(studentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+
+        return student;
+    }
+    
+    // Find student with Guardian ID
+    @Transactional(readOnly = true) 
+    public StudentDto getStudentWithGuardian(String guardianEmail) {
+        Guardian guardian = guardians.findByEmail(guardianEmail)
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy phụ huynh"));
+
+        return toStudentDto(guardian.getStudent());
     }
 
     @Transactional
@@ -401,6 +472,33 @@ public class StudentManagementService {
         return String.format("HS%04d", studentCount + 1);
     }
 
+    private User processGuardianUser(School school, String email, String fullName) {
+        // Check if user exists
+        Optional<User> existingUser = users.findByEmailIgnoreCase(email);
+        if (existingUser.isPresent()) {
+            return existingUser.get();
+        }
+
+        // Create new user
+        String tempPassword = RandomUtil.generateTempPassword(12);
+        User user = User.builder()
+                .email(email)
+                .fullName(fullName)
+                .role(Role.GUARDIAN)
+                .school(school)
+                .passwordHash(passwordEncoder.encode(tempPassword))
+                .firstLogin(true)
+                .enabled(true)
+                .build();
+
+        user = users.save(user);
+
+        // Send email
+        mailService.sendTempPasswordEmail(user.getEmail(), user.getFullName(), tempPassword);
+
+        return user;
+    }
+
     private StudentDto toStudentDto(Student student) {
         List<Guardian> studentGuardians = guardians.findAllByStudent(student);
         List<StudentDto.GuardianDto> guardianDtos = studentGuardians.stream()
@@ -435,5 +533,70 @@ public class StudentManagementService {
                 currentClassName,
                 currentClassId,
                 guardianDtos);
+    }
+
+    private void autoAssignStudentToClass(School school, Student student,
+            com.schoolmanagement.backend.domain.ClassDepartment department, String academicYear, int grade) {
+        // Find all active classes for the grade
+        List<ClassRoom> classes = classRooms.findAllBySchoolAndGradeAndAcademicYearAndStatus(
+                school, grade, academicYear, ClassRoomStatus.ACTIVE);
+
+        if (classes.isEmpty())
+            return;
+
+        // Get enrollment counts
+        java.util.Map<UUID, Long> counts = new java.util.HashMap<>();
+        for (ClassRoom c : classes) {
+            counts.put(c.getId(), enrollments.countByClassRoom(c));
+        }
+
+        // Filter by connection to department/stream
+        List<ClassRoom> candidates = classes.stream()
+                .filter(c -> matchesDepartment(c, department))
+                .sorted(java.util.Comparator.comparingLong(c -> counts.get(c.getId())))
+                .toList();
+
+        // Fallback if no matching stream class found: try any class in grade
+        if (candidates.isEmpty()) {
+            candidates = classes.stream()
+                    .sorted(java.util.Comparator.comparingLong(c -> counts.get(c.getId())))
+                    .toList();
+        }
+
+        // Pick first one with capacity
+        for (ClassRoom c : candidates) {
+            if (counts.get(c.getId()) < c.getMaxCapacity()) {
+                ClassEnrollment enrollment = ClassEnrollment.builder()
+                        .student(student)
+                        .classRoom(c)
+                        .academicYear(academicYear)
+                        .enrolledAt(Instant.now())
+                        .build();
+                enrollments.save(enrollment);
+                break;
+            }
+        }
+    }
+
+    private boolean matchesDepartment(ClassRoom classRoom,
+            com.schoolmanagement.backend.domain.ClassDepartment studentDept) {
+        if (studentDept == null || studentDept == com.schoolmanagement.backend.domain.ClassDepartment.KHONG_PHAN_BAN) {
+            return true;
+        }
+
+        // Check combination stream first
+        if (classRoom.getCombination() != null && classRoom.getCombination().getStream() != null) {
+            String streamName = classRoom.getCombination().getStream().name();
+            if (streamName.equals(studentDept.name())) {
+                return true;
+            }
+        }
+
+        // Check class department as fallback
+        if (classRoom.getDepartment() == studentDept) {
+            return true;
+        }
+
+        return false;
     }
 }

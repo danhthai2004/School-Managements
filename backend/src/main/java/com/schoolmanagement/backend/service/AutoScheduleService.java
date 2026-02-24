@@ -5,6 +5,7 @@ import com.schoolmanagement.backend.domain.entity.Subject;
 import com.schoolmanagement.backend.domain.entity.TeacherAssignment;
 import com.schoolmanagement.backend.domain.entity.Timetable;
 import com.schoolmanagement.backend.domain.entity.TimetableDetail;
+import com.schoolmanagement.backend.domain.entity.Teacher;
 import com.schoolmanagement.backend.repo.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.SubjectRepository;
 import com.schoolmanagement.backend.repo.TeacherAssignmentRepository;
@@ -22,6 +23,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 public class AutoScheduleService {
+
+    // Constants for timetable constraints
+    private static final int MIN_PERIODS_PER_DAY = 4; // Each day should have at least 4 periods
+    private static final int MAX_PERIODS_PER_DAY = 5; // Maximum 5 periods per day
 
     private final TimetableRepository timetableRepository;
     private final TimetableConstraintService constraintService;
@@ -79,6 +84,9 @@ public class AutoScheduleService {
         // Initialize Context
         ScheduleContext context = new ScheduleContext();
 
+        // Step 1: Fixed Activities (Chào cờ, Sinh hoạt lớp)
+        scheduleFixedActivities(timetable, context);
+
         // Step 2: High Frequency Subjects
         scheduleHighFrequencySubjects(timetable, context);
 
@@ -92,6 +100,99 @@ public class AutoScheduleService {
         // ... implementation pending
 
         log.info("Auto-generation completed for Timetable ID: {}", timetableId);
+    }
+
+    /**
+     * Step 1: Schedule fixed activities for all classes.
+     * NEW LOGIC (no more CC/SHL):
+     * - HDTN: Saturday last period of MAIN session (slot 5 for morning, slot 9 for afternoon)
+     * - GDTC: 2 consecutive slots in SECONDARY session (random day Mon-Fri)
+     * - HDTN (additional): 2 consecutive slots in SECONDARY session (random day Mon-Fri, different from GDTC)
+     */
+    private void scheduleFixedActivities(Timetable timetable, ScheduleContext context) {
+        log.info("Step 1: Scheduling fixed activities (HDTN on Saturday, GDTC/HDTN in secondary session)...");
+
+        var allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool());
+
+        // Find HDTN and GDTC subjects
+        Subject hdtnSubject = subjectRepository.findByCode("HDTN").orElse(null);
+        Subject gdtcSubject = subjectRepository.findByCode("GDTC").orElse(null);
+
+        if (hdtnSubject == null) {
+            log.warn("Subject HDTN not found, skipping fixed HDTN scheduling");
+        }
+        if (gdtcSubject == null) {
+            log.warn("Subject GDTC not found, skipping fixed GDTC scheduling");
+        }
+
+        // Days available for secondary session activities (Mon-Fri, not Saturday)
+        DayOfWeek[] availableDays = {DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY};
+        java.util.Random random = new java.util.Random();
+
+        for (var classroom : allClasses) {
+            if (!classroom.getAcademicYear().equals(timetable.getAcademicYear()))
+                continue;
+
+            // Determine session type (morning or afternoon main session)
+            com.schoolmanagement.backend.domain.SessionType session = classroom.getSession();
+            boolean isMorningMain = (session == null || session == com.schoolmanagement.backend.domain.SessionType.SANG);
+
+            // ===== HDTN: Saturday last period of MAIN session =====
+            // Saturday has only 4 periods, HDTN is the last one
+            // Morning main: Saturday slot 4 (last of 4 morning slots)
+            // Afternoon main: Saturday slot 9 (last afternoon slot)
+            if (hdtnSubject != null) {
+                int saturdaySlot = isMorningMain ? 4 : 9;
+                createFixedDetail(timetable, classroom, hdtnSubject, DayOfWeek.SATURDAY, saturdaySlot, context);
+                log.debug("Scheduled HDTN for {} on Saturday slot {}", classroom.getName(), saturdaySlot);
+            }
+
+            // Shuffle days for random selection
+            java.util.List<DayOfWeek> shuffledDays = new java.util.ArrayList<>(java.util.Arrays.asList(availableDays));
+            java.util.Collections.shuffle(shuffledDays, random);
+
+            // ===== GDTC: 2 consecutive slots in SECONDARY session (random day) =====
+            if (gdtcSubject != null) {
+                int gdtcStartSlot = isMorningMain ? 6 : 1;
+                DayOfWeek gdtcDay = shuffledDays.get(0); // First random day
+                // Schedule 2 consecutive GDTC slots
+                createFixedDetail(timetable, classroom, gdtcSubject, gdtcDay, gdtcStartSlot, context);
+                createFixedDetail(timetable, classroom, gdtcSubject, gdtcDay, gdtcStartSlot + 1, context);
+                log.debug("Scheduled GDTC for {} on {} slots {},{}", classroom.getName(), gdtcDay, gdtcStartSlot, gdtcStartSlot + 1);
+            }
+
+            // ===== HDTN (additional): 2 consecutive slots in SECONDARY session (different random day) =====
+            if (hdtnSubject != null) {
+                int hdtnStartSlot = isMorningMain ? 6 : 1;
+                DayOfWeek hdtnDay = shuffledDays.get(1); // Second random day (different from GDTC)
+                // Schedule 2 consecutive HDTN slots
+                createFixedDetail(timetable, classroom, hdtnSubject, hdtnDay, hdtnStartSlot, context);
+                createFixedDetail(timetable, classroom, hdtnSubject, hdtnDay, hdtnStartSlot + 1, context);
+                log.debug("Scheduled HDTN for {} on {} slots {},{}", classroom.getName(), hdtnDay, hdtnStartSlot, hdtnStartSlot + 1);
+            }
+        }
+    }
+
+    /**
+     * Create a fixed timetable detail that cannot be moved/swapped.
+     */
+    private void createFixedDetail(Timetable timetable, ClassRoom classroom,
+            Subject subject, DayOfWeek day, int slotIndex, ScheduleContext context) {
+        var detail = TimetableDetail.builder()
+                .timetable(timetable)
+                .classRoom(classroom)
+                .subject(subject)
+                .teacher(null) // Usually no specific teacher for activities
+                .dayOfWeek(day)
+                .slotIndex(slotIndex)
+                .isFixed(true) // Mark as fixed - cannot be swapped
+                .build();
+        timetableDetailRepository.save(detail);
+
+        // Mark context immediately
+        context.markOccupied(classroom.getId(), null, day, slotIndex);
+        log.debug("Fixed activity: {} for class {} on {} period {}",
+                subject.getCode(), classroom.getName(), day, slotIndex);
     }
 
     private void scheduleHighFrequencySubjects(Timetable timetable, ScheduleContext context) {
@@ -111,7 +212,7 @@ public class AutoScheduleService {
 
                 Subject subject = subjectOpt.get();
                 var assignmentOpt = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject);
-                com.schoolmanagement.backend.domain.entity.User teacher = assignmentOpt
+                Teacher teacher = assignmentOpt
                         .map(TeacherAssignment::getTeacher).orElse(null);
 
                 // Use the shared scheduling method with randomization enabled
@@ -127,37 +228,10 @@ public class AutoScheduleService {
      * - Optional randomization of days/slots.
      */
     private void scheduleSubject(Timetable timetable, ClassRoom classroom, Subject subject,
-            com.schoolmanagement.backend.domain.entity.User teacher, boolean randomize, ScheduleContext context) {
+            Teacher teacher, boolean randomize, ScheduleContext context) {
         int lessonsToAssign = subject.getTotalLessons();
         int assignedCount = (int) timetableDetailRepository.countByTimetableAndClassRoomAndSubject(
-                timetable, classroom, subject); // This might be stale if we don't update DB but we rely on context for
-                                                // slots.
-                                                // Actually, if we use separate transactions or flush, it is accurate.
-                                                // Since we flush delete at start, and insert 1 by 1...
-                                                // For a single batch run, assignedCount starts at 0 (after delete).
-                                                // If we had partially scheduled, we would trust DB.
-                                                // BUT we rely on context for SLOTS.
-        // NOTE: Since "countBy..." reads from DB, and we are flushing periodically or
-        // not,
-        // relying on this count is risky IF we don't flush.
-        // However, for this simplified "Wipe & Re-run" flow:
-        // existing DB count is 0 (except what we just added).
-        // If we want to rely on DB count, we MUST flush.
-        // ALTERNATIVE: Use local counting logic?
-        // For now, let's assume we are calling this for a subject that hasn't been
-        // scheduled yet in this run.
-        // Actually, scheduleSubject is called ONCE per subject per class. So existing
-        // count is 0.
-        // Unless we run this method multiple times? No.
-
-        // Wait, what if we have multiple "Math" entries caused by something else?
-        // Assuming clean slate.
-
-        // RE-FIX from previous step: We might have non-zero count if we re-run?
-        // No, we delete all at start.
-
-        // So assignedCount is effectively 0 here, unless we split logic.
-        // We will trust the loop to increment assignedCount.
+                timetable, classroom, subject);
 
         if (assignedCount >= lessonsToAssign)
             return;
@@ -170,8 +244,6 @@ public class AutoScheduleService {
 
         // Track local assignedToday for this specific function call
         java.util.Map<DayOfWeek, Integer> dailyCount = new java.util.HashMap<>();
-        // In case there's pre-existing data (robustness), we could query DB, but let's
-        // rely on local loop for now.
 
         for (DayOfWeek day : days) {
             if (day == DayOfWeek.SUNDAY)
@@ -183,9 +255,15 @@ public class AutoScheduleService {
             if (assignedToday >= limitPerDay)
                 continue;
 
-            java.util.List<Integer> slots = new java.util.ArrayList<>(java.util.List.of(1, 2, 3, 4, 5));
-            if (randomize)
-                java.util.Collections.shuffle(slots);
+            // Prioritize contiguous slots
+            // Saturday has only 4 periods (T1-T4), with T4 reserved for HDTN
+            // Other days have 5 periods (T1-T5)
+            java.util.List<Integer> slots;
+            if (day == DayOfWeek.SATURDAY) {
+                slots = new java.util.ArrayList<>(java.util.List.of(1, 2, 3)); // T4 reserved for HDTN
+            } else {
+                slots = new java.util.ArrayList<>(java.util.List.of(1, 2, 3, 4, 5));
+            }
 
             for (int slot : slots) {
                 if (assignedCount >= lessonsToAssign)
@@ -199,17 +277,7 @@ public class AutoScheduleService {
                 if (context.isTeacherOccupied(teacher != null ? teacher.getId() : null, day, slot))
                     continue;
 
-                // 2. Check Strict Interleaving (Optional but requested)
-                // Use DB check or Context? Context is reliable for occupancy.
-                // Checking "previous slot" via context is hard (keys are strings).
-                // Let's skip strict consecutive check for now or implement simple one.
-                // Implementing simple one:
-                // We don't easily know WHICH subject is in the previous slot from context (it
-                // just says "occupied").
-                // So skipping is safer than crashing or false positives. The "Max 2 per day"
-                // and "Random" handles interleaving well enough.
-
-                // 3. Assign
+                // 2. Assign
                 createAndSaveDetail(timetable, classroom, subject, day, slot, teacher, context);
                 assignedCount++;
                 assignedToday++;
@@ -227,7 +295,7 @@ public class AutoScheduleService {
     }
 
     private void attemptBacktrackingSwap(Timetable timetable, ClassRoom classroom, Subject subjectArg,
-            com.schoolmanagement.backend.domain.entity.User teacherArg,
+            Teacher teacherArg,
             ScheduleContext context, int currentAssigned, int totalNeeded) {
         // Try to find N more slots
         int needed = totalNeeded - currentAssigned;
@@ -244,51 +312,27 @@ public class AutoScheduleService {
                     continue;
                 for (int slot = 1; slot <= 5; slot++) {
 
-                    // 1. If this slot is free for Class but blocked by Teacher -> No swap helps
-                    // (unless we swap teacher's other class? Too complex).
-                    // 2. We are looking for a slot OCCUPIED by THIS CLASS (with another subject)
                     if (!context.isClassOccupied(classroom.getId(), day, slot)) {
-                        // It's free! Why didn't we pick it?
-                        // Ah, probably Teacher is busy.
-                        // If Teacher is busy, we CANNOT put subjectArg here.
                         continue;
                     }
 
                     // So, slot is occupied by Class. Let's see who is there.
-                    // We need to query DB to find the detail.
                     var existingDetailOpt = timetableDetailRepository
                             .findByTimetableAndClassRoomAndDayOfWeekAndSlotIndex(
                                     timetable, classroom, day, slot);
 
                     if (existingDetailOpt.isEmpty())
-                        continue; // Should not happen if context says occupied
+                        continue;
 
                     var existingDetail = existingDetailOpt.get();
                     if (existingDetail.isFixed())
-                        continue; // Cannot move Fixed slots (CC, SHL)
-
-                    // Subject B is at (day, slot).
-                    // Can Subject B move to (day2, slot2)?
-                    // AND Can Subject A (subjectArg) fit in (day, slot)? -> We assume YES if
-                    // Teacher A is free.
+                        continue;
 
                     if (context.isTeacherOccupied(teacherArg != null ? teacherArg.getId() : null, day, slot)) {
-                        // Teacher A is busy at this slot, so we can't put Subject A here even if we
-                        // move Subject B.
                         continue;
                     }
 
-                    // OK, Subject A fits here logic-wise (Class becomes free if B moves, Teacher A
-                    // is free).
-                    // Now find a home for Subject B.
                     if (tryMoveExistingDetail(existingDetail, context)) {
-                        // Move successful! Now (day, slot) is free for Subject A.
-                        // But wait, tryMove updated DB and Context for B.
-                        // We just need to overwrite/insert A.
-
-                        // Context for (day, slot) was CLEARED by tryMove (for Class).
-                        // Teacher A is free.
-
                         createAndSaveDetail(timetable, classroom, subjectArg, day, slot, teacherArg, context);
                         swapped = true;
                         log.info("SWAP SUCCESS: Moved {} to make room for {}", existingDetail.getSubject().getCode(),
@@ -303,7 +347,7 @@ public class AutoScheduleService {
     private boolean tryMoveExistingDetail(TimetableDetail detail, ScheduleContext context) {
         // Find a new slot for this detail
         ClassRoom classroom = detail.getClassRoom();
-        com.schoolmanagement.backend.domain.entity.User teacher = detail.getTeacher();
+        Teacher teacher = detail.getTeacher();
 
         // Potential new slots
         for (DayOfWeek day : DayOfWeek.values()) {
@@ -321,11 +365,6 @@ public class AutoScheduleService {
                     continue;
 
                 // Found a valid empty slot!
-                // 1. Remove old occupancy from Context
-                // Note: scheduleContext uses Sets. We need a "remove" or just rely on
-                // "markOccupied" adding new ones?
-                // The current ScheduleContext DOES NOT have remove.
-                // We MUST add remove capability to ScheduleContext.
                 context.freeSlot(classroom.getId(), teacher != null ? teacher.getId() : null, detail.getDayOfWeek(),
                         detail.getSlotIndex());
 
@@ -344,7 +383,7 @@ public class AutoScheduleService {
     }
 
     private void createAndSaveDetail(Timetable timetable, ClassRoom classroom,
-            Subject subject, DayOfWeek day, int slotIndex, com.schoolmanagement.backend.domain.entity.User teacher,
+            Subject subject, DayOfWeek day, int slotIndex, Teacher teacher,
             ScheduleContext context) {
         var detail = TimetableDetail.builder()
                 .timetable(timetable)
@@ -365,20 +404,33 @@ public class AutoScheduleService {
         log.info("Step 3: Scheduling elective subjects (Physical, Chemical, Bio, History, Geo, etc.)...");
 
         var allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool());
+        // Cache compulsory subjects once
+        var compulsorySubjects = subjectRepository
+                .findByTypeAndActiveTrue(com.schoolmanagement.backend.domain.SubjectType.COMPULSORY);
 
         for (var classroom : allClasses) {
             if (!classroom.getAcademicYear().equals(timetable.getAcademicYear()))
                 continue;
 
-            var assignments = teacherAssignmentRepository.findAllByClassRoom(classroom);
+            // Gather all subjects to schedule for this class
+            java.util.Set<Subject> subjectsToSchedule = new java.util.HashSet<>(compulsorySubjects);
 
-            for (var assignment : assignments) {
-                Subject subject = assignment.getSubject();
+            // Add combination subjects if any
+            if (classroom.getCombination() != null) {
+                subjectsToSchedule.addAll(classroom.getCombination().getSubjects());
+            }
 
+            for (Subject subject : subjectsToSchedule) {
                 if (isSkippedSubject(subject.getCode()))
                     continue;
 
-                com.schoolmanagement.backend.domain.entity.User teacher = assignment.getTeacher();
+                // SPECIALIZED subjects are handled in next step
+                if (subject.getType() == com.schoolmanagement.backend.domain.SubjectType.SPECIALIZED)
+                    continue;
+
+                // Lookup Teacher
+                var assignmentOpt = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject);
+                Teacher teacher = assignmentOpt.map(TeacherAssignment::getTeacher).orElse(null);
 
                 // Use the shared scheduling method with randomization enabled
                 scheduleSubject(timetable, classroom, subject, teacher, true, context);
@@ -387,54 +439,58 @@ public class AutoScheduleService {
     }
 
     private boolean isSkippedSubject(String code) {
-        // High Freq only (CC, SHL removed)
-        return java.util.List.of("TOAN", "VAN", "ANH").contains(code);
+        // High Freq handled separately
+        // CC/SHL not scheduled at all
+        // GDTC/HDTN already scheduled as fixed activities
+        return java.util.List.of("TOAN", "VAN", "ANH", "CC", "SHL", "GDTC", "HDTN").contains(code);
     }
 
     private void scheduleSpecializedSubjects(Timetable timetable, ScheduleContext context) {
         log.info("Step 4: Scheduling specialized subjects (Chuyen de)...");
 
         var allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool());
+        // Fetch all specialized subjects
+        var specializedSubjects = subjectRepository
+                .findByTypeAndActiveTrue(com.schoolmanagement.backend.domain.SubjectType.SPECIALIZED);
 
         for (var classroom : allClasses) {
             if (!classroom.getAcademicYear().equals(timetable.getAcademicYear()))
                 continue;
 
-            var assignments = teacherAssignmentRepository.findAllByClassRoom(classroom);
+            if (classroom.getCombination() == null)
+                continue;
+            var stream = classroom.getCombination().getStream();
+            if (stream == null)
+                continue;
 
-            for (var assignment : assignments) {
-                Subject subject = assignment.getSubject();
-
-                // Only process SPECIALIZED subjects here
-                if (subject.getType() != com.schoolmanagement.backend.domain.SubjectType.SPECIALIZED) {
+            for (Subject subject : specializedSubjects) {
+                // Determine if this specialized subject belongs to the class stream
+                // Assuming specialized subjects have a stream field that matches
+                if (subject.getStream() != stream) {
                     continue;
                 }
 
-                com.schoolmanagement.backend.domain.entity.User teacher = assignment.getTeacher();
-                int lessonsToAssign = subject.getTotalLessons();
-                int assignedCount = 0;
+                Teacher teacher = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject)
+                        .map(TeacherAssignment::getTeacher).orElse(null);
 
-                // Simple loop with context check
-                for (DayOfWeek day : DayOfWeek.values()) {
-                    if (day == DayOfWeek.SUNDAY)
-                        continue;
-                    if (assignedCount >= lessonsToAssign)
-                        break;
-
-                    for (int slot = 1; slot <= 5; slot++) {
-                        if (assignedCount >= lessonsToAssign)
-                            break;
-
-                        // Check Context
-                        if (context.isClassOccupied(classroom.getId(), day, slot))
-                            continue;
-                        if (context.isTeacherOccupied(teacher != null ? teacher.getId() : null, day, slot))
-                            continue;
-
-                        createAndSaveDetail(timetable, classroom, subject, day, slot, teacher, context);
-                        assignedCount++;
+                // Smart Fallback: If no teacher assigned to CD_SUBJECT, check usage of base
+                // Subject teacher
+                if (teacher == null && subject.getCode().startsWith("CD_")) {
+                    String baseCode = subject.getCode().replace("CD_", "");
+                    // Find base subject teacher for this class
+                    var baseSubjectOpt = subjectRepository.findByCode(baseCode);
+                    if (baseSubjectOpt.isPresent()) {
+                        teacher = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, baseSubjectOpt.get())
+                                .map(TeacherAssignment::getTeacher).orElse(null);
+                        if (teacher != null) {
+                            log.info("Using implicit teacher {} from {} for specialized subject {}",
+                                    teacher.getFullName(), baseCode, subject.getCode());
+                        }
                     }
                 }
+
+                // Use the shared scheduling method
+                scheduleSubject(timetable, classroom, subject, teacher, true, context);
             }
         }
     }

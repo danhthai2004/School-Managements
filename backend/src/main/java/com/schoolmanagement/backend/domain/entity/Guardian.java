@@ -32,4 +32,8 @@ public class Guardian {
 
     @Column(length = 50)
     private String relationship; // Cha, Mẹ, Ông, Bà, Khác
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 }

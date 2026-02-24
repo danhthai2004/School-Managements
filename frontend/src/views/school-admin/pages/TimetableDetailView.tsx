@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import api from "../../../services/api";
-import { Download, Search, AlertCircle } from "lucide-react";
+import { Download, AlertCircle } from "lucide-react"; // Remove Search
+import { FilterIcon } from "../../../components/layout/SystemIcons";
+import { schoolAdminService, type ClassRoomDto } from "../../../services/schoolAdminService";
 
 interface TimetableDetail {
     id: string;
@@ -13,25 +15,51 @@ interface TimetableDetail {
     slotIndex: number;
 }
 
-const SLOTS = [1, 2, 3, 4, 5];
+// Morning: 1-5, Afternoon: 6-9
+const MORNING_SLOTS = [1, 2, 3, 4, 5];
+const AFTERNOON_SLOTS = [6, 7, 8, 9];
 
 export default function TimetableDetailView() {
     const { id } = useParams();
-    const navigate = useNavigate();
+
     const [details, setDetails] = useState<TimetableDetail[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [timetableName, setTimetableName] = useState<string>("");
+    const [gradeFilter, setGradeFilter] = useState<string>("ALL");
+    const [classSearch, setClassSearch] = useState<string>(""); // Use this as class NAME filter
+
+    // Classes for dropdown
+    const [classesList, setClassesList] = useState<ClassRoomDto[]>([]);
+
+    useEffect(() => {
+        fetchClasses();
+    }, []);
+
+    const fetchClasses = async () => {
+        try {
+            const data = await schoolAdminService.listClasses();
+            setClassesList(data);
+        } catch (err) {
+            console.error("Failed to fetch classes", err);
+        }
+    };
+
 
     useEffect(() => {
         if (id) fetchDetails();
-    }, [id]);
+    }, [id, gradeFilter, classSearch]);
+
 
     const fetchDetails = async () => {
         try {
+            const params: any = {};
+            if (gradeFilter !== "ALL") params.grade = gradeFilter;
+            if (classSearch) params.className = classSearch;
+
             // Also fetch timetable info to get the name
             const [detailsRes, infoRes] = await Promise.all([
-                api.get(`/school-admin/timetables/${id}/details`),
+                api.get(`/school-admin/timetables/${id}/details`, { params }),
                 api.get(`/school-admin/timetables/${id}`)
             ]);
             setDetails(detailsRes.data);
@@ -40,6 +68,28 @@ export default function TimetableDetailView() {
             setError("Không thể tải dữ liệu thời khóa biểu. Vui lòng kiểm tra kết nối và thử lại.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleExport = async () => {
+        try {
+            const params: any = {};
+            if (gradeFilter !== "ALL") params.grade = gradeFilter;
+            if (classSearch) params.className = classSearch;
+
+            const response = await api.get(`/school-admin/timetables/${id}/export`, {
+                params,
+                responseType: 'blob'
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `${timetableName || 'timetable'}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (e) {
+            setError("Lỗi khi xuất file Excel");
         }
     };
 
@@ -66,9 +116,7 @@ export default function TimetableDetailView() {
         return details.find(d => d.className === className && d.dayOfWeek === originalDayName && d.slotIndex === slot);
     };
 
-
-
-    // ... inside getCell removed from here
+    const filteredClasses = classesList.filter(c => gradeFilter === "ALL" || c.grade.toString() === gradeFilter).sort((a, b) => a.name.localeCompare(b.name));
 
     return (
         <div className="space-y-6">
@@ -85,13 +133,11 @@ export default function TimetableDetailView() {
                     </div>
                 </div>
                 <div className="flex gap-3">
+
                     <button
-                        onClick={() => navigate(-1)}
-                        className="px-4 py-2 border border-slate-200 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+                        onClick={handleExport}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-medium hover:shadow-lg transition-all"
                     >
-                        Quay lại
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-medium hover:shadow-lg transition-all">
                         <Download size={18} />
                         <span>Xuất Excel</span>
                     </button>
@@ -107,27 +153,38 @@ export default function TimetableDetailView() {
             )}
 
             {/* Filters */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <div className="flex gap-4">
-                    <div className="w-64">
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Lọc theo Khối</label>
-                        <select className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:border-blue-500 outline-none text-slate-700 font-medium">
-                            <option value="ALL">Tất cả các khối</option>
-                            <option value="10">Khối 10</option>
-                            <option value="11">Khối 11</option>
-                            <option value="12">Khối 12</option>
-                        </select>
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                <div className="flex flex-wrap gap-4 items-center">
+                    <div className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                        <FilterIcon className="text-slate-400" size={18} />
+                        Bộ lọc:
                     </div>
-                    <div className="w-64">
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Tìm kiếm lớp</label>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                            <input
-                                type="text"
-                                placeholder="Nhập tên lớp..."
-                                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:border-blue-500 outline-none text-slate-700 placeholder-slate-400"
-                            />
-                        </div>
+
+                    <select
+                        className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        value={gradeFilter}
+                        onChange={(e) => {
+                            setGradeFilter(e.target.value);
+                            setClassSearch(""); // Reset class when grade changes
+                        }}
+                    >
+                        <option value="ALL">Tất cả các khối</option>
+                        <option value="10">Khối 10</option>
+                        <option value="11">Khối 11</option>
+                        <option value="12">Khối 12</option>
+                    </select>
+
+                    <div className="relative">
+                        <select
+                            value={classSearch}
+                            onChange={(e) => setClassSearch(e.target.value)}
+                            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all min-w-[200px]"
+                        >
+                            <option value="">-- Tất cả lớp --</option>
+                            {filteredClasses.map(c => (
+                                <option key={c.id} value={c.name}>{c.name} (Khối {c.grade})</option>
+                            ))}
+                        </select>
                     </div>
                 </div>
             </div>
@@ -156,43 +213,81 @@ export default function TimetableDetailView() {
                             </thead>
                             <tbody>
                                 {classes.map((cls) => (
-                                    SLOTS.map((slot, slotIdx) => (
-                                        <tr key={`${cls}-${slot}`} className={`border-b border-slate-100 hover:bg-slate-50 ${slot === 5 ? 'border-b-2 border-slate-200' : ''}`}>
-                                            {/* Render Class Name only for the first slot */}
-                                            {slotIdx === 0 && (
-                                                <td
-                                                    rowSpan={SLOTS.length}
-                                                    className="p-3 font-bold text-slate-900 sticky left-0 bg-white border-r border-slate-200 shadow-[4px_0_24px_rgba(0,0,0,0.02)] align-middle text-center z-10"
-                                                >
-                                                    {cls}
-                                                </td>
-                                            )}
-
-                                            {/* Slot Number */}
-                                            <td className="p-2 text-center text-xs font-semibold text-slate-500 border-r border-slate-200 bg-slate-50 sticky left-[100px] z-10">
-                                                T{slot}
+                                    <>
+                                        {/* Morning session header */}
+                                        <tr key={`${cls}-morning-header`} className="bg-blue-50/70 border-b border-blue-100">
+                                            <td className="p-2 font-bold text-slate-900 sticky left-0 bg-blue-50/70 border-r border-slate-200 align-middle text-center z-10" rowSpan={MORNING_SLOTS.length + 1}>
+                                                {cls}
                                             </td>
-
-                                            {/* Days Columns */}
-                                            {DAYS.map(day => {
-                                                const lesson = getCell(cls, day, slot);
-                                                return (
-                                                    <td key={`${day}-${slot}`} className="p-1 h-[60px] border-r border-slate-100 text-xs align-middle">
-                                                        <div className="flex flex-col justify-center items-center h-full w-full">
-                                                            {lesson ? (
-                                                                <>
-                                                                    <span className="font-semibold text-slate-800 text-center">{lesson.subjectName}</span>
-                                                                    <span className="text-[10px] text-slate-500 truncate w-full px-1 text-center" title={lesson.teacherName || "Chưa phân công"}>
-                                                                        {getTeacherLastName(lesson.teacherName)}
-                                                                    </span>
-                                                                </>
-                                                            ) : <span className="text-slate-200">-</span>}
-                                                        </div>
-                                                    </td>
-                                                )
-                                            })}
+                                            <td colSpan={DAYS.length + 1} className="p-1 text-center text-xs font-semibold text-blue-600 bg-blue-50/70">
+                                                🌅 BUỔI SÁNG
+                                            </td>
                                         </tr>
-                                    ))
+                                        {MORNING_SLOTS.map((slot: number) => (
+                                            <tr key={`${cls}-${slot}`} className={`border-b border-slate-100 hover:bg-slate-50 ${slot === 5 ? 'border-b-2 border-slate-300' : ''}`}>
+                                                {/* Slot Number */}
+                                                <td className="p-2 text-center text-xs font-semibold text-slate-500 border-r border-slate-200 bg-slate-50 sticky left-[100px] z-10">
+                                                    T{slot}
+                                                </td>
+
+                                                {/* Days Columns */}
+                                                {DAYS.map(day => {
+                                                    const lesson = getCell(cls, day, slot);
+                                                    return (
+                                                        <td key={`${day}-${slot}`} className="p-1 h-[50px] border-r border-slate-100 text-xs align-middle">
+                                                            <div className="flex flex-col justify-center items-center h-full w-full">
+                                                                {lesson ? (
+                                                                    <>
+                                                                        <span className="font-semibold text-slate-800 text-center">{lesson.subjectName}</span>
+                                                                        <span className="text-[10px] text-slate-500 truncate w-full px-1 text-center" title={lesson.teacherName || "Chưa phân công"}>
+                                                                            {getTeacherLastName(lesson.teacherName)}
+                                                                        </span>
+                                                                    </>
+                                                                ) : <span className="text-slate-200">-</span>}
+                                                            </div>
+                                                        </td>
+                                                    )
+                                                })}
+                                            </tr>
+                                        ))}
+
+                                        {/* Afternoon session header */}
+                                        <tr key={`${cls}-afternoon-header`} className="bg-orange-50/70 border-b border-orange-100">
+                                            <td className="p-2 font-bold text-slate-900 sticky left-0 bg-orange-50/70 border-r border-slate-200 align-middle text-center z-10" rowSpan={AFTERNOON_SLOTS.length + 1}>
+
+                                            </td>
+                                            <td colSpan={DAYS.length + 1} className="p-1 text-center text-xs font-semibold text-orange-600 bg-orange-50/70">
+                                                🌇 BUỔI CHIỀU
+                                            </td>
+                                        </tr>
+                                        {AFTERNOON_SLOTS.map((slot: number) => (
+                                            <tr key={`${cls}-${slot}`} className={`border-b border-slate-100 hover:bg-slate-50 ${slot === 9 ? 'border-b-4 border-slate-300' : ''}`}>
+                                                {/* Slot Number */}
+                                                <td className="p-2 text-center text-xs font-semibold text-slate-500 border-r border-slate-200 bg-slate-50 sticky left-[100px] z-10">
+                                                    T{slot}
+                                                </td>
+
+                                                {/* Days Columns */}
+                                                {DAYS.map(day => {
+                                                    const lesson = getCell(cls, day, slot);
+                                                    return (
+                                                        <td key={`${day}-${slot}`} className="p-1 h-[50px] border-r border-slate-100 text-xs align-middle">
+                                                            <div className="flex flex-col justify-center items-center h-full w-full">
+                                                                {lesson ? (
+                                                                    <>
+                                                                        <span className="font-semibold text-slate-800 text-center">{lesson.subjectName}</span>
+                                                                        <span className="text-[10px] text-slate-500 truncate w-full px-1 text-center" title={lesson.teacherName || "Chưa phân công"}>
+                                                                            {getTeacherLastName(lesson.teacherName)}
+                                                                        </span>
+                                                                    </>
+                                                                ) : <span className="text-slate-200">-</span>}
+                                                            </div>
+                                                        </td>
+                                                    )
+                                                })}
+                                            </tr>
+                                        ))}
+                                    </>
                                 ))}
                             </tbody>
                         </table>
@@ -202,4 +297,3 @@ export default function TimetableDetailView() {
         </div>
     );
 }
-

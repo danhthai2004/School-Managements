@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { schoolAdminService, type ClassRoomDto } from "../../../services/schoolAdminService";
 import type { TeacherAssignmentDto } from "../../../services/dtos/TeacherAssignmentDto";
-import { RefreshCw, CheckCircle, AlertCircle, UserPlus, X } from "lucide-react";
+import { RefreshCw, CheckCircle, AlertCircle, UserPlus, X, Filter as FilterIcon } from "lucide-react";
 import toast from "react-hot-toast";
 
 export default function TeacherAssignment() {
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>("");
+    const [gradeFilter, setGradeFilter] = useState<string>("ALL");
     const [assignments, setAssignments] = useState<TeacherAssignmentDto[]>([]);
     const [teachers, setTeachers] = useState<any[]>([]); // UserDto or TeacherDto
     const [loading, setLoading] = useState(false);
@@ -45,8 +47,8 @@ export default function TeacherAssignment() {
 
     const fetchTeachers = async () => {
         try {
-            // Need a list of ALL teachers to assign
-            const data = await schoolAdminService.listTeachers();
+            // Need a list of ALL teachers to assign, with profile details (subjectId)
+            const data = await schoolAdminService.listTeacherProfiles();
             setTeachers(data);
         } catch (error) {
             console.error(error);
@@ -115,6 +117,8 @@ export default function TeacherAssignment() {
         return 'bg-orange-500';
     };
 
+    const filteredClasses = classes.filter(c => gradeFilter === "ALL" || c.grade.toString() === gradeFilter);
+
     return (
         <div className="space-y-6 p-4">
             <div className="flex justify-between items-center">
@@ -132,30 +136,52 @@ export default function TeacherAssignment() {
             </div>
 
             {/* Filters */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex gap-4 items-center">
-                <div className="flex-1 max-w-md">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Chọn Lớp học</label>
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                <div className="flex flex-wrap gap-4 items-center">
+                    <div className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                        <FilterIcon className="text-slate-400" size={18} />
+                        Bộ lọc:
+                    </div>
+
+                    <select
+                        className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        value={gradeFilter}
+                        onChange={(e) => {
+                            setGradeFilter(e.target.value);
+                            setSelectedClassId(""); // Reset class when grade changes
+                        }}
+                    >
+                        <option value="ALL">Tất cả các khối</option>
+                        <option value="10">Khối 10</option>
+                        <option value="11">Khối 11</option>
+                        <option value="12">Khối 12</option>
+                    </select>
+
                     <select
                         value={selectedClassId}
                         onChange={(e) => setSelectedClassId(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                        className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all min-w-[200px]"
                     >
                         <option value="">-- Chọn lớp --</option>
-                        {classes.map(c => (
+                        {filteredClasses.map(c => (
                             <option key={c.id} value={c.id}>{c.name} (Khối {c.grade})</option>
                         ))}
                     </select>
-                </div>
 
-                {selectedClassId && assignments.length > 0 && (
-                    <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Tiến độ phân công</label>
-                        <div className="w-full bg-gray-200 rounded-full h-2.5 mb-1">
-                            <div className={`h-2.5 rounded-full ${getProgressColor()}`} style={{ width: `${(getAssignedCount() / assignments.length) * 100}%` }}></div>
+                    {selectedClassId && assignments.length > 0 && (
+                        <div className="ml-auto flex items-center gap-4">
+                            <div className="flex flex-col items-end">
+                                <span className="text-xs text-slate-500">Tiến độ phân công</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-slate-700">{getAssignedCount()}/{assignments.length} môn</span>
+                                    <div className="w-24 bg-gray-200 rounded-full h-2">
+                                        <div className={`h-2 rounded-full ${getProgressColor()}`} style={{ width: `${(getAssignedCount() / assignments.length) * 100}%` }}></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <p className="text-xs text-gray-500 text-right">{getAssignedCount()}/{assignments.length} môn đã gán</p>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
 
             {/* Assignments List */}
@@ -183,7 +209,7 @@ export default function TeacherAssignment() {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {assignments.map(assign => (
-                                <tr key={assign.id} className="hover:bg-gray-50">
+                                <tr key={assign.id} className="hover:bg-blue-50 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center">
                                             <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs mr-3">
@@ -225,19 +251,22 @@ export default function TeacherAssignment() {
             )}
 
             {/* Assign Modal */}
-            {isModalOpen && currentAssignment && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-900">
-                                Phân công: {currentAssignment.subjectName}
-                            </h3>
-                            <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                                <X className="w-5 h-5" />
-                            </button>
+            {isModalOpen && currentAssignment && createPortal(
+                <div className="fixed inset-0 z-[100] flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] flex flex-col z-[100]">
+                        <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 flex-none z-[110]">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-bold text-white">
+                                    Phân công: {currentAssignment.subjectName}
+                                </h3>
+                                <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
                         </div>
 
-                        <div className="mb-4">
+                        <div className="p-6 space-y-4 overflow-y-auto">
                             <p className="text-sm text-gray-500 mb-2">Lớp: {currentAssignment.className}</p>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Chọn Giáo viên</label>
                             <select
@@ -246,31 +275,61 @@ export default function TeacherAssignment() {
                                 className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value="">-- Chưa gán --</option>
-                                {teachers.map(t => (
-                                    <option key={t.id} value={t.id}>{t.fullName} ({t.email})</option>
-                                ))}
+                                {teachers
+                                    .filter(t => {
+                                        if (!currentAssignment?.subjectId) return true;
+                                        // Exact match using subjects array
+                                        if (t.subjects && t.subjects.some((s: any) => s.id === currentAssignment.subjectId)) {
+                                            return true;
+                                        }
+
+                                        // Specialized subject match (e.g. "CD_TOAN" checking against subject codes or names)
+                                        // If strict match failed, maybe check names?
+                                        // For now, let's trust the ID match. The backend allows specialization matching,
+                                        // but frontend list should probably be strict or check all subjects.
+
+                                        // Also check if any of teacher's subjects is a "parent" of the assignment subject
+                                        // e.g. Assignment is "Chuyên đề Toán" (CD_TOAN), Teacher has "Toán" (TOAN)
+                                        // The backend logic: if (assignmentCode.contains(teacherSubjectCode))
+
+                                        // We don't have codes easily here unless SubjectDto has it.
+                                        // SubjectDto has 'code'. teacher.subjects is SubjectDto[].
+
+                                        if (t.subjects && currentAssignment.subjectName) {
+                                            return t.subjects.some((s: any) => {
+                                                // Name match fallback (e.g. "Toán" in "Chuyên đề Toán")
+                                                return currentAssignment.subjectName.includes(s.name);
+                                            });
+                                        }
+
+                                        return false;
+                                    })
+                                    .map(t => (
+                                        <option key={t.id} value={t.id}>{t.fullName} ({t.email})</option>
+                                    ))}
                             </select>
                             <p className="text-xs text-gray-500 mt-2">
-                                * Gợi ý: Nên chọn giáo viên có chuyên môn {currentAssignment.subjectName}
+                                * Chỉ hiển thị giáo viên giảng dạy môn {currentAssignment.subjectName}
                             </p>
                         </div>
 
-                        <div className="flex justify-end gap-3">
+                        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 flex-none">
                             <button
                                 onClick={() => setIsModalOpen(false)}
-                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-white font-medium"
                             >
                                 Hủy
                             </button>
                             <button
                                 onClick={handleSaveAssignment}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg hover:shadow-lg font-medium"
                             >
                                 Lưu thay đổi
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

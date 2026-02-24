@@ -31,6 +31,8 @@ public class CurriculumService {
     @Transactional(readOnly = true)
     public List<SubjectDto> listAllSubjects() {
         return subjects.findAll().stream()
+                // Filter out CC and SHL (Chào cờ, Sinh hoạt lớp) - they're auto-scheduled in timetable
+                .filter(s -> !"CC".equals(s.getCode()) && !"SHL".equals(s.getCode()))
                 .sorted(Comparator.comparing(Subject::getType).thenComparing(Subject::getName))
                 .map(this::toSubjectDto)
                 .toList();

@@ -10,12 +10,12 @@ import {
     MenuIcon,
     LogoutIcon,
     SearchIcon,
-    BellIcon,
     UserIcon,
     LockIcon,
     TeacherIcon
 } from "./SchoolAdminIcons";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Bell } from "lucide-react";
+import NotificationBell from "../../components/layout/NotificationBell";
 
 export default function SchoolAdminLayout() {
     const { user, logout } = useAuth();
@@ -38,6 +38,9 @@ export default function SchoolAdminLayout() {
         { path: "/school-admin/accounts", label: "Quản lý tài khoản", icon: <UsersIcon /> },
         { path: "/school-admin/subjects", label: "Quản lý Môn học & Tổ hợp", icon: <BookOpen className="w-5 h-5" /> },
         { path: "/school-admin/schedule", label: "Thời khóa biểu", icon: <CalendarIcon /> },
+        { path: "/school-admin/exam-schedules", label: "Lịch kiểm tra", icon: <CalendarIcon /> },
+        { path: "/school-admin/notifications", label: "Thông báo", icon: <Bell className="w-5 h-5" /> },
+        { path: "/school-admin/reports", label: "Báo cáo & Thống kê", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> },
     ];
 
     // State for expanded menus (using labels as keys)
@@ -201,10 +204,10 @@ export default function SchoolAdminLayout() {
 
                         {/* Right side */}
                         <div className="flex items-center gap-4">
-                            <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                                <BellIcon />
-                                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-                            </button>
+                            <NotificationBell
+                                apiEndpoint="/school/notifications/visible"
+                                countEndpoint="/school/notifications/count"
+                            />
 
                             <div className="relative">
                                 <button

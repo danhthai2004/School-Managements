@@ -64,8 +64,30 @@ public class TimetableController {
 
     @GetMapping("/{id}/details")
     public ResponseEntity<List<com.schoolmanagement.backend.dto.TimetableDetailDto>> getTimetableDetails(
-            @PathVariable UUID id) {
-        return ResponseEntity.ok(timetableService.getTimetableDetails(id));
+            @PathVariable UUID id,
+            @RequestParam(required = false) Integer grade,
+            @RequestParam(required = false) String className) {
+        return ResponseEntity.ok(timetableService.getTimetableDetails(id, grade, className));
+    }
+
+    @GetMapping("/{id}/export")
+    public ResponseEntity<org.springframework.core.io.Resource> exportTimetable(
+            @PathVariable UUID id,
+            @RequestParam(required = false) Integer grade,
+            @RequestParam(required = false) String className) {
+                    
+        try {
+            byte[] content = timetableService.exportTimetableToExcel(id, grade, className);
+            org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(content);
+
+                            
+            return ResponseEntity.ok()
+                    .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=timetable.xlsx")
+                    .contentType(org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(resource);
+        } catch (java.io.IOException e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     public record CreateTimetableRequest(String name, String academicYear, int semester) {

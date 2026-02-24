@@ -58,9 +58,8 @@ export type ActivityLogDto = {
 };
 
 export type CreateSchoolRequest = {
-  registryCode: string;
+  schoolName: string;
   provinceCode: number;
-  wardCode?: number;
   address?: string;
 };
 
@@ -87,12 +86,6 @@ export type ProvinceDto = {
   code: number;
   name: string;
   codename: string;
-};
-
-export type WardDto = {
-  code: number;
-  name: string;
-  provinceCode: number;
 };
 
 export type SchoolRegistryDto = {
@@ -214,11 +207,6 @@ export const systemService = {
   // Locations
   getProvinces: async (): Promise<ProvinceDto[]> => {
     const res = await api.get<ProvinceDto[]>("/v1/locations/provinces");
-    return res.data;
-  },
-
-  getWardsByProvince: async (provinceCode: number): Promise<WardDto[]> => {
-    const res = await api.get<WardDto[]>(`/v1/locations/provinces/${provinceCode}/wards`);
     return res.data;
   },
 

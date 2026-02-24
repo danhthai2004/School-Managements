@@ -27,15 +27,17 @@ public class TeacherManagementService {
     private final ClassRoomRepository classRooms;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
+    private final com.schoolmanagement.backend.repo.SubjectRepository subjects;
 
     public TeacherManagementService(TeacherRepository teachers, UserRepository users,
             ClassRoomRepository classRooms, PasswordEncoder passwordEncoder,
-            MailService mailService) {
+            MailService mailService, com.schoolmanagement.backend.repo.SubjectRepository subjects) {
         this.teachers = teachers;
         this.users = users;
         this.classRooms = classRooms;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
+        this.subjects = subjects;
     }
 
     // ==================== TEACHER MANAGEMENT ====================
@@ -65,6 +67,19 @@ public class TeacherManagementService {
             }
         }
 
+        // Find Subjects
+        java.util.Set<com.schoolmanagement.backend.domain.entity.Subject> subjectEntities = new java.util.HashSet<>();
+        if (req.subjectIds() != null && !req.subjectIds().isEmpty()) {
+            List<com.schoolmanagement.backend.domain.entity.Subject> foundSubjects = subjects
+                    .findAllById(req.subjectIds());
+            if (foundSubjects.size() != req.subjectIds().size()) {
+                // warning or error? Let's just use what we found or strict check.
+                // Strict check is better.
+                throw new ApiException(HttpStatus.NOT_FOUND, "Một số môn học không tìm thấy");
+            }
+            subjectEntities.addAll(foundSubjects);
+        }
+
         // Create teacher
         Teacher teacher = Teacher.builder()
                 .teacherCode(teacherCode)
@@ -76,6 +91,7 @@ public class TeacherManagementService {
                 .phone(req.phone())
                 .specialization(req.specialization())
                 .degree(req.degree())
+                .subjects(subjectEntities)
                 .school(school)
                 .status("ACTIVE")
                 .build();
@@ -86,8 +102,6 @@ public class TeacherManagementService {
         if (req.createAccount() && req.email() != null && !req.email().isBlank()) {
             // Check if email already used for an account
             if (users.existsByEmailIgnoreCase(req.email())) {
-                // If user exists, we might want to link it (if role is TEACHER), or error.
-                // For simplicity, error if email conflict.
                 throw new ApiException(HttpStatus.CONFLICT, "Email đã được sử dụng cho một tài khoản khác");
             }
 
@@ -150,6 +164,14 @@ public class TeacherManagementService {
         teacher.setSpecialization(req.specialization());
         teacher.setDegree(req.degree());
 
+        if (req.subjectIds() != null) {
+            List<com.schoolmanagement.backend.domain.entity.Subject> foundSubjects = subjects
+                    .findAllById(req.subjectIds());
+            teacher.setSubjects(new java.util.HashSet<>(foundSubjects));
+        } else {
+            teacher.getSubjects().clear();
+        }
+
         teacher = teachers.save(teacher);
         return toTeacherDto(teacher);
     }
@@ -206,6 +228,19 @@ public class TeacherManagementService {
             }
         }
 
+        // Map subjects
+        List<com.schoolmanagement.backend.dto.SubjectDto> subjectDtos = teacher.getSubjects().stream()
+                .map(s -> new com.schoolmanagement.backend.dto.SubjectDto(
+                        s.getId(), s.getName(), s.getCode(),
+                        s.getType(),
+                        s.getStream(),
+                        s.getTotalLessons(), s.isActive(), s.getDescription()))
+                .collect(java.util.stream.Collectors.toList());
+
+        String subjectNames = teacher.getSubjects().stream()
+                .map(com.schoolmanagement.backend.domain.entity.Subject::getName)
+                .collect(java.util.stream.Collectors.joining(", "));
+
         return new TeacherDto(
                 teacher.getId(),
                 teacher.getTeacherCode(),
@@ -220,6 +255,8 @@ public class TeacherManagementService {
                 teacher.getStatus(),
                 homeroomClassId,
                 homeroomClassName,
+                subjectDtos,
+                subjectNames,
                 null);
     }
 }
