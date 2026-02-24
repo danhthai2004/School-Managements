@@ -321,6 +321,17 @@ export const schoolAdminService = {
         return res.data;
     },
 
+    uploadAvatar: async (studentId: string, file: File): Promise<{ url: string }> => {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await api.post<{ url: string }>(`/school/students/${studentId}/avatar`, formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
+        return res.data;
+    },
+
     // Bulk Promotion
     promoteStudents: async (req: BulkPromoteRequest): Promise<BulkPromoteResponse> => {
         const res = await api.post<BulkPromoteResponse>("/school/students/promote", req);

@@ -146,4 +146,17 @@ public class StudentController {
         }
         return studentImportService.importStudentsFromExcel(admin.getSchool(), file, academicYear, grade, autoAssign);
     }
+
+    @Transactional
+    @PostMapping("/students/{id}/avatar")
+    public java.util.Map<String, String> uploadAvatar(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("id") UUID studentId,
+            @RequestParam("file") MultipartFile file) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        String url = studentManagementService.uploadAvatar(admin.getSchool(), studentId, file);
+        return java.util.Map.of("url", url);
+    }
 }
