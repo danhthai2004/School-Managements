@@ -17,6 +17,7 @@ export type ClassRoomDto = {
     maxCapacity: number;
     roomNumber: string | null;
     department: string | null;
+    session: 'SANG' | 'CHIEU' | null;
     status: string;
     homeroomTeacherId: string | null;
     homeroomTeacherName: string | null;
@@ -32,6 +33,7 @@ export type CreateClassRoomRequest = {
     maxCapacity: number;
     roomNumber?: string;
     department?: 'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI';
+    session?: 'SANG' | 'CHIEU';
     homeroomTeacherId?: string;
     combinationId?: string;
 };
@@ -251,7 +253,6 @@ export const schoolAdminService = {
         const res = await api.post<BulkDeleteResponse>("/school/teachers/bulk-delete", { ids });
         return res.data;
     },
-
     // Import teachers from Excel
     importTeachersFromExcel: async (file: File): Promise<ImportTeacherResult> => {
         const formData = new FormData();
@@ -264,7 +265,6 @@ export const schoolAdminService = {
         });
         return res.data;
     },
-
 
 
     // Users
@@ -494,7 +494,7 @@ export type SubjectDto = {
     id: string;
     name: string;
     code: string | null;
-    type: 'COMPULSORY' | 'ELECTIVE' | 'SPECIALIZED';
+    type: 'COMPULSORY' | 'ELECTIVE' | 'SPECIALIZED' | 'ACTIVITY';
     stream: 'TU_NHIEN' | 'XA_HOI' | null;
     totalLessons: number | null;
     active: boolean;

@@ -1,6 +1,7 @@
 package com.schoolmanagement.backend.dto.request;
 
 import com.schoolmanagement.backend.domain.ClassDepartment;
+import com.schoolmanagement.backend.domain.SessionType;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -21,6 +22,9 @@ public record CreateClassRoomRequest(
         @Size(max = 20, message = "Phòng học tối đa 20 ký tự") String roomNumber,
 
         ClassDepartment department,
+
+        /** Buổi học chính của lớp (SANG/CHIEU), mặc định SANG */
+        SessionType session,
 
         UUID combinationId,
 

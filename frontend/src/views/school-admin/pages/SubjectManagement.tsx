@@ -24,7 +24,12 @@ export default function SubjectManagement() {
     };
 
     const getFilteredSubjects = (type: string) => {
-        return subjects.filter(s => s.type === type);
+        // Filter out ACTIVITY subjects (Chào cờ, Sinh hoạt lớp) by code
+        return subjects.filter(s =>
+            s.type === type &&
+            s.code !== 'CC' &&
+            s.code !== 'SHL'
+        );
     };
 
 

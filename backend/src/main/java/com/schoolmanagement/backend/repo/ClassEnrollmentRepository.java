@@ -31,4 +31,15 @@ public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment
     @org.springframework.data.jpa.repository.Modifying
     @Query("DELETE FROM ClassEnrollment c WHERE c.student = :student")
     void deleteAllByStudent(@Param("student") Student student);
+
+    @Query("""
+                select ce.classRoom.id
+                from ClassEnrollment ce
+                where ce.student.id = :studentId
+                and ce.academicYear = :academicYear
+                order by ce.enrolledAt desc
+            """)
+    List<UUID> findLatestClassroomId(
+            @Param("studentId") UUID studentId,
+            @Param("academicYear") String academicYear);
 }

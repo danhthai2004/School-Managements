@@ -45,6 +45,14 @@ public class NotificationController {
         notificationService.delete(id, user);
     }
 
+    @GetMapping("/count")
+    public NotificationCountResponse count() {
+        long count = notificationService.countRecentAll();
+        return new NotificationCountResponse(count);
+    }
+
+    public record NotificationCountResponse(long count) {}
+
     private User getCurrentUser(UserPrincipal principal) {
         if (principal == null || principal.getId() == null) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "User not authenticated");

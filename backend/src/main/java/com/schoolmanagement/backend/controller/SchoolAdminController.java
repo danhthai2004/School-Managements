@@ -28,13 +28,19 @@ public class SchoolAdminController {
     private final SchoolAdminService schoolAdminService;
     private final UserLookupService userLookup;
     private final com.schoolmanagement.backend.service.StudentAccountService studentAccountService;
+    private final com.schoolmanagement.backend.service.NotificationService notificationService;
+    private final com.schoolmanagement.backend.service.ExamScheduleService examScheduleService;
 
     public SchoolAdminController(SchoolAdminService schoolAdminService,
             UserLookupService userLookup,
-            com.schoolmanagement.backend.service.StudentAccountService studentAccountService) {
+            com.schoolmanagement.backend.service.StudentAccountService studentAccountService,
+            com.schoolmanagement.backend.service.NotificationService notificationService,
+            com.schoolmanagement.backend.service.ExamScheduleService examScheduleService) {
         this.schoolAdminService = schoolAdminService;
         this.userLookup = userLookup;
         this.studentAccountService = studentAccountService;
+        this.notificationService = notificationService;
+        this.examScheduleService = examScheduleService;
     }
 
     // ==================== STATISTICS ====================
@@ -162,5 +168,130 @@ public class SchoolAdminController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         schoolAdminService.deleteUser(admin.getSchool(), userId);
+    }
+
+    // ==================== NOTIFICATION MANAGEMENT ====================
+
+    /**
+     * Get all notifications created for this school.
+     */
+    @GetMapping("/notifications")
+    public java.util.List<com.schoolmanagement.backend.dto.NotificationDto> getSchoolNotifications(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("[Notification] GET /notifications - User: {}, Role: {}", principal.getEmail(), principal.getRole());
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return notificationService.getForSchool(admin.getSchool());
+    }
+
+    /**
+     * Get all visible notifications for the school admin (includes system-wide
+     * notifications).
+     */
+    @GetMapping("/notifications/visible")
+    public java.util.List<com.schoolmanagement.backend.dto.NotificationDto> getVisibleNotifications(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("[Notification] GET /notifications/visible - User: {}", principal.getEmail());
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return notificationService.getVisibleForUser(admin.getSchool().getId(), Role.SCHOOL_ADMIN);
+    }
+
+    /**
+     * Get count of recent notifications (for badge on bell icon).
+     */
+    @GetMapping("/notifications/count")
+    public NotificationCountResponse getNotificationCount(@AuthenticationPrincipal UserPrincipal principal) {
+        log.info("[Notification] GET /notifications/count - User: {}", principal.getEmail());
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        long count = notificationService.countRecentForSchool(admin.getSchool().getId());
+        return new NotificationCountResponse(count);
+    }
+
+    /**
+     * Create a new notification for the school.
+     */
+    @Transactional
+    @PostMapping("/notifications")
+    public com.schoolmanagement.backend.dto.NotificationDto createNotification(
+            @Valid @RequestBody CreateSchoolNotificationRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("[Notification] POST /notifications - User: {}, Title: {}", principal.getEmail(), request.title());
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return notificationService.createForSchool(
+                request.title(),
+                request.message(),
+                admin.getSchool(),
+                admin);
+    }
+
+    /**
+     * Delete a notification.
+     */
+    @Transactional
+    @DeleteMapping("/notifications/{id}")
+    public void deleteNotification(@PathVariable UUID id, @AuthenticationPrincipal UserPrincipal principal) {
+        var admin = userLookup.requireById(principal.getId());
+        notificationService.delete(id, admin);
+    }
+
+    public record CreateSchoolNotificationRequest(
+            @jakarta.validation.constraints.NotBlank String title,
+            @jakarta.validation.constraints.NotBlank String message) {
+    }
+
+    public record NotificationCountResponse(long count) {
+    }
+
+    // ==================== EXAM SCHEDULE ====================
+
+    /**
+     * Generate exam schedules for selected subjects and grades.
+     */
+    @PostMapping("/exam-schedules/generate")
+    @Transactional
+    public java.util.List<com.schoolmanagement.backend.dto.ExamScheduleViewDto> generateExamSchedule(
+            @Valid @RequestBody com.schoolmanagement.backend.dto.ExamScheduleGenerateRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("[ExamSchedule] Generating exam schedule - User: {}, ExamType: {}",
+                principal.getEmail(), request.examType());
+        var admin = userLookup.requireById(principal.getId());
+        return examScheduleService.generateExamSchedule(admin.getSchool(), request, admin);
+    }
+
+    /**
+     * Get all exam schedules for the school.
+     */
+    @GetMapping("/exam-schedules")
+    public java.util.List<com.schoolmanagement.backend.dto.ExamScheduleViewDto> getExamSchedules(
+            @RequestParam String academicYear,
+            @RequestParam Integer semester,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        var admin = userLookup.requireById(principal.getId());
+        return examScheduleService.getExamSchedules(admin.getSchool(), academicYear, semester);
+    }
+
+    /**
+     * Delete exam schedules by type and period.
+     */
+    @DeleteMapping("/exam-schedules")
+    @Transactional
+    public void deleteExamSchedules(
+            @RequestParam com.schoolmanagement.backend.domain.ExamType examType,
+            @RequestParam String academicYear,
+            @RequestParam Integer semester,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        var admin = userLookup.requireById(principal.getId());
+        examScheduleService.deleteExistingSchedules(admin.getSchool(), examType, academicYear, semester);
     }
 }

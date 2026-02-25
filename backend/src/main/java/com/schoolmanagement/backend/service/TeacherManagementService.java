@@ -388,6 +388,7 @@ public class TeacherManagementService {
                 teacher.getAddress(),
                 teacher.getEmail(),
                 teacher.getPhone(),
+                teacher.getSpecialization(),
                 teacher.getDegree(),
                 teacher.getStatus(),
                 homeroomClassId,
@@ -396,5 +397,19 @@ public class TeacherManagementService {
                 subjectNames,
                 teacher.getUser() != null,
                 null);
+    }
+
+    @Transactional
+    public void deleteTeacher(School school, UUID teacherId) {
+        Teacher teacher = teachers.findById(teacherId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên"));
+        if (!teacher.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Giáo viên không thuộc trường này");
+        }
+        try {
+            bulkDeleteHelper.deleteSingleTeacher(teacherId);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new ApiException(HttpStatus.CONFLICT, "Không thể xóa giáo viên do dữ liệu liên quan.");
+        }
     }
 }

@@ -2,6 +2,7 @@ package com.schoolmanagement.backend.domain.entity;
 
 import com.schoolmanagement.backend.domain.ClassDepartment;
 import com.schoolmanagement.backend.domain.ClassRoomStatus;
+import com.schoolmanagement.backend.domain.SessionType;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.UUID;
@@ -41,6 +42,12 @@ public class ClassRoom {
     @Column(length = 20)
     @Builder.Default
     private ClassDepartment department = ClassDepartment.KHONG_PHAN_BAN;
+
+    /** Buổi học chính của lớp (Sáng/Chiều) */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    @Builder.Default
+    private SessionType session = SessionType.SANG;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
