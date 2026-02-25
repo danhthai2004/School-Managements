@@ -11,6 +11,9 @@ import java.util.UUID;
 
 @Repository
 public interface TeacherRepository extends JpaRepository<Teacher, UUID> {
+
+    Optional<Teacher> findByUser(com.schoolmanagement.backend.domain.entity.User user);
+
     List<Teacher> findAllBySchoolOrderByFullNameAsc(School school);
 
     List<Teacher> findAllBySchoolOrderByTeacherCodeAsc(School school);

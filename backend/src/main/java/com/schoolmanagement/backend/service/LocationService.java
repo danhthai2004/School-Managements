@@ -1,6 +1,5 @@
 package com.schoolmanagement.backend.service;
 
-import com.schoolmanagement.backend.domain.entity.Province;
 import com.schoolmanagement.backend.domain.entity.SchoolLevel;
 import com.schoolmanagement.backend.domain.entity.SchoolRegistry;
 import com.schoolmanagement.backend.dto.ProvinceDto;

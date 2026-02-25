@@ -12,6 +12,8 @@ import java.util.UUID;
 @Repository
 public interface StudentRepository extends JpaRepository<Student, UUID> {
 
+    Optional<Student> findByUser(com.schoolmanagement.backend.domain.entity.User user);
+
     List<Student> findAllBySchoolOrderByFullNameAsc(School school);
 
     Optional<Student> findBySchoolAndStudentCode(School school, String studentCode);
@@ -21,6 +23,8 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     boolean existsBySchoolAndEmail(School school, String email);
 
     Optional<Student> findBySchoolAndEmail(School school, String email);
+
+    boolean existsByEmail(String email);
 
     Optional<Student> findTopBySchoolOrderByStudentCodeDesc(School school);
 

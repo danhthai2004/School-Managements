@@ -283,6 +283,10 @@ export const schoolAdminService = {
         });
     },
 
+    deleteUser: async (userId: string): Promise<void> => {
+        await api.delete(`/school/users/${userId}`);
+    },
+
     // Students
     listStudents: async (classId?: string): Promise<StudentDto[]> => {
         const params = classId ? { classId } : {};
@@ -313,6 +317,17 @@ export const schoolAdminService = {
     transferStudent: async (studentId: string, newClassId: string): Promise<StudentProfileDto> => {
         const res = await api.post<StudentProfileDto>(`/school/students/${studentId}/transfer`, null, {
             params: { newClassId }
+        });
+        return res.data;
+    },
+
+    uploadAvatar: async (studentId: string, file: File): Promise<{ url: string }> => {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await api.post<{ url: string }>(`/school/students/${studentId}/avatar`, formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
         });
         return res.data;
     },
@@ -362,6 +377,10 @@ export const schoolAdminService = {
     createStudentAccounts: async (studentIds: string[]): Promise<BulkAccountCreationResponse> => {
         const res = await api.post<BulkAccountCreationResponse>("/school/students/accounts", studentIds);
         return res.data;
+    },
+
+    deleteStudentAccount: async (studentId: string): Promise<void> => {
+        await api.delete(`/school/students/${studentId}/account`);
     },
 
     // Teacher Account Management

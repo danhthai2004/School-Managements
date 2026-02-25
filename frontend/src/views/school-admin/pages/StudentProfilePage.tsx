@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { schoolAdminService } from '../../../services/schoolAdminService';
@@ -157,6 +157,10 @@ export default function StudentProfilePage() {
     const [error, setError] = useState<string | null>(null);
     const [showTransferModal, setShowTransferModal] = useState(false);
 
+    // Upload states & refs
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    const avatarInputRef = useRef<HTMLInputElement>(null);
+
     useEffect(() => {
         const fetchData = async () => {
             if (!id) return;
@@ -186,6 +190,23 @@ export default function StudentProfilePage() {
             setShowTransferModal(false);
         } catch (err: any) {
             alert(err?.response?.data?.message || 'Không thể chuyển lớp');
+        }
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !id) return;
+
+        try {
+            setUploadingAvatar(true);
+            const { url } = await schoolAdminService.uploadAvatar(id, file);
+            setProfile(prev => prev ? { ...prev, avatarUrl: url } : prev);
+        } catch (err: any) {
+            alert(err?.response?.data?.message || 'Lỗi khi tải file lên');
+        } finally {
+            setUploadingAvatar(false);
+            // reset input
+            e.target.value = '';
         }
     };
 
@@ -239,9 +260,37 @@ export default function StudentProfilePage() {
             {/* Header Card - Option 3 Layout */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200/60 p-4 md:p-6">
                 <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6">
-                    {/* Avatar Placeholder */}
-                    <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl md:text-2xl font-bold shadow-lg shadow-blue-500/20 shrink-0 ring-4 ring-white border border-gray-100">
-                        {getInitials(profile.fullName)}
+                    {/* Avatar Upload */}
+                    <div className="relative group shrink-0">
+                        <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl md:text-2xl font-bold shadow-lg shadow-blue-500/20 ring-4 ring-white border border-gray-100 overflow-hidden cursor-pointer"
+                            onClick={() => !uploadingAvatar && avatarInputRef.current?.click()}
+                        >
+                            {profile.avatarUrl ? (
+                                <img src={profile.avatarUrl} alt={profile.fullName} className="w-full h-full object-cover" />
+                            ) : (
+                                getInitials(profile.fullName)
+                            )}
+                            {/* Hover overlay */}
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                            </div>
+                            {/* Loading overlay */}
+                            {uploadingAvatar && (
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                    <svg className="animate-spin w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                </div>
+                            )}
+                        </div>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            ref={avatarInputRef}
+                            onChange={(e) => handleFileUpload(e)}
+                        />
                     </div>
 
                     {/* Info */}
@@ -402,6 +451,8 @@ export default function StudentProfilePage() {
                             )}
                         </div>
                     </div>
+
+                    {/* Documents Uploads removed */}
 
                 </div>
             </div>

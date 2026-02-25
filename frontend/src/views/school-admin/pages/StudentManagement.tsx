@@ -10,11 +10,14 @@ import { PlusIcon } from "../SchoolAdminIcons";
 import { StatusBadge } from '../../../components/common/StatusBadge';
 import BatchDeleteModal from '../../../components/common/BatchDeleteModal';
 import { formatDate } from "../../../utils/dateHelpers";
-import SuccessToast from "../../../components/common/SuccessToast";
+// ... (imports)
+import { useToast } from "../../../context/ToastContext";
+
+
 
 
 // Extracted modal components
-import ImportSuccessToast from "../components/student/ImportSuccessToast";
+import ImportStudentResultModal from "../components/student/ImportStudentResultModal";
 import AddStudentModal from "../components/student/AddStudentModal";
 import StudentDetailModal from "../components/student/StudentDetailModal";
 
@@ -46,9 +49,8 @@ const StudentManagement = () => {
     // Bulk selection state
     const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
 
-    // Success toast state
-    const [successToastOpen, setSuccessToastOpen] = useState(false);
-    const [successMessage, setSuccessMessage] = useState("");
+    // Success toast state - Replaced by global useToast
+    const { showSuccess } = useToast();
 
     // Filter states
     const [searchTerm, setSearchTerm] = useState("");
@@ -162,8 +164,7 @@ const StudentManagement = () => {
                 setSelectedStudentIds(new Set());
                 // Optional: Toast can still optionally show success if desired, but modal handles it too.
                 // Keeping toast for consistency if users like it.
-                setSuccessMessage(`Đã xóa thành công ${result.deleted} học sinh`);
-                setSuccessToastOpen(true);
+                showSuccess(`Đã xóa thành công ${result.deleted} học sinh`);
             }
 
             return result; // RETURN result for BatchDeleteModal
@@ -172,6 +173,8 @@ const StudentManagement = () => {
             return { deleted: 0, failed: selectedStudentIds.size, errors: ["Lỗi hệ thống"] };
         }
     };
+
+
 
     if (loading) {
         return <div className="p-8 text-center text-gray-500">Đang tải danh sách học sinh...</div>;
@@ -430,8 +433,7 @@ const StudentManagement = () => {
                 onClose={() => setShowAddStudentModal(false)}
                 onSuccess={() => {
                     fetchData();
-                    setSuccessMessage("Thêm học sinh thành công!");
-                    setSuccessToastOpen(true);
+                    showSuccess("Thêm học sinh thành công!");
                 }}
                 classes={classes}
             />
@@ -460,18 +462,26 @@ const StudentManagement = () => {
                 }}
                 onSuccess={() => {
                     fetchData();
-                    setSuccessMessage("Cập nhật thông tin học sinh thành công!");
-                    setSuccessToastOpen(true);
+                    showSuccess("Cập nhật thông tin học sinh thành công!");
                 }}
             />
             <ImportExcelModal
                 isOpen={showImportModal}
                 onClose={() => setShowImportModal(false)}
                 onSuccess={fetchData}
-                onImportComplete={(result) => setImportToastResult(result)}
+                onImportComplete={(result) => {
+                    if (result.failedCount === 0) {
+                        showSuccess(`Import thành công ${result.successCount} học sinh!`);
+                        // No need to show modal for perfect success
+                        setImportToastResult(null);
+                    } else {
+                        // Show modal for errors/mixed results
+                        setImportToastResult(result);
+                    }
+                }}
                 defaultAcademicYear={currentAcademicYear}
             />
-            <ImportSuccessToast
+            <ImportStudentResultModal
                 result={importToastResult}
                 onClose={() => setImportToastResult(null)}
             />
@@ -480,16 +490,20 @@ const StudentManagement = () => {
                 onClose={() => setShowBatchDeleteModal(false)}
                 onConfirm={handleBulkDelete}
                 title="Xóa học sinh"
-                message={`Bạn có chắc chắn muốn xóa ${selectedStudentIds.size} học sinh đã chọn?`}
+                message={
+                    Array.from(selectedStudentIds).filter(id => students.find(s => s.id === id)?.hasAccount).length > 0
+                        ? `Trong đó có ${Array.from(selectedStudentIds).filter(id => students.find(s => s.id === id)?.hasAccount).length} học sinh đang có tài khoản hệ thống. Tài khoản đăng nhập của các học sinh này cũng sẽ bị xóa vĩnh viễn.`
+                        : `Bạn có chắc chắn muốn xóa ${selectedStudentIds.size} học sinh đã chọn?`
+                }
                 itemCount={selectedStudentIds.size}
                 itemName="học sinh"
+                confirmLabel={
+                    Array.from(selectedStudentIds).some(id => students.find(s => s.id === id)?.hasAccount)
+                        ? "Tôi xác nhận xóa hồ sơ và tài khoản của các học sinh này"
+                        : undefined
+                }
             />
-            <SuccessToast
-                isOpen={successToastOpen}
-                onClose={() => setSuccessToastOpen(false)}
-                message={successMessage}
-                subtitle="Tự động đóng sau 3 giây"
-            />
+
         </div>
     );
 };

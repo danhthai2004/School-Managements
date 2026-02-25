@@ -1,0 +1,60 @@
+import React, { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import SuccessToast from '../components/common/SuccessToast';
+
+interface ToastOptions {
+    message: string;
+    subtitle?: string;
+    autoCloseMs?: number;
+}
+
+interface ToastContextType {
+    showSuccess: (options: ToastOptions | string) => void;
+    hideToast: () => void;
+}
+
+const ToastContext = createContext<ToastContextType | undefined>(undefined);
+
+export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [message, setMessage] = useState('');
+    const [subtitle, setSubtitle] = useState<string | undefined>(undefined);
+    const [autoCloseMs, setAutoCloseMs] = useState(3000);
+
+    const showSuccess = useCallback((options: ToastOptions | string) => {
+        if (typeof options === 'string') {
+            setMessage(options);
+            setSubtitle(undefined);
+            setAutoCloseMs(3000);
+        } else {
+            setMessage(options.message);
+            setSubtitle(options.subtitle);
+            setAutoCloseMs(options.autoCloseMs ?? 3000);
+        }
+        setIsOpen(true);
+    }, []);
+
+    const hideToast = useCallback(() => {
+        setIsOpen(false);
+    }, []);
+
+    return (
+        <ToastContext.Provider value={{ showSuccess, hideToast }}>
+            {children}
+            <SuccessToast
+                isOpen={isOpen}
+                onClose={hideToast}
+                message={message}
+                subtitle={subtitle}
+                autoCloseMs={autoCloseMs}
+            />
+        </ToastContext.Provider>
+    );
+};
+
+export const useToast = () => {
+    const context = useContext(ToastContext);
+    if (context === undefined) {
+        throw new Error('useToast must be used within a ToastProvider');
+    }
+    return context;
+};

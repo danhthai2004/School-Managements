@@ -9,7 +9,6 @@ interface StudentDetailModalProps {
     student: StudentDto | null;
     onClose: () => void;
     onEdit?: () => void;
-
 }
 
 function StudentDetailModal({ isOpen, student, onClose, onEdit }: StudentDetailModalProps) {
