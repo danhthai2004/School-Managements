@@ -65,7 +65,7 @@ export default function SchoolsListPage() {
       setWardCode(null);
       systemService.getWardsByProvince(provinceCode)
         .then(setWards)
-        .catch(e => console.error("Failed to load wards", e))
+        .catch((e: unknown) => console.error("Failed to load wards", e))
         .finally(() => setLoadingWards(false));
     } else {
       setWards([]);

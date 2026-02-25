@@ -37,7 +37,6 @@
 }
 
 @layer base {
-
   html,
   body {
     height: 100%;
@@ -62,7 +61,6 @@
 
 /* ==================== ANIMATIONS ==================== */
 @layer utilities {
-
   /* Fade animations */
   .animate-fade-in {
     animation: fadeIn 0.3s ease-out forwards;
@@ -197,7 +195,6 @@
 
 /* ==================== COMPONENT UTILITIES ==================== */
 @layer components {
-
   /* Glass effect */
   .glass {
     background-color: rgb(255 255 255 / 0.8);
@@ -391,4 +388,10 @@
     background-color: #dbeafe;
     color: #1d4ed8;
   }
+}
+
+/* ==================== DATEPICKER PORTAL ==================== */
+/* Fixed strategy popper needs high z-index to render above modal overlay */
+.react-datepicker-popper-fixed {
+  z-index: 9999 !important;
 }

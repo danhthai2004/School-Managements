@@ -25,4 +25,8 @@ public interface TeacherAssignmentRepository extends JpaRepository<TeacherAssign
     void deleteAllByTeacher(com.schoolmanagement.backend.domain.entity.Teacher teacher);
 
     boolean existsByTeacher(com.schoolmanagement.backend.domain.entity.Teacher teacher);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM TeacherAssignment ta WHERE ta.school.id = :schoolId")
+    void deleteBySchoolId(@org.springframework.data.repository.query.Param("schoolId") UUID schoolId);
 }

@@ -101,6 +101,12 @@ export type ProvinceDto = {
   codename: string;
 };
 
+export type WardDto = {
+  code: number;
+  name: string;
+  codename: string;
+};
+
 export type SchoolRegistryDto = {
   code: string;
   name: string;
@@ -232,6 +238,13 @@ export const systemService = {
   // Locations
   getProvinces: async (): Promise<ProvinceDto[]> => {
     const res = await api.get<ProvinceDto[]>("/v1/locations/provinces");
+    return res.data;
+  },
+
+  getWardsByProvince: async (provinceCode: number): Promise<WardDto[]> => {
+    const res = await api.get<WardDto[]>("/v1/locations/wards", {
+      params: { provinceCode },
+    });
     return res.data;
   },
 

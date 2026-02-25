@@ -83,7 +83,7 @@ export default function SchoolDetailsPage() {
       systemService
         .getWardsByProvince(provinceCode)
         .then(setWards)
-        .catch((e) => console.error("Failed to load wards", e))
+        .catch((e: unknown) => console.error("Failed to load wards", e))
         .finally(() => setLoadingWards(false));
     } else if (!provinceCode) {
       setWards([]);
@@ -96,7 +96,7 @@ export default function SchoolDetailsPage() {
       systemService
         .getWardsByProvince(school.provinceCode)
         .then(setWards)
-        .catch((e) => console.error("Failed to load wards", e));
+        .catch((e: unknown) => console.error("Failed to load wards", e));
     }
   }, [school?.provinceCode]);
 

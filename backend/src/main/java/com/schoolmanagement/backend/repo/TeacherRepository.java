@@ -40,4 +40,8 @@ public interface TeacherRepository extends JpaRepository<Teacher, UUID> {
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("DELETE FROM TeacherAssignment ta WHERE ta.teacher.id = :teacherId")
     void removeTeacherAssignments(@org.springframework.data.repository.query.Param("teacherId") UUID teacherId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM Teacher t WHERE t.school.id = :schoolId")
+    void deleteBySchoolId(@org.springframework.data.repository.query.Param("schoolId") UUID schoolId);
 }

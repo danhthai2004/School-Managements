@@ -22,7 +22,7 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes }: AddStudentModa
     const [fullName, setFullName] = useState("");
     const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
     const [dateInputValue, setDateInputValue] = useState("");
-    const [gender, setGender] = useState<'MALE' | 'FEMALE' | 'OTHER'>("MALE");
+    const [gender, setGender] = useState<'MALE' | 'FEMALE' | 'OTHER' | ''>("");
     const [birthPlace, setBirthPlace] = useState("");
     const [address, setAddress] = useState("");
     const [email, setEmail] = useState("");
@@ -76,7 +76,7 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes }: AddStudentModa
             const req: CreateStudentRequest = {
                 fullName: fullName.trim(),
                 dateOfBirth: dateOfBirthStr,
-                gender,
+                gender: gender as 'MALE' | 'FEMALE' | 'OTHER',
                 birthPlace: birthPlace.trim() || undefined,
                 address: address.trim() || undefined,
                 email: email.trim() || undefined,
@@ -183,6 +183,7 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes }: AddStudentModa
                                         onChangeRaw={(e) => {
                                             if (!e) return;
                                             const target = e.target as HTMLInputElement;
+                                            if (typeof target.value !== 'string') return;
                                             const isDeleting = (e.nativeEvent as any).inputType?.startsWith('delete');
                                             const formatted = formatDateInput(target.value, isDeleting);
                                             setDateInputValue(formatted);
@@ -198,9 +199,14 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes }: AddStudentModa
                                         dateFormat="dd/MM/yyyy"
                                         placeholderText="VD: 20/01/2005"
                                         showYearDropdown
+                                        showMonthDropdown
                                         scrollableYearDropdown
                                         yearDropdownItemNumber={100}
                                         maxDate={new Date()}
+                                        openToDate={dateOfBirth || new Date(2008, 0, 1)}
+                                        popperProps={{ strategy: "fixed" }}
+                                        popperClassName="react-datepicker-popper-fixed"
+                                        shouldCloseOnSelect={false}
                                         wrapperClassName="w-full block"
                                         customInput={
                                             <CustomDateInput

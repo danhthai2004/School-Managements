@@ -183,6 +183,7 @@ function EditTeacherModal({ isOpen, teacher, onClose, onSuccess }: EditTeacherMo
                                         onChangeRaw={(e) => {
                                             if (!e) return;
                                             const target = e.target as HTMLInputElement;
+                                            if (typeof target.value !== 'string') return;
                                             const nativeEvent = e.nativeEvent as unknown as InputEvent;
                                             const isDeleting = nativeEvent.inputType?.startsWith('delete') || false;
                                             const formatted = formatDateInput(target.value, isDeleting);
@@ -198,9 +199,14 @@ function EditTeacherModal({ isOpen, teacher, onClose, onSuccess }: EditTeacherMo
                                         dateFormat="dd/MM/yyyy"
                                         placeholderText="VD: 20/01/1990"
                                         showYearDropdown
+                                        showMonthDropdown
                                         scrollableYearDropdown
                                         yearDropdownItemNumber={100}
                                         maxDate={new Date()}
+                                        openToDate={dateOfBirth || new Date(2000, 0, 1)}
+                                        popperProps={{ strategy: "fixed" }}
+                                        popperClassName="react-datepicker-popper-fixed"
+                                        shouldCloseOnSelect={false}
                                         wrapperClassName="w-full block"
                                         customInput={
                                             <CustomDateInput

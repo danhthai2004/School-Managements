@@ -51,4 +51,7 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     @org.springframework.data.jpa.repository.Query("DELETE FROM FacialRecognitionData b WHERE b.student.id = :studentId")
     void deleteBiometricsByStudentId(@org.springframework.data.repository.query.Param("studentId") UUID studentId);
 
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM Student s WHERE s.school.id = :schoolId")
+    void deleteBySchoolId(@org.springframework.data.repository.query.Param("schoolId") UUID schoolId);
 }

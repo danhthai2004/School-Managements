@@ -11,4 +11,8 @@ public interface AuthChallengeRepository extends JpaRepository<AuthChallenge, UU
     Optional<AuthChallenge> findByIdAndType(UUID id, AuthChallengeType type);
 
     void deleteByUser(com.schoolmanagement.backend.domain.entity.User user);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM AuthChallenge ac WHERE ac.user.id = :userId")
+    void deleteByUserId(@org.springframework.data.repository.query.Param("userId") UUID userId);
 }
