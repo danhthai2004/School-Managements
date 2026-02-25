@@ -29,4 +29,7 @@ public class Ward {
 
     @Column(name = "district_code")
     private Integer districtCode;
+
+    @Column(name = "province_code")
+    private Integer provinceCode;
 }

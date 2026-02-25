@@ -65,10 +65,13 @@ public class SystemAdminService {
     // ========== SCHOOL MANAGEMENT ==========
 
     public SchoolDto createSchool(CreateSchoolRequest req, User performedBy) {
-        // Use the provided school code (manual entry per MOE requirement)
-        String schoolCode = req.schoolCode().trim();
+        // Use the provided school code (manual entry per MOE requirement), nullable
+        String schoolCode = req.schoolCode() != null ? req.schoolCode().trim() : null;
+        if (schoolCode != null && schoolCode.isBlank()) {
+            schoolCode = null;
+        }
 
-        if (schools.existsByCodeIgnoreCase(schoolCode)) {
+        if (schoolCode != null && schools.existsByCodeIgnoreCase(schoolCode)) {
             throw new ApiException(HttpStatus.CONFLICT, "Mã trường đã tồn tại.");
         }
 

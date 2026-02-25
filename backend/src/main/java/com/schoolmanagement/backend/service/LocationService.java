@@ -34,7 +34,7 @@ public class LocationService {
     }
 
     public List<WardDto> getWardsByProvince(int provinceCode) {
-        return wards.findByProvinceCode(provinceCode).stream()
+        return wards.findByProvinceCodeOrderByNameAsc(provinceCode).stream()
                 .map(w -> new WardDto(w.getCode(), w.getName(), w.getCodename()))
                 .toList();
     }

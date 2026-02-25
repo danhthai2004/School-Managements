@@ -67,7 +67,7 @@ export type ActivityLogDto = {
 
 export type CreateSchoolRequest = {
   schoolName: string;
-  schoolCode: string;
+  schoolCode?: string;
   provinceCode: number;
   wardCode?: number;
   enrollmentArea?: string;
