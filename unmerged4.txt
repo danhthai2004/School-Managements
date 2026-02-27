@@ -1,7 +1,0 @@
-﻿backend/src/main/java/com/schoolmanagement/backend/service/TeacherImportService.java
-docker-compose.yml
-frontend/src/services/schoolAdminService.ts
-frontend/src/views/school-admin/pages/ClassManagement.tsx
-frontend/src/views/school-admin/pages/StudentManagement.tsx
-frontend/src/views/school-admin/pages/TeacherAssignment.tsx
-frontend/src/views/school-admin/pages/TeacherManagement.tsx
