@@ -1,9 +1,26 @@
 package com.schoolmanagement.backend.service;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.schoolmanagement.backend.domain.ClassRoomStatus;
 import com.schoolmanagement.backend.domain.StudentStatus;
-import com.schoolmanagement.backend.domain.entity.*;
+import com.schoolmanagement.backend.domain.entity.ClassEnrollment;
+import com.schoolmanagement.backend.domain.entity.ClassRoom;
+import com.schoolmanagement.backend.domain.entity.Guardian;
+import com.schoolmanagement.backend.domain.entity.School;
+import com.schoolmanagement.backend.domain.entity.Student;
+import com.schoolmanagement.backend.domain.entity.User;
 import com.schoolmanagement.backend.dto.BulkPromoteResponse;
+import com.schoolmanagement.backend.dto.BulkAccountCreationResponse;
 import com.schoolmanagement.backend.dto.StudentDto;
 import com.schoolmanagement.backend.dto.StudentGuardianDto;
 import com.schoolmanagement.backend.dto.StudentProfileDto;
@@ -230,6 +247,29 @@ public class StudentManagementService {
         }
 
         return toStudentDto(student);
+    }
+
+    @Transactional(readOnly = true)
+    public Student getSingleStudent(UUID studentId) {
+        Student student = students.findById(studentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+
+        return student;
+    }
+
+    // Find student with Guardian ID
+    @Transactional(readOnly = true)
+    public StudentDto getStudentWithGuardian(String guardianEmail) {
+        List<Guardian> guardianList = guardians.findByEmailIgnoreCase(guardianEmail);
+        if (guardianList.isEmpty()) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy phụ huynh");
+        }
+        Guardian guardian = guardianList.get(0);
+        if (guardian.getStudents() == null || guardian.getStudents().isEmpty()) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "Phụ huynh chưa có học sinh nào");
+        }
+        // For backwards compatibility with the portal, returning the first student
+        return toStudentDto(guardian.getStudents().iterator().next());
     }
 
     @Transactional
@@ -821,4 +861,5 @@ public class StudentManagementService {
 
         return new BulkPromoteResponse(promoted, skipped, errors);
     }
+
 }

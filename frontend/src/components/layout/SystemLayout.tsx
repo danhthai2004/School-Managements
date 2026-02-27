@@ -13,6 +13,7 @@ import {
   UserIcon,
   LockIcon,
 } from "./SystemIcons";
+import NotificationBell from "./NotificationBell";
 
 export default function SystemLayout() {
   const { user, logout } = useAuth();
@@ -144,10 +145,10 @@ export default function SystemLayout() {
 
             {/* Right side */}
             <div className="flex items-center gap-4">
-              <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                <BellIcon />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-              </button>
+              <NotificationBell
+                apiEndpoint="/system/notifications"
+                countEndpoint="/system/notifications/count"
+              />
 
               <div className="relative">
                 <button

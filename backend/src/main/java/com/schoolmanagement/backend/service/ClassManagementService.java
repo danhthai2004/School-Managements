@@ -72,6 +72,8 @@ public class ClassManagementService {
                 .roomNumber(req.roomNumber())
                 .department(req.department() != null ? req.department()
                         : com.schoolmanagement.backend.domain.ClassDepartment.KHONG_PHAN_BAN)
+                .session(req.session() != null ? req.session()
+                        : com.schoolmanagement.backend.domain.SessionType.SANG)
                 .school(school)
                 .homeroomTeacher(teacher)
                 .combination(combination)
@@ -129,6 +131,8 @@ public class ClassManagementService {
         classRoom.setRoomNumber(req.roomNumber());
         classRoom.setDepartment(req.department() != null ? req.department()
                 : com.schoolmanagement.backend.domain.ClassDepartment.KHONG_PHAN_BAN);
+        classRoom.setSession(req.session() != null ? req.session()
+                : com.schoolmanagement.backend.domain.SessionType.SANG);
         classRoom.setHomeroomTeacher(teacher);
         classRoom.setCombination(combination);
 
@@ -147,6 +151,19 @@ public class ClassManagementService {
 
         // TODO: Check if class has students before delete
         classRooms.delete(classRoom);
+    }
+
+    @Transactional(readOnly = true)
+    public ClassRoom getClassRoom(UUID studentId, String academicYear) {
+        UUID classId = enrollments
+                .findLatestClassroomId(studentId, academicYear)
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Học sinh không ở lớp học nào"));
+        ClassRoom classRoom = classRooms.findById(classId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học"));
+
+        return classRoom;
     }
 
     @Transactional(readOnly = true)
@@ -178,6 +195,7 @@ public class ClassManagementService {
                 classRoom.getMaxCapacity(),
                 classRoom.getRoomNumber(),
                 classRoom.getDepartment() != null ? classRoom.getDepartment().name() : null,
+                classRoom.getSession() != null ? classRoom.getSession().name() : "SANG",
                 classRoom.getStatus().name(),
                 teacher != null ? teacher.getId() : null,
                 teacher != null ? teacher.getFullName() : null,

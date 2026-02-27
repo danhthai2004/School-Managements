@@ -53,4 +53,6 @@ public interface TimetableDetailRepository extends JpaRepository<TimetableDetail
         void unlinkTeacherFromTimetable(@org.springframework.data.repository.query.Param("teacher") Teacher teacher);
 
         boolean existsByTeacher(Teacher teacher);
+
+        List<TimetableDetail> findByClassRoom(ClassRoom classRoom);
 }

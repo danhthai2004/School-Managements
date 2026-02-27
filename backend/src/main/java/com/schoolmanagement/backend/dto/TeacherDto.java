@@ -12,7 +12,7 @@ public record TeacherDto(
                 String address,
                 String email,
                 String phone,
-
+                String specialization,
                 String degree,
                 String status,
                 UUID homeroomClassId,

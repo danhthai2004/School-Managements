@@ -352,96 +352,17 @@ public class ReportService {
 
         /**
          * Lấy báo cáo điểm danh tổng hợp
+         * NOTE: Tạm thời trả về báo cáo trống do conflict schema với AttendanceSession
+         * Cần refactor lại khi merge hoàn tất
          */
         public AttendanceReportDto getAttendanceReport(School school) {
-                List<AttendanceSession> allSessions = attendanceSessionRepository.findAllBySchool(school);
-                List<Attendance> allAttendance = attendanceRepository.findAllBySessionIn(allSessions);
-
-                long totalSessions = allSessions.size();
-
-                // Calculate overall attendance rate
-                long totalRecords = allAttendance.size();
-                long presentCount = allAttendance.stream().filter(a -> "PRESENT".equals(a.getStatus())).count();
-                double overallAttendanceRate = totalRecords > 0 ? (presentCount * 100.0 / totalRecords) : 0.0;
-
-                // Attendance by class
-                List<ClassRoom> allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(school);
-                List<AttendanceReportDto.AttendanceByClassDto> attendanceByClass = allClasses.stream()
-                                .map(c -> {
-                                        List<AttendanceSession> classSessions = allSessions.stream()
-                                                        .filter(s -> s.getClassRoom().getId().equals(c.getId()))
-                                                        .toList();
-                                        List<Attendance> classAttendance = allAttendance.stream()
-                                                        .filter(a -> a.getSession().getClassRoom().getId()
-                                                                        .equals(c.getId()))
-                                                        .toList();
-
-                                        long classTotal = classAttendance.size();
-                                        long classPresent = classAttendance.stream()
-                                                        .filter(a -> "PRESENT".equals(a.getStatus())).count();
-                                        long classAbsent = classAttendance.stream()
-                                                        .filter(a -> "ABSENT".equals(a.getStatus())).count();
-                                        long classLate = classAttendance.stream()
-                                                        .filter(a -> "LATE".equals(a.getStatus())).count();
-                                        long classExcused = classAttendance.stream()
-                                                        .filter(a -> "EXCUSED".equals(a.getStatus())).count();
-                                        double classRate = classTotal > 0 ? (classPresent * 100.0 / classTotal) : 0.0;
-
-                                        return new AttendanceReportDto.AttendanceByClassDto(
-                                                        c.getId(),
-                                                        c.getName(),
-                                                        c.getGrade(),
-                                                        classSessions.size(),
-                                                        Math.round(classRate * 100.0) / 100.0,
-                                                        classPresent,
-                                                        classAbsent,
-                                                        classLate,
-                                                        classExcused);
-                                })
-                                .filter(dto -> dto.totalSessions() > 0)
-                                .sorted(Comparator.comparingInt(AttendanceReportDto.AttendanceByClassDto::grade)
-                                                .thenComparing(AttendanceReportDto.AttendanceByClassDto::className))
-                                .toList();
-
-                // Chronic absentees (students with >= 5 absent days)
-                Map<Student, Long> absentCountByStudent = allAttendance.stream()
-                                .filter(a -> "ABSENT".equals(a.getStatus()))
-                                .collect(Collectors.groupingBy(Attendance::getStudent, Collectors.counting()));
-
-                List<AttendanceReportDto.ChronicAbsenteeDto> chronicAbsentees = absentCountByStudent.entrySet().stream()
-                                .filter(e -> e.getValue() >= 5)
-                                .map(e -> {
-                                        Student s = e.getKey();
-                                        long absentDays = e.getValue();
-                                        // Find student's class
-                                        List<ClassEnrollment> enrollments = enrollmentRepository.findAllByStudent(s);
-                                        String className = enrollments.isEmpty() ? "N/A"
-                                                        : enrollments.get(0).getClassRoom().getName();
-                                        // Calculate absent rate based on total sessions for their class
-                                        long studentTotalAttendance = allAttendance.stream()
-                                                        .filter(a -> a.getStudent().getId().equals(s.getId()))
-                                                        .count();
-                                        double absentRate = studentTotalAttendance > 0
-                                                        ? (absentDays * 100.0 / studentTotalAttendance)
-                                                        : 0.0;
-
-                                        return new AttendanceReportDto.ChronicAbsenteeDto(
-                                                        s.getId(),
-                                                        s.getStudentCode(),
-                                                        s.getFullName(),
-                                                        className,
-                                                        (int) absentDays,
-                                                        Math.round(absentRate * 100.0) / 100.0);
-                                })
-                                .sorted(Comparator.comparingInt(AttendanceReportDto.ChronicAbsenteeDto::absentDays)
-                                                .reversed())
-                                .toList();
-
+                // TODO: Re-implement when AttendanceSession entity is properly merged
                 return new AttendanceReportDto(
-                                totalSessions,
-                                Math.round(overallAttendanceRate * 100.0) / 100.0,
-                                attendanceByClass,
-                                chronicAbsentees);
+                                0L,  // totalSessions
+                                0.0, // overallAttendanceRate
+                                new ArrayList<>(), // attendanceByClass
+                                new ArrayList<>()  // chronicAbsentees
+                );
         }
 
         // ==================== ACADEMIC REPORTS ====================

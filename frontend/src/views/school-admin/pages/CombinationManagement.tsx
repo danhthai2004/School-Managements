@@ -139,7 +139,10 @@ export default function CombinationManagement() {
     const electives = subjects.filter(s => s.type === 'ELECTIVE' && s.active && s.stream === formData.stream);
     // Relaxed filtering for Specialized Subjects: Show ALL active specialized subjects
     const specialized = subjects.filter(s => s.type === 'SPECIALIZED' && s.active);
-    const compulsory = subjects.filter(s => s.type === 'COMPULSORY' && s.active);
+    // Filter out ACTIVITY subjects (Chào cờ, Sinh hoạt lớp)
+    const compulsory = subjects.filter(s =>
+        s.type === 'COMPULSORY' && s.active && s.code !== 'CC' && s.code !== 'SHL'
+    );
 
     return (
         <div className="p-4 space-y-6">
