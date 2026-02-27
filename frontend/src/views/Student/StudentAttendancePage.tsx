@@ -56,12 +56,12 @@ export default function StudentAttendancePage() {
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-5 text-white">
+                <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-5 text-white">
                     <p className="text-white/80 text-sm">Tỷ lệ chuyên cần</p>
                     <p className="text-3xl font-bold">{attendance.attendanceRate}%</p>
                     <p className="text-white/60 text-xs mt-1">Trong tháng</p>
                 </div>
-                <div className="bg-white rounded-2xl p-5 border flex items-center gap-4 hover:shadow-lg transition-all">
+                <div className="bg-white rounded-xl p-5 border border-gray-100 flex items-center gap-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                     <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center text-green-600">
                         <CheckCircle className="w-6 h-6" />
                     </div>
@@ -70,7 +70,7 @@ export default function StudentAttendancePage() {
                         <p className="text-2xl font-bold text-gray-900">{attendance.presentDays}</p>
                     </div>
                 </div>
-                <div className="bg-white rounded-2xl p-5 border flex items-center gap-4 hover:shadow-lg transition-all">
+                <div className="bg-white rounded-xl p-5 border border-gray-100 flex items-center gap-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                     <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center text-red-600">
                         <XCircle className="w-6 h-6" />
                     </div>
@@ -79,7 +79,7 @@ export default function StudentAttendancePage() {
                         <p className="text-2xl font-bold text-gray-900">{attendance.absentDays}</p>
                     </div>
                 </div>
-                <div className="bg-white rounded-2xl p-5 border flex items-center gap-4 hover:shadow-lg transition-all">
+                <div className="bg-white rounded-xl p-5 border border-gray-100 flex items-center gap-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                     <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center text-orange-600">
                         <Clock className="w-6 h-6" />
                     </div>

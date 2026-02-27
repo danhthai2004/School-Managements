@@ -56,10 +56,18 @@ export default function StudentOverviewPage() {
     return (
         <div className="animate-fade-in-up space-y-6">
             {/* Welcome Banner */}
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
-                <h2 className="text-xl font-semibold">
-                    {getGreeting()}, {user?.fullName || dashboard.profile.fullName}! 👋
-                </h2>
+            <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                {/* Background decoration */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+                <div className="relative">
+                    <h2 className="text-2xl font-bold mb-1">
+                        {getGreeting()}, {user?.fullName || dashboard.profile.fullName}! 👋
+                    </h2>
+                    <p className="text-blue-100 text-sm">
+                        Chúc bạn học tốt - {dashboard.semester}
+                    </p>
+                </div>
             </div>
 
             {/* Stats Cards - 3 cards layout like the design */}
@@ -406,7 +414,7 @@ function StatCard({ title, value, icon, color, subtitle, change }: {
     const classes = colorClasses[color] || colorClasses.blue;
 
     return (
-        <div className={`${classes.bg} rounded-2xl p-5 border border-gray-100 hover:shadow-md transition-all duration-300`}>
+        <div className={`${classes.bg} rounded-xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300`}>
             <div className="flex items-start justify-between">
                 <div className={`${classes.iconBg} ${classes.text} w-10 h-10 rounded-xl flex items-center justify-center`}>
                     {icon}

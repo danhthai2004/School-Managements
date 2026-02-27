@@ -17,7 +17,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import com.schoolmanagement.backend.dto.StudentDto.GuardianDto;
+import com.schoolmanagement.backend.dto.GuardianDto;
 import com.schoolmanagement.backend.security.UserPrincipal;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -49,7 +49,7 @@ public class GuardianController {
 
   @GetMapping("/timetable/{studentId}")
   public List<SimpleTimetableDetailDto> getTimetableData(@AuthenticationPrincipal UserPrincipal principal,
-                                                         @PathVariable("studentId") String studentId) {
+      @PathVariable("studentId") String studentId) {
     log.info("Timetable data hit!");
     Student student = studentManagementService.getSingleStudent(UUID.fromString(studentId));
     String academicYear = TimeUtils.getCurrentAcademicYear();
@@ -58,18 +58,18 @@ public class GuardianController {
     return timetableService.getTimetableDetailsOfStudent(student, classRoom);
   }
 
-
   /**
    * Get exam schedule for the student.
    * Supports filtering by academic year and semester.
    */
   @GetMapping("/exams")
   public ResponseEntity<List<ExamScheduleDto>> getExamSchedule(
-          @RequestParam String studentId,
-          @RequestParam(required = false) String academicYear,
-          @RequestParam(required = false) Integer semester) {
+      @RequestParam String studentId,
+      @RequestParam(required = false) String academicYear,
+      @RequestParam(required = false) Integer semester) {
     log.info("Exams data hit!");
-    List<ExamScheduleDto> exams = studentPortalService.getExamScheduleStudent(UUID.fromString(studentId), academicYear, semester);
+    List<ExamScheduleDto> exams = studentPortalService.getExamScheduleStudent(UUID.fromString(studentId), academicYear,
+        semester);
     return ResponseEntity.ok(exams);
   }
 
@@ -82,9 +82,8 @@ public class GuardianController {
     User user = userLookupService.requireById(principal.getId());
     if (user.getRole() != Role.GUARDIAN) {
       throw new ResponseStatusException(
-              HttpStatus.FORBIDDEN,
-              "Only guardian role is able to proceed"
-      );
+          HttpStatus.FORBIDDEN,
+          "Only guardian role is able to proceed");
     }
     GuardianDto guardianDto = guardianService.findGuardianByUser(user);
     return ResponseEntity.ok(guardianDto);

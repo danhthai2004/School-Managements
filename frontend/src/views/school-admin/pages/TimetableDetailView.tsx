@@ -197,15 +197,15 @@ export default function TimetableDetailView() {
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse text-sm">
                             <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200">
-                                    <th className="p-4 border-r border-slate-200 text-center font-semibold text-slate-700 min-w-[100px] border-b border-slate-200 sticky left-0 bg-slate-50 z-20">
+                                <tr className="bg-white border-b border-gray-100">
+                                    <th className="p-4 border-r border-gray-100 text-center font-semibold text-slate-700 min-w-[100px] sticky left-0 bg-white z-20">
                                         Lớp
                                     </th>
-                                    <th className="p-2 border-r border-slate-200 text-center font-semibold text-slate-700 w-[60px] sticky left-[100px] bg-slate-50 z-20">
+                                    <th className="p-2 border-r border-gray-100 text-center font-semibold text-slate-700 w-[60px] sticky left-[100px] bg-white z-20">
                                         Tiết
                                     </th>
                                     {DAYS.map(day => (
-                                        <th key={day} className="p-2 border-r border-slate-200 text-center font-semibold text-blue-700 bg-blue-50/50 min-w-[140px]">
+                                        <th key={day} className="p-2 border-r border-gray-100 text-center font-medium text-blue-600 bg-white min-w-[140px]">
                                             {day}
                                         </th>
                                     ))}
@@ -215,18 +215,18 @@ export default function TimetableDetailView() {
                                 {classes.map((cls) => (
                                     <>
                                         {/* Morning session header */}
-                                        <tr key={`${cls}-morning-header`} className="bg-blue-50/70 border-b border-blue-100">
-                                            <td className="p-2 font-bold text-slate-900 sticky left-0 bg-blue-50/70 border-r border-slate-200 align-middle text-center z-10" rowSpan={MORNING_SLOTS.length + 1}>
+                                        <tr key={`${cls}-morning-header`} className="bg-white border-b border-gray-100">
+                                            <td className="p-2 font-bold text-slate-900 sticky left-0 bg-white border-r border-gray-100 align-middle text-center z-10" rowSpan={MORNING_SLOTS.length + 1}>
                                                 {cls}
                                             </td>
-                                            <td colSpan={DAYS.length + 1} className="p-1 text-center text-xs font-semibold text-blue-600 bg-blue-50/70">
-                                                🌅 BUỔI SÁNG
+                                            <td colSpan={DAYS.length + 1} className="p-1 text-center text-xs font-semibold text-blue-600 bg-white">
+                                                BUỔI SÁNG
                                             </td>
                                         </tr>
                                         {MORNING_SLOTS.map((slot: number) => (
-                                            <tr key={`${cls}-${slot}`} className={`border-b border-slate-100 hover:bg-slate-50 ${slot === 5 ? 'border-b-2 border-slate-300' : ''}`}>
+                                            <tr key={`${cls}-${slot}`} className={`border-b border-gray-100 hover:bg-slate-50/50 transition-colors ${slot === 5 ? 'border-b-2 border-gray-200' : ''}`}>
                                                 {/* Slot Number */}
-                                                <td className="p-2 text-center text-xs font-semibold text-slate-500 border-r border-slate-200 bg-slate-50 sticky left-[100px] z-10">
+                                                <td className="p-2 text-center text-xs font-semibold text-slate-500 border-r border-gray-100 bg-white sticky left-[100px] z-10">
                                                     T{slot}
                                                 </td>
 
@@ -234,7 +234,7 @@ export default function TimetableDetailView() {
                                                 {DAYS.map(day => {
                                                     const lesson = getCell(cls, day, slot);
                                                     return (
-                                                        <td key={`${day}-${slot}`} className="p-1 h-[50px] border-r border-slate-100 text-xs align-middle">
+                                                        <td key={`${day}-${slot}`} className="p-1 h-[50px] border-r border-gray-100 text-xs align-middle">
                                                             <div className="flex flex-col justify-center items-center h-full w-full">
                                                                 {lesson ? (
                                                                     <>
@@ -252,18 +252,18 @@ export default function TimetableDetailView() {
                                         ))}
 
                                         {/* Afternoon session header */}
-                                        <tr key={`${cls}-afternoon-header`} className="bg-orange-50/70 border-b border-orange-100">
-                                            <td className="p-2 font-bold text-slate-900 sticky left-0 bg-orange-50/70 border-r border-slate-200 align-middle text-center z-10" rowSpan={AFTERNOON_SLOTS.length + 1}>
+                                        <tr key={`${cls}-afternoon-header`} className="bg-white border-b border-gray-100">
+                                            <td className="p-2 font-bold text-slate-900 sticky left-0 bg-white border-r border-gray-100 align-middle text-center z-10" rowSpan={AFTERNOON_SLOTS.length + 1}>
 
                                             </td>
-                                            <td colSpan={DAYS.length + 1} className="p-1 text-center text-xs font-semibold text-orange-600 bg-orange-50/70">
-                                                🌇 BUỔI CHIỀU
+                                            <td colSpan={DAYS.length + 1} className="p-1 text-center text-xs font-semibold text-blue-600 bg-white">
+                                                BUỔI CHIỀU
                                             </td>
                                         </tr>
                                         {AFTERNOON_SLOTS.map((slot: number) => (
-                                            <tr key={`${cls}-${slot}`} className={`border-b border-slate-100 hover:bg-slate-50 ${slot === 9 ? 'border-b-4 border-slate-300' : ''}`}>
+                                            <tr key={`${cls}-${slot}`} className={`border-b border-gray-100 hover:bg-slate-50/50 transition-colors ${slot === 9 ? 'border-b-4 border-gray-200' : ''}`}>
                                                 {/* Slot Number */}
-                                                <td className="p-2 text-center text-xs font-semibold text-slate-500 border-r border-slate-200 bg-slate-50 sticky left-[100px] z-10">
+                                                <td className="p-2 text-center text-xs font-semibold text-slate-500 border-r border-gray-100 bg-white sticky left-[100px] z-10">
                                                     T{slot}
                                                 </td>
 
@@ -271,7 +271,7 @@ export default function TimetableDetailView() {
                                                 {DAYS.map(day => {
                                                     const lesson = getCell(cls, day, slot);
                                                     return (
-                                                        <td key={`${day}-${slot}`} className="p-1 h-[50px] border-r border-slate-100 text-xs align-middle">
+                                                        <td key={`${day}-${slot}`} className="p-1 h-[50px] border-r border-gray-100 text-xs align-middle">
                                                             <div className="flex flex-col justify-center items-center h-full w-full">
                                                                 {lesson ? (
                                                                     <>

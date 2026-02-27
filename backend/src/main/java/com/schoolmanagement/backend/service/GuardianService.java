@@ -2,7 +2,7 @@ package com.schoolmanagement.backend.service;
 
 import com.schoolmanagement.backend.domain.entity.Guardian;
 import com.schoolmanagement.backend.domain.entity.User;
-import com.schoolmanagement.backend.dto.StudentDto.GuardianDto;
+import com.schoolmanagement.backend.dto.GuardianDto;
 import com.schoolmanagement.backend.repo.GuardianRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.AllArgsConstructor;
@@ -19,17 +19,25 @@ public class GuardianService {
       throw new IllegalArgumentException("GuardianService: Email is null or empty");
     }
 
-    Guardian guardian = guardianRepository.findByEmail(email).orElseThrow(() -> new EntityNotFoundException("GuardianService: Guardian not found"));
+    Guardian guardian = guardianRepository.findByEmail(email).stream()
+        .findFirst()
+        .orElseThrow(() -> new EntityNotFoundException("GuardianService: Guardian not found"));
     return convertToGuardianDto(guardian);
   }
 
   private GuardianDto convertToGuardianDto(Guardian guardian) {
+    String studentName = "";
+    String studentClass = "";
+    if (guardian.getStudents() != null && !guardian.getStudents().isEmpty()) {
+      studentName = guardian.getStudents().get(0).getFullName();
+    }
     return new GuardianDto(
-            guardian.getId(),
-            guardian.getFullName(),
-            guardian.getPhone(),
-            guardian.getEmail(),
-            guardian.getRelationship()
-    );
+        guardian.getId(),
+        guardian.getFullName(),
+        guardian.getEmail(),
+        guardian.getPhone(),
+        "Phụ huynh",
+        studentName,
+        studentClass);
   }
 }

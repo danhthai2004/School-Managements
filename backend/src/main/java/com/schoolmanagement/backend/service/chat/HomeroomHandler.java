@@ -1,6 +1,7 @@
 package com.schoolmanagement.backend.service.chat;
 
 import com.schoolmanagement.backend.domain.ChatIntent;
+import com.schoolmanagement.backend.domain.AttendanceStatus;
 import com.schoolmanagement.backend.domain.entity.*;
 import com.schoolmanagement.backend.dto.ChatContext;
 import com.schoolmanagement.backend.repo.*;
@@ -62,29 +63,24 @@ public class HomeroomHandler implements ChatHandler {
 
         // Điểm danh hôm nay
         LocalDate today = LocalDate.now();
-        List<AttendanceSession> todaySessions = attendanceSessionRepository
-                .findAllBySchoolAndSessionDateBetween(classRoom.getSchool(), today, today)
-                .stream()
-                .filter(s -> s.getClassRoom() != null && s.getClassRoom().getId().equals(classRoom.getId()))
-                .toList();
+        List<Attendance> attendances = attendanceRepository.findByClassRoomAndAttendanceDate(classRoom, today);
 
         long absentToday = 0;
         long lateToday = 0;
         long excusedToday = 0;
         List<String> absentStudentNames = new ArrayList<>();
 
-        for (AttendanceSession session : todaySessions) {
-            List<Attendance> attendances = attendanceRepository.findAllBySession(session);
-            for (Attendance a : attendances) {
-                switch (a.getStatus()) {
-                    case "ABSENT" -> {
-                        absentToday++;
-                        if (a.getStudent() != null) {
-                            absentStudentNames.add(a.getStudent().getFullName());
-                        }
+        for (Attendance a : attendances) {
+            switch (a.getStatus()) {
+                case ABSENT -> {
+                    absentToday++;
+                    if (a.getStudent() != null) {
+                        absentStudentNames.add(a.getStudent().getFullName());
                     }
-                    case "LATE" -> lateToday++;
-                    case "EXCUSED" -> excusedToday++;
+                }
+                case LATE -> lateToday++;
+                case EXCUSED -> excusedToday++;
+                case PRESENT -> {
                 }
             }
         }
@@ -106,7 +102,7 @@ public class HomeroomHandler implements ChatHandler {
             data.put("absentStudents", absentStudentNames.stream().distinct().toList());
         }
 
-        data.put("hasAttendanceToday", !todaySessions.isEmpty());
+        data.put("hasAttendanceToday", !attendances.isEmpty());
 
         return ChatContext.ok(ChatIntent.ASK_HOMEROOM_CLASS, data);
     }

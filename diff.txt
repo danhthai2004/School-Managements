@@ -1,0 +1,10 @@
+﻿diff --git a/backend/src/main/java/com/schoolmanagement/backend/controller/SchoolAdminController.java b/backend/src/main/java/com/schoolmanagement/backend/controller/SchoolAdminController.java
+index f6ba010..a1b3c72 100644
+--- a/backend/src/main/java/com/schoolmanagement/backend/controller/SchoolAdminController.java
++++ b/backend/src/main/java/com/schoolmanagement/backend/controller/SchoolAdminController.java
+@@ -163,4 +163,5 @@ public class SchoolAdminController {
+         }
+         schoolAdminService.deleteUser(admin.getSchool(), userId);
+     }
++
+ }

@@ -11,23 +11,7 @@ const days = [
     { value: 7, label: "Thứ 7" },
 ];
 
-const subjectColors: Record<string, { bg: string; text: string }> = {
-    "Toán": { bg: "bg-blue-100", text: "text-blue-700" },
-    "Văn": { bg: "bg-pink-100", text: "text-pink-700" },
-    "Anh": { bg: "bg-purple-100", text: "text-purple-700" },
-    "Lý": { bg: "bg-orange-100", text: "text-orange-700" },
-    "Hóa": { bg: "bg-green-100", text: "text-green-700" },
-    "Sinh": { bg: "bg-teal-100", text: "text-teal-700" },
-    "Sử": { bg: "bg-amber-100", text: "text-amber-700" },
-    "Địa": { bg: "bg-cyan-100", text: "text-cyan-700" },
-    "GDCD": { bg: "bg-rose-100", text: "text-rose-700" },
-    "Tin": { bg: "bg-indigo-100", text: "text-indigo-700" },
-    "Tin học": { bg: "bg-yellow-100", text: "text-yellow-700" },
-    "Thể dục": { bg: "bg-lime-100", text: "text-lime-700" },
-    "Công nghệ": { bg: "bg-slate-100", text: "text-slate-700" },
-    "GDQP": { bg: "bg-red-50", text: "text-red-600" },
-    "SHL": { bg: "bg-pink-50", text: "text-pink-600" },
-};
+
 
 function getWeekDates(weekOffset: number = 0) {
     const today = new Date();
@@ -56,6 +40,7 @@ function formatDate(date: Date) {
 export default function StudentTimetablePage() {
     const [loading, setLoading] = useState(true);
     const [timetable, setTimetable] = useState<StudentTimetableDto | null>(null);
+    const [error, setError] = useState<string | null>(null);
     const [weekOffset, setWeekOffset] = useState(0);
 
     const { monday, sunday } = getWeekDates(weekOffset);
@@ -66,8 +51,10 @@ export default function StudentTimetablePage() {
             try {
                 const data = await studentService.getTimetable();
                 setTimetable(data);
-            } catch (error) {
-                console.error("Error fetching timetable:", error);
+                setError(null);
+            } catch (err: unknown) {
+                console.error("Error fetching timetable:", err);
+                setError("Không thể tải thời khóa biểu. Vui lòng thử lại sau.");
             } finally {
                 setLoading(false);
             }
@@ -80,15 +67,7 @@ export default function StudentTimetablePage() {
         return timetable.slots.find(s => s.dayOfWeek === dayOfWeek && s.period === period) || null;
     };
 
-    const getSubjectColor = (subjectName: string) => {
-        // Try to find exact match or partial match
-        for (const [key, value] of Object.entries(subjectColors)) {
-            if (subjectName.includes(key) || key.includes(subjectName)) {
-                return value;
-            }
-        }
-        return { bg: "bg-gray-100", text: "text-gray-700" };
-    };
+
 
     if (loading) {
         return (
@@ -97,6 +76,21 @@ export default function StudentTimetablePage() {
             </div>
         );
     }
+
+    if (error || !timetable) {
+        return (
+            <div className="animate-fade-in-up space-y-6">
+                <h1 className="text-2xl font-bold text-gray-900">Thời khóa biểu</h1>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+                    <CalendarIcon className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                    <p className="text-gray-500 text-lg font-medium">{error || "Không thể tải thời khóa biểu"}</p>
+                    <p className="text-gray-400 text-sm mt-2">Bạn có thể chưa được xếp vào lớp học nào trong năm học hiện tại.</p>
+                </div>
+            </div>
+        );
+    }
+
+    const hasSlots = timetable.slots && timetable.slots.length > 0;
 
     return (
         <div className="animate-fade-in-up space-y-6">
@@ -132,88 +126,94 @@ export default function StudentTimetablePage() {
             </div>
 
             {/* Timetable Grid */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full min-w-[800px]">
-                        <thead>
-                            <tr className="bg-gray-50 border-b border-gray-100">
-                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 w-16">Tiết</th>
-                                {days.map((day) => (
-                                    <th
-                                        key={day.value}
-                                        className="px-4 py-3 text-center text-sm font-semibold text-gray-600"
-                                    >
-                                        {day.label}
-                                    </th>
+            {hasSlots ? (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-[800px] border-collapse bg-white">
+                            <thead>
+                                <tr>
+                                    <th className="p-4 text-center text-sm font-semibold text-slate-700 w-16 border-b border-r border-gray-100 bg-white sticky left-0 z-20">Tiết</th>
+                                    {days.map((day) => (
+                                        <th
+                                            key={day.value}
+                                            className="p-4 text-center text-sm font-medium text-blue-600 bg-white border-b border-r border-gray-100"
+                                        >
+                                            {day.label}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {/* Morning session header */}
+                                <tr>
+                                    <td colSpan={days.length + 1} className="p-3 text-center border-b border-gray-100">
+                                        <span className="text-xs font-medium text-blue-600 uppercase">BUỔI SÁNG</span>
+                                    </td>
+                                </tr>
+                                {[1, 2, 3, 4, 5].map((period) => (
+                                    <tr key={period} className={`${period === 5 ? 'border-b-2 border-gray-200' : 'border-b border-gray-100'} hover:bg-slate-50/50 transition-colors`}>
+                                        <td className="p-3 text-center text-xs font-medium text-slate-500 border-r border-gray-100 bg-white sticky left-0 z-10">
+                                            T{period}
+                                        </td>
+                                        {days.map((day) => {
+                                            const slot = getSlotForDayAndPeriod(day.value, period);
+
+                                            return (
+                                                <td key={day.value} className="p-2 border-r border-gray-100 align-middle text-center h-[60px]">
+                                                    {slot ? (
+                                                        <div className="flex flex-col justify-center items-center h-full w-full">
+                                                            <span className="font-medium text-xs text-slate-800">{slot.subjectName}</span>
+                                                            <span className="text-[10px] text-blue-400 mt-0.5">-</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center justify-center text-slate-200">-</div>
+                                                    )}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
                                 ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {/* Morning session header */}
-                            <tr className="bg-blue-50 border-b border-blue-100">
-                                <td colSpan={days.length + 1} className="px-4 py-2 text-center">
-                                    <span className="text-sm font-semibold text-blue-600">🌅 BUỔI SÁNG (Tiết 1-5)</span>
-                                </td>
-                            </tr>
-                            {[1, 2, 3, 4, 5].map((period) => (
-                                <tr key={period} className={`border-b border-gray-50 ${period === 5 ? 'border-b-2 border-gray-200' : ''}`}>
-                                    <td className="px-4 py-2 text-center">
-                                        <span className="text-sm font-medium text-gray-600">{period}</span>
+
+                                {/* Afternoon session header */}
+                                <tr>
+                                    <td colSpan={days.length + 1} className="p-3 text-center border-b border-gray-100">
+                                        <span className="text-xs font-medium text-blue-600 uppercase">BUỔI CHIỀU</span>
                                     </td>
-                                    {days.map((day) => {
-                                        const slot = getSlotForDayAndPeriod(day.value, period);
-                                        const colors = slot ? getSubjectColor(slot.subjectName) : null;
-
-                                        return (
-                                            <td key={day.value} className="px-2 py-1.5">
-                                                {slot ? (
-                                                    <div className={`${colors?.bg} ${colors?.text} rounded-lg p-2 text-center min-h-[50px] flex flex-col justify-center`}>
-                                                        <div className="font-medium text-sm">{slot.subjectName}</div>
-                                                        <div className="text-xs opacity-75">{slot.room || ""}</div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="min-h-[50px]"></div>
-                                                )}
-                                            </td>
-                                        );
-                                    })}
                                 </tr>
-                            ))}
+                                {[6, 7, 8, 9].map((period) => (
+                                    <tr key={period} className="border-b border-gray-100 hover:bg-slate-50/50 transition-colors">
+                                        <td className="p-3 text-center text-xs font-medium text-slate-500 border-r border-gray-100 bg-white sticky left-0 z-10">
+                                            T{period}
+                                        </td>
+                                        {days.map((day) => {
+                                            const slot = getSlotForDayAndPeriod(day.value, period);
 
-                            {/* Afternoon session header */}
-                            <tr className="bg-orange-50 border-b border-orange-100">
-                                <td colSpan={days.length + 1} className="px-4 py-2 text-center">
-                                    <span className="text-sm font-semibold text-orange-600">🌇 BUỔI CHIỀU (Tiết 6-9)</span>
-                                </td>
-                            </tr>
-                            {[6, 7, 8, 9].map((period) => (
-                                <tr key={period} className="border-b border-gray-50 last:border-0">
-                                    <td className="px-4 py-2 text-center">
-                                        <span className="text-sm font-medium text-gray-600">{period}</span>
-                                    </td>
-                                    {days.map((day) => {
-                                        const slot = getSlotForDayAndPeriod(day.value, period);
-                                        const colors = slot ? getSubjectColor(slot.subjectName) : null;
-
-                                        return (
-                                            <td key={day.value} className="px-2 py-1.5">
-                                                {slot ? (
-                                                    <div className={`${colors?.bg} ${colors?.text} rounded-lg p-2 text-center min-h-[50px] flex flex-col justify-center`}>
-                                                        <div className="font-medium text-sm">{slot.subjectName}</div>
-                                                        <div className="text-xs opacity-75">{slot.room || ""}</div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="min-h-[50px]"></div>
-                                                )}
-                                            </td>
-                                        );
-                                    })}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                            return (
+                                                <td key={day.value} className="p-2 border-r border-gray-100 align-middle text-center h-[60px]">
+                                                    {slot ? (
+                                                        <div className="flex flex-col justify-center items-center h-full w-full">
+                                                            <span className="font-medium text-xs text-slate-800">{slot.subjectName}</span>
+                                                            <span className="text-[10px] text-blue-400 mt-0.5">-</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center justify-center text-slate-200">-</div>
+                                                    )}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
+            ) : (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+                    <CalendarIcon className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                    <p className="text-gray-500 text-lg font-medium">Chưa có thời khóa biểu chính thức</p>
+                    <p className="text-gray-400 text-sm mt-2">Thời khóa biểu cho học kỳ này chưa được công bố hoặc bạn chưa được xếp lớp.</p>
+                </div>
+            )}
         </div>
     );
 }

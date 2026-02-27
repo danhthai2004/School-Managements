@@ -42,6 +42,9 @@ public class Teacher {
     @Column(length = 254)
     private String email;
 
+    @Column(length = 100)
+    private String specialization;
+
     @Column(length = 15)
     private String phone;
 
