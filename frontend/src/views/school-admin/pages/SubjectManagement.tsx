@@ -47,7 +47,7 @@ export default function SubjectManagement() {
                         <tr>
                             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mã Môn</th>
                             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tên Môn</th>
-                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Ban</th>
+                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Ban (Stream)</th>
                             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Số tiết/tuần</th>
                             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Loại</th>
                         </tr>
@@ -56,7 +56,7 @@ export default function SubjectManagement() {
                         {filtered.map((subject) => {
 
                             return (
-                                <tr key={subject.id} className="hover:bg-blue-50 transition-colors">
+                                <tr key={subject.id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className="font-medium text-gray-900">
                                             {subject.code || "—"}
@@ -67,7 +67,7 @@ export default function SubjectManagement() {
                                     </td>
                                     <td className="px-6 py-4 text-gray-600">
                                         {subject.stream ? (
-                                            <span className={`text-xs px-2.5 py-0.5 rounded-full ${subject.stream === 'TU_NHIEN' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                                            <span className={`text-xs px-2 py-1 rounded-full ${subject.stream === 'TU_NHIEN' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
                                                 }`}>
                                                 {subject.stream === 'TU_NHIEN' ? 'Tự Nhiên' : 'Xã Hội'}
                                             </span>
@@ -79,7 +79,7 @@ export default function SubjectManagement() {
                                         {subject.totalLessons || "—"}
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${type === 'COMPULSORY' ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${type === 'COMPULSORY' ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'
                                             }`}>
                                             {type === 'COMPULSORY' ? 'Bắt buộc' : 'Tự chọn'}
                                         </span>

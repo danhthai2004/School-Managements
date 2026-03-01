@@ -1,5 +1,6 @@
 package com.schoolmanagement.backend.service.chat;
 
+import com.schoolmanagement.backend.domain.AttendanceStatus;
 import com.schoolmanagement.backend.domain.ChatIntent;
 import com.schoolmanagement.backend.domain.Role;
 import com.schoolmanagement.backend.domain.entity.*;
@@ -14,8 +15,6 @@ import java.util.*;
  * Handler cho ASK_QUICK_STATS — Admin hỏi thống kê nhanh toàn trường.
  *
  * Luồng: userId → User → School → đếm tổng HS, GV, lớp + vắng hôm nay
- *
- * Chỉ trả dữ liệu tổng hợp (aggregated), không lộ thông tin cá nhân.
  */
 @Component
 public class QuickStatsHandler implements ChatHandler {
@@ -24,20 +23,17 @@ public class QuickStatsHandler implements ChatHandler {
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
     private final ClassRoomRepository classRoomRepository;
-    private final AttendanceSessionRepository attendanceSessionRepository;
     private final AttendanceRepository attendanceRepository;
 
     public QuickStatsHandler(UserRepository userRepository,
             StudentRepository studentRepository,
             TeacherRepository teacherRepository,
             ClassRoomRepository classRoomRepository,
-            AttendanceSessionRepository attendanceSessionRepository,
             AttendanceRepository attendanceRepository) {
         this.userRepository = userRepository;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
         this.classRoomRepository = classRoomRepository;
-        this.attendanceSessionRepository = attendanceSessionRepository;
         this.attendanceRepository = attendanceRepository;
     }
 
@@ -63,10 +59,9 @@ public class QuickStatsHandler implements ChatHandler {
         long totalTeachers = teacherRepository.countBySchool(school);
         long totalClasses = classRoomRepository.countBySchool(school);
 
-        // Điểm danh hôm nay
+        // Điểm danh hôm nay — query tất cả lớp, sử dụng date range
         LocalDate today = LocalDate.now();
-        List<AttendanceSession> todaySessions = attendanceSessionRepository
-                .findAllBySchoolAndSessionDateBetween(school, today, today);
+        List<ClassRoom> classRooms = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(school);
 
         long totalAttendanceRecords = 0;
         long absentToday = 0;
@@ -74,15 +69,15 @@ public class QuickStatsHandler implements ChatHandler {
         long excusedToday = 0;
         long presentToday = 0;
 
-        for (AttendanceSession session : todaySessions) {
-            List<Attendance> attendances = attendanceRepository.findAllBySession(session);
+        for (ClassRoom cr : classRooms) {
+            List<Attendance> attendances = attendanceRepository.findAllByClassRoomAndDate(cr, today);
             totalAttendanceRecords += attendances.size();
             for (Attendance a : attendances) {
                 switch (a.getStatus()) {
-                    case "ABSENT" -> absentToday++;
-                    case "LATE" -> lateToday++;
-                    case "EXCUSED" -> excusedToday++;
-                    case "PRESENT" -> presentToday++;
+                    case ABSENT_UNEXCUSED -> absentToday++;
+                    case LATE -> lateToday++;
+                    case ABSENT_EXCUSED -> excusedToday++;
+                    case PRESENT -> presentToday++;
                 }
             }
         }
@@ -92,14 +87,11 @@ public class QuickStatsHandler implements ChatHandler {
         data.put("schoolName", school.getName());
         data.put("date", today.toString());
 
-        // Thống kê tổng quan
         data.put("totalStudents", totalStudents);
         data.put("totalTeachers", totalTeachers);
         data.put("totalClasses", totalClasses);
 
-        // Điểm danh hôm nay
-        data.put("hasAttendanceToday", !todaySessions.isEmpty());
-        data.put("sessionsToday", todaySessions.size());
+        data.put("hasAttendanceToday", totalAttendanceRecords > 0);
         data.put("presentToday", presentToday);
         data.put("absentToday", absentToday);
         data.put("lateToday", lateToday);

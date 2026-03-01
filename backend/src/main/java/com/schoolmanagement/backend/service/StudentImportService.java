@@ -18,7 +18,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedReader;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
@@ -30,38 +33,40 @@ public class StudentImportService {
     private final GuardianRepository guardians;
     private final ClassRoomRepository classRooms;
     private final ClassEnrollmentRepository enrollments;
-    private final com.schoolmanagement.backend.repo.UserRepository users;
 
     public StudentImportService(StudentRepository students, GuardianRepository guardians,
-            ClassRoomRepository classRooms, ClassEnrollmentRepository enrollments,
-            com.schoolmanagement.backend.repo.UserRepository users) {
+            ClassRoomRepository classRooms, ClassEnrollmentRepository enrollments) {
         this.students = students;
         this.guardians = guardians;
         this.classRooms = classRooms;
         this.enrollments = enrollments;
-        this.users = users;
     }
 
-    // ==================== EXCEL IMPORT ====================
+    // ==================== FILE IMPORT (EXCEL + CSV) ====================
 
     /**
-     * Import students from Excel file with optional auto class assignment
+     * Import students from Excel or CSV file with optional auto class assignment
      */
     @Transactional
     public ImportStudentResult importStudentsFromExcel(School school, MultipartFile file,
             String academicYear, int grade, boolean autoAssign) {
         if (file == null || file.isEmpty()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "File Excel rỗng.");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "File rỗng.");
         }
 
         String filename = file.getOriginalFilename();
-        if (filename == null || (!filename.endsWith(".xlsx") && !filename.endsWith(".xls"))) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Vui lòng upload file Excel (.xlsx hoặc .xls)");
+        if (filename == null
+                || (!filename.endsWith(".xlsx") && !filename.endsWith(".xls") && !filename.endsWith(".csv"))) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Vui lòng upload file Excel (.xlsx, .xls) hoặc CSV (.csv)");
+        }
+
+        // Check if file is CSV
+        if (filename.endsWith(".csv")) {
+            return importStudentsFromCsv(school, file, academicYear, grade, autoAssign);
         }
 
         List<ImportStudentResult.ImportError> errors = new ArrayList<>();
-        // Use a map to store student along with their department for assignment
-        Map<Student, ClassDepartment> studentDepartmentMap = new LinkedHashMap<>(); // Preserve order
+        List<Student> createdStudents = new ArrayList<>();
         int totalRows = 0;
         int successCount = 0;
         int failedCount = 0;
@@ -129,34 +134,6 @@ public class StudentImportService {
                     String birthPlace = getValueFromRow(row, columnMap, "birthplace", "nơi sinh", "noisinh");
                     String address = getValueFromRow(row, columnMap, "address", "địa chỉ", "diachi");
                     String email = getValueFromRow(row, columnMap, "email");
-                    if (email != null && !email.isBlank()) {
-                        email = email.trim().toLowerCase();
-                        // Validation: Email must not be used by Guardian or other Role
-                        if (guardians.findByEmailIgnoreCase(email).size() > 0) {
-                            errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
-                                    "Email học sinh trùng với email Phụ huynh khác."));
-                            failedCount++;
-                            continue;
-                        }
-                        if (users.existsByEmailIgnoreCase(email)) {
-                            // Check role? For now strict: if used by any user, be careful.
-                            // Actually, if it's a STUDENT user, it's a duplicate student check (handled by
-                            // unique constraint?).
-                            // If it's a GUARDIAN/TEACHER user -> Block.
-                            // Let's just block if any user exists to be safe and force unique new data,
-                            // OR check specific role collisions if we allow re-importing existing students.
-                            // Assuming new students:
-                            Optional<User> u = users.findByEmailIgnoreCase(email);
-                            if (u.isPresent()
-                                    && u.get().getRole() != com.schoolmanagement.backend.domain.Role.STUDENT) {
-                                errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
-                                        "Email đã được sử dụng bởi tài khoản " + u.get().getRole()));
-                                failedCount++;
-                                continue;
-                            }
-                        }
-                    }
-
                     String phone = getValueFromRow(row, columnMap, "phone", "sđt", "số điện thoại", "sodienthoai");
 
                     // Guardian info
@@ -164,36 +141,8 @@ public class StudentImportService {
                             "tenphuhuynh");
                     String guardianPhone = getValueFromRow(row, columnMap, "guardianphone", "sđt phụ huynh",
                             "sdtphuhuynh");
-
-                    // Sanitize guardian email early for validation
-                    String guardianEmail = null;
-                    String rawGuardianEmail = getValueFromRow(row, columnMap, "guardianemail", "email phụ huynh",
-                            "emailphuhuynh");
-                    if (rawGuardianEmail != null && !rawGuardianEmail.isBlank()) {
-                        guardianEmail = rawGuardianEmail.trim().toLowerCase();
-                        // Validation: Guardian Email must not be used by Student
-                        if (students.existsByEmail(guardianEmail)) {
-                            errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
-                                    "Email phụ huynh trùng với email của một Học sinh."));
-                            failedCount++;
-                            continue;
-                        }
-                        // Check collision with Student Email in THIS ROW
-                        if (email != null && email.equals(guardianEmail)) {
-                            errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
-                                    "Email học sinh và phụ huynh không được trùng nhau."));
-                            failedCount++;
-                            continue;
-                        }
-
-                        Optional<User> u = users.findByEmailIgnoreCase(guardianEmail);
-                        if (u.isPresent() && u.get().getRole() != com.schoolmanagement.backend.domain.Role.GUARDIAN) {
-                            errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
-                                    "Email phụ huynh đã được sử dụng bởi tài khoản " + u.get().getRole()));
-                            failedCount++;
-                            continue;
-                        }
-                    }
+                    String guardianRelationship = getValueFromRow(row, columnMap, "guardianrelationship", "quan hệ",
+                            "quanhe");
 
                     // Generate student code
                     String studentCode = generateNextStudentCode(school);
@@ -214,50 +163,17 @@ public class StudentImportService {
                             .build();
 
                     student = students.save(student);
+                    createdStudents.add(student);
 
-                    // Store student with their parsed department (can be null if not provided)
-                    studentDepartmentMap.put(student, department);
-
-                    // Process Guardian Logic (Many-to-One Refactor)
+                    // Save guardian if provided
                     if (guardianName != null && !guardianName.isBlank()) {
-                        Guardian guardian = null;
-
-                        // Sanitize email
-                        // String guardianEmail = null; // Already parsed above
-                        // String rawGuardianEmail = getValueFromRow(row, columnMap, "guardianemail",
-                        // "email phụ huynh",
-                        // "emailphuhuynh");
-                        // if (rawGuardianEmail != null && !rawGuardianEmail.isBlank()) {
-                        // guardianEmail = rawGuardianEmail.trim().toLowerCase();
-                        // }
-
-                        if (guardianEmail != null) {
-                            // Case 1: Has Email -> Find or Create
-                            List<Guardian> existingGuardians = guardians.findByEmailIgnoreCase(guardianEmail);
-                            if (!existingGuardians.isEmpty()) {
-                                guardian = existingGuardians.get(0);
-                            } else {
-                                // Create new
-                                guardian = Guardian.builder()
-                                        .fullName(guardianName.trim())
-                                        .phone(guardianPhone)
-                                        .email(guardianEmail)
-                                        .build();
-                                guardian = guardians.save(guardian);
-                            }
-                        } else {
-                            // Case 2: No Email -> Force Create (No User Account)
-                            guardian = Guardian.builder()
-                                    .fullName(guardianName.trim())
-                                    .phone(guardianPhone)
-                                    .email(null) // Generic null
-                                    .build();
-                            guardian = guardians.save(guardian);
-                        }
-
-                        // Link directly to student
-                        student.setGuardian(guardian);
-                        students.save(student);
+                        Guardian guardian = Guardian.builder()
+                                .student(student)
+                                .fullName(guardianName.trim())
+                                .phone(guardianPhone)
+                                .relationship(guardianRelationship)
+                                .build();
+                        guardians.save(guardian);
                     }
 
                     successCount++;
@@ -278,8 +194,8 @@ public class StudentImportService {
 
         // Auto assign students to classes if requested
         int assignedCount = 0;
-        if (autoAssign && !studentDepartmentMap.isEmpty()) {
-            assignedCount = autoAssignStudentsToClasses(school, studentDepartmentMap, academicYear, grade);
+        if (autoAssign && !createdStudents.isEmpty()) {
+            assignedCount = autoAssignStudentsToClasses(school, createdStudents, academicYear, grade);
         }
 
         return new ImportStudentResult(totalRows, successCount, failedCount, assignedCount, errors);
@@ -289,49 +205,39 @@ public class StudentImportService {
      * Auto-assign students to classes based on department
      * Uses round-robin distribution to balance class sizes
      */
-    private int autoAssignStudentsToClasses(School school, Map<Student, ClassDepartment> studentDepartmentMap,
+    private int autoAssignStudentsToClasses(School school, List<Student> studentsToAssign,
             String academicYear, int grade) {
         int assignedCount = 0;
 
-        // Get all available classes
-        List<ClassRoom> allClasses = classRooms.findAllBySchoolAndGradeAndAcademicYearAndStatus(
+        // Group students by department (extracted during import, we'll need to store it
+        // temporarily)
+        // For now, assign to any available class in the grade
+        List<ClassRoom> availableClasses = classRooms.findAllBySchoolAndGradeAndAcademicYearAndStatus(
                 school, grade, academicYear, ClassRoomStatus.ACTIVE);
 
-        if (allClasses.isEmpty()) {
+        if (availableClasses.isEmpty()) {
             return 0; // No classes available
         }
 
         // Get current enrollment counts for each class
         Map<UUID, Long> classEnrollmentCounts = new HashMap<>();
-        for (ClassRoom classRoom : allClasses) {
+        for (ClassRoom classRoom : availableClasses) {
             classEnrollmentCounts.put(classRoom.getId(), enrollments.countByClassRoom(classRoom));
         }
 
-        for (Map.Entry<Student, ClassDepartment> entry : studentDepartmentMap.entrySet()) {
-            Student student = entry.getKey();
-            ClassDepartment studentDept = entry.getValue();
+        // Sort classes by current enrollment (ascending) to balance
+        availableClasses.sort(Comparator.comparingLong(c -> classEnrollmentCounts.get(c.getId())));
 
-            // Filter classes matching student's department
-            List<ClassRoom> candidateClasses = allClasses.stream()
-                    .filter(c -> matchesDepartment(c, studentDept))
-                    .sorted(Comparator.comparingLong(c -> classEnrollmentCounts.get(c.getId())))
-                    .toList();
-
-            // If no matching classes found (e.g. specialized stream student but no
-            // specialized class),
-            // fallback to any class with space (or maybe skip? for now fallback to any
-            // class)
-            if (candidateClasses.isEmpty()) {
-                candidateClasses = allClasses.stream()
-                        .sorted(Comparator.comparingLong(c -> classEnrollmentCounts.get(c.getId())))
-                        .toList();
-            }
-
-            // Try to assign to the class with least students that has capacity
-            for (ClassRoom classRoom : candidateClasses) {
+        int classIndex = 0;
+        for (Student student : studentsToAssign) {
+            // Find next available class with capacity
+            int attempts = 0;
+            while (attempts < availableClasses.size()) {
+                ClassRoom classRoom = availableClasses.get(classIndex % availableClasses.size());
                 long currentCount = classEnrollmentCounts.get(classRoom.getId());
+
                 if (currentCount < classRoom.getMaxCapacity()) {
-                    // Assign
+                    // Assign student to this class
                     ClassEnrollment enrollment = ClassEnrollment.builder()
                             .student(student)
                             .classRoom(classRoom)
@@ -343,45 +249,253 @@ public class StudentImportService {
                     // Update count
                     classEnrollmentCounts.put(classRoom.getId(), currentCount + 1);
                     assignedCount++;
-
-                    // Update student current class name (optional but good for consistency if we
-                    // have that field denormalized)
-                    // student.setCurrentClassName(classRoom.getName());
-                    // students.save(student);
-
-                    break; // Move to next student
+                    classIndex++;
+                    break;
                 }
+
+                classIndex++;
+                attempts++;
             }
         }
 
         return assignedCount;
     }
 
-    private boolean matchesDepartment(ClassRoom classRoom, ClassDepartment studentDept) {
-        // If student has no department or is KHONG_PHAN_BAN, they can go to any class
-        // BUT ideally we prefer KHONG_PHAN_BAN classes if any.
-        // For simplicity: if student dept is null/NONE, return true (can be assigned
-        // anywhere,
-        // sorting logic will prefer emptier classes)
-        if (studentDept == null || studentDept == ClassDepartment.KHONG_PHAN_BAN) {
-            return true;
+    // ==================== CSV IMPORT ====================
+
+    /**
+     * Import students from CSV file with optional auto class assignment
+     */
+    @Transactional
+    public ImportStudentResult importStudentsFromCsv(School school, MultipartFile file,
+            String academicYear, int grade, boolean autoAssign) {
+        List<ImportStudentResult.ImportError> errors = new ArrayList<>();
+        List<Student> createdStudents = new ArrayList<>();
+        int totalRows = 0;
+        int successCount = 0;
+        int failedCount = 0;
+
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+
+            // Read header row
+            String headerLine = reader.readLine();
+            if (headerLine == null || headerLine.isBlank()) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "File CSV không có header row.");
+            }
+
+            // Parse header to map column names
+            Map<String, Integer> columnMap = new HashMap<>();
+            String[] headers = parseCsvLine(headerLine);
+            for (int i = 0; i < headers.length; i++) {
+                String header = headers[i].toLowerCase().trim();
+                // Remove BOM if present
+                if (i == 0 && header.startsWith("\ufeff")) {
+                    header = header.substring(1);
+                }
+                columnMap.put(header, i);
+            }
+
+            // Validate required columns
+            if (!columnMap.containsKey("fullname") && !columnMap.containsKey("họ tên")
+                    && !columnMap.containsKey("hoten")) {
+                throw new ApiException(HttpStatus.BAD_REQUEST,
+                        "File CSV phải có cột 'fullName' hoặc 'Họ tên'");
+            }
+
+            // Process data rows
+            String line;
+            int rowNum = 1;
+            while ((line = reader.readLine()) != null) {
+                if (line.isBlank()) {
+                    rowNum++;
+                    continue;
+                }
+
+                totalRows++;
+                String studentName = "";
+
+                try {
+                    String[] values = parseCsvLine(line);
+
+                    // Extract student data from row
+                    studentName = getCsvValue(values, columnMap, "fullname", "họ tên", "hoten");
+                    if (studentName == null || studentName.isBlank()) {
+                        errors.add(new ImportStudentResult.ImportError(rowNum + 1, "", "Thiếu họ tên"));
+                        failedCount++;
+                        rowNum++;
+                        continue;
+                    }
+
+                    // Parse date of birth
+                    String dateStr = getCsvValue(values, columnMap, "dateofbirth", "ngày sinh", "ngaysinh");
+                    LocalDate dateOfBirth = parseDate(dateStr);
+
+                    // Parse gender
+                    String genderStr = getCsvValue(values, columnMap, "gender", "giới tính", "gioitinh");
+                    Gender gender = parseGenderString(genderStr);
+
+                    // Parse department
+                    String deptStr = getCsvValue(values, columnMap, "department", "ban", "phân ban");
+                    ClassDepartment department = parseDepartmentString(deptStr);
+
+                    // Other fields
+                    String birthPlace = getCsvValue(values, columnMap, "birthplace", "nơi sinh", "noisinh");
+                    String address = getCsvValue(values, columnMap, "address", "địa chỉ", "diachi");
+                    String email = getCsvValue(values, columnMap, "email");
+                    String phone = getCsvValue(values, columnMap, "phone", "sđt", "số điện thoại", "sodienthoai");
+
+                    // Guardian info
+                    String guardianName = getCsvValue(values, columnMap, "guardianname", "tên phụ huynh",
+                            "tenphuhuynh");
+                    String guardianPhone = getCsvValue(values, columnMap, "guardianphone", "sđt phụ huynh",
+                            "sdtphuhuynh");
+                    String guardianRelationship = getCsvValue(values, columnMap, "guardianrelationship", "quan hệ",
+                            "quanhe");
+
+                    // Generate student code
+                    String studentCode = generateNextStudentCode(school);
+
+                    // Create student entity
+                    Student student = Student.builder()
+                            .studentCode(studentCode)
+                            .fullName(studentName.trim())
+                            .dateOfBirth(dateOfBirth)
+                            .gender(gender)
+                            .birthPlace(birthPlace)
+                            .address(address)
+                            .email(email)
+                            .phone(phone)
+                            .enrollmentDate(LocalDate.now())
+                            .status(StudentStatus.ACTIVE)
+                            .school(school)
+                            .build();
+
+                    student = students.save(student);
+                    createdStudents.add(student);
+
+                    // Save guardian if provided
+                    if (guardianName != null && !guardianName.isBlank()) {
+                        Guardian guardian = Guardian.builder()
+                                .student(student)
+                                .fullName(guardianName.trim())
+                                .phone(guardianPhone)
+                                .relationship(guardianRelationship)
+                                .build();
+                        guardians.save(guardian);
+                    }
+
+                    successCount++;
+
+                } catch (Exception e) {
+                    errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
+                            "Lỗi: " + e.getMessage()));
+                    failedCount++;
+                }
+
+                rowNum++;
+            }
+
+        } catch (ApiException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Không đọc được file CSV: " + ex.getMessage());
         }
 
-        // Check combination stream first (stronger link)
-        if (classRoom.getCombination() != null && classRoom.getCombination().getStream() != null) {
-            String streamName = classRoom.getCombination().getStream().name();
-            // Assuming StreamType names match ClassDepartment names (TU_NHIEN, XA_HOI)
-            if (streamName.equals(studentDept.name())) {
-                return true;
+        // Auto assign students to classes if requested
+        int assignedCount = 0;
+        if (autoAssign && !createdStudents.isEmpty()) {
+            assignedCount = autoAssignStudentsToClasses(school, createdStudents, academicYear, grade);
+        }
+
+        return new ImportStudentResult(totalRows, successCount, failedCount, assignedCount, errors);
+    }
+
+    // ==================== CSV HELPER METHODS ====================
+
+    /**
+     * Parse a CSV line, handling quoted fields with commas
+     */
+    private String[] parseCsvLine(String line) {
+        List<String> result = new ArrayList<>();
+        boolean inQuotes = false;
+        StringBuilder currentField = new StringBuilder();
+
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '"') {
+                if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                    // Escaped quote
+                    currentField.append('"');
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (c == ',' && !inQuotes) {
+                result.add(currentField.toString().trim());
+                currentField = new StringBuilder();
+            } else {
+                currentField.append(c);
             }
         }
+        result.add(currentField.toString().trim());
 
-        // Check class department as fallback
-        if (classRoom.getDepartment() == studentDept) {
-            return true;
+        return result.toArray(new String[0]);
+    }
+
+    /**
+     * Get value from CSV row by column name
+     */
+    private String getCsvValue(String[] values, Map<String, Integer> columnMap, String... possibleNames) {
+        for (String name : possibleNames) {
+            Integer colIndex = columnMap.get(name.toLowerCase());
+            if (colIndex != null && colIndex < values.length) {
+                String value = values[colIndex].trim();
+                // Remove surrounding quotes if present
+                if (value.startsWith("\"") && value.endsWith("\"")) {
+                    value = value.substring(1, value.length() - 1);
+                }
+                if (!value.isBlank()) {
+                    return value;
+                }
+            }
         }
+        return null;
+    }
 
-        return false;
+    /**
+     * Parse gender from string value
+     */
+    private Gender parseGenderString(String value) {
+        if (value == null)
+            return null;
+
+        value = value.toLowerCase().trim();
+        if (value.equals("nam") || value.equals("male") || value.equals("m")) {
+            return Gender.MALE;
+        } else if (value.equals("nữ") || value.equals("nu") || value.equals("female") || value.equals("f")) {
+            return Gender.FEMALE;
+        } else if (value.equals("khác") || value.equals("khac") || value.equals("other")) {
+            return Gender.OTHER;
+        }
+        return null;
+    }
+
+    /**
+     * Parse department from string value
+     */
+    private ClassDepartment parseDepartmentString(String value) {
+        if (value == null)
+            return ClassDepartment.KHONG_PHAN_BAN;
+
+        value = value.toLowerCase().trim();
+        if (value.contains("tự nhiên") || value.contains("tu nhien") || value.equals("tn") || value.equals("a")) {
+            return ClassDepartment.TU_NHIEN;
+        } else if (value.contains("xã hội") || value.contains("xa hoi") || value.equals("xh") || value.equals("c")) {
+            return ClassDepartment.XA_HOI;
+        }
+        return ClassDepartment.KHONG_PHAN_BAN;
     }
 
     // ==================== EXCEL HELPER METHODS ====================

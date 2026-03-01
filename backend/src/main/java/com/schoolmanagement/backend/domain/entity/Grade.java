@@ -3,24 +3,17 @@ package com.schoolmanagement.backend.domain.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.UUID;
 
+@Entity
+@Table(name = "grades")
 @Getter
 @Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-@Entity
-@Table(name = "grades", indexes = {
-        @Index(name = "idx_grade_student", columnList = "student_id"),
-        @Index(name = "idx_grade_subject", columnList = "subject_id"),
-        @Index(name = "idx_grade_class", columnList = "class_id")
-}, uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "student_id", "subject_id", "class_id", "semester" })
-})
 public class Grade {
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -34,57 +27,29 @@ public class Grade {
     private Subject subject;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "class_id", nullable = false)
+    @JoinColumn(name = "class_room_id")
     private ClassRoom classRoom;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "teacher_id", nullable = false)
-    private Teacher teacher;
 
     @Column(name = "academic_year", nullable = false)
     private String academicYear;
 
     @Column(nullable = false)
-    private int semester;
+    private Integer semester; // 1 or 2
 
-    // Scores
-    @Column(name = "oral_score", precision = 4, scale = 2)
-    private BigDecimal oralScore;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private GradeType type;
 
-    @Column(name = "test_15min_score", precision = 4, scale = 2)
-    private BigDecimal test15minScore;
+    // For REGULAR assessment, which occurrence (1, 2, 3, or 4)
+    @Column(name = "grade_index")
+    private Integer gradeIndex;
 
-    @Column(name = "test_45min_score", precision = 4, scale = 2)
-    private BigDecimal test45minScore;
+    @Column(nullable = false)
+    private Double value;
 
-    @Column(name = "midterm_score", precision = 4, scale = 2)
-    private BigDecimal midtermScore;
-
-    @Column(name = "final_score", precision = 4, scale = 2)
-    private BigDecimal finalScore;
-
-    // Calculated
-    @Column(name = "average_score", precision = 4, scale = 2)
-    private BigDecimal averageScore;
-
-    @Column(name = "performance_category", length = 20)
-    private String performanceCategory;
-
-    @Column(columnDefinition = "TEXT")
-    private String notes;
-
-    @Column(name = "recorded_at")
-    @Builder.Default
-    private Instant recordedAt = Instant.now();
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "recorded_by")
-    private User recordedBy;
-
-    @Column(name = "updated_at")
-    private Instant updatedAt;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "updated_by")
-    private User updatedBy;
+    public enum GradeType {
+        REGULAR, // Đánh giá thường xuyên (hệ số 1)
+        MID_TERM, // Giữa kỳ (hệ số 2)
+        FINAL_TERM // Cuối kỳ (hệ số 3)
+    }
 }

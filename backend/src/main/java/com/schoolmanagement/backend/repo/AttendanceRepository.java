@@ -1,7 +1,7 @@
 package com.schoolmanagement.backend.repo;
 
 import com.schoolmanagement.backend.domain.entity.Attendance;
-import com.schoolmanagement.backend.domain.entity.AttendanceSession;
+import com.schoolmanagement.backend.domain.entity.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.Student;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -9,36 +9,36 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
+    List<Attendance> findAllByClassRoomAndDateAndSlotIndex(ClassRoom classRoom, LocalDate date, int slotIndex);
 
-        List<Attendance> findAllBySession(AttendanceSession session);
+    List<Attendance> findAllByStudentAndDate(Student student, LocalDate date);
 
-        List<Attendance> findAllByStudent(Student student);
+    List<Attendance> findAllByClassRoomAndDate(ClassRoom classRoom, LocalDate date);
 
-        boolean existsByStudent(Student student);
+    Optional<Attendance> findByStudentAndDateAndSlotIndex(Student student, LocalDate date, int slotIndex);
 
-        List<Attendance> findAllBySessionIn(List<AttendanceSession> sessions);
+    void deleteByTeacherId(UUID teacherId);
 
-        long countBySessionAndStatus(AttendanceSession session, String status);
+    @Modifying
+    @Query("UPDATE Attendance a SET a.teacher = null WHERE a.teacher.id = :teacherId")
+    void nullifyTeacherId(@Param("teacherId") UUID teacherId);
 
-        long countByStudentAndStatus(Student student, String status);
+    void deleteByStudentId(UUID studentId);
 
-        @Modifying
-        @Query("DELETE FROM Attendance e WHERE e.student = :student")
-        void deleteAllByStudent(@Param("student") Student student);
+    List<Attendance> findAllByStudentId(UUID studentId);
 
-        @Query("SELECT a FROM Attendance a WHERE a.session IN :sessions AND a.status = :status")
-        List<Attendance> findAllBySessionsAndStatus(@Param("sessions") List<AttendanceSession> sessions,
-                        @Param("status") String status);
+    List<Attendance> findAllByClassRoomAndDateBetween(ClassRoom classRoom, LocalDate startDate, LocalDate endDate);
 
-        @Query("SELECT a.student, COUNT(a) FROM Attendance a WHERE a.session IN :sessions AND a.status = 'ABSENT' GROUP BY a.student HAVING COUNT(a) >= :threshold")
-        List<Object[]> findChronicAbsentees(@Param("sessions") List<AttendanceSession> sessions,
-                        @Param("threshold") long threshold);
+    List<Attendance> findAllByStudentIdAndDateBetween(UUID studentId, LocalDate startDate, LocalDate endDate);
 
-        @Modifying
-        void deleteAllBySessionIn(List<AttendanceSession> sessions);
+    @Modifying
+    @Query("UPDATE Attendance a SET a.classRoom = null WHERE a.classRoom.id = :classRoomId")
+    void nullifyClassRoomId(@Param("classRoomId") UUID classRoomId);
 }

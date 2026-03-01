@@ -48,6 +48,11 @@ public class SystemAdminController {
         return systemAdmin.listSchools();
     }
 
+    @GetMapping("/schools/pending")
+    public List<SchoolDto> listPendingDeleteSchools() {
+        return systemAdmin.listPendingDeleteSchools();
+    }
+
     @GetMapping("/schools/{id}")
     public SchoolDetailDto getSchool(@PathVariable UUID id) {
         return systemAdmin.getSchoolWithAdmins(id);

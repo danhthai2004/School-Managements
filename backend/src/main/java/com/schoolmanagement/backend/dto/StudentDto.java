@@ -20,8 +20,13 @@ public record StudentDto(
         // Current class info
         String currentClassName,
         UUID currentClassId,
-        // Account status
-        boolean hasAccount,
         // Guardians
-        StudentGuardianDto guardian) {
+        List<GuardianDto> guardians) {
+    public record GuardianDto(
+            UUID id,
+            String fullName,
+            String phone,
+            String email,
+            String relationship) {
+    }
 }

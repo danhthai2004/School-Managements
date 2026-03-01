@@ -93,37 +93,50 @@ public class CurriculumController {
 
     // ==================== TEACHER ASSIGNMENT ====================
 
-    @Transactional
-    @PostMapping("/assignments/init")
-    public void initializeAssignments(@AuthenticationPrincipal UserPrincipal principal) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        teacherAssignmentService.initializeAssignments(admin.getSchool());
-    }
-
     @GetMapping("/assignments")
     public List<TeacherAssignmentDto> listAssignments(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(value = "classId", required = false) UUID classId) {
+            @AuthenticationPrincipal UserPrincipal principal) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return teacherAssignmentService.listAssignments(admin.getSchool(), classId);
+        return teacherAssignmentService.listAssignments(admin.getSchool());
     }
 
     @Transactional
-    @PutMapping("/assignments/{id}/teacher")
-    public TeacherAssignmentDto assignTeacher(
+    @PostMapping("/assignments")
+    public TeacherAssignmentDto addAssignment(
             @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable("id") UUID assignmentId,
-            @RequestBody AssignTeacherRequest req) {
+            @Valid @RequestBody AssignTeacherRequest req) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return teacherAssignmentService.assignTeacher(admin.getSchool(), assignmentId, req.teacherId());
+        return teacherAssignmentService.addAssignment(admin.getSchool(), req);
+    }
+
+    @Transactional
+    @DeleteMapping("/assignments/{id}")
+    public void removeAssignment(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("id") UUID assignmentId) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        teacherAssignmentService.removeAssignment(admin.getSchool(), assignmentId);
+    }
+
+    @Transactional
+    @PutMapping("/assignments/{id}/head")
+    public List<TeacherAssignmentDto> setHeadOfDepartment(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable("id") UUID assignmentId,
+            @RequestParam("isHead") boolean isHead) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return teacherAssignmentService.setHeadOfDepartment(admin.getSchool(), assignmentId, isHead);
     }
 }

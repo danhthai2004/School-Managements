@@ -27,7 +27,7 @@ public class AttendanceSession {
     private School school;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "class_id", nullable = false)
+    @JoinColumn(name = "class_id")
     private ClassRoom classRoom;
 
     @ManyToOne(fetch = FetchType.LAZY)

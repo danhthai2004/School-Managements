@@ -10,16 +10,16 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "guardians", uniqueConstraints = {
-        @UniqueConstraint(columnNames = "email")
-})
+@Table(name = "guardians")
 public class Guardian {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    // student_id removed (moved to join table)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "student_id", nullable = false)
+    private Student student;
 
     @Column(name = "full_name", nullable = false, length = 100)
     private String fullName;
@@ -30,13 +30,10 @@ public class Guardian {
     @Column(length = 254)
     private String email;
 
-    // relationship removed (moved to join table)
+    @Column(length = 50)
+    private String relationship; // Cha, Mẹ, Ông, Bà, Khác
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
-
-    @OneToMany(mappedBy = "guardian")
-    @Builder.Default
-    private java.util.List<Student> students = new java.util.ArrayList<>();
 }

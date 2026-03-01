@@ -5,7 +5,8 @@ import com.schoolmanagement.backend.domain.entity.Subject;
 import com.schoolmanagement.backend.domain.entity.TeacherAssignment;
 import com.schoolmanagement.backend.domain.entity.Timetable;
 import com.schoolmanagement.backend.domain.entity.TimetableDetail;
-import com.schoolmanagement.backend.domain.entity.Teacher;
+
+import com.schoolmanagement.backend.domain.entity.*;
 import com.schoolmanagement.backend.repo.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.SubjectRepository;
 import com.schoolmanagement.backend.repo.TeacherAssignmentRepository;
@@ -73,12 +74,21 @@ public class AutoScheduleService {
         Timetable timetable = timetableRepository.findById(timetableId)
                 .orElseThrow(() -> new IllegalArgumentException("Timetable not found"));
 
-        // Clear existing details for this timetable to avoid duplicates if re-run
-        timetableDetailRepository.deleteByTimetable(timetable);
-        timetableDetailRepository.flush(); // Ensure deletion is committed
+        // Clear ONLY non-fixed details
+        timetableDetailRepository.deleteByTimetableAndIsFixedFalse(timetable);
+        timetableDetailRepository.flush();
 
         // Initialize Context
         ScheduleContext context = new ScheduleContext();
+
+        // LOAD EXISTING FIXED SLOTS into Context
+        var fixedDetails = timetableDetailRepository.findAllByTimetable(timetable);
+        for (TimetableDetail d : fixedDetails) {
+            context.markOccupied(d.getClassRoom().getId(),
+                    d.getTeacher() != null ? d.getTeacher().getId() : null,
+                    d.getDayOfWeek(),
+                    d.getSlotIndex());
+        }
 
         // Step 2: High Frequency Subjects
         scheduleHighFrequencySubjects(timetable, context);
@@ -88,9 +98,6 @@ public class AutoScheduleService {
 
         // Step 4: Specialized Subjects (Blocks)
         scheduleSpecializedSubjects(timetable, context);
-
-        // Step 5: Handling Deadlocks (Backtracking/Swapping - if needed)
-        // ... implementation pending
 
         log.info("Auto-generation completed for Timetable ID: {}", timetableId);
     }
@@ -111,9 +118,12 @@ public class AutoScheduleService {
                     continue;
 
                 Subject subject = subjectOpt.get();
-                var assignmentOpt = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject);
-                Teacher teacher = assignmentOpt
-                        .map(TeacherAssignment::getTeacher).orElse(null);
+                // Lookup Teacher
+                Teacher teacher = teacherAssignmentRepository
+                        .findAllBySubjectAndSchool(subject, classroom.getSchool()).stream()
+                        .findFirst()
+                        .map(TeacherAssignment::getTeacher)
+                        .orElse(null);
 
                 // Use the shared scheduling method with randomization enabled
                 scheduleSubject(timetable, classroom, subject, teacher, true, context);
@@ -322,9 +332,14 @@ public class AutoScheduleService {
                 if (subject.getType() == com.schoolmanagement.backend.domain.SubjectType.SPECIALIZED)
                     continue;
 
-                // Lookup Teacher
-                var assignmentOpt = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject);
-                Teacher teacher = assignmentOpt.map(TeacherAssignment::getTeacher).orElse(null);
+                // Lookup Teacher (School-level assignment)
+                // strategy: pick first available teacher for this subject in school
+                // In future: could load balance or use specific rules
+                Teacher teacher = teacherAssignmentRepository
+                        .findAllBySubjectAndSchool(subject, classroom.getSchool()).stream()
+                        .findFirst()
+                        .map(TeacherAssignment::getTeacher)
+                        .orElse(null);
 
                 // Use the shared scheduling method with randomization enabled
                 scheduleSubject(timetable, classroom, subject, teacher, true, context);
@@ -362,24 +377,11 @@ public class AutoScheduleService {
                     continue;
                 }
 
-                Teacher teacher = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject)
-                        .map(TeacherAssignment::getTeacher).orElse(null);
-
-                // Smart Fallback: If no teacher assigned to CD_SUBJECT, check usage of base
-                // Subject teacher
-                if (teacher == null && subject.getCode().startsWith("CD_")) {
-                    String baseCode = subject.getCode().replace("CD_", "");
-                    // Find base subject teacher for this class
-                    var baseSubjectOpt = subjectRepository.findByCode(baseCode);
-                    if (baseSubjectOpt.isPresent()) {
-                        teacher = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, baseSubjectOpt.get())
-                                .map(TeacherAssignment::getTeacher).orElse(null);
-                        if (teacher != null) {
-                            log.info("Using implicit teacher {} from {} for specialized subject {}",
-                                    teacher.getFullName(), baseCode, subject.getCode());
-                        }
-                    }
-                }
+                Teacher teacher = teacherAssignmentRepository
+                        .findAllBySubjectAndSchool(subject, classroom.getSchool()).stream()
+                        .findFirst()
+                        .map(TeacherAssignment::getTeacher)
+                        .orElse(null);
 
                 // Use the shared scheduling method
                 scheduleSubject(timetable, classroom, subject, teacher, true, context);

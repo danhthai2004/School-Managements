@@ -4,7 +4,6 @@ import com.schoolmanagement.backend.domain.Role;
 import com.schoolmanagement.backend.domain.entity.User;
 import com.schoolmanagement.backend.repo.UserRepository;
 import com.schoolmanagement.backend.service.CurriculumSeederService;
-import com.schoolmanagement.backend.service.LocationSeederService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
@@ -18,7 +17,6 @@ public class SeedDataRunner implements CommandLineRunner {
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final CurriculumSeederService curriculumSeeder;
-    private final LocationSeederService locationSeeder;
 
     @Value("${seed.system-admin.email:kazejustworking@gmail.com}")
     private String systemAdminEmail;
@@ -27,20 +25,16 @@ public class SeedDataRunner implements CommandLineRunner {
     private String systemAdminPassword;
 
     public SeedDataRunner(UserRepository users, PasswordEncoder passwordEncoder,
-            CurriculumSeederService curriculumSeeder, LocationSeederService locationSeeder) {
+            CurriculumSeederService curriculumSeeder) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.curriculumSeeder = curriculumSeeder;
-        this.locationSeeder = locationSeeder;
     }
 
     @Override
     public void run(String... args) {
         // Seed subjects first
         curriculumSeeder.seedSubjects();
-
-        // Seed location data (provinces & wards with province_code)
-        locationSeeder.seedLocations();
 
         var email = systemAdminEmail == null ? "" : systemAdminEmail.trim();
         if (email.isBlank()) {

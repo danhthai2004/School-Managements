@@ -26,7 +26,7 @@ public class AttendanceSummary {
     private Student student;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "class_id", nullable = false)
+    @JoinColumn(name = "class_id")
     private ClassRoom classRoom;
 
     @Column(name = "academic_year", nullable = false)

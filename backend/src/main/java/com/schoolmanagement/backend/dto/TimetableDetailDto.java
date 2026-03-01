@@ -13,5 +13,9 @@ public record TimetableDetailDto(
         String teacherName,
         String dayOfWeek, // MONDAY, TUESDAY...
         int slotIndex,
-        boolean isFixed) {
+        boolean isFixed,
+        int classGrade,
+        String startTime, // e.g., "07:00"
+        String endTime // e.g., "07:45"
+) {
 }

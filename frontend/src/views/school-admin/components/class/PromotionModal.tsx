@@ -32,8 +32,8 @@ function PromotionModal({ isOpen, onClose, onSuccess, classData, allClasses }: P
     useEffect(() => {
         if (isOpen && classData) {
             setLoadingStudents(true);
-            schoolAdminService.listStudents(classData.id).then(data => {
-                setStudents(data.filter(s => s.status === 'ACTIVE'));
+            schoolAdminService.listStudents().then(data => {
+                setStudents(data.filter(s => s.status === 'ACTIVE' && s.currentClassId === classData.id));
                 setLoadingStudents(false);
             }).catch(() => setLoadingStudents(false));
             // Compute next academic year
@@ -75,12 +75,13 @@ function PromotionModal({ isOpen, onClose, onSuccess, classData, allClasses }: P
             const res = await schoolAdminService.promoteStudents(req);
             setResult(res);
             setStep('result');
-            if (res.promoted > 0) onSuccess();
+            if (res.successCount > 0) onSuccess();
         } catch (err: any) {
             setResult({
-                promoted: 0,
-                skipped: selectedIds.size,
-                errors: [err?.response?.data?.message || 'Đã xảy ra lỗi']
+                totalRequested: selectedIds.size,
+                successCount: 0,
+                failedCount: selectedIds.size,
+                results: [{ studentId: '', success: false, message: err?.response?.data?.message || 'Đã xảy ra lỗi' }]
             });
             setStep('result');
         } finally {
@@ -223,20 +224,20 @@ function PromotionModal({ isOpen, onClose, onSuccess, classData, allClasses }: P
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="bg-green-50 border border-green-100 rounded-xl p-4 text-center">
-                                    <p className="text-3xl font-bold text-green-600">{result.promoted}</p>
+                                    <p className="text-3xl font-bold text-green-600">{result.successCount}</p>
                                     <p className="text-sm text-green-700 mt-1">Thành công</p>
                                 </div>
                                 <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-center">
-                                    <p className="text-3xl font-bold text-amber-600">{result.skipped}</p>
+                                    <p className="text-3xl font-bold text-amber-600">{result.failedCount}</p>
                                     <p className="text-sm text-amber-700 mt-1">Bỏ qua</p>
                                 </div>
                             </div>
-                            {result.errors.length > 0 && (
+                            {result.results.filter(r => !r.success).length > 0 && (
                                 <div className="bg-red-50 border border-red-100 rounded-lg p-3">
                                     <p className="text-sm font-medium text-red-700 mb-2">Chi tiết lỗi:</p>
                                     <ul className="list-disc pl-5 space-y-1 text-sm text-red-600 max-h-40 overflow-y-auto">
-                                        {result.errors.map((err, i) => (
-                                            <li key={i}>{err}</li>
+                                        {result.results.filter(r => !r.success).map((r, i) => (
+                                            <li key={i}>{r.message || 'Lỗi không xác định'}</li>
                                         ))}
                                     </ul>
                                 </div>

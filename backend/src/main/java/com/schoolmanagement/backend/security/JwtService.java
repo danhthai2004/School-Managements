@@ -3,7 +3,6 @@ package com.schoolmanagement.backend.security;
 import com.schoolmanagement.backend.domain.entity.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
@@ -21,18 +20,15 @@ public class JwtService {
     private final Duration accessTtl;
     private final Duration resetTtl;
 
-    public JwtService(
-            @Value("${app.jwt.secret}") String secret,
-            @Value("${app.jwt.access-ttl-seconds:604800}") long accessTtlSeconds,
-            @Value("${app.jwt.reset-ttl-seconds:600}") long resetTtlSeconds
-    ) {
+    public JwtService(JwtProperties properties) {
+        String secret = properties.getSecret();
         if (secret == null || secret.trim().length() < 32) {
             // For local dev only. In production, set APP_JWT_SECRET env to >= 32 chars.
             secret = "dev-dev-dev-dev-dev-dev-dev-dev-dev-dev-dev-dev";
         }
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        this.accessTtl = Duration.ofSeconds(accessTtlSeconds);
-        this.resetTtl = Duration.ofSeconds(resetTtlSeconds);
+        this.accessTtl = Duration.ofSeconds(properties.getAccessTtlSeconds());
+        this.resetTtl = Duration.ofSeconds(properties.getResetTtlSeconds());
     }
 
     public String issueAccessToken(User user) {
@@ -45,8 +41,7 @@ public class JwtService {
                 .addClaims(Map.of(
                         "kind", TokenKind.ACCESS.name(),
                         "email", user.getEmail(),
-                        "role", user.getRole().name()
-                ))
+                        "role", user.getRole().name()))
                 .signWith(key, Jwts.SIG.HS256)
                 .compact();
     }
@@ -60,8 +55,7 @@ public class JwtService {
                 .setExpiration(Date.from(exp))
                 .addClaims(Map.of(
                         "kind", TokenKind.RESET.name(),
-                        "challengeId", challengeId.toString()
-                ))
+                        "challengeId", challengeId.toString()))
                 .signWith(key, Jwts.SIG.HS256)
                 .compact();
     }

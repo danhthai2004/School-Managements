@@ -13,7 +13,6 @@ import com.schoolmanagement.backend.repo.UserRepository;
 import com.schoolmanagement.backend.security.JwtService;
 import com.schoolmanagement.backend.security.TokenKind;
 import io.jsonwebtoken.JwtException;
-import com.schoolmanagement.backend.util.RandomUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -264,8 +263,7 @@ public class AuthService {
     private UserDto toDto(User user) {
         UUID schoolId = user.getSchool() != null ? user.getSchool().getId() : null;
         String schoolCode = user.getSchool() != null ? user.getSchool().getCode() : null;
-        return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), schoolId, schoolCode,
-                user.isEnabled());
+        return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), schoolId, schoolCode);
     }
 
     /**

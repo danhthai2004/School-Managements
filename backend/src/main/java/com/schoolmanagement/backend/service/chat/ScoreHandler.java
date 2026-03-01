@@ -1,22 +1,21 @@
 package com.schoolmanagement.backend.service.chat;
 
 import com.schoolmanagement.backend.domain.ChatIntent;
-import com.schoolmanagement.backend.domain.Role;
 import com.schoolmanagement.backend.domain.entity.*;
 import com.schoolmanagement.backend.dto.ChatContext;
 import com.schoolmanagement.backend.repo.*;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Tầng 5 — Business Handler cho ASK_SCORE
  *
  * Luồng:
  * - STUDENT: User → Student → Grade (chỉ xem điểm của mình)
- * - GUARDIAN: User → Guardian → Students → chọn Student → Grade
- * - TEACHER: User → Teacher → Grade (xem điểm lớp mình dạy)
+ * - GUARDIAN: User → Guardian(s) → Students → chọn Student → Grade
+ * - TEACHER: dùng UI chính
  */
 @Component
 public class ScoreHandler implements ChatHandler {
@@ -51,14 +50,13 @@ public class ScoreHandler implements ChatHandler {
     }
 
     private ChatContext handleStudent(User user, String message) {
-        Student student = studentRepository.findByUser(user)
-                .orElse(null);
+        Student student = studentRepository.findByUserId(user.getId()).orElse(null);
         if (student == null) {
             return ChatContext.denied(ChatIntent.ASK_SCORE,
                     "Không tìm thấy hồ sơ học sinh liên kết với tài khoản của bạn.");
         }
 
-        List<Grade> grades = gradeRepository.findAllByStudent(student);
+        List<Grade> grades = gradeRepository.findAllByStudentId(student.getId());
         if (grades.isEmpty()) {
             return ChatContext.ok(ChatIntent.ASK_SCORE, Map.of(
                     "studentName", student.getFullName(),
@@ -69,14 +67,19 @@ public class ScoreHandler implements ChatHandler {
     }
 
     private ChatContext handleGuardian(User user, String message) {
-        Guardian guardian = guardianRepository.findByUser(user)
-                .orElse(null);
-        if (guardian == null) {
+        List<Guardian> guardianRecords = guardianRepository.findAllByUserId(user.getId());
+        if (guardianRecords.isEmpty()) {
             return ChatContext.denied(ChatIntent.ASK_SCORE,
                     "Không tìm thấy hồ sơ phụ huynh liên kết với tài khoản của bạn.");
         }
 
-        List<Student> students = guardian.getStudents();
+        // Guardian can have multiple students (one Guardian row per student)
+        List<Student> students = guardianRecords.stream()
+                .map(Guardian::getStudent)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
         if (students.isEmpty()) {
             return ChatContext.denied(ChatIntent.ASK_SCORE,
                     "Không tìm thấy học sinh nào liên kết với tài khoản phụ huynh.");
@@ -85,7 +88,7 @@ public class ScoreHandler implements ChatHandler {
         // Nếu chỉ có 1 con → query trực tiếp
         if (students.size() == 1) {
             Student student = students.get(0);
-            List<Grade> grades = gradeRepository.findAllByStudent(student);
+            List<Grade> grades = gradeRepository.findAllByStudentId(student.getId());
             if (grades.isEmpty()) {
                 return ChatContext.ok(ChatIntent.ASK_SCORE, Map.of(
                         "studentName", student.getFullName(),
@@ -98,7 +101,7 @@ public class ScoreHandler implements ChatHandler {
         String lowerMessage = message.toLowerCase();
         for (Student s : students) {
             if (lowerMessage.contains(s.getFullName().toLowerCase())) {
-                List<Grade> grades = gradeRepository.findAllByStudent(s);
+                List<Grade> grades = gradeRepository.findAllByStudentId(s.getId());
                 if (grades.isEmpty()) {
                     return ChatContext.ok(ChatIntent.ASK_SCORE, Map.of(
                             "studentName", s.getFullName(),
@@ -114,39 +117,82 @@ public class ScoreHandler implements ChatHandler {
     }
 
     private ChatContext handleTeacher(User user, String message) {
-        // Teacher xem điểm: không hỗ trợ qua chatbot (quá phức tạp → dùng UI chính)
         return ChatContext.denied(ChatIntent.ASK_SCORE,
                 "Giáo viên vui lòng sử dụng chức năng Quản lý Điểm trên giao diện chính để tra cứu điểm.");
     }
 
     /**
      * Đóng gói dữ liệu điểm thành Map cho NLG xử lý.
+     * Grade model hiện tại: type (REGULAR / MID_TERM / FINAL_TERM) + value (Double)
      */
     private Map<String, Object> buildScoreData(Student student, List<Grade> grades) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("studentName", student.getFullName());
         data.put("studentCode", student.getStudentCode());
 
-        List<Map<String, Object>> gradeList = new ArrayList<>();
-        for (Grade g : grades) {
+        // Group grades by subject → semester → type
+        Map<String, List<Grade>> bySubject = grades.stream()
+                .filter(g -> g.getSubject() != null)
+                .collect(Collectors.groupingBy(g -> g.getSubject().getName()));
+
+        List<Map<String, Object>> subjectGrades = new ArrayList<>();
+        for (Map.Entry<String, List<Grade>> entry : bySubject.entrySet()) {
             Map<String, Object> item = new LinkedHashMap<>();
-            item.put("subject", g.getSubject() != null ? g.getSubject().getName() : "N/A");
-            item.put("semester", g.getSemester());
-            item.put("academicYear", g.getAcademicYear());
-            item.put("oralScore", formatScore(g.getOralScore()));
-            item.put("test15min", formatScore(g.getTest15minScore()));
-            item.put("test45min", formatScore(g.getTest45minScore()));
-            item.put("midterm", formatScore(g.getMidtermScore()));
-            item.put("final", formatScore(g.getFinalScore()));
-            item.put("average", formatScore(g.getAverageScore()));
-            item.put("rank", g.getPerformanceCategory() != null ? g.getPerformanceCategory() : "");
-            gradeList.add(item);
+            item.put("subject", entry.getKey());
+
+            List<Grade> subjectList = entry.getValue();
+            if (!subjectList.isEmpty()) {
+                item.put("semester", subjectList.get(0).getSemester());
+                item.put("academicYear", subjectList.get(0).getAcademicYear());
+            }
+
+            // Collect scores by type
+            List<Double> regular = subjectList.stream()
+                    .filter(g -> g.getType() == Grade.GradeType.REGULAR)
+                    .map(Grade::getValue).toList();
+            List<Double> midTerm = subjectList.stream()
+                    .filter(g -> g.getType() == Grade.GradeType.MID_TERM)
+                    .map(Grade::getValue).toList();
+            List<Double> finalTerm = subjectList.stream()
+                    .filter(g -> g.getType() == Grade.GradeType.FINAL_TERM)
+                    .map(Grade::getValue).toList();
+
+            item.put("regularScores", regular);
+            item.put("midTermScores", midTerm);
+            item.put("finalTermScores", finalTerm);
+
+            // Compute weighted average if all types present
+            double avgScore = computeAverage(regular, midTerm, finalTerm);
+            if (avgScore >= 0) {
+                item.put("average", String.format("%.2f", avgScore));
+            }
+
+            subjectGrades.add(item);
         }
-        data.put("grades", gradeList);
+        data.put("grades", subjectGrades);
         return data;
     }
 
-    private String formatScore(BigDecimal score) {
-        return score != null ? score.toPlainString() : "—";
+    /**
+     * Compute weighted average: REGULAR (hệ số 1), MID_TERM (hệ số 2), FINAL_TERM (hệ số 3)
+     */
+    private double computeAverage(List<Double> regular, List<Double> midTerm, List<Double> finalTerm) {
+        double totalWeight = 0;
+        double totalScore = 0;
+
+        for (Double v : regular) {
+            totalScore += v * 1;
+            totalWeight += 1;
+        }
+        for (Double v : midTerm) {
+            totalScore += v * 2;
+            totalWeight += 2;
+        }
+        for (Double v : finalTerm) {
+            totalScore += v * 3;
+            totalWeight += 3;
+        }
+
+        return totalWeight > 0 ? totalScore / totalWeight : -1;
     }
 }

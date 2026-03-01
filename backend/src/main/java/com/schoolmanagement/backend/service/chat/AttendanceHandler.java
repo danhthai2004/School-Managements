@@ -1,5 +1,6 @@
 package com.schoolmanagement.backend.service.chat;
 
+import com.schoolmanagement.backend.domain.AttendanceStatus;
 import com.schoolmanagement.backend.domain.ChatIntent;
 import com.schoolmanagement.backend.domain.entity.*;
 import com.schoolmanagement.backend.dto.ChatContext;
@@ -13,7 +14,7 @@ import java.util.*;
  *
  * Luồng:
  * - STUDENT: User → Student → Attendance (tổng hợp điểm danh)
- * - GUARDIAN: User → Guardian → Students → chọn Student → Attendance
+ * - GUARDIAN: User → Guardian(s) → Students → chọn Student → Attendance
  */
 @Component
 public class AttendanceHandler implements ChatHandler {
@@ -47,7 +48,7 @@ public class AttendanceHandler implements ChatHandler {
     }
 
     private ChatContext handleStudent(User user, String message) {
-        Student student = studentRepository.findByUser(user).orElse(null);
+        Student student = studentRepository.findByUserId(user.getId()).orElse(null);
         if (student == null) {
             return ChatContext.denied(ChatIntent.ASK_ABSENCE,
                     "Không tìm thấy hồ sơ học sinh liên kết với tài khoản của bạn.");
@@ -56,13 +57,18 @@ public class AttendanceHandler implements ChatHandler {
     }
 
     private ChatContext handleGuardian(User user, String message) {
-        Guardian guardian = guardianRepository.findByUser(user).orElse(null);
-        if (guardian == null) {
+        List<Guardian> guardianRecords = guardianRepository.findAllByUserId(user.getId());
+        if (guardianRecords.isEmpty()) {
             return ChatContext.denied(ChatIntent.ASK_ABSENCE,
                     "Không tìm thấy hồ sơ phụ huynh liên kết với tài khoản của bạn.");
         }
 
-        List<Student> students = guardian.getStudents();
+        List<Student> students = guardianRecords.stream()
+                .map(Guardian::getStudent)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
         if (students.isEmpty()) {
             return ChatContext.denied(ChatIntent.ASK_ABSENCE,
                     "Không tìm thấy học sinh nào liên kết với tài khoản phụ huynh.");
@@ -85,7 +91,7 @@ public class AttendanceHandler implements ChatHandler {
     }
 
     private ChatContext buildAttendanceContext(Student student) {
-        List<Attendance> records = attendanceRepository.findAllByStudent(student);
+        List<Attendance> records = attendanceRepository.findAllByStudentId(student.getId());
 
         if (records.isEmpty()) {
             return ChatContext.ok(ChatIntent.ASK_ABSENCE, Map.of(
@@ -93,20 +99,20 @@ public class AttendanceHandler implements ChatHandler {
                     "message", "Chưa có dữ liệu điểm danh."));
         }
 
-        // Thống kê theo trạng thái
-        long present = records.stream().filter(a -> "PRESENT".equals(a.getStatus())).count();
-        long absent = records.stream().filter(a -> "ABSENT".equals(a.getStatus())).count();
-        long late = records.stream().filter(a -> "LATE".equals(a.getStatus())).count();
-        long excused = records.stream().filter(a -> "EXCUSED".equals(a.getStatus())).count();
+        // Thống kê theo trạng thái (using enum)
+        long present = records.stream().filter(a -> a.getStatus() == AttendanceStatus.PRESENT).count();
+        long absentExcused = records.stream().filter(a -> a.getStatus() == AttendanceStatus.ABSENT_EXCUSED).count();
+        long absentUnexcused = records.stream().filter(a -> a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED).count();
+        long late = records.stream().filter(a -> a.getStatus() == AttendanceStatus.LATE).count();
         long total = records.size();
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("studentName", student.getFullName());
         data.put("totalSessions", total);
         data.put("present", present);
-        data.put("absent", absent);
+        data.put("absentExcused", absentExcused);
+        data.put("absentUnexcused", absentUnexcused);
         data.put("late", late);
-        data.put("excused", excused);
 
         // Tính tỷ lệ đi học
         double attendanceRate = total > 0 ? (double) present / total * 100 : 0;
@@ -114,17 +120,18 @@ public class AttendanceHandler implements ChatHandler {
 
         // Lấy 5 lần vắng gần nhất (nếu có)
         List<Map<String, Object>> recentAbsences = records.stream()
-                .filter(a -> "ABSENT".equals(a.getStatus()) || "LATE".equals(a.getStatus()))
-                .sorted(Comparator.comparing(a -> a.getSession().getSessionDate(), Comparator.reverseOrder()))
+                .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_EXCUSED
+                        || a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED
+                        || a.getStatus() == AttendanceStatus.LATE)
+                .sorted(Comparator.comparing(Attendance::getDate, Comparator.reverseOrder()))
                 .limit(5)
                 .map(a -> {
                     Map<String, Object> item = new LinkedHashMap<>();
-                    item.put("date", a.getSession().getSessionDate().toString());
-                    item.put("status", a.getStatus());
-                    item.put("subject", a.getSession().getSubject() != null
-                            ? a.getSession().getSubject().getName()
-                            : "N/A");
-                    item.put("note", a.getNotes() != null ? a.getNotes() : "");
+                    item.put("date", a.getDate().toString());
+                    item.put("slot", a.getSlotIndex());
+                    item.put("status", a.getStatus().name());
+                    item.put("subject", a.getSubject() != null ? a.getSubject().getName() : "N/A");
+                    item.put("remarks", a.getRemarks() != null ? a.getRemarks() : "");
                     return item;
                 })
                 .toList();

@@ -26,6 +26,10 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
 
         List<User> findByPendingDeleteAtIsNotNull();
 
+        List<User> findBySchoolIdAndPendingDeleteAtIsNotNull(UUID schoolId);
+
+        List<User> findBySchoolIdAndPendingDeleteAtIsNull(UUID schoolId);
+
         List<User> findByPendingDeleteAtBefore(Instant time);
 
         @Query("SELECT u FROM User u WHERE " +

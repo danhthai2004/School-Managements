@@ -7,6 +7,7 @@ import {
   type WardDto,
 } from "../../services/systemService";
 import { extractErrorMessage } from "../../utils/errorUtils";
+import { useCountdown } from "../../utils/countdownUtils";
 
 export default function SchoolDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -83,7 +84,7 @@ export default function SchoolDetailsPage() {
       systemService
         .getWardsByProvince(provinceCode)
         .then(setWards)
-        .catch((e: unknown) => console.error("Failed to load wards", e))
+        .catch((e) => console.error("Failed to load wards", e))
         .finally(() => setLoadingWards(false));
     } else if (!provinceCode) {
       setWards([]);
@@ -96,7 +97,7 @@ export default function SchoolDetailsPage() {
       systemService
         .getWardsByProvince(school.provinceCode)
         .then(setWards)
-        .catch((e: unknown) => console.error("Failed to load wards", e));
+        .catch((e) => console.error("Failed to load wards", e));
     }
   }, [school?.provinceCode]);
 
@@ -241,27 +242,12 @@ export default function SchoolDetailsPage() {
       <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
         {/* Pending Delete Notice */}
         {school.pendingDeleteAt && (
-          <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-            <p className="text-amber-800 font-medium mb-2">⚠️ Trường đang chờ xóa</p>
-            <p className="text-amber-600 text-sm mb-4">
-              Trường này đã được đánh dấu chờ xóa. Bạn có thể khôi phục hoặc xóa vĩnh viễn.
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={handleRestore}
-                disabled={restoring}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {restoring ? "Đang khôi phục..." : "Khôi phục trường"}
-              </button>
-              <button
-                onClick={() => setConfirmPermanentDelete(true)}
-                className="px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-medium hover:bg-rose-700"
-              >
-                Xóa vĩnh viễn
-              </button>
-            </div>
-          </div>
+          <PendingDeleteNotice
+            pendingDeleteAt={school.pendingDeleteAt}
+            onRestore={handleRestore}
+            restoring={restoring}
+            onPermanentDelete={() => setConfirmPermanentDelete(true)}
+          />
         )}
 
         {/* Permanent Delete Confirmation */}
@@ -360,14 +346,14 @@ export default function SchoolDetailsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Mã trường <span className="text-slate-400 font-normal ml-1">(không bắt buộc)</span>
+                  Mã trường <span className="text-rose-500">*</span>
                 </label>
                 <input
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   placeholder="VD: 02000123"
-
+                  required
                 />
               </div>
             </div>
@@ -610,3 +596,47 @@ export default function SchoolDetailsPage() {
     </div>
   );
 }
+
+function PendingDeleteNotice({
+  pendingDeleteAt,
+  onRestore,
+  restoring,
+  onPermanentDelete,
+}: {
+  pendingDeleteAt: string;
+  onRestore: () => void;
+  restoring: boolean;
+  onPermanentDelete: () => void;
+}) {
+  const countdown = useCountdown(pendingDeleteAt);
+
+  return (
+    <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-amber-800 font-medium">⚠️ Trường đang chờ xóa</p>
+        <span className="text-sm font-medium text-rose-600 bg-rose-100 px-2 py-1 rounded-lg">
+          ⏳ {countdown}
+        </span>
+      </div>
+      <p className="text-amber-600 text-sm mb-4">
+        Trường này sẽ tự động bị xóa vĩnh viễn sau thời gian còn lại. Bạn có thể khôi phục hoặc xóa ngay.
+      </p>
+      <div className="flex gap-2">
+        <button
+          onClick={onRestore}
+          disabled={restoring}
+          className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {restoring ? "Đang khôi phục..." : "Khôi phục trường"}
+        </button>
+        <button
+          onClick={onPermanentDelete}
+          className="px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-medium hover:bg-rose-700"
+        >
+          Xóa vĩnh viễn
+        </button>
+      </div>
+    </div>
+  );
+}
+

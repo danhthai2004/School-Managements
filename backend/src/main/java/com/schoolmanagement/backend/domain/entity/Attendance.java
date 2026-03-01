@@ -1,10 +1,10 @@
 package com.schoolmanagement.backend.domain.entity;
 
+import com.schoolmanagement.backend.domain.AttendanceStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.UUID;
 
 @Getter
@@ -14,33 +14,40 @@ import java.util.UUID;
 @Builder
 @Entity
 @Table(name = "attendance", indexes = {
-                @Index(name = "idx_attendance_session", columnList = "session_id"),
-                @Index(name = "idx_attendance_student", columnList = "student_id")
-}, uniqueConstraints = {
-                @UniqueConstraint(columnNames = { "session_id", "student_id" })
+        @Index(name = "idx_attendance_date_class", columnList = "date, classroom_id"),
+        @Index(name = "idx_attendance_student", columnList = "student_id")
 })
 public class Attendance {
-        @Id
-        @GeneratedValue(strategy = GenerationType.UUID)
-        private UUID id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
-        @ManyToOne(fetch = FetchType.LAZY)
-        @JoinColumn(name = "session_id", nullable = false)
-        private AttendanceSession session;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "student_id", nullable = false)
+    private Student student;
 
-        @ManyToOne(fetch = FetchType.LAZY)
-        @JoinColumn(name = "student_id", nullable = false)
-        private Student student;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "classroom_id")
+    private ClassRoom classRoom;
 
-        @Column(nullable = false, length = 20)
-        private String status; // PRESENT, ABSENT, LATE, EXCUSED
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subject_id", nullable = false)
+    private Subject subject;
 
-        @Column(name = "attendance_method", length = 50)
-        private String attendanceMethod; // MANUAL, FACIAL_RECOGNITION
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "teacher_id", nullable = true)
+    private Teacher teacher;
 
-        @Column(name = "check_in_time")
-        private LocalTime checkInTime;
+    @Column(nullable = false)
+    private LocalDate date;
 
-        @Column(columnDefinition = "TEXT")
-        private String notes; // Ghi chú riêng cho học sinh
+    @Column(name = "slot_index", nullable = false)
+    private int slotIndex;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AttendanceStatus status;
+
+    @Column(columnDefinition = "TEXT")
+    private String remarks;
 }

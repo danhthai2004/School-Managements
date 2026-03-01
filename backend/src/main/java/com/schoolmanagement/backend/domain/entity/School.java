@@ -11,7 +11,7 @@ import java.util.UUID;
 @Builder
 @Entity
 @Table(name = "schools", indexes = {
-        @Index(name = "idx_school_code", columnList = "code"),
+        @Index(name = "idx_school_code", columnList = "code", unique = true),
         @Index(name = "idx_school_province", columnList = "province_code")
 })
 public class School {
@@ -23,7 +23,7 @@ public class School {
     @Column(nullable = false)
     private String name;
 
-    @Column(length = 20)
+    @Column(nullable = false, unique = true, length = 20)
     private String code;
 
     @Column(name = "province_code")

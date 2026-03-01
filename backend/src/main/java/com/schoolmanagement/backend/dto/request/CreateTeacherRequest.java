@@ -15,10 +15,10 @@ public record CreateTeacherRequest(
 
                 String email,
                 String phone,
-
+                String specialization,
                 String degree,
 
-                java.util.List<java.util.UUID> subjectIds,
+                java.util.UUID subjectId,
 
                 boolean createAccount) {
 }

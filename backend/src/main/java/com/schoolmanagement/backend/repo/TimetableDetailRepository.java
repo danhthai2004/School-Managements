@@ -5,6 +5,9 @@ import com.schoolmanagement.backend.domain.entity.Timetable;
 import com.schoolmanagement.backend.domain.entity.TimetableDetail;
 import com.schoolmanagement.backend.domain.entity.Teacher;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.DayOfWeek;
@@ -38,7 +41,10 @@ public interface TimetableDetailRepository extends JpaRepository<TimetableDetail
         long countByTimetableIdAndClassRoomIdAndSubjectIdAndDayOfWeek(UUID timetableId, UUID classRoomId,
                         UUID subjectId, DayOfWeek dayOfWeek);
 
+        // Replace full delete with partial delete support
         void deleteByTimetable(Timetable timetable);
+
+        void deleteByTimetableAndIsFixedFalse(Timetable timetable);
 
         long countByTimetableAndClassRoomAndSubject(Timetable timetable,
                         com.schoolmanagement.backend.domain.entity.ClassRoom classRoom,
@@ -48,9 +54,22 @@ public interface TimetableDetailRepository extends JpaRepository<TimetableDetail
                         com.schoolmanagement.backend.domain.entity.ClassRoom classRoom, java.time.DayOfWeek dayOfWeek,
                         int slotIndex);
 
-        @org.springframework.data.jpa.repository.Modifying
-        @org.springframework.data.jpa.repository.Query("UPDATE TimetableDetail t SET t.teacher = null WHERE t.teacher = :teacher")
-        void unlinkTeacherFromTimetable(@org.springframework.data.repository.query.Param("teacher") Teacher teacher);
+        java.util.Optional<TimetableDetail> findByTimetableAndTeacherAndDayOfWeekAndSlotIndex(Timetable timetable,
+                        Teacher teacher, java.time.DayOfWeek dayOfWeek, int slotIndex);
 
-        boolean existsByTeacher(Teacher teacher);
+        void deleteByTeacherId(UUID teacherId);
+
+        @Modifying
+        @Query("UPDATE TimetableDetail td SET td.teacher = null WHERE td.teacher.id = :teacherId")
+        void nullifyTeacherId(@Param("teacherId") UUID teacherId);
+
+        /**
+         * Check if a teacher teaches a specific subject in a specific class
+         * (used for grading permission check).
+         */
+        boolean existsByTimetable_StatusAndTeacher_User_IdAndClassRoom_IdAndSubject_Id(
+                        com.schoolmanagement.backend.domain.TimetableStatus status,
+                        UUID teacherUserId, UUID classRoomId, UUID subjectId);
+
+        void deleteAllByClassRoom(com.schoolmanagement.backend.domain.entity.ClassRoom classRoom);
 }

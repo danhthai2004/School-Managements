@@ -6,7 +6,6 @@ import com.schoolmanagement.backend.domain.entity.*;
 import com.schoolmanagement.backend.dto.BulkAccountCreationResponse;
 import com.schoolmanagement.backend.dto.GuardianDto;
 import com.schoolmanagement.backend.dto.StudentDto;
-import com.schoolmanagement.backend.dto.StudentGuardianDto;
 import com.schoolmanagement.backend.dto.UserDto;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.repo.ClassEnrollmentRepository;
@@ -64,12 +63,6 @@ public class StudentAccountService {
 
     // ==================== STUDENT ACCOUNT MANAGEMENT ====================
 
-    /**
-     * Get list of students eligible for account creation:
-     * - Status is ACTIVE
-     * - Has email
-     * - No user linked yet
-     */
     @Transactional(readOnly = true)
     public List<StudentDto> getStudentsEligibleForAccount(School school) {
         return students.findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(school, StudentStatus.ACTIVE)
@@ -78,44 +71,29 @@ public class StudentAccountService {
                 .toList();
     }
 
-    /**
-     * Create account for a single student
-     */
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public UserDto createAccountForStudent(School school, UUID studentId) {
         Student student = students.findById(studentId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
 
-        // Validate student belongs to school
         if (!student.getSchool().getId().equals(school.getId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Học sinh không thuộc trường này");
         }
-
-        // Validate status
         if (student.getStatus() != StudentStatus.ACTIVE) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Chỉ có thể tạo tài khoản cho học sinh đang theo học");
         }
-
-        // Validate email
         if (student.getEmail() == null || student.getEmail().isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Học sinh chưa có email");
         }
-
-        // Validate no existing user
         if (student.getUser() != null) {
             throw new ApiException(HttpStatus.CONFLICT, "Học sinh đã có tài khoản");
         }
-
-        // Check email unique in Users table
         if (users.existsByEmailIgnoreCase(student.getEmail())) {
             throw new ApiException(HttpStatus.CONFLICT,
                     "Email đã được sử dụng cho tài khoản khác: " + student.getEmail());
         }
 
-        // Generate temp password
         String tempPassword = RandomUtil.generateTempPassword(12);
-
-        // Create user
         User user = User.builder()
                 .email(student.getEmail().trim().toLowerCase())
                 .fullName(student.getFullName())
@@ -127,21 +105,15 @@ public class StudentAccountService {
                 .build();
 
         user = users.save(user);
-
-        // Link user to student
         student.setUser(user);
         students.save(student);
 
-        // Send email with temp password
         mailService.sendTempPasswordEmail(user.getEmail(), user.getFullName(), tempPassword);
 
         return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), school.getId(),
-                school.getCode(), user.isEnabled());
+                school.getCode());
     }
 
-    /**
-     * Delete/Unlink account for a student
-     */
     @Transactional
     public void deleteAccountForStudent(School school, UUID studentId) {
         Student student = students.findById(studentId)
@@ -156,26 +128,19 @@ public class StudentAccountService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Học sinh chưa có tài khoản");
         }
 
-        // Unlink user from student first
         student.setUser(null);
         students.save(student);
 
-        // Unlink from guardian if referenced (to resolve FK constraint)
-        Optional<Guardian> linkedGuardian = guardians.findByUser(user);
-        if (linkedGuardian.isPresent()) {
-            Guardian g = linkedGuardian.get();
+        List<Guardian> linkedGuardians = guardians.findAllByUserId(user.getId());
+        for (Guardian g : linkedGuardians) {
             g.setUser(null);
             guardians.save(g);
         }
 
-        // Delete user
-        authChallenges.deleteByUser(user);
+        authChallenges.deleteByUserId(user.getId());
         users.delete(user);
     }
 
-    /**
-     * Create accounts for multiple students (bulk)
-     */
     // @Transactional - Removed to allow partial success
     public BulkAccountCreationResponse createAccountsForStudents(School school, List<UUID> studentIds) {
         int created = 0;
@@ -204,21 +169,15 @@ public class StudentAccountService {
 
         return guardians.findGuardiansWithoutAccount(school).stream()
                 .map(g -> {
-                    // Try to find one student for this guardian to display info
-                    // We pick the first one for simplicity in the list view (Many-to-One Refactor)
-                    // Updated to use g.getStudents() instead of studentGuardianRepo
-                    List<Student> students = g.getStudents();
-                    String studentName = students.isEmpty() ? "N/A" : students.get(0).getFullName();
-                    // Relationship is no longer stored in link table. Hardcode or generic?
-                    // In Many-to-One, guardian is parent.
-                    String relationship = "Phụ huynh";
+                    // Guardian has ManyToOne student → each row is one student
+                    Student student = g.getStudent();
+                    String studentName = student != null ? student.getFullName() : "N/A";
+                    String relationship = g.getRelationship() != null ? g.getRelationship() : "Phụ huynh";
 
-                    Student student = students.isEmpty() ? null : students.get(0);
                     String className = "N/A";
-
                     if (student != null) {
                         className = enrollments
-                                .findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(student, currentAcademicYear)
+                                .findByStudentAndAcademicYear(student, currentAcademicYear)
                                 .map(e -> e.getClassRoom().getName())
                                 .orElse("N/A");
                     }
@@ -250,7 +209,7 @@ public class StudentAccountService {
                 else if (result == 2)
                     linked++;
                 else
-                    skipped++; // Should not happen if exception thrown for errors
+                    skipped++;
             } catch (ApiException e) {
                 skipped++;
                 errors.add(id + ": " + e.getMessage());
@@ -262,7 +221,6 @@ public class StudentAccountService {
         }
 
         return new BulkAccountCreationResponse(created + linked, skipped, errors);
-
     }
 
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
@@ -270,12 +228,9 @@ public class StudentAccountService {
         Guardian guardian = guardians.findById(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy phụ huynh"));
 
-        // Verify guardian belongs to school (indirectly via students)
-        // We check if ANY of the students belong to this school
-        boolean belongsToSchool = guardian.getStudents().stream()
-                .anyMatch(s -> s.getSchool().getId().equals(school.getId()));
-
-        if (!belongsToSchool) {
+        // Verify guardian belongs to school via linked student
+        Student student = guardian.getStudent();
+        if (student == null || !student.getSchool().getId().equals(school.getId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Phụ huynh không thuộc trường này");
         }
 
@@ -299,11 +254,9 @@ public class StudentAccountService {
     // ==================== PRIVATE HELPERS ====================
 
     private User processGuardianUser(School school, String email, String fullName) {
-        // Check if user exists
         Optional<User> existingUser = users.findByEmailIgnoreCase(email);
         if (existingUser.isPresent()) {
             User user = existingUser.get();
-            // Only allow linking if the existing user is also a GUARDIAN
             if (user.getRole() != Role.GUARDIAN) {
                 throw new ApiException(HttpStatus.CONFLICT,
                         "Email đã được sử dụng cho tài khoản " + user.getRole()
@@ -312,7 +265,6 @@ public class StudentAccountService {
             return user;
         }
 
-        // Create new user
         String tempPassword = RandomUtil.generateTempPassword(12);
         User user = User.builder()
                 .email(email.trim().toLowerCase())
@@ -325,29 +277,22 @@ public class StudentAccountService {
                 .build();
 
         user = users.save(user);
-
-        // Send email
         mailService.sendTempPasswordEmail(user.getEmail(), user.getFullName(), tempPassword);
-
         return user;
     }
 
     private StudentDto toStudentDto(Student student) {
-        StudentGuardianDto guardianDto = null;
-        if (student.getGuardian() != null) {
-            guardianDto = new StudentGuardianDto(
-                    student.getGuardian().getId(),
-                    student.getGuardian().getFullName(),
-                    student.getGuardian().getPhone(),
-                    student.getGuardian().getEmail(),
-                    "Phụ huynh" // Default relationship
-            );
-        }
+        // Get guardians for this student
+        List<Guardian> studentGuardians = guardians.findAllByStudent(student);
+        List<StudentDto.GuardianDto> guardianDtos = studentGuardians.stream()
+                .map(g -> new StudentDto.GuardianDto(g.getId(), g.getFullName(), g.getPhone(), g.getEmail(),
+                        g.getRelationship()))
+                .toList();
 
         // Get current class enrollment
         String currentClassName = null;
         UUID currentClassId = null;
-        Optional<ClassEnrollment> currentEnrollment = enrollments.findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(
+        Optional<ClassEnrollment> currentEnrollment = enrollments.findByStudentAndAcademicYear(
                 student,
                 classRooms.findFirstBySchoolOrderByAcademicYearDesc(student.getSchool())
                         .map(ClassRoom::getAcademicYear).orElse(""));
@@ -371,7 +316,6 @@ public class StudentAccountService {
                 student.getEnrollmentDate(),
                 currentClassName,
                 currentClassId,
-                student.getUser() != null,
-                guardianDto);
+                guardianDtos);
     }
 }

@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
  *
  * Luồng:
  * - STUDENT: User → Student → ClassEnrollment → ClassRoom → TimetableDetail
- * - GUARDIAN: User → Guardian → Students → chọn Student → ClassEnrollment → ...
+ * - GUARDIAN: User → Guardian(s) → Students → chọn Student → ClassEnrollment → ...
  */
 @Component
 public class TimetableHandler implements ChatHandler {
@@ -56,7 +56,7 @@ public class TimetableHandler implements ChatHandler {
     }
 
     private ChatContext handleStudent(User user, String message) {
-        Student student = studentRepository.findByUser(user).orElse(null);
+        Student student = studentRepository.findByUserId(user.getId()).orElse(null);
         if (student == null) {
             return ChatContext.denied(ChatIntent.ASK_TIMETABLE,
                     "Không tìm thấy hồ sơ học sinh liên kết với tài khoản của bạn.");
@@ -65,13 +65,18 @@ public class TimetableHandler implements ChatHandler {
     }
 
     private ChatContext handleGuardian(User user, String message) {
-        Guardian guardian = guardianRepository.findByUser(user).orElse(null);
-        if (guardian == null) {
+        List<Guardian> guardianRecords = guardianRepository.findAllByUserId(user.getId());
+        if (guardianRecords.isEmpty()) {
             return ChatContext.denied(ChatIntent.ASK_TIMETABLE,
                     "Không tìm thấy hồ sơ phụ huynh liên kết với tài khoản của bạn.");
         }
 
-        List<Student> students = guardian.getStudents();
+        List<Student> students = guardianRecords.stream()
+                .map(Guardian::getStudent)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
         if (students.isEmpty()) {
             return ChatContext.denied(ChatIntent.ASK_TIMETABLE,
                     "Không tìm thấy học sinh nào liên kết với tài khoản phụ huynh.");
@@ -95,11 +100,8 @@ public class TimetableHandler implements ChatHandler {
 
     /**
      * Xây dựng context thời khóa biểu cho 1 học sinh.
-     * Luồng: Student → ClassEnrollment (mới nhất) → ClassRoom → TimetableDetail
-     * (OFFICIAL)
      */
     private ChatContext buildTimetableContext(Student student) {
-        // Tìm enrollment gần nhất
         List<ClassEnrollment> enrollments = classEnrollmentRepository.findAllByStudent(student);
         if (enrollments.isEmpty()) {
             return ChatContext.ok(ChatIntent.ASK_TIMETABLE, Map.of(
@@ -107,15 +109,13 @@ public class TimetableHandler implements ChatHandler {
                     "message", "Học sinh chưa được xếp vào lớp nào."));
         }
 
-        // Lấy enrollment mới nhất (theo academic year)
         ClassEnrollment latestEnrollment = enrollments.stream()
                 .max(Comparator.comparing(ClassEnrollment::getAcademicYear))
                 .orElse(enrollments.get(0));
 
         ClassRoom classRoom = latestEnrollment.getClassRoom();
-
-        // Tìm Timetable OFFICIAL của trường
         School school = classRoom.getSchool();
+
         List<Timetable> timetables = timetableRepository
                 .findAllBySchoolOrderByCreatedAtDesc(school);
 
@@ -131,7 +131,6 @@ public class TimetableHandler implements ChatHandler {
                     "message", "Chưa có thời khóa biểu chính thức."));
         }
 
-        // Lấy chi tiết thời khóa biểu cho lớp
         List<TimetableDetail> details = timetableDetailRepository
                 .findAllByTimetableAndClassRoom(officialTimetable, classRoom);
 
@@ -142,14 +141,12 @@ public class TimetableHandler implements ChatHandler {
                     "message", "Chưa có dữ liệu thời khóa biểu cho lớp này."));
         }
 
-        // Đóng gói dữ liệu
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("studentName", student.getFullName());
         data.put("className", classRoom.getName());
         data.put("academicYear", officialTimetable.getAcademicYear());
         data.put("semester", officialTimetable.getSemester());
 
-        // Nhóm theo ngày
         Map<DayOfWeek, List<TimetableDetail>> byDay = details.stream()
                 .sorted(Comparator.comparingInt(TimetableDetail::getSlotIndex))
                 .collect(Collectors.groupingBy(TimetableDetail::getDayOfWeek,

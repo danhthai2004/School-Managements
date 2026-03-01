@@ -132,8 +132,8 @@ public class TeacherImportService {
                         }
                     }
 
-                    // Find subjects
-                    java.util.Set<com.schoolmanagement.backend.domain.entity.Subject> subjectEntities = new java.util.HashSet<>();
+                    // Find primary subject from specialization field
+                    com.schoolmanagement.backend.domain.entity.Subject primarySubject = null;
                     if (specialization != null && !specialization.isBlank()) {
                         String[] parts = specialization.split("[,;]");
                         for (String part : parts) {
@@ -142,7 +142,8 @@ public class TeacherImportService {
                                 Optional<com.schoolmanagement.backend.domain.entity.Subject> subjectOpt = subjects
                                         .findByNameIgnoreCase(subName);
                                 if (subjectOpt.isPresent()) {
-                                    subjectEntities.add(subjectOpt.get());
+                                    primarySubject = subjectOpt.get();
+                                    break; // Use first matched subject as primary
                                 }
                             }
                         }
@@ -160,10 +161,11 @@ public class TeacherImportService {
                             .address(address)
                             .email(email)
                             .phone(phone)
+                            .specialization(specialization)
                             .degree(degree)
                             .school(school)
                             .status("ACTIVE")
-                            .subjects(subjectEntities)
+                            .primarySubject(primarySubject)
                             .build();
 
                     teachers.save(teacher);

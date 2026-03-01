@@ -1,5 +1,6 @@
 package com.schoolmanagement.backend.service;
 
+import com.schoolmanagement.backend.domain.AttendanceStatus;
 import com.schoolmanagement.backend.domain.Gender;
 import com.schoolmanagement.backend.domain.StudentStatus;
 import com.schoolmanagement.backend.domain.entity.*;
@@ -30,7 +31,6 @@ public class ReportService {
         private final ClassRoomRepository classRoomRepository;
         private final ClassEnrollmentRepository enrollmentRepository;
         private final TeacherAssignmentRepository assignmentRepository;
-        private final AttendanceSessionRepository attendanceSessionRepository;
         private final AttendanceRepository attendanceRepository;
         private final GradeRepository gradeRepository;
         private final TimetableRepository timetableRepository;
@@ -59,7 +59,6 @@ public class ReportService {
                 List<GradeDistribution> gradeDistList = new ArrayList<>();
                 for (int grade = 10; grade <= 12; grade++) {
                         long classCount = classCountByGrade.getOrDefault(grade, 0L);
-                        // Count students per grade by enrollment
                         int finalGrade = grade;
                         long studentCount = allClasses.stream()
                                         .filter(c -> c.getGrade() == finalGrade)
@@ -112,11 +111,7 @@ public class ReportService {
                                 studentsByClass, enrollmentStats, genderStats);
         }
 
-        /**
-         * Lấy danh sách học sinh chi tiết theo lớp
-         */
         public StudentDetailedListDto getStudentsByClass(School school, UUID classId) {
-                // Validate class belongs to school
                 ClassRoom classRoom = classRoomRepository.findById(classId)
                                 .filter(c -> c.getSchool().getId().equals(school.getId()))
                                 .orElseThrow(() -> new RuntimeException(
@@ -152,15 +147,11 @@ public class ReportService {
                                 students);
         }
 
-        /**
-         * Lấy danh sách học sinh chưa có tài khoản
-         */
         public StudentsWithoutAccountDto getStudentsWithoutAccount(School school) {
                 List<Student> studentsNoAccount = studentRepository.findAllBySchoolOrderByFullNameAsc(school).stream()
                                 .filter(s -> s.getUser() == null && s.getStatus() == StudentStatus.ACTIVE)
                                 .toList();
 
-                // Group by class
                 Map<String, List<Student>> byClass = new LinkedHashMap<>();
                 List<ClassRoom> allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(school);
 
@@ -191,13 +182,9 @@ public class ReportService {
                                 byClassList);
         }
 
-        /**
-         * Lấy thống kê nhập học theo năm học (chi tiết hơn)
-         */
         public EnrollmentTrendDto getEnrollmentTrend(School school, String academicYear) {
                 List<Student> allStudents = studentRepository.findAllBySchoolOrderByFullNameAsc(school);
 
-                // Parse academic year (e.g., "2024-2025")
                 int startYear;
                 try {
                         startYear = Integer.parseInt(academicYear.split("-")[0]);
@@ -207,7 +194,6 @@ public class ReportService {
 
                 final int year = startYear;
 
-                // Enrollment by month for the academic year (Sep-Aug)
                 List<EnrollmentStatDto> monthlyStats = new ArrayList<>();
                 for (int m = 9; m <= 12; m++) {
                         final int month = m;
@@ -228,7 +214,6 @@ public class ReportService {
                         monthlyStats.add(new EnrollmentStatDto(year + 1, month, count));
                 }
 
-                // Enrollment by grade
                 Map<Integer, Long> byGrade = allStudents.stream()
                                 .filter(s -> s.getEnrollmentDate() != null
                                                 && ((s.getEnrollmentDate().getYear() == year
@@ -237,7 +222,6 @@ public class ReportService {
                                                                                 && s.getEnrollmentDate()
                                                                                                 .getMonthValue() <= 8)))
                                 .collect(Collectors.groupingBy(s -> {
-                                        // Find the grade of the student's class
                                         List<ClassEnrollment> enrollments = enrollmentRepository.findAllByStudent(s);
                                         return enrollments.isEmpty() ? 10
                                                         : enrollments.get(0).getClassRoom().getGrade();
@@ -262,10 +246,10 @@ public class ReportService {
                 long activeTeachers = allTeachers.stream().filter(t -> "ACTIVE".equals(t.getStatus())).count();
                 long inactiveTeachers = totalTeachers - activeTeachers;
 
-                // Teachers by subject (Count teacher for EACH subject they teach)
-                Map<com.schoolmanagement.backend.domain.entity.Subject, Long> teachersBySubject = allTeachers.stream()
-                                .flatMap(t -> t.getSubjects().stream())
-                                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+                // Teachers by subject — use primarySubject (ManyToOne) instead of collection
+                Map<Subject, Long> teachersBySubject = allTeachers.stream()
+                                .filter(t -> t.getPrimarySubject() != null)
+                                .collect(Collectors.groupingBy(Teacher::getPrimarySubject, Collectors.counting()));
 
                 List<TeacherBySubjectDto> teachersBySubjectList = teachersBySubject.entrySet().stream()
                                 .map(e -> new TeacherBySubjectDto(e.getKey().getId(), e.getKey().getName(),
@@ -282,18 +266,14 @@ public class ReportService {
                                 .map(t -> {
                                         List<TeacherAssignment> assignments = assignmentsByTeacher
                                                         .getOrDefault(t.getId(), List.of());
-                                        // Assuming each assignment = 1 class, periods = sum of all
                                         int assignedClasses = assignments.size();
                                         int totalPeriods = assignments.stream()
                                                         .mapToInt(TeacherAssignment::getLessonsPerWeek)
                                                         .sum();
 
-                                        String primarySubjectName = t.getSubjects().stream()
-                                                        .map(com.schoolmanagement.backend.domain.entity.Subject::getName)
-                                                        .collect(Collectors.joining(", "));
-                                        if (primarySubjectName.isEmpty()) {
-                                                primarySubjectName = "N/A";
-                                        }
+                                        String primarySubjectName = t.getPrimarySubject() != null
+                                                        ? t.getPrimarySubject().getName()
+                                                        : "N/A";
 
                                         return new TeacherWorkloadDto(
                                                         t.getId(), t.getTeacherCode(), t.getFullName(),
@@ -330,7 +310,6 @@ public class ReportService {
                                 ))
                                 .toList();
 
-                // Classes by grade
                 Map<Integer, Long> classCountByGrade = allClasses.stream()
                                 .collect(Collectors.groupingBy(ClassRoom::getGrade, Collectors.counting()));
 
@@ -351,47 +330,58 @@ public class ReportService {
         // ==================== ATTENDANCE REPORTS ====================
 
         /**
-         * Lấy báo cáo điểm danh tổng hợp
+         * Attendance report — uses Attendance entity directly (no AttendanceSession).
+         * Queries attendance by classRoom + date range.
          */
         public AttendanceReportDto getAttendanceReport(School school) {
-                List<AttendanceSession> allSessions = attendanceSessionRepository.findAllBySchool(school);
-                List<Attendance> allAttendance = attendanceRepository.findAllBySessionIn(allSessions);
+                List<ClassRoom> allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(school);
 
-                long totalSessions = allSessions.size();
+                // Get date range for current academic year
+                LocalDate startDate = getAcademicYearStartDate();
+                LocalDate endDate = LocalDate.now();
 
-                // Calculate overall attendance rate
+                // Collect all attendance for the school
+                List<Attendance> allAttendance = new ArrayList<>();
+                Map<UUID, List<Attendance>> attendanceByClassId = new LinkedHashMap<>();
+                for (ClassRoom c : allClasses) {
+                        List<Attendance> classAtt = attendanceRepository.findAllByClassRoomAndDateBetween(c, startDate, endDate);
+                        allAttendance.addAll(classAtt);
+                        attendanceByClassId.put(c.getId(), classAtt);
+                }
+
                 long totalRecords = allAttendance.size();
-                long presentCount = allAttendance.stream().filter(a -> "PRESENT".equals(a.getStatus())).count();
+                long presentCount = allAttendance.stream().filter(a -> a.getStatus() == AttendanceStatus.PRESENT).count();
                 double overallAttendanceRate = totalRecords > 0 ? (presentCount * 100.0 / totalRecords) : 0.0;
 
+                // Count unique dates as "sessions"
+                long totalSessions = allAttendance.stream()
+                                .map(a -> a.getDate().toString() + "_" + a.getClassRoom().getId())
+                                .distinct().count();
+
                 // Attendance by class
-                List<ClassRoom> allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(school);
                 List<AttendanceReportDto.AttendanceByClassDto> attendanceByClass = allClasses.stream()
                                 .map(c -> {
-                                        List<AttendanceSession> classSessions = allSessions.stream()
-                                                        .filter(s -> s.getClassRoom().getId().equals(c.getId()))
-                                                        .toList();
-                                        List<Attendance> classAttendance = allAttendance.stream()
-                                                        .filter(a -> a.getSession().getClassRoom().getId()
-                                                                        .equals(c.getId()))
-                                                        .toList();
-
+                                        List<Attendance> classAttendance = attendanceByClassId.getOrDefault(c.getId(), List.of());
                                         long classTotal = classAttendance.size();
                                         long classPresent = classAttendance.stream()
-                                                        .filter(a -> "PRESENT".equals(a.getStatus())).count();
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.PRESENT).count();
                                         long classAbsent = classAttendance.stream()
-                                                        .filter(a -> "ABSENT".equals(a.getStatus())).count();
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED).count();
                                         long classLate = classAttendance.stream()
-                                                        .filter(a -> "LATE".equals(a.getStatus())).count();
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.LATE).count();
                                         long classExcused = classAttendance.stream()
-                                                        .filter(a -> "EXCUSED".equals(a.getStatus())).count();
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_EXCUSED).count();
                                         double classRate = classTotal > 0 ? (classPresent * 100.0 / classTotal) : 0.0;
+
+                                        long classSessions = classAttendance.stream()
+                                                        .map(a -> a.getDate().toString())
+                                                        .distinct().count();
 
                                         return new AttendanceReportDto.AttendanceByClassDto(
                                                         c.getId(),
                                                         c.getName(),
                                                         c.getGrade(),
-                                                        classSessions.size(),
+                                                        (int) classSessions,
                                                         Math.round(classRate * 100.0) / 100.0,
                                                         classPresent,
                                                         classAbsent,
@@ -405,7 +395,8 @@ public class ReportService {
 
                 // Chronic absentees (students with >= 5 absent days)
                 Map<Student, Long> absentCountByStudent = allAttendance.stream()
-                                .filter(a -> "ABSENT".equals(a.getStatus()))
+                                .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED
+                                                || a.getStatus() == AttendanceStatus.ABSENT_EXCUSED)
                                 .collect(Collectors.groupingBy(Attendance::getStudent, Collectors.counting()));
 
                 List<AttendanceReportDto.ChronicAbsenteeDto> chronicAbsentees = absentCountByStudent.entrySet().stream()
@@ -413,11 +404,9 @@ public class ReportService {
                                 .map(e -> {
                                         Student s = e.getKey();
                                         long absentDays = e.getValue();
-                                        // Find student's class
                                         List<ClassEnrollment> enrollments = enrollmentRepository.findAllByStudent(s);
                                         String className = enrollments.isEmpty() ? "N/A"
                                                         : enrollments.get(0).getClassRoom().getName();
-                                        // Calculate absent rate based on total sessions for their class
                                         long studentTotalAttendance = allAttendance.stream()
                                                         .filter(a -> a.getStudent().getId().equals(s.getId()))
                                                         .count();
@@ -447,7 +436,8 @@ public class ReportService {
         // ==================== ACADEMIC REPORTS ====================
 
         /**
-         * Lấy báo cáo học tập tổng hợp
+         * Academic report. Grade has: type (REGULAR/MID_TERM/FINAL_TERM) + value (Double).
+         * We compute weighted average per student-subject combination.
          */
         public AcademicReportDto getAcademicReport(School school, String academicYear, int semester) {
                 if (academicYear == null || academicYear.isEmpty()) {
@@ -457,35 +447,42 @@ public class ReportService {
                         semester = LocalDate.now().getMonthValue() >= 9 || LocalDate.now().getMonthValue() <= 1 ? 1 : 2;
                 }
 
-                List<Grade> allGrades = gradeRepository.findAllBySchoolAndAcademicYearAndSemester(school, academicYear,
-                                semester);
+                List<Grade> allGrades = gradeRepository.findAllByClassRoom_SchoolAndAcademicYearAndSemester(
+                                school, academicYear, semester);
                 List<ClassRoom> allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(school);
 
                 long totalGradeRecords = allGrades.size();
 
-                // Overall average score
-                java.math.BigDecimal overallAverage = allGrades.stream()
-                                .filter(g -> g.getAverageScore() != null)
-                                .map(Grade::getAverageScore)
-                                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
-                long gradesWithScore = allGrades.stream().filter(g -> g.getAverageScore() != null).count();
-                java.math.BigDecimal overallAverageScore = gradesWithScore > 0
-                                ? overallAverage.divide(java.math.BigDecimal.valueOf(gradesWithScore), 2,
-                                                java.math.RoundingMode.HALF_UP)
-                                : java.math.BigDecimal.ZERO;
+                // Compute weighted average per student-subject
+                // Group by student, then compute overall average across subjects
+                Map<UUID, List<Grade>> gradesByStudentId = allGrades.stream()
+                                .collect(Collectors.groupingBy(g -> g.getStudent().getId()));
+
+                // Compute per-student average using weighted formula
+                Map<UUID, Double> studentAverages = new LinkedHashMap<>();
+                for (var entry : gradesByStudentId.entrySet()) {
+                        double avg = computeWeightedAverage(entry.getValue());
+                        if (avg >= 0) {
+                                studentAverages.put(entry.getKey(), avg);
+                        }
+                }
+
+                // Overall average
+                double overallAvg = studentAverages.values().stream().mapToDouble(v -> v).average().orElse(0.0);
+                java.math.BigDecimal overallAverageScore = java.math.BigDecimal.valueOf(overallAvg)
+                                .setScale(2, java.math.RoundingMode.HALF_UP);
 
                 // Grade distribution by ranges
                 List<AcademicReportDto.GradeDistributionDto> gradeDistribution = new ArrayList<>();
                 String[] ranges = { "0-2", "2-4", "4-6", "6-8", "8-10" };
                 double[] mins = { 0, 2, 4, 6, 8 };
                 double[] maxs = { 2, 4, 6, 8, 10.01 };
+                long gradesWithScore = studentAverages.size();
                 for (int i = 0; i < ranges.length; i++) {
                         final double min = mins[i];
                         final double max = maxs[i];
-                        long count = allGrades.stream()
-                                        .filter(g -> g.getAverageScore() != null)
-                                        .filter(g -> g.getAverageScore().doubleValue() >= min
-                                                        && g.getAverageScore().doubleValue() < max)
+                        long count = studentAverages.values().stream()
+                                        .filter(v -> v >= min && v < max)
                                         .count();
                         double percentage = gradesWithScore > 0
                                         ? Math.round(count * 100.0 / gradesWithScore * 100.0) / 100.0
@@ -498,54 +495,36 @@ public class ReportService {
                                 .collect(Collectors.groupingBy(Grade::getSubject));
                 List<AcademicReportDto.SubjectAverageDto> subjectAverages = gradesBySubject.entrySet().stream()
                                 .map(e -> {
-                                        java.math.BigDecimal sum = e.getValue().stream()
-                                                        .filter(g -> g.getAverageScore() != null)
-                                                        .map(Grade::getAverageScore)
-                                                        .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
-                                        long count = e.getValue().stream().filter(g -> g.getAverageScore() != null)
-                                                        .count();
-                                        java.math.BigDecimal avg = count > 0
-                                                        ? sum.divide(java.math.BigDecimal.valueOf(count), 2,
-                                                                        java.math.RoundingMode.HALF_UP)
-                                                        : java.math.BigDecimal.ZERO;
+                                        double avg = computeWeightedAverage(e.getValue());
                                         return new AcademicReportDto.SubjectAverageDto(
                                                         e.getKey().getId(),
                                                         e.getKey().getName(),
-                                                        avg,
-                                                        count);
+                                                        java.math.BigDecimal.valueOf(Math.max(avg, 0))
+                                                                        .setScale(2, java.math.RoundingMode.HALF_UP),
+                                                        (long) e.getValue().size());
                                 })
                                 .sorted(Comparator.comparing(AcademicReportDto.SubjectAverageDto::averageScore)
                                                 .reversed())
                                 .toList();
 
                 // Top students
-                Map<Student, List<Grade>> gradesByStudent = allGrades.stream()
-                                .collect(Collectors.groupingBy(Grade::getStudent));
-                List<AcademicReportDto.TopStudentDto> topStudents = gradesByStudent.entrySet().stream()
+                List<AcademicReportDto.TopStudentDto> topStudents = gradesByStudentId.entrySet().stream()
                                 .map(e -> {
-                                        Student s = e.getKey();
-                                        java.math.BigDecimal sum = e.getValue().stream()
-                                                        .filter(g -> g.getAverageScore() != null)
-                                                        .map(Grade::getAverageScore)
-                                                        .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
-                                        long count = e.getValue().stream().filter(g -> g.getAverageScore() != null)
-                                                        .count();
-                                        java.math.BigDecimal avg = count > 0
-                                                        ? sum.divide(java.math.BigDecimal.valueOf(count), 2,
-                                                                        java.math.RoundingMode.HALF_UP)
-                                                        : java.math.BigDecimal.ZERO;
+                                        Student s = e.getValue().get(0).getStudent();
+                                        double avg = studentAverages.getOrDefault(s.getId(), 0.0);
                                         List<ClassEnrollment> enrollments = enrollmentRepository.findAllByStudent(s);
                                         String className = enrollments.isEmpty() ? "N/A"
                                                         : enrollments.get(0).getClassRoom().getName();
-                                        String category = avg.doubleValue() >= 8.5 ? "Giỏi"
-                                                        : avg.doubleValue() >= 6.5 ? "Khá"
-                                                                        : avg.doubleValue() >= 5 ? "TB" : "Yếu";
+                                        String category = avg >= 8.5 ? "Giỏi"
+                                                        : avg >= 6.5 ? "Khá"
+                                                                        : avg >= 5 ? "TB" : "Yếu";
                                         return new AcademicReportDto.TopStudentDto(
                                                         s.getId(),
                                                         s.getStudentCode(),
                                                         s.getFullName(),
                                                         className,
-                                                        avg,
+                                                        java.math.BigDecimal.valueOf(avg)
+                                                                        .setScale(2, java.math.RoundingMode.HALF_UP),
                                                         category);
                                 })
                                 .filter(dto -> dto.averageScore().doubleValue() >= 8.0)
@@ -560,39 +539,27 @@ public class ReportService {
                                 .map(c -> {
                                         List<Grade> classGrades = gradeRepository.findAllByClassRoomAndSemester(c,
                                                         finalSemester);
-                                        java.math.BigDecimal sum = classGrades.stream()
-                                                        .filter(g -> g.getAverageScore() != null)
-                                                        .map(Grade::getAverageScore)
-                                                        .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
-                                        long count = classGrades.stream().filter(g -> g.getAverageScore() != null)
-                                                        .count();
-                                        java.math.BigDecimal avg = count > 0
-                                                        ? sum.divide(java.math.BigDecimal.valueOf(count), 2,
-                                                                        java.math.RoundingMode.HALF_UP)
-                                                        : java.math.BigDecimal.ZERO;
-                                        long excellent = classGrades.stream()
-                                                        .filter(g -> g.getAverageScore() != null
-                                                                        && g.getAverageScore().doubleValue() >= 8.5)
-                                                        .count();
-                                        long good = classGrades.stream()
-                                                        .filter(g -> g.getAverageScore() != null
-                                                                        && g.getAverageScore().doubleValue() >= 6.5
-                                                                        && g.getAverageScore().doubleValue() < 8.5)
-                                                        .count();
-                                        long average = classGrades.stream()
-                                                        .filter(g -> g.getAverageScore() != null
-                                                                        && g.getAverageScore().doubleValue() >= 5
-                                                                        && g.getAverageScore().doubleValue() < 6.5)
-                                                        .count();
-                                        long belowAverage = classGrades.stream()
-                                                        .filter(g -> g.getAverageScore() != null
-                                                                        && g.getAverageScore().doubleValue() < 5)
-                                                        .count();
+                                        // Group by student and compute averages
+                                        Map<UUID, List<Grade>> byStudent = classGrades.stream()
+                                                        .collect(Collectors.groupingBy(g -> g.getStudent().getId()));
+                                        List<Double> studentAvgs = byStudent.values().stream()
+                                                        .map(this::computeWeightedAverage)
+                                                        .filter(v -> v >= 0)
+                                                        .toList();
+
+                                        double avg = studentAvgs.stream().mapToDouble(v -> v).average().orElse(0.0);
+                                        long count = studentAvgs.size();
+                                        long excellent = studentAvgs.stream().filter(v -> v >= 8.5).count();
+                                        long good = studentAvgs.stream().filter(v -> v >= 6.5 && v < 8.5).count();
+                                        long average = studentAvgs.stream().filter(v -> v >= 5 && v < 6.5).count();
+                                        long belowAverage = studentAvgs.stream().filter(v -> v < 5).count();
+
                                         return new AcademicReportDto.ClassAverageDto(
                                                         c.getId(),
                                                         c.getName(),
                                                         c.getGrade(),
-                                                        avg,
+                                                        java.math.BigDecimal.valueOf(avg)
+                                                                        .setScale(2, java.math.RoundingMode.HALF_UP),
                                                         count,
                                                         excellent,
                                                         good,
@@ -617,9 +584,6 @@ public class ReportService {
 
         // ==================== TIMETABLE REPORTS ====================
 
-        /**
-         * Lấy báo cáo thời khóa biểu
-         */
         public TimetableReportDto getTimetableReport(School school) {
                 List<Timetable> allTimetables = timetableRepository.findAllBySchoolOrderByCreatedAtDesc(school);
                 List<ClassRoom> allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(school);
@@ -635,7 +599,6 @@ public class ReportService {
                                 .filter(t -> t.getStatus() == com.schoolmanagement.backend.domain.TimetableStatus.DRAFT)
                                 .count();
 
-                // Timetable summaries
                 List<TimetableReportDto.TimetableSummaryDto> timetableSummaries = allTimetables.stream()
                                 .map(t -> {
                                         int totalSlots = t.getTimetableDetails().size();
@@ -654,7 +617,6 @@ public class ReportService {
                                 })
                                 .toList();
 
-                // Class timetable statuses
                 List<TimetableReportDto.ClassTimetableStatusDto> classStatuses = allClasses.stream()
                                 .map(c -> {
                                         boolean hasTimetable = allTimetables.stream()
@@ -691,7 +653,6 @@ public class ReportService {
                                 })
                                 .toList();
 
-                // Coverage
                 long classesWithTimetable = classStatuses.stream()
                                 .filter(TimetableReportDto.ClassTimetableStatusDto::hasTimetable).count();
                 long classesWithoutTimetable = allClasses.size() - classesWithTimetable;
@@ -716,6 +677,35 @@ public class ReportService {
         }
 
         // ==================== HELPER METHODS ====================
+
+        /**
+         * Compute weighted average from a list of grades.
+         * REGULAR (weight 1), MID_TERM (weight 2), FINAL_TERM (weight 3)
+         * Returns -1 if no valid grades.
+         */
+        private double computeWeightedAverage(List<Grade> grades) {
+                double totalWeight = 0;
+                double totalScore = 0;
+
+                for (Grade g : grades) {
+                        if (g.getValue() == null) continue;
+                        int weight = switch (g.getType()) {
+                                case REGULAR -> 1;
+                                case MID_TERM -> 2;
+                                case FINAL_TERM -> 3;
+                        };
+                        totalScore += g.getValue() * weight;
+                        totalWeight += weight;
+                }
+
+                return totalWeight > 0 ? totalScore / totalWeight : -1;
+        }
+
+        private LocalDate getAcademicYearStartDate() {
+                LocalDate now = LocalDate.now();
+                int year = now.getMonthValue() >= 9 ? now.getYear() : now.getYear() - 1;
+                return LocalDate.of(year, 9, 1);
+        }
 
         private String getCurrentAcademicYear() {
                 LocalDate now = LocalDate.now();

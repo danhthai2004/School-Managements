@@ -11,9 +11,6 @@ import java.util.UUID;
 
 @Repository
 public interface TeacherRepository extends JpaRepository<Teacher, UUID> {
-
-    Optional<Teacher> findByUser(com.schoolmanagement.backend.domain.entity.User user);
-
     List<Teacher> findAllBySchoolOrderByFullNameAsc(School school);
 
     List<Teacher> findAllBySchoolOrderByTeacherCodeAsc(School school);
@@ -29,19 +26,11 @@ public interface TeacherRepository extends JpaRepository<Teacher, UUID> {
     // Check if duplicate teacher code exists in school
     boolean existsBySchoolAndTeacherCodeAndIdNot(School school, String teacherCode, UUID id);
 
+    Optional<Teacher> findByUserId(UUID userId);
+
+    Optional<Teacher> findByUser(com.schoolmanagement.backend.domain.entity.User user);
+
+    void deleteBySchoolId(UUID schoolId);
+
     long countBySchool(School school);
-
-    // --- Bulk Delete Optimization ---
-
-    @org.springframework.data.jpa.repository.Modifying
-    @org.springframework.data.jpa.repository.Query("UPDATE TimetableDetail t SET t.teacher = null WHERE t.teacher.id = :teacherId")
-    void removeTeacherFromTimetable(@org.springframework.data.repository.query.Param("teacherId") UUID teacherId);
-
-    @org.springframework.data.jpa.repository.Modifying
-    @org.springframework.data.jpa.repository.Query("DELETE FROM TeacherAssignment ta WHERE ta.teacher.id = :teacherId")
-    void removeTeacherAssignments(@org.springframework.data.repository.query.Param("teacherId") UUID teacherId);
-
-    @org.springframework.data.jpa.repository.Modifying
-    @org.springframework.data.jpa.repository.Query("DELETE FROM Teacher t WHERE t.school.id = :schoolId")
-    void deleteBySchoolId(@org.springframework.data.repository.query.Param("schoolId") UUID schoolId);
 }

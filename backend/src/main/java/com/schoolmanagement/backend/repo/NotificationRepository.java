@@ -8,4 +8,6 @@ import java.util.UUID;
 
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
     List<Notification> findAllByOrderByCreatedAtDesc();
+
+    void deleteByCreatedById(UUID userId);
 }

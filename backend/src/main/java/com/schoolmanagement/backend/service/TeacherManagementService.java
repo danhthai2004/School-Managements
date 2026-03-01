@@ -1,9 +1,11 @@
 package com.schoolmanagement.backend.service;
 
 import com.schoolmanagement.backend.domain.Role;
+import com.schoolmanagement.backend.domain.entity.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.School;
 import com.schoolmanagement.backend.domain.entity.Teacher;
 import com.schoolmanagement.backend.domain.entity.User;
+import com.schoolmanagement.backend.dto.BulkAccountCreationResponse;
 import com.schoolmanagement.backend.dto.TeacherDto;
 import com.schoolmanagement.backend.dto.request.CreateTeacherRequest;
 import com.schoolmanagement.backend.exception.ApiException;
@@ -14,16 +16,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.schoolmanagement.backend.util.RandomUtil;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-
-import lombok.extern.slf4j.Slf4j;
+import java.util.stream.Collectors;
 
 @Service
-@Slf4j
 public class TeacherManagementService {
 
     private final TeacherRepository teachers;
@@ -32,109 +33,25 @@ public class TeacherManagementService {
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
     private final com.schoolmanagement.backend.repo.SubjectRepository subjects;
-    private final com.schoolmanagement.backend.repo.StudentRepository students;
-    private final com.schoolmanagement.backend.repo.GuardianRepository guardians;
-
-    @org.springframework.beans.factory.annotation.Autowired
-    @org.springframework.context.annotation.Lazy
-    private TeacherManagementService self;
-
-    @org.springframework.beans.factory.annotation.Autowired
-    private BulkDeleteHelperService bulkDeleteHelper;
+    private final com.schoolmanagement.backend.repo.AttendanceRepository attendances;
+    private final com.schoolmanagement.backend.repo.TimetableDetailRepository timetableDetails;
+    private final com.schoolmanagement.backend.repo.TeacherAssignmentRepository teacherAssignments;
 
     public TeacherManagementService(TeacherRepository teachers, UserRepository users,
             ClassRoomRepository classRooms, PasswordEncoder passwordEncoder,
             MailService mailService, com.schoolmanagement.backend.repo.SubjectRepository subjects,
-            com.schoolmanagement.backend.repo.StudentRepository students,
-            com.schoolmanagement.backend.repo.GuardianRepository guardians) {
+            com.schoolmanagement.backend.repo.AttendanceRepository attendances,
+            com.schoolmanagement.backend.repo.TimetableDetailRepository timetableDetails,
+            com.schoolmanagement.backend.repo.TeacherAssignmentRepository teacherAssignments) {
         this.teachers = teachers;
         this.users = users;
         this.classRooms = classRooms;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
         this.subjects = subjects;
-        this.students = students;
-        this.guardians = guardians;
-    }
-
-    // ==================== TEACHER ACCOUNT MANAGEMENT ====================
-
-    @Transactional(readOnly = true)
-    public List<TeacherDto> getTeachersEligibleForAccount(School school) {
-        return teachers.findAllBySchoolOrderByTeacherCodeAsc(school).stream()
-                .filter(t -> "ACTIVE".equals(t.getStatus()) && t.getEmail() != null && !t.getEmail().isBlank()
-                        && t.getUser() == null)
-                .map(this::toTeacherDto)
-                .toList();
-    }
-
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
-    public com.schoolmanagement.backend.dto.UserDto createAccountForTeacher(School school, UUID teacherId) {
-        Teacher teacher = teachers.findById(teacherId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên"));
-
-        if (!teacher.getSchool().getId().equals(school.getId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Giáo viên không thuộc trường này");
-        }
-
-        if (!"ACTIVE".equals(teacher.getStatus())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Chỉ có thể tạo tài khoản cho giáo viên đang hoạt động");
-        }
-
-        if (teacher.getEmail() == null || teacher.getEmail().isBlank()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Giáo viên chưa có email");
-        }
-
-        if (teacher.getUser() != null) {
-            throw new ApiException(HttpStatus.CONFLICT, "Giáo viên đã có tài khoản");
-        }
-
-        if (users.existsByEmailIgnoreCase(teacher.getEmail())) {
-            throw new ApiException(HttpStatus.CONFLICT,
-                    "Email đã được sử dụng cho tài khoản khác: " + teacher.getEmail());
-        }
-
-        String tempPassword = RandomUtil.generateTempPassword(12);
-
-        User user = User.builder()
-                .email(teacher.getEmail().trim().toLowerCase())
-                .fullName(teacher.getFullName())
-                .role(Role.TEACHER)
-                .school(school)
-                .passwordHash(passwordEncoder.encode(tempPassword))
-                .firstLogin(true)
-                .enabled(true)
-                .build();
-
-        user = users.save(user); // Save first to get ID
-        teacher.setUser(user);
-        teachers.save(teacher);
-
-        mailService.sendTempPasswordEmail(user.getEmail(), user.getFullName(), tempPassword);
-
-        return new com.schoolmanagement.backend.dto.UserDto(user.getId(), user.getEmail(), user.getFullName(),
-                user.getRole(), school.getId(),
-                school.getCode(), user.isEnabled());
-    }
-
-    // @Transactional - Removed
-    public com.schoolmanagement.backend.dto.BulkAccountCreationResponse createAccountsForTeachers(School school,
-            List<UUID> teacherIds) {
-        int created = 0;
-        int skipped = 0;
-        java.util.List<String> errors = new java.util.ArrayList<>();
-
-        for (UUID teacherId : teacherIds) {
-            try {
-                self.createAccountForTeacher(school, teacherId);
-                created++;
-            } catch (ApiException e) {
-                skipped++;
-                errors.add(teacherId + ": " + e.getMessage());
-            }
-        }
-
-        return new com.schoolmanagement.backend.dto.BulkAccountCreationResponse(created, skipped, errors);
+        this.attendances = attendances;
+        this.timetableDetails = timetableDetails;
+        this.teacherAssignments = teacherAssignments;
     }
 
     // ==================== TEACHER MANAGEMENT ====================
@@ -159,33 +76,16 @@ public class TeacherManagementService {
 
         // Validate email uniqueness if provided
         if (req.email() != null && !req.email().isBlank()) {
-            String email = req.email().trim().toLowerCase();
-            if (teachers.existsByEmailIgnoreCase(email)) {
+            if (teachers.existsByEmailIgnoreCase(req.email())) {
                 throw new ApiException(HttpStatus.CONFLICT, "Email giáo viên đã tồn tại trong hệ thống");
-            }
-            if (students.existsByEmail(email)) {
-                throw new ApiException(HttpStatus.CONFLICT, "Email giáo viên trùng với email của một Học sinh");
-            }
-            if (!guardians.findByEmailIgnoreCase(email).isEmpty()) {
-                throw new ApiException(HttpStatus.CONFLICT, "Email giáo viên trùng với email của một Phụ huynh");
-            }
-            Optional<User> u = users.findByEmailIgnoreCase(email);
-            if (u.isPresent() && u.get().getRole() != Role.TEACHER) {
-                throw new ApiException(HttpStatus.CONFLICT, "Email đã được sử dụng bởi tài khoản " + u.get().getRole());
             }
         }
 
-        // Find Subjects
-        java.util.Set<com.schoolmanagement.backend.domain.entity.Subject> subjectEntities = new java.util.HashSet<>();
-        if (req.subjectIds() != null && !req.subjectIds().isEmpty()) {
-            List<com.schoolmanagement.backend.domain.entity.Subject> foundSubjects = subjects
-                    .findAllById(req.subjectIds());
-            if (foundSubjects.size() != req.subjectIds().size()) {
-                // warning or error? Let's just use what we found or strict check.
-                // Strict check is better.
-                throw new ApiException(HttpStatus.NOT_FOUND, "Một số môn học không tìm thấy");
-            }
-            subjectEntities.addAll(foundSubjects);
+        // Find Subject
+        com.schoolmanagement.backend.domain.entity.Subject subject = null;
+        if (req.subjectId() != null) {
+            subject = subjects.findById(req.subjectId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy môn học"));
         }
 
         // Create teacher
@@ -195,27 +95,30 @@ public class TeacherManagementService {
                 .dateOfBirth(req.dateOfBirth())
                 .gender(req.gender())
                 .address(req.address())
-                .email(req.email() != null ? req.email().trim().toLowerCase() : null)
+                .email(req.email())
                 .phone(req.phone())
-                .phone(req.phone())
+                .specialization(req.specialization())
                 .degree(req.degree())
-                .subjects(subjectEntities)
+                .primarySubject(subject)
                 .school(school)
                 .status("ACTIVE")
                 .build();
+
+        // Bug 3 fix: Check User email conflict BEFORE saving Teacher to prevent orphans
+        if (req.createAccount() && req.email() != null && !req.email().isBlank()) {
+            if (users.existsByEmailIgnoreCase(req.email())) {
+                throw new ApiException(HttpStatus.CONFLICT, "Email đã được sử dụng cho một tài khoản khác");
+            }
+        }
 
         teacher = teachers.save(teacher);
 
         // Create account if requested
         if (req.createAccount() && req.email() != null && !req.email().isBlank()) {
-            // Check if email already used for an account
-            if (users.existsByEmailIgnoreCase(req.email())) {
-                throw new ApiException(HttpStatus.CONFLICT, "Email đã được sử dụng cho một tài khoản khác");
-            }
 
             String tempPassword = RandomUtil.generateTempPassword(12);
             User user = User.builder()
-                    .email(req.email().trim().toLowerCase())
+                    .email(req.email())
                     .fullName(req.fullName())
                     .role(Role.TEACHER)
                     .school(school)
@@ -236,8 +139,22 @@ public class TeacherManagementService {
 
     @Transactional(readOnly = true)
     public List<TeacherDto> listTeachersProfile(School school) {
-        return teachers.findAllBySchoolOrderByTeacherCodeAsc(school).stream()
-                .map(this::toTeacherDto)
+        List<Teacher> teacherList = teachers.findAllBySchoolOrderByTeacherCodeAsc(school);
+
+        if (teacherList.isEmpty()) {
+            return List.of();
+        }
+
+        // Batch load all homeroom classes (1 query instead of N)
+        List<ClassRoom> homeroomClasses = classRooms.findAllBySchoolWithHomeroomTeacher(school);
+        Map<UUID, ClassRoom> homeroomByUserId = homeroomClasses.stream()
+                .filter(c -> c.getHomeroomTeacher() != null)
+                .collect(Collectors.toMap(c -> c.getHomeroomTeacher().getId(), c -> c, (c1, c2) -> c1));
+
+        // Convert to DTOs using pre-loaded data
+        return teacherList.stream()
+                .map(teacher -> toTeacherDtoOptimized(teacher,
+                        teacher.getUser() != null ? homeroomByUserId.get(teacher.getUser().getId()) : null))
                 .toList();
     }
 
@@ -255,24 +172,18 @@ public class TeacherManagementService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Ngày sinh phải nhỏ hơn ngày hiện tại");
         }
 
-        // Validate email uniqueness if changed
+        // Validate email uniqueness on Teacher table if changed
         if (req.email() != null && !req.email().isBlank()) {
-            String email = req.email().trim().toLowerCase();
-            if (!email.equalsIgnoreCase(teacher.getEmail())) {
-                if (teachers.existsByEmailIgnoreCase(email)) {
-                    throw new ApiException(HttpStatus.CONFLICT, "Email giáo viên đã tồn tại trong hệ thống");
-                }
-                if (students.existsByEmail(email)) {
-                    throw new ApiException(HttpStatus.CONFLICT, "Email giáo viên trùng với email của một Học sinh");
-                }
-                if (!guardians.findByEmailIgnoreCase(email).isEmpty()) {
-                    throw new ApiException(HttpStatus.CONFLICT, "Email giáo viên trùng với email của một Phụ huynh");
-                }
-                Optional<User> u = users.findByEmailIgnoreCase(email);
-                if (u.isPresent() && u.get().getRole() != Role.TEACHER) {
-                    throw new ApiException(HttpStatus.CONFLICT,
-                            "Email đã được sử dụng bởi tài khoản " + u.get().getRole());
-                }
+            if (!req.email().equalsIgnoreCase(teacher.getEmail()) && teachers.existsByEmailIgnoreCase(req.email())) {
+                throw new ApiException(HttpStatus.CONFLICT, "Email giáo viên đã tồn tại trong hệ thống");
+            }
+        }
+
+        // Bug 4 fix: Also validate email uniqueness on User table for linked accounts
+        if (teacher.getUser() != null && req.email() != null && !req.email().isBlank()) {
+            if (!req.email().equalsIgnoreCase(teacher.getUser().getEmail())
+                    && users.existsByEmailIgnoreCase(req.email())) {
+                throw new ApiException(HttpStatus.CONFLICT, "Email đã được sử dụng cho tài khoản khác");
             }
         }
 
@@ -281,54 +192,146 @@ public class TeacherManagementService {
         teacher.setDateOfBirth(req.dateOfBirth());
         teacher.setGender(req.gender());
         teacher.setAddress(req.address());
-        teacher.setEmail(req.email() != null ? req.email().trim().toLowerCase() : null);
+        teacher.setEmail(req.email());
         teacher.setPhone(req.phone());
+        teacher.setSpecialization(req.specialization());
         teacher.setDegree(req.degree());
 
-        if (req.subjectIds() != null) {
-            List<com.schoolmanagement.backend.domain.entity.Subject> foundSubjects = subjects
-                    .findAllById(req.subjectIds());
-            teacher.setSubjects(new java.util.HashSet<>(foundSubjects));
+        if (req.subjectId() != null) {
+            com.schoolmanagement.backend.domain.entity.Subject subject = subjects.findById(req.subjectId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy môn học"));
+            teacher.setPrimarySubject(subject);
         } else {
-            teacher.getSubjects().clear();
+            teacher.setPrimarySubject(null);
         }
 
         teacher = teachers.save(teacher);
+
+        // Bug 2 fix: Sync linked User account fullName and email
+        if (teacher.getUser() != null) {
+            User user = teacher.getUser();
+            user.setFullName(req.fullName());
+            if (req.email() != null && !req.email().isBlank()) {
+                user.setEmail(req.email());
+            }
+            users.save(user);
+        }
+
         return toTeacherDto(teacher);
     }
 
-    // @Transactional - REMOVED to allow partial success
-    public com.schoolmanagement.backend.dto.BulkDeleteResponse deleteTeachers(School school,
-            com.schoolmanagement.backend.dto.request.BulkDeleteRequest request) {
-        int deleted = 0;
-        int failed = 0;
-        List<String> errors = new java.util.ArrayList<>();
+    @Transactional
+    public void deleteTeacher(School school, UUID teacherId) {
+        Teacher teacher = teachers.findById(teacherId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên"));
 
-        for (UUID id : request.ids()) {
-            Teacher teacher = null;
+        if (!teacher.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Giáo viên không thuộc trường này");
+        }
+
+        // Check if teacher is homeroom teacher of any class
+        if (teacher.getUser() != null) {
+            var homeroomClass = classRooms.findByHomeroomTeacher(teacher.getUser());
+            if (homeroomClass.isPresent()) {
+                throw new ApiException(HttpStatus.CONFLICT,
+                        "Không thể xóa giáo viên đang chủ nhiệm lớp " + homeroomClass.get().getName());
+            }
+        }
+
+        // Bug 1 fix: Clean up FK references before deleting teacher
+        // Nullify teacher in historical records (preserve attendance & timetable data)
+        attendances.nullifyTeacherId(teacherId);
+        timetableDetails.nullifyTeacherId(teacherId);
+        // Delete teacher assignments (mapping data, not historical)
+        teacherAssignments.deleteByTeacherId(teacherId);
+
+        teachers.delete(teacher);
+    }
+
+    // ==================== TEACHER ACCOUNT MANAGEMENT ====================
+
+    /**
+     * Get list of teachers eligible for account creation (has email, no user linked)
+     */
+    @Transactional(readOnly = true)
+    public List<TeacherDto> getTeachersEligibleForAccount(School school) {
+        return teachers.findAllBySchoolOrderByFullNameAsc(school).stream()
+                .filter(t -> t.getEmail() != null && !t.getEmail().isBlank())
+                .filter(t -> t.getUser() == null)
+                .filter(t -> "ACTIVE".equals(t.getStatus()))
+                .map(this::toTeacherDto)
+                .toList();
+    }
+
+    /**
+     * Create accounts for multiple teachers (bulk)
+     */
+    @Transactional
+    public BulkAccountCreationResponse createAccountsForTeachers(School school, List<UUID> teacherIds) {
+        int created = 0;
+        int skipped = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (UUID teacherId : teacherIds) {
             try {
-                // Ensure teacher belongs to school
-                teacher = teachers.findById(id)
+                Teacher teacher = teachers.findById(teacherId)
                         .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy giáo viên"));
+
                 if (!teacher.getSchool().getId().equals(school.getId())) {
                     throw new ApiException(HttpStatus.FORBIDDEN, "Giáo viên không thuộc trường này");
                 }
+                if (teacher.getUser() != null) {
+                    throw new ApiException(HttpStatus.CONFLICT, "Giáo viên đã có tài khoản");
+                }
+                if (teacher.getEmail() == null || teacher.getEmail().isBlank()) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "Giáo viên chưa có email");
+                }
+                if (users.existsByEmailIgnoreCase(teacher.getEmail())) {
+                    throw new ApiException(HttpStatus.CONFLICT, "Email đã được sử dụng: " + teacher.getEmail());
+                }
 
-                // Call helper for isolated transaction
-                bulkDeleteHelper.deleteSingleTeacher(id);
+                String tempPassword = RandomUtil.generateTempPassword(12);
+                User user = User.builder()
+                        .email(teacher.getEmail())
+                        .fullName(teacher.getFullName())
+                        .role(Role.TEACHER)
+                        .school(school)
+                        .passwordHash(passwordEncoder.encode(tempPassword))
+                        .firstLogin(true)
+                        .enabled(true)
+                        .build();
+
+                user = users.save(user);
+                teacher.setUser(user);
+                teachers.save(teacher);
+
+                mailService.sendTempPasswordEmail(user.getEmail(), user.getFullName(), tempPassword);
+                created++;
+            } catch (ApiException e) {
+                skipped++;
+                errors.add(teacherId + ": " + e.getMessage());
+            }
+        }
+
+        return new BulkAccountCreationResponse(created, skipped, errors);
+    }
+
+    // ==================== BULK DELETE ====================
+
+    @Transactional
+    public com.schoolmanagement.backend.dto.BulkDeleteResponse deleteTeachers(
+            School school, com.schoolmanagement.backend.dto.request.BulkDeleteRequest request) {
+        int deleted = 0;
+        int failed = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (UUID teacherId : request.ids()) {
+            try {
+                deleteTeacher(school, teacherId);
                 deleted++;
             } catch (ApiException e) {
                 failed++;
-                errors.add(e.getMessage());
-            } catch (org.springframework.dao.DataIntegrityViolationException e) {
-                failed++;
-                String teacherName = (teacher != null) ? teacher.getFullName() : "không xác định";
-                errors.add("Không thể xóa giáo viên (" + teacherName + ") do dữ liệu liên quan.");
-                log.error("Data integrity violation deleting teacher {}", id, e);
-            } catch (Exception e) {
-                failed++;
-                errors.add("Lỗi hệ thống: " + e.getMessage());
-                log.error("Error deleting teacher {}", id, e);
+                errors.add(teacherId + ": " + e.getMessage());
             }
         }
 
@@ -366,18 +369,35 @@ public class TeacherManagementService {
             }
         }
 
-        // Map subjects
-        List<com.schoolmanagement.backend.dto.SubjectDto> subjectDtos = teacher.getSubjects().stream()
-                .map(s -> new com.schoolmanagement.backend.dto.SubjectDto(
-                        s.getId(), s.getName(), s.getCode(),
-                        s.getType(),
-                        s.getStream(),
-                        s.getTotalLessons(), s.isActive(), s.getDescription()))
-                .collect(java.util.stream.Collectors.toList());
+        return new TeacherDto(
+                teacher.getId(),
+                teacher.getTeacherCode(),
+                teacher.getFullName(),
+                teacher.getDateOfBirth(),
+                teacher.getGender() != null ? teacher.getGender().name() : null,
+                teacher.getAddress(),
+                teacher.getEmail(),
+                teacher.getPhone(),
+                teacher.getSpecialization(),
+                teacher.getDegree(),
+                teacher.getStatus(),
+                homeroomClassId,
+                homeroomClassName,
+                teacher.getPrimarySubject() != null ? teacher.getPrimarySubject().getId() : null,
+                teacher.getPrimarySubject() != null ? teacher.getPrimarySubject().getName() : null,
+                null,
+                teacher.getMaxPeriodsPerWeek());
+    }
 
-        String subjectNames = teacher.getSubjects().stream()
-                .map(com.schoolmanagement.backend.domain.entity.Subject::getName)
-                .collect(java.util.stream.Collectors.joining(", "));
+    // Optimized version for batch operations - uses pre-loaded homeroom class
+    private TeacherDto toTeacherDtoOptimized(Teacher teacher, ClassRoom homeroomClass) {
+        UUID homeroomClassId = null;
+        String homeroomClassName = null;
+
+        if (homeroomClass != null) {
+            homeroomClassId = homeroomClass.getId();
+            homeroomClassName = homeroomClass.getName();
+        }
 
         return new TeacherDto(
                 teacher.getId(),
@@ -388,13 +408,14 @@ public class TeacherManagementService {
                 teacher.getAddress(),
                 teacher.getEmail(),
                 teacher.getPhone(),
+                teacher.getSpecialization(),
                 teacher.getDegree(),
                 teacher.getStatus(),
                 homeroomClassId,
                 homeroomClassName,
-                subjectDtos,
-                subjectNames,
-                teacher.getUser() != null,
-                null);
+                teacher.getPrimarySubject() != null ? teacher.getPrimarySubject().getId() : null,
+                teacher.getPrimarySubject() != null ? teacher.getPrimarySubject().getName() : null,
+                null,
+                teacher.getMaxPeriodsPerWeek());
     }
 }

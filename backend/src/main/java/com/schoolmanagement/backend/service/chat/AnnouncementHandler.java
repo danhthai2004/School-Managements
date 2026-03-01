@@ -57,7 +57,7 @@ public class AnnouncementHandler implements ChatHandler {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("title", n.getTitle());
             item.put("content", n.getMessage());
-            item.put("priority", n.getPriority());
+            item.put("scope", n.getScope() != null ? n.getScope().name() : "");
             item.put("date", DATE_FMT.format(n.getCreatedAt()));
             items.add(item);
         }

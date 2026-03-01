@@ -12,4 +12,8 @@ public interface AttendanceSummaryRepository extends JpaRepository<AttendanceSum
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("DELETE FROM AttendanceSummary e WHERE e.student = :student")
     void deleteAllByStudent(@org.springframework.data.repository.query.Param("student") Student student);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("UPDATE AttendanceSummary a SET a.classRoom = null WHERE a.classRoom.id = :classRoomId")
+    void nullifyClassRoomId(@org.springframework.data.repository.query.Param("classRoomId") java.util.UUID classRoomId);
 }

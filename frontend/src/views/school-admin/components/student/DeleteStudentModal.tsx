@@ -24,11 +24,11 @@ function DeleteStudentModal({ isOpen, student, onClose, onSuccess }: DeleteStude
 
         try {
             const result = await schoolAdminService.bulkDeleteStudents([student.id]);
-            if (result.deleted > 0) {
+            if (result.successCount > 0) {
                 onSuccess();
                 onClose();
-            } else if (result.failed > 0 && result.errors.length > 0) {
-                setError(result.errors[0]);
+            } else if (result.failedCount > 0 && result.results.length > 0) {
+                setError(result.results[0]?.message || "Không thể xóa học sinh.");
             } else {
                 setError("Không thể xóa học sinh. Vui lòng thử lại.");
             }

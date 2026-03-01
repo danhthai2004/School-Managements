@@ -22,12 +22,12 @@ const ClassDetailView = () => {
         setLoading(true);
         setError(null);
         try {
-            const [clsData, studentsData] = await Promise.all([
+            const [clsData, allStudents] = await Promise.all([
                 schoolAdminService.getClass(classId),
-                schoolAdminService.listStudents(classId)
+                schoolAdminService.listStudents()
             ]);
             setClassData(clsData);
-            setStudents(studentsData);
+            setStudents(allStudents.filter(s => s.currentClassId === classId));
         } catch (err: any) {
             console.error("Failed to fetch class details", err);
             setError(err?.response?.data?.message || "Không thể tải thông tin lớp học.");

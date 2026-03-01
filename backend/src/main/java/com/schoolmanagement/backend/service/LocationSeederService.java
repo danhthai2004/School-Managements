@@ -97,8 +97,7 @@ public class LocationSeederService {
                                 ward.setName(wardName);
                                 ward.setCodename(wardCodename != null ? wardCodename : "");
                                 ward.setDivisionType(wardDivisionType);
-                                ward.setShortCodename(wardShortCodename);
-                                ward.setDistrictCode(distCode);
+                                // shortCodename and districtCode not in Ward entity
                                 ward.setProvinceCode(provCode);
                                 wardRepository.save(ward);
                                 wardCount++;

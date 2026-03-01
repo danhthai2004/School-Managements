@@ -39,7 +39,9 @@ public class CurriculumSeederService {
                                                 null),
                                 createSubject("Hoạt động trải nghiệm, hướng nghiệp", "HDTN", SubjectType.COMPULSORY, 3,
                                                 null),
-                                createSubject("Nội dung giáo dục địa phương", "GDDP", SubjectType.COMPULSORY, 1, null));
+                                createSubject("Nội dung giáo dục địa phương", "GDDP", SubjectType.COMPULSORY, 1, null),
+                                createSubject("Chào cờ", "CC", SubjectType.COMPULSORY, 1, null),
+                                createSubject("Sinh hoạt lớp", "SHL", SubjectType.COMPULSORY, 1, null));
                 subjects.saveAll(compulsory);
 
                 // 2. Elective Subjects (Môn lựa chọn)

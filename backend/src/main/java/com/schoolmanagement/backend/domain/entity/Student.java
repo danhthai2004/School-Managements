@@ -51,6 +51,12 @@ public class Student {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
+    @Column(name = "cccd_url")
+    private String cccdUrl;
+
+    @Column(name = "birth_cert_url")
+    private String birthCertUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
@@ -67,8 +73,4 @@ public class Student {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "guardian_id")
-    private Guardian guardian;
 }

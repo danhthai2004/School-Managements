@@ -67,7 +67,7 @@ export type ActivityLogDto = {
 
 export type CreateSchoolRequest = {
   schoolName: string;
-  schoolCode?: string;
+  schoolCode: string;
   provinceCode: number;
   wardCode?: number;
   enrollmentArea?: string;
@@ -104,7 +104,7 @@ export type ProvinceDto = {
 export type WardDto = {
   code: number;
   name: string;
-  codename: string;
+  provinceCode: number;
 };
 
 export type SchoolRegistryDto = {
@@ -157,6 +157,11 @@ export const systemService = {
 
   deleteSchool: async (id: string): Promise<void> => {
     await api.delete(`/system/schools/${id}`);
+  },
+
+  listPendingDeleteSchools: async (): Promise<SchoolDto[]> => {
+    const res = await api.get<SchoolDto[]>("/system/schools/pending");
+    return res.data;
   },
 
   restoreSchool: async (id: string): Promise<void> => {
@@ -242,9 +247,7 @@ export const systemService = {
   },
 
   getWardsByProvince: async (provinceCode: number): Promise<WardDto[]> => {
-    const res = await api.get<WardDto[]>("/v1/locations/wards", {
-      params: { provinceCode },
-    });
+    const res = await api.get<WardDto[]>(`/v1/locations/provinces/${provinceCode}/wards`);
     return res.data;
   },
 

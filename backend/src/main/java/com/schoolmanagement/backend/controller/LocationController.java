@@ -24,9 +24,9 @@ public class LocationController {
         return locationService.getProvinces();
     }
 
-    @GetMapping("/wards")
-    public List<WardDto> getWardsByProvince(@RequestParam int provinceCode) {
-        return locationService.getWardsByProvince(provinceCode);
+    @GetMapping("/provinces/{code}/wards")
+    public List<WardDto> getWardsByProvince(@PathVariable Integer code) {
+        return locationService.getWardsByProvince(code);
     }
 
     @GetMapping("/schools/registry")

@@ -1,9 +1,9 @@
 package com.schoolmanagement.backend.repo;
 
-import com.schoolmanagement.backend.domain.entity.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.School;
+import com.schoolmanagement.backend.domain.entity.Subject;
+import com.schoolmanagement.backend.domain.entity.Teacher;
 import com.schoolmanagement.backend.domain.entity.TeacherAssignment;
-import com.schoolmanagement.backend.domain.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -13,20 +13,23 @@ import java.util.UUID;
 
 @Repository
 public interface TeacherAssignmentRepository extends JpaRepository<TeacherAssignment, UUID> {
-    List<TeacherAssignment> findAllBySchool(School school);
 
-    List<TeacherAssignment> findAllByClassRoom(ClassRoom classRoom);
+        @org.springframework.data.jpa.repository.Query("SELECT ta FROM TeacherAssignment ta " +
+                        "JOIN FETCH ta.teacher " +
+                        "JOIN FETCH ta.subject " +
+                        "WHERE ta.school = :school")
+        List<TeacherAssignment> findAllBySchool(
+                        @org.springframework.data.repository.query.Param("school") School school);
 
-    List<TeacherAssignment> findAllByTeacher(User teacher);
+        List<TeacherAssignment> findAllBySubjectAndSchool(Subject subject, School school);
 
-    Optional<TeacherAssignment> findByClassRoomAndSubject(ClassRoom classRoom,
-            com.schoolmanagement.backend.domain.entity.Subject subject);
+        List<TeacherAssignment> findAllByTeacherAndSchool(Teacher teacher, School school);
 
-    void deleteAllByTeacher(com.schoolmanagement.backend.domain.entity.Teacher teacher);
+        Optional<TeacherAssignment> findByTeacherAndSubjectAndSchool(Teacher teacher, Subject subject, School school);
 
-    boolean existsByTeacher(com.schoolmanagement.backend.domain.entity.Teacher teacher);
+        void deleteBySchoolId(UUID schoolId);
 
-    @org.springframework.data.jpa.repository.Modifying
-    @org.springframework.data.jpa.repository.Query("DELETE FROM TeacherAssignment ta WHERE ta.school.id = :schoolId")
-    void deleteBySchoolId(@org.springframework.data.repository.query.Param("schoolId") UUID schoolId);
+        void deleteByTeacherId(UUID teacherId);
+
+    long countByTeacherId(UUID teacherId);
 }

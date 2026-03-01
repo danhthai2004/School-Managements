@@ -6,6 +6,9 @@ import com.schoolmanagement.backend.domain.entity.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.School;
 import com.schoolmanagement.backend.domain.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -20,8 +23,6 @@ public interface ClassRoomRepository extends JpaRepository<ClassRoom, UUID> {
         Optional<ClassRoom> findBySchoolAndName(School school, String name);
 
         long countBySchool(School school);
-
-        Optional<ClassRoom> findByIdAndSchool(UUID id, School school);
 
         boolean existsBySchoolAndName(School school, String name);
 
@@ -48,5 +49,19 @@ public interface ClassRoomRepository extends JpaRepository<ClassRoom, UUID> {
 
         Optional<ClassRoom> findByHomeroomTeacher(User homeroomTeacher);
 
+        Optional<ClassRoom> findByHomeroomTeacherAndAcademicYear(User homeroomTeacher, String academicYear);
+
         void deleteBySchoolId(UUID schoolId);
+
+        // Batch load all classrooms with homeroom teachers for a school (N+1 fix)
+        @Query("SELECT c FROM ClassRoom c WHERE c.school = :school AND c.homeroomTeacher IS NOT NULL")
+        List<ClassRoom> findAllBySchoolWithHomeroomTeacher(@Param("school") School school);
+
+        Optional<ClassRoom> findTopByHomeroomTeacher_IdOrderByAcademicYearDesc(UUID homeroomTeacherId);
+
+        Optional<ClassRoom> findByHomeroomTeacher_IdAndAcademicYear(UUID homeroomTeacherId, String academicYear);
+
+        @Modifying
+        @Query("UPDATE ClassRoom c SET c.homeroomTeacher = null WHERE c.homeroomTeacher.id = :userId")
+        void nullifyHomeroomTeacher(@Param("userId") UUID userId);
 }

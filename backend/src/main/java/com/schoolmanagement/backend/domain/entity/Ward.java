@@ -24,12 +24,10 @@ public class Ward {
     @Column(name = "division_type")
     private String divisionType;
 
-    @Column(name = "short_codename")
-    private String shortCodename;
-
-    @Column(name = "district_code")
-    private Integer districtCode;
-
-    @Column(name = "province_code")
+    @Column(name = "province_code", nullable = false)
     private Integer provinceCode;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "province_code", insertable = false, updatable = false)
+    private Province province;
 }

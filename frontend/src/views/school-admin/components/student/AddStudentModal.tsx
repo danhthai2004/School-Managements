@@ -82,14 +82,12 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes }: AddStudentModa
                 email: email.trim() || undefined,
                 phone: phone.trim() || undefined,
                 classId: assignmentMode === 'MANUAL' ? (classId || undefined) : undefined,
-                grade: assignmentMode === 'AUTO' ? autoGrade : undefined,
-                department: assignmentMode === 'AUTO' ? autoDepartment : undefined,
-                guardian: guardianName ? {
+                guardians: guardianName ? [{
                     fullName: guardianName.trim(),
                     phone: guardianPhone.trim() || undefined,
                     email: guardianEmail.trim() || undefined,
                     relationship: guardianRelationship.trim() || undefined,
-                } : undefined,
+                }] : undefined,
             };
             await schoolAdminService.createStudent(req);
             setFullName(""); setDateOfBirth(null); setDateInputValue(""); setGender("MALE");

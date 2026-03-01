@@ -3,6 +3,7 @@ package com.schoolmanagement.backend.service;
 import com.schoolmanagement.backend.domain.TimetableStatus;
 import com.schoolmanagement.backend.domain.entity.School;
 import com.schoolmanagement.backend.domain.entity.Timetable;
+import com.schoolmanagement.backend.dto.TimetableScheduleSummaryDto.SlotTimeDto;
 import com.schoolmanagement.backend.repo.TimetableRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -10,7 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -18,6 +21,10 @@ public class TimetableService {
 
     private final TimetableRepository timetableRepository;
     private final com.schoolmanagement.backend.repo.TimetableDetailRepository timetableDetailRepository;
+    private final com.schoolmanagement.backend.repo.ClassRoomRepository classRoomRepository;
+    private final com.schoolmanagement.backend.repo.SubjectRepository subjectRepository;
+    private final com.schoolmanagement.backend.repo.TeacherRepository teacherRepository;
+    private final SchoolTimetableSettingsService settingsService;
 
     public List<Timetable> getTimetables(School school) {
         return timetableRepository.findAllBySchoolOrderByCreatedAtDesc(school);
@@ -44,6 +51,12 @@ public class TimetableService {
     public List<com.schoolmanagement.backend.dto.TimetableDetailDto> getTimetableDetails(UUID timetableId,
             Integer grade, String className) {
         Timetable timetable = getTimetable(timetableId);
+
+        // Get slot times for this school
+        List<SlotTimeDto> slotTimes = settingsService.getAllSlotTimes(timetable.getSchool());
+        Map<Integer, SlotTimeDto> slotTimeMap = slotTimes.stream()
+                .collect(Collectors.toMap(SlotTimeDto::getSlotIndex, s -> s));
+
         return timetableDetailRepository
                 .findAllByTimetable(timetable).stream()
                 .filter(d -> {
@@ -54,18 +67,24 @@ public class TimetableService {
                         return false;
                     return true;
                 })
-                .map(d -> new com.schoolmanagement.backend.dto.TimetableDetailDto(
-                        d.getId(),
-                        d.getClassRoom().getId(),
-                        d.getClassRoom().getName(),
-                        d.getSubject().getId(),
-                        d.getSubject().getName(),
-                        d.getSubject().getCode(),
-                        d.getTeacher() != null ? d.getTeacher().getId() : null,
-                        d.getTeacher() != null ? d.getTeacher().getFullName() : null,
-                        d.getDayOfWeek().name(),
-                        d.getSlotIndex(),
-                        d.isFixed()))
+                .map(d -> {
+                    SlotTimeDto slotTime = slotTimeMap.get(d.getSlotIndex());
+                    return new com.schoolmanagement.backend.dto.TimetableDetailDto(
+                            d.getId(),
+                            d.getClassRoom().getId(),
+                            d.getClassRoom().getName(),
+                            d.getSubject().getId(),
+                            d.getSubject().getName(),
+                            d.getSubject().getCode(),
+                            d.getTeacher() != null ? d.getTeacher().getId() : null,
+                            d.getTeacher() != null ? d.getTeacher().getFullName() : null,
+                            d.getDayOfWeek().name(),
+                            d.getSlotIndex(),
+                            d.isFixed(),
+                            d.getClassRoom().getGrade(),
+                            slotTime != null ? slotTime.getStartTime() : null,
+                            slotTime != null ? slotTime.getEndTime() : null);
+                })
                 .toList();
     }
 
@@ -90,6 +109,85 @@ public class TimetableService {
             }
             timetableRepository.save(t);
         }
+    }
+
+    @Transactional
+    public void updateGlobalSlot(UUID timetableId, java.time.DayOfWeek day, int slotIndex, UUID subjectId,
+            List<Integer> grades) {
+        Timetable timetable = getTimetable(timetableId);
+
+        com.schoolmanagement.backend.domain.entity.Subject subject = null;
+        if (subjectId != null) {
+            subject = subjectRepository.findById(subjectId)
+                    .orElseThrow(() -> new IllegalArgumentException("Subject not found"));
+        }
+
+        List<Integer> finalGrades;
+        if (grades == null || grades.isEmpty()) {
+            finalGrades = List.of(10, 11, 12);
+        } else {
+            finalGrades = grades;
+        }
+
+        // Get all classes for these grades
+        var classrooms = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool()).stream()
+                .filter(c -> finalGrades.contains(c.getGrade()))
+                .filter(c -> c.getAcademicYear().equals(timetable.getAcademicYear()))
+                .toList();
+
+        for (var classroom : classrooms) {
+            updateSlotForClass(timetable, classroom, day, slotIndex, subject, null, true);
+        }
+    }
+
+    @Transactional
+    public void updateClassSlot(UUID timetableId, UUID classId, java.time.DayOfWeek day, int slotIndex, UUID subjectId,
+            UUID teacherId) {
+        Timetable timetable = getTimetable(timetableId);
+        var classroom = classRoomRepository.findById(classId)
+                .orElseThrow(() -> new IllegalArgumentException("Classroom not found"));
+
+        com.schoolmanagement.backend.domain.entity.Subject subject = null;
+        if (subjectId != null) {
+            subject = subjectRepository.findById(subjectId)
+                    .orElseThrow(() -> new IllegalArgumentException("Subject not found"));
+        }
+
+        com.schoolmanagement.backend.domain.entity.Teacher teacher = null;
+        if (teacherId != null) {
+            teacher = teacherRepository.findById(teacherId)
+                    .orElseThrow(() -> new IllegalArgumentException("Teacher not found"));
+        }
+
+        updateSlotForClass(timetable, classroom, day, slotIndex, subject, teacher, true);
+    }
+
+    private void updateSlotForClass(Timetable timetable, com.schoolmanagement.backend.domain.entity.ClassRoom classroom,
+            java.time.DayOfWeek day, int slotIndex, com.schoolmanagement.backend.domain.entity.Subject subject,
+            com.schoolmanagement.backend.domain.entity.Teacher teacher, boolean isFixed) {
+
+        // Find existing detail
+        var existingOpt = timetableDetailRepository.findByTimetableAndClassRoomAndDayOfWeekAndSlotIndex(
+                timetable, classroom, day, slotIndex);
+
+        if (subject == null) {
+            // Delete if subject is null (Clear slot)
+            existingOpt.ifPresent(timetableDetailRepository::delete);
+            return;
+        }
+
+        var detail = existingOpt.orElse(com.schoolmanagement.backend.domain.entity.TimetableDetail.builder()
+                .timetable(timetable)
+                .classRoom(classroom)
+                .dayOfWeek(day)
+                .slotIndex(slotIndex)
+                .build());
+
+        detail.setSubject(subject);
+        detail.setTeacher(teacher);
+        detail.setFixed(isFixed);
+
+        timetableDetailRepository.save(detail);
     }
 
     public byte[] exportTimetableToExcel(UUID timetableId, Integer grade, String className) throws java.io.IOException {

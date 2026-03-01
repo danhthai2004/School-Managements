@@ -15,7 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.schoolmanagement.backend.util.RandomUtil;
 
 import java.time.Instant;
 import java.util.List;
@@ -38,6 +37,7 @@ public class SystemAdminService {
     private final CombinationRepository combinations;
     private final AuthChallengeRepository authChallenges;
     private final GuardianRepository guardians;
+    private final UserDeletionHelper userDeletionHelper;
 
     public SystemAdminService(SchoolRepository schools,
             UserRepository users, PasswordEncoder passwordEncoder, MailService mailService,
@@ -45,7 +45,7 @@ public class SystemAdminService {
             ClassRoomRepository classRooms, LessonSlotRepository lessonSlots,
             TimetableRepository timetables, TeacherAssignmentRepository teacherAssignments,
             CombinationRepository combinations, AuthChallengeRepository authChallenges,
-            GuardianRepository guardians) {
+            GuardianRepository guardians, UserDeletionHelper userDeletionHelper) {
         this.schools = schools;
         this.users = users;
         this.passwordEncoder = passwordEncoder;
@@ -60,18 +60,16 @@ public class SystemAdminService {
         this.combinations = combinations;
         this.authChallenges = authChallenges;
         this.guardians = guardians;
+        this.userDeletionHelper = userDeletionHelper;
     }
 
     // ========== SCHOOL MANAGEMENT ==========
 
     public SchoolDto createSchool(CreateSchoolRequest req, User performedBy) {
-        // Use the provided school code (manual entry per MOE requirement), nullable
-        String schoolCode = req.schoolCode() != null ? req.schoolCode().trim() : null;
-        if (schoolCode != null && schoolCode.isBlank()) {
-            schoolCode = null;
-        }
+        // Use the provided school code (manual entry per MOE requirement)
+        String schoolCode = req.schoolCode().trim();
 
-        if (schoolCode != null && schools.existsByCodeIgnoreCase(schoolCode)) {
+        if (schools.existsByCodeIgnoreCase(schoolCode)) {
             throw new ApiException(HttpStatus.CONFLICT, "Mã trường đã tồn tại.");
         }
 
@@ -97,6 +95,12 @@ public class SystemAdminService {
 
     public List<SchoolDto> listSchools() {
         return schools.findAll().stream()
+                .map(this::toSchoolDto)
+                .toList();
+    }
+
+    public List<SchoolDto> listPendingDeleteSchools() {
+        return schools.findByPendingDeleteAtIsNotNull().stream()
                 .map(this::toSchoolDto)
                 .toList();
     }
@@ -299,7 +303,7 @@ public class SystemAdminService {
                 "SCHOOL_ADMIN created: " + email + " for school " + school.getCode());
 
         return new UserDto(user.getId(), user.getEmail(), user.getFullName(), user.getRole(), school.getId(),
-                school.getCode(), user.isEnabled());
+                school.getCode());
     }
 
     public List<UserListDto> listUsers(Role role, UUID schoolId, Boolean enabled, boolean pendingDelete) {
@@ -384,7 +388,7 @@ public class SystemAdminService {
         }
 
         String email = user.getEmail();
-        users.delete(user);
+        userDeletionHelper.cascadeDeleteUser(user);
 
         activityLog.log("USER_PERMANENT_DELETED", performedBy, userId, "User permanently deleted: " + email);
     }

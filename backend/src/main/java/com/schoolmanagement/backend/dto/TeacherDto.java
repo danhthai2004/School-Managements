@@ -12,13 +12,13 @@ public record TeacherDto(
                 String address,
                 String email,
                 String phone,
-
+                String specialization,
                 String degree,
                 String status,
                 UUID homeroomClassId,
                 String homeroomClassName,
-                java.util.List<SubjectDto> subjects,
+                UUID subjectId,
                 String subjectName,
-                boolean hasAccount,
-                String avatarUrl) {
+                String avatarUrl,
+                Integer maxPeriodsPerWeek) {
 }

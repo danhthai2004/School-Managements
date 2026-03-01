@@ -34,4 +34,8 @@ public interface AttendanceSessionRepository extends JpaRepository<AttendanceSes
     @org.springframework.data.jpa.repository.Query("DELETE FROM AttendanceSession e WHERE e.teacher = :teacher")
     void deleteAllByTeacher(
             @org.springframework.data.repository.query.Param("teacher") com.schoolmanagement.backend.domain.entity.Teacher teacher);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("UPDATE AttendanceSession a SET a.classRoom = null WHERE a.classRoom.id = :classRoomId")
+    void nullifyClassRoomId(@org.springframework.data.repository.query.Param("classRoomId") java.util.UUID classRoomId);
 }

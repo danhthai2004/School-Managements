@@ -65,7 +65,7 @@ export default function SchoolsListPage() {
       setWardCode(null);
       systemService.getWardsByProvince(provinceCode)
         .then(setWards)
-        .catch((e: unknown) => console.error("Failed to load wards", e))
+        .catch(e => console.error("Failed to load wards", e))
         .finally(() => setLoadingWards(false));
     } else {
       setWards([]);
@@ -75,8 +75,8 @@ export default function SchoolsListPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!schoolName || !provinceCode) {
-      setError("Vui lòng nhập tên trường và chọn tỉnh/thành");
+    if (!schoolName || !schoolCode || !provinceCode) {
+      setError("Vui lòng nhập tên trường, mã trường và chọn tỉnh/thành");
       return;
     }
     setError(null);
@@ -85,7 +85,7 @@ export default function SchoolsListPage() {
     try {
       await systemService.createSchool({
         schoolName: schoolName.trim(),
-        schoolCode: schoolCode.trim() || undefined,
+        schoolCode: schoolCode.trim(),
         provinceCode,
         wardCode: wardCode || undefined,
         enrollmentArea: enrollmentArea.trim() || undefined,
@@ -120,23 +120,31 @@ export default function SchoolsListPage() {
           <h1 className="text-2xl font-bold text-slate-900">Danh sách trường học</h1>
           <p className="text-slate-500 mt-1">Quản lý tất cả trường trong hệ thống</p>
         </div>
-        {showCreate ? (
-          <button
-            onClick={() => setShowCreate(false)}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors shadow-sm hover:shadow"
+        <div className="flex items-center gap-3">
+          <Link
+            to="/system/schools/pending"
+            className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-700 rounded-xl font-medium hover:bg-amber-200 transition-colors"
           >
-            <XIcon size={20} />
-            Đóng form
-          </button>
-        ) : (
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
-          >
-            <PlusIcon size={20} />
-            Tạo trường mới
-          </button>
-        )}
+            ⏳ Trường chờ xóa
+          </Link>
+          {showCreate ? (
+            <button
+              onClick={() => setShowCreate(false)}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors shadow-sm hover:shadow"
+            >
+              <XIcon size={20} />
+              Đóng form
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
+            >
+              <PlusIcon size={20} />
+              Tạo trường mới
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Messages */}
@@ -167,13 +175,13 @@ export default function SchoolsListPage() {
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400"
                   value={schoolName}
                   onChange={(e) => setSchoolName(e.target.value)}
-                  placeholder="VD: FPT"
+                  placeholder="VD: Nguyễn Văn A"
                   required
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Mã trường
+                  Mã trường <span className="text-rose-500">*</span>
                   <span className="text-slate-400 font-normal ml-1">(theo BGD)</span>
                 </label>
                 <input
@@ -181,7 +189,7 @@ export default function SchoolsListPage() {
                   value={schoolCode}
                   onChange={(e) => setSchoolCode(e.target.value)}
                   placeholder="VD: 02000123"
-
+                  required
                 />
               </div>
             </div>

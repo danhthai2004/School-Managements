@@ -107,7 +107,7 @@ function StudentDetailModal({ isOpen, student, onClose, onEdit }: StudentDetailM
                     </div>
 
                     {/* Guardians Information */}
-                    {student.guardian && (
+                    {student.guardians?.length > 0 && (
                         <div>
                             <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 border-b pb-2">
                                 Người giám hộ
@@ -116,19 +116,19 @@ function StudentDetailModal({ isOpen, student, onClose, onEdit }: StudentDetailM
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <span className="text-xs text-gray-500">Họ tên</span>
-                                        <p className="text-sm font-medium text-gray-900">{student.guardian.fullName}</p>
+                                        <p className="text-sm font-medium text-gray-900">{student.guardians[0].fullName}</p>
                                     </div>
                                     <div>
                                         <span className="text-xs text-gray-500">Quan hệ</span>
-                                        <p className="text-sm font-medium text-gray-900">{student.guardian.relationship || '—'}</p>
+                                        <p className="text-sm font-medium text-gray-900">{student.guardians[0].relationship || '—'}</p>
                                     </div>
                                     <div>
                                         <span className="text-xs text-gray-500">Số điện thoại</span>
-                                        <p className="text-sm font-medium text-gray-900">{student.guardian.phone || '—'}</p>
+                                        <p className="text-sm font-medium text-gray-900">{student.guardians[0].phone || '—'}</p>
                                     </div>
                                     <div>
                                         <span className="text-xs text-gray-500">Email</span>
-                                        <p className="text-sm font-medium text-gray-900">{student.guardian.email || '—'}</p>
+                                        <p className="text-sm font-medium text-gray-900">{student.guardians[0].email || '—'}</p>
                                     </div>
                                 </div>
                             </div>

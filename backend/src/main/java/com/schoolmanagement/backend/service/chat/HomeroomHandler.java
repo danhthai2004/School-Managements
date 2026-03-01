@@ -1,5 +1,6 @@
 package com.schoolmanagement.backend.service.chat;
 
+import com.schoolmanagement.backend.domain.AttendanceStatus;
 import com.schoolmanagement.backend.domain.ChatIntent;
 import com.schoolmanagement.backend.domain.entity.*;
 import com.schoolmanagement.backend.dto.ChatContext;
@@ -13,10 +14,7 @@ import java.util.*;
  * Handler cho ASK_HOMEROOM_CLASS — GV hỏi thông tin lớp chủ nhiệm.
  *
  * Luồng: userId → User → ClassRoom (findByHomeroomTeacher)
- * → sĩ số (ClassEnrollment count) + vắng hôm nay (AttendanceSession +
- * Attendance)
- *
- * Bảo mật: Chỉ trả info lớp mà GV đó chủ nhiệm.
+ * → sĩ số (ClassEnrollment count) + vắng hôm nay (Attendance by classRoom + date)
  */
 @Component
 public class HomeroomHandler implements ChatHandler {
@@ -24,18 +22,15 @@ public class HomeroomHandler implements ChatHandler {
     private final UserRepository userRepository;
     private final ClassRoomRepository classRoomRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
-    private final AttendanceSessionRepository attendanceSessionRepository;
     private final AttendanceRepository attendanceRepository;
 
     public HomeroomHandler(UserRepository userRepository,
             ClassRoomRepository classRoomRepository,
             ClassEnrollmentRepository classEnrollmentRepository,
-            AttendanceSessionRepository attendanceSessionRepository,
             AttendanceRepository attendanceRepository) {
         this.userRepository = userRepository;
         this.classRoomRepository = classRoomRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
-        this.attendanceSessionRepository = attendanceSessionRepository;
         this.attendanceRepository = attendanceRepository;
     }
 
@@ -60,32 +55,26 @@ public class HomeroomHandler implements ChatHandler {
         // Sĩ số
         long totalStudents = classEnrollmentRepository.countByClassRoom(classRoom);
 
-        // Điểm danh hôm nay
+        // Điểm danh hôm nay — query trực tiếp bằng classRoom + date
         LocalDate today = LocalDate.now();
-        List<AttendanceSession> todaySessions = attendanceSessionRepository
-                .findAllBySchoolAndSessionDateBetween(classRoom.getSchool(), today, today)
-                .stream()
-                .filter(s -> s.getClassRoom() != null && s.getClassRoom().getId().equals(classRoom.getId()))
-                .toList();
+        List<Attendance> attendances = attendanceRepository.findAllByClassRoomAndDate(classRoom, today);
 
         long absentToday = 0;
         long lateToday = 0;
         long excusedToday = 0;
         List<String> absentStudentNames = new ArrayList<>();
 
-        for (AttendanceSession session : todaySessions) {
-            List<Attendance> attendances = attendanceRepository.findAllBySession(session);
-            for (Attendance a : attendances) {
-                switch (a.getStatus()) {
-                    case "ABSENT" -> {
-                        absentToday++;
-                        if (a.getStudent() != null) {
-                            absentStudentNames.add(a.getStudent().getFullName());
-                        }
+        for (Attendance a : attendances) {
+            switch (a.getStatus()) {
+                case ABSENT_UNEXCUSED -> {
+                    absentToday++;
+                    if (a.getStudent() != null) {
+                        absentStudentNames.add(a.getStudent().getFullName());
                     }
-                    case "LATE" -> lateToday++;
-                    case "EXCUSED" -> excusedToday++;
                 }
+                case ABSENT_EXCUSED -> excusedToday++;
+                case LATE -> lateToday++;
+                default -> { /* PRESENT – do nothing */ }
             }
         }
 
@@ -102,11 +91,10 @@ public class HomeroomHandler implements ChatHandler {
         data.put("excusedToday", excusedToday);
 
         if (!absentStudentNames.isEmpty()) {
-            // Loại bỏ trùng lắp
             data.put("absentStudents", absentStudentNames.stream().distinct().toList());
         }
 
-        data.put("hasAttendanceToday", !todaySessions.isEmpty());
+        data.put("hasAttendanceToday", !attendances.isEmpty());
 
         return ChatContext.ok(ChatIntent.ASK_HOMEROOM_CLASS, data);
     }

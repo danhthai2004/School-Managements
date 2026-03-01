@@ -24,14 +24,35 @@ public class ClassManagementService {
     private final UserRepository users;
     private final ClassEnrollmentRepository enrollments;
     private final com.schoolmanagement.backend.repo.CombinationRepository combinations;
+    private final com.schoolmanagement.backend.repo.GradeRepository grades;
+    private final com.schoolmanagement.backend.repo.AttendanceRepository attendances;
+    private final com.schoolmanagement.backend.repo.AttendanceSessionRepository attendanceSessions;
+    private final com.schoolmanagement.backend.repo.AttendanceSummaryRepository attendanceSummaries;
+    private final com.schoolmanagement.backend.repo.DailyClassStatusRepository dailyClassStatuses;
+    private final com.schoolmanagement.backend.repo.TimetableDetailRepository timetableDetails;
+    private final com.schoolmanagement.backend.repo.ExamScheduleRepository examSchedules;
 
     public ClassManagementService(ClassRoomRepository classRooms, UserRepository users,
             ClassEnrollmentRepository enrollments,
-            com.schoolmanagement.backend.repo.CombinationRepository combinations) {
+            com.schoolmanagement.backend.repo.CombinationRepository combinations,
+            com.schoolmanagement.backend.repo.GradeRepository grades,
+            com.schoolmanagement.backend.repo.AttendanceRepository attendances,
+            com.schoolmanagement.backend.repo.AttendanceSessionRepository attendanceSessions,
+            com.schoolmanagement.backend.repo.AttendanceSummaryRepository attendanceSummaries,
+            com.schoolmanagement.backend.repo.DailyClassStatusRepository dailyClassStatuses,
+            com.schoolmanagement.backend.repo.TimetableDetailRepository timetableDetails,
+            com.schoolmanagement.backend.repo.ExamScheduleRepository examSchedules) {
         this.classRooms = classRooms;
         this.users = users;
         this.enrollments = enrollments;
         this.combinations = combinations;
+        this.grades = grades;
+        this.attendances = attendances;
+        this.attendanceSessions = attendanceSessions;
+        this.attendanceSummaries = attendanceSummaries;
+        this.dailyClassStatuses = dailyClassStatuses;
+        this.timetableDetails = timetableDetails;
+        this.examSchedules = examSchedules;
     }
 
     // ==================== CLASS ROOM MANAGEMENT ====================
@@ -145,7 +166,19 @@ public class ClassManagementService {
             throw new ApiException(HttpStatus.FORBIDDEN, "Không có quyền xóa lớp này.");
         }
 
-        // TODO: Check if class has students before delete
+        // 1. Nullify classRoom in student-related records (preserve grades & attendance)
+        grades.nullifyClassRoomId(classId);
+        attendances.nullifyClassRoomId(classId);
+        attendanceSessions.nullifyClassRoomId(classId);
+        attendanceSummaries.nullifyClassRoomId(classId);
+
+        // 2. Delete class-infrastructure records
+        enrollments.deleteAllByClassRoom(classRoom);
+        dailyClassStatuses.deleteAllByClassRoom(classRoom);
+        timetableDetails.deleteAllByClassRoom(classRoom);
+        examSchedules.deleteAllByClassRoom(classRoom);
+
+        // 3. Delete the class itself
         classRooms.delete(classRoom);
     }
 
@@ -153,11 +186,9 @@ public class ClassManagementService {
     public ClassRoomDto getClassRoom(School school, UUID classId) {
         ClassRoom classRoom = classRooms.findById(classId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học."));
-
         if (!classRoom.getSchool().getId().equals(school.getId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Không có quyền xem lớp này.");
         }
-
         return toClassRoomDto(classRoom);
     }
 
