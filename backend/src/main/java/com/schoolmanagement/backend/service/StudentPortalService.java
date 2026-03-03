@@ -32,7 +32,7 @@ public class StudentPortalService {
         private final TimetableDetailRepository timetableDetailRepository;
         private final ScoreRepository scoreRepository;
         private final AttendanceRepository attendanceRepository;
-        private final ExamScheduleRepository examScheduleRepository;
+        private final ExamStudentRepository examStudentRepository;
 
         // ==================== Public API Methods ====================
 
@@ -170,25 +170,19 @@ public class StudentPortalService {
                                 ? academicYear
                                 : getCurrentAcademicYear();
 
-                ClassEnrollment enrollment = getCurrentEnrollment(student, targetAcademicYear);
-                if (enrollment == null) {
-                        log.info("No enrollment for student {}, returning empty exam schedule", student.getId());
-                        return new ArrayList<>();
-                }
-
-                List<ExamSchedule> exams;
+                List<ExamStudent> examStudents;
                 if (semester != null) {
-                        exams = examScheduleRepository.findByClassRoomAndAcademicYearAndSemester(
-                                        enrollment.getClassRoom(), targetAcademicYear, semester);
+                        examStudents = examStudentRepository.findByStudentAndAcademicYearAndSemester(
+                                        student.getId(), targetAcademicYear, semester);
                 } else {
-                        exams = examScheduleRepository.findByClassRoomAndAcademicYear(
-                                        enrollment.getClassRoom(), targetAcademicYear);
+                        examStudents = examStudentRepository.findByStudentAndAcademicYear(
+                                        student.getId(), targetAcademicYear);
                 }
 
                 LocalDate today = LocalDate.now();
-                return exams.stream()
-                                .map(e -> toExamScheduleDto(e, today))
-                                .sorted(Comparator.comparing(ExamScheduleDto::getExamDate))
+                return examStudents.stream()
+                                .map(es -> toExamScheduleDto(es.getExamRoom().getExamSchedule(),
+                                                es.getExamRoom().getRoom().getName(), today))
                                 .collect(Collectors.toList());
         }
 
@@ -203,24 +197,19 @@ public class StudentPortalService {
                                 ? academicYear
                                 : getCurrentAcademicYear();
 
-                ClassEnrollment enrollment = getCurrentEnrollment(student, targetAcademicYear);
-                if (enrollment == null) {
-                        return new ArrayList<>();
-                }
-
-                List<ExamSchedule> exams;
+                List<ExamStudent> examStudents;
                 if (semester != null) {
-                        exams = examScheduleRepository.findByClassRoomAndAcademicYearAndSemester(
-                                        enrollment.getClassRoom(), targetAcademicYear, semester);
+                        examStudents = examStudentRepository.findByStudentAndAcademicYearAndSemester(
+                                        student.getId(), targetAcademicYear, semester);
                 } else {
-                        exams = examScheduleRepository.findByClassRoomAndAcademicYear(
-                                        enrollment.getClassRoom(), targetAcademicYear);
+                        examStudents = examStudentRepository.findByStudentAndAcademicYear(
+                                        student.getId(), targetAcademicYear);
                 }
 
                 LocalDate today = LocalDate.now();
-                return exams.stream()
-                                .map(e -> toExamScheduleDto(e, today))
-                                .sorted(Comparator.comparing(ExamScheduleDto::getExamDate))
+                return examStudents.stream()
+                                .map(es -> toExamScheduleDto(es.getExamRoom().getExamSchedule(),
+                                                es.getExamRoom().getRoom().getName(), today))
                                 .collect(Collectors.toList());
         }
 
@@ -553,7 +542,7 @@ public class StudentPortalService {
                 return dow.getValue() + 1;
         }
 
-        private ExamScheduleDto toExamScheduleDto(ExamSchedule exam, LocalDate today) {
+        private ExamScheduleDto toExamScheduleDto(ExamSchedule exam, String roomName, LocalDate today) {
                 String status;
                 if (exam.getStatus() == ExamStatus.COMPLETED || exam.getStatus() == ExamStatus.CANCELLED) {
                         status = exam.getStatus().name();
@@ -570,7 +559,7 @@ public class StudentPortalService {
                                 .startTime(exam.getStartTime().toString())
                                 .duration(exam.getDuration())
                                 .examType(exam.getExamType().name())
-                                .room(exam.getRoomNumber())
+                                .room(roomName != null ? roomName : exam.getRoomNumber())
                                 .status(status)
                                 .note(exam.getNote())
                                 .build();

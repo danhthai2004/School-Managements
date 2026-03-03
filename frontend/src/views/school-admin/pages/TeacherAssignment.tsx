@@ -7,7 +7,7 @@ import { useToast } from "../../../context/ToastContext";
 import { useConfirmation } from "../../../hooks/useConfirmation";
 
 export default function TeacherAssignment() {
-    const { showSuccess } = useToast();
+    const { showSuccess, toast } = useToast();
     const { confirm, ConfirmationDialog } = useConfirmation();
 
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
@@ -98,7 +98,7 @@ export default function TeacherAssignment() {
                 } catch (error) {
                     console.error(error);
                     // keep simple alert or use a error toast if available, sticking to console/alert for error is distinct from confirmation request
-                    alert("Lỗi khởi tạo dữ liệu");
+                    toast.error("Lỗi khởi tạo dữ liệu");
                 } finally {
                     setLoading(false);
                 }
@@ -121,7 +121,7 @@ export default function TeacherAssignment() {
             fetchAssignments(selectedClassId);
         } catch (error) {
             console.error(error);
-            alert("Lỗi cập nhật phân công");
+            toast.error("Lỗi cập nhật phân công");
         }
     };
 

@@ -23,7 +23,8 @@ import java.util.UUID;
         @Index(name = "idx_exam_class", columnList = "classroom_id"),
         @Index(name = "idx_exam_subject", columnList = "subject_id"),
         @Index(name = "idx_exam_date", columnList = "exam_date"),
-        @Index(name = "idx_exam_school", columnList = "school_id")
+        @Index(name = "idx_exam_school", columnList = "school_id"),
+        @Index(name = "idx_exam_session", columnList = "exam_session_id")
 })
 public class ExamSchedule {
 
@@ -32,8 +33,15 @@ public class ExamSchedule {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "classroom_id", nullable = false)
+    @JoinColumn(name = "exam_session_id")
+    private ExamSession examSession;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "classroom_id")
     private ClassRoom classRoom;
+
+    @Column
+    private Integer grade; // Khối lớp (10, 11, 12) — dùng khi xếp lịch theo khối
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id", nullable = false)
@@ -54,6 +62,9 @@ public class ExamSchedule {
 
     @Column(name = "room_number", length = 50)
     private String roomNumber;
+
+    @Column(name = "end_time")
+    private LocalTime endTime;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

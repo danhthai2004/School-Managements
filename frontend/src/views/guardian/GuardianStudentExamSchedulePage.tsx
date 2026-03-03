@@ -1,9 +1,9 @@
-import {AlertCircle, BookOpen, Calendar, CheckCircle2, Clock, Filter, MapPin, RefreshCw} from "lucide-react";
-import {useOutletContext} from "react-router-dom";
-import type {StudentDataProp} from "../../components/layout/GuardianLayout.tsx";
-import {useEffect, useState} from "react";
-import {type ExamScheduleDto} from "../../services/studentService.ts";
-import {guardianService} from "../../services/guardianService.ts";
+import { Calendar, Filter, RefreshCw } from "lucide-react";
+import { useOutletContext } from "react-router-dom";
+import type { StudentDataProp } from "../../components/layout/GuardianLayout.tsx";
+import { useEffect, useState } from "react";
+import { type ExamScheduleDto } from "../../services/studentService.ts";
+import { guardianService } from "../../services/guardianService.ts";
 
 const examTypeLabels: Record<string, string> = {
   MIDTERM: "Giữa kỳ",
@@ -11,13 +11,6 @@ const examTypeLabels: Record<string, string> = {
   REGULAR: "1 tiết",
   QUIZ: "15 phút",
 }
-
-const examTypeBadgeColors: Record<string, string> = {
-  MIDTERM: "bg-red-500 text-white",
-  FINAL: "bg-purple-500 text-white",
-  REGULAR: "bg-orange-500 text-white",
-  QUIZ: "bg-blue-500 text-white",
-};
 
 
 // Get current academic year
@@ -43,7 +36,7 @@ export default function GuardianStudentExamSchedulePage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [exams, setExams] = useState<ExamScheduleDto[]>([]);
 
-  const {student, timetable} = useOutletContext<StudentDataProp>();
+  const { student, timetable } = useOutletContext<StudentDataProp>();
 
   // Filters
   const [selectedYear, setSelectedYear] = useState(getCurrentAcademicYear());
@@ -86,7 +79,7 @@ export default function GuardianStudentExamSchedulePage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const weekday = date.toLocaleDateString('vi-VN', {weekday: 'short'});
+    const weekday = date.toLocaleDateString('vi-VN', { weekday: 'short' });
     const day = date.getDate();
     const month = date.getMonth() + 1;
     return `${weekday}, ${day}/${month}`;
@@ -156,7 +149,7 @@ export default function GuardianStudentExamSchedulePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"/>
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -173,7 +166,7 @@ export default function GuardianStudentExamSchedulePage() {
           onClick={fetchData}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
         >
-          <RefreshCw className="w-4 h-4"/>
+          <RefreshCw className="w-4 h-4" />
           Làm mới
         </button>
       </div>
@@ -182,7 +175,7 @@ export default function GuardianStudentExamSchedulePage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 text-gray-500">
-            <Filter className="w-4 h-4"/>
+            <Filter className="w-4 h-4" />
             <span className="text-sm font-medium">Bộ lọc</span>
           </div>
           <div className="h-5 w-px bg-gray-200"></div>
@@ -224,89 +217,63 @@ export default function GuardianStudentExamSchedulePage() {
         </div>
       </div>
 
-      {/* Summary Cards - Compact */}
-      <div className="grid grid-cols-4 gap-3">
-        <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-3 border border-red-100">
-          <div className="text-xl font-bold text-red-600">{examSummary.midterm}</div>
-          <div className="text-xs text-red-500">Giữa kỳ</div>
+      {/* Summary Cards - Styled with visible background colors and drop shadow */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-blue-50 rounded-xl p-4 border border-blue-200 shadow-md hover:shadow-lg transition-shadow flex flex-col justify-between h-24">
+          <div className="text-2xl font-bold text-blue-800">{examSummary.midterm}</div>
+          <div className="text-sm text-blue-600 font-medium">Giữa kỳ</div>
         </div>
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-3 border border-purple-100">
-          <div className="text-xl font-bold text-purple-600">{examSummary.final}</div>
-          <div className="text-xs text-purple-500">Cuối kỳ</div>
+        <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-200 shadow-md hover:shadow-lg transition-shadow flex flex-col justify-between h-24">
+          <div className="text-2xl font-bold text-indigo-800">{examSummary.final}</div>
+          <div className="text-sm text-indigo-600 font-medium">Cuối kỳ</div>
         </div>
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-3 border border-blue-100">
-          <div className="text-xl font-bold text-blue-600">{examSummary.upcoming}</div>
-          <div className="text-xs text-blue-500">Sắp diễn ra</div>
+        <div className="bg-amber-50 rounded-xl p-4 border border-amber-200 shadow-md hover:shadow-lg transition-shadow flex flex-col justify-between h-24">
+          <div className="text-2xl font-bold text-amber-800">{examSummary.upcoming}</div>
+          <div className="text-sm text-amber-600 font-medium">Sắp diễn ra</div>
         </div>
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-3 border border-green-100">
-          <div className="text-xl font-bold text-green-600">{examSummary.completed}</div>
-          <div className="text-xs text-green-500">Hoàn thành</div>
+        <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200 shadow-md hover:shadow-lg transition-shadow flex flex-col justify-between h-24">
+          <div className="text-2xl font-bold text-emerald-800">{examSummary.completed}</div>
+          <div className="text-sm text-emerald-600 font-medium">Hoàn thành</div>
         </div>
       </div>
 
-      {/* Exam List - Compact Table-like */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      {/* Exam List - Dashboard Style List */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
         {sortedExams.length > 0 ? (
-          <div className="divide-y divide-gray-100">
+          <div className="space-y-3">
             {sortedExams.map((exam) => {
               const daysUntil = getDaysUntil(exam.examDate);
               const isCompleted = isExamCompleted(exam);
               const isUrgent = !isCompleted && daysUntil <= 3 && daysUntil >= 0;
 
               return (
-                <div
-                  key={exam.id}
-                  className={`flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors ${isCompleted ? 'opacity-60' : ''}`}
-                >
-                  {/* Subject & Type */}
-                  <div className="flex-1 min-w-0">
+                <div key={exam.id} className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl transition-colors ${isCompleted ? 'bg-gray-50 opacity-70' : 'bg-gray-50 hover:bg-blue-50/50'}`}>
+                  <div>
                     <div className="flex items-center gap-2">
-                      <BookOpen className="w-4 h-4 text-gray-400 flex-shrink-0"/>
-                      <span className="font-semibold text-gray-900 truncate">{exam.subjectName}</span>
-                      <span
-                        className={`px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 ${examTypeBadgeColors[exam.examType]}`}>
-                                                {examTypeLabels[exam.examType]}
-                                            </span>
+                      <h4 className="font-medium text-gray-900">{exam.subjectName}</h4>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                      <span>{examTypeLabels[exam.examType] || exam.examType}</span>
+                      <div className="w-1 h-1 rounded-full bg-gray-300"></div>
+                      <span>{formatTime(exam.startTime, exam.duration)}</span>
+                      <div className="w-1 h-1 rounded-full bg-gray-300"></div>
+                      <span>P. {exam.room || "Tại lớp"}</span>
                     </div>
                     {exam.note && (
-                      <div className="flex items-center gap-1 mt-1 text-xs text-orange-500">
-                        <AlertCircle className="w-3 h-3"/>
-                        <span className="truncate">{exam.note}</span>
-                      </div>
+                      <div className="text-xs text-orange-500 mt-1">Lưu ý: {exam.note}</div>
                     )}
                   </div>
-
-                  {/* Date */}
-                  <div className="flex items-center gap-1.5 text-sm text-gray-600 min-w-[100px]">
-                    <Calendar className="w-3.5 h-3.5 text-gray-400"/>
-                    <span>{formatDate(exam.examDate)}</span>
-                  </div>
-
-                  {/* Time */}
-                  <div className="flex items-center gap-1.5 text-sm text-gray-600 min-w-[120px]">
-                    <Clock className="w-3.5 h-3.5 text-gray-400"/>
-                    <span>{formatTime(exam.startTime, exam.duration)}</span>
-                  </div>
-
-                  {/* Room */}
-                  <div className="flex items-center gap-1.5 text-sm text-gray-600 min-w-[70px]">
-                    <MapPin className="w-3.5 h-3.5 text-gray-400"/>
-                    <span className="font-medium">{exam.room || "Tại lớp"}</span>
-                  </div>
-
-                  {/* Status */}
-                  <div className="w-20 text-right flex-shrink-0">
-                    {isCompleted ? (
-                      <div className="flex items-center justify-end gap-1 text-green-600">
-                        <CheckCircle2 className="w-4 h-4"/>
-                        <span className="text-xs font-medium">Xong</span>
-                      </div>
+                  <div className="mt-3 sm:mt-0 sm:text-right flex items-center justify-between sm:block">
+                    {!isCompleted ? (
+                      <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${isUrgent ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
+                        Còn {daysUntil} ngày
+                      </span>
                     ) : (
-                      <div className={`text-right ${isUrgent ? 'text-orange-500' : 'text-blue-600'}`}>
-                        <div className="text-lg font-bold leading-none">{daysUntil}</div>
-                        <div className="text-[10px] text-gray-400">ngày nữa</div>
-                      </div>
+                      <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-gray-100 text-gray-600">
+                        Hoàn thành
+                      </span>
                     )}
+                    <p className="text-xs text-gray-500 sm:mt-1.5 font-medium">{formatDate(exam.examDate)}</p>
                   </div>
                 </div>
               );
@@ -314,7 +281,7 @@ export default function GuardianStudentExamSchedulePage() {
           </div>
         ) : (
           <div className="p-10 text-center">
-            <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3"/>
+            <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-600 font-medium">Chưa có lịch kiểm tra</p>
             <p className="text-sm text-gray-400 mt-1">
               Năm học {selectedYear}

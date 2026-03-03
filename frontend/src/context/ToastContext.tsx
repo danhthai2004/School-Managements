@@ -10,6 +10,10 @@ interface ToastOptions {
 interface ToastContextType {
     showSuccess: (options: ToastOptions | string) => void;
     hideToast: () => void;
+    toast: {
+        success: (options: ToastOptions | string) => void;
+        error: (options: ToastOptions | string) => void;
+    };
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -19,6 +23,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const [message, setMessage] = useState('');
     const [subtitle, setSubtitle] = useState<string | undefined>(undefined);
     const [autoCloseMs, setAutoCloseMs] = useState(3000);
+    const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
     const showSuccess = useCallback((options: ToastOptions | string) => {
         if (typeof options === 'string') {
@@ -30,6 +35,21 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             setSubtitle(options.subtitle);
             setAutoCloseMs(options.autoCloseMs ?? 3000);
         }
+        setToastType('success');
+        setIsOpen(true);
+    }, []);
+
+    const showError = useCallback((options: ToastOptions | string) => {
+        if (typeof options === 'string') {
+            setMessage(options);
+            setSubtitle(undefined);
+            setAutoCloseMs(3000);
+        } else {
+            setMessage(options.message);
+            setSubtitle(options.subtitle);
+            setAutoCloseMs(options.autoCloseMs ?? 3000);
+        }
+        setToastType('error');
         setIsOpen(true);
     }, []);
 
@@ -38,7 +58,11 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }, []);
 
     return (
-        <ToastContext.Provider value={{ showSuccess, hideToast }}>
+        <ToastContext.Provider value={{
+            showSuccess,
+            hideToast,
+            toast: { success: showSuccess, error: showError }
+        }}>
             {children}
             <SuccessToast
                 isOpen={isOpen}
@@ -46,6 +70,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 message={message}
                 subtitle={subtitle}
                 autoCloseMs={autoCloseMs}
+                type={toastType}
             />
         </ToastContext.Provider>
     );
