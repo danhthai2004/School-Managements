@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { studentService, type AttendanceSummaryDto } from "../../services/studentService";
 import { CheckCircle, XCircle, Clock, Calendar, AlertCircle } from "lucide-react";
+import { formatDate } from "../../utils/dateHelpers";
 
 const statusConfig = {
     PRESENT: { label: "Có mặt", icon: CheckCircle, color: "text-green-600 bg-green-100" },
@@ -139,7 +140,7 @@ export default function StudentAttendancePage() {
                                         </div>
                                         <div>
                                             <p className="font-medium text-gray-900">
-                                                {new Date(record.date).toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                                {formatDate(record.date)}
                                             </p>
                                             {record.note && <p className="text-sm text-gray-500">{record.note}</p>}
                                         </div>

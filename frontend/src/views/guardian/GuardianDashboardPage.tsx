@@ -1,20 +1,20 @@
 import { BookOpen, Check } from "lucide-react";
 import { NotificationIcon, ScoreIcon } from "./GuardianIcons";
-import {useOutletContext} from "react-router-dom";
-import type {StudentDataProp} from "../../components/layout/GuardianLayout.tsx";
-import type {TimetableDto} from "../../services/guardianService.ts";
-import {useEffect} from "react";
+import { useOutletContext } from "react-router-dom";
+import type { StudentDataProp } from "../../components/layout/GuardianLayout.tsx";
+import type { TimetableDto } from "../../services/guardianService.ts";
+import { useEffect } from "react";
 
 export default function GuardianDashboardPage() {
-  const {student, timetable} = useOutletContext<StudentDataProp>();
+  const { student, timetable } = useOutletContext<StudentDataProp>();
   const currentDay = new Date()
-    .toLocaleDateString("en-US", {weekday: "long"})
+    .toLocaleDateString("en-US", { weekday: "long" })
     .toUpperCase();
 
   const currentDaySchedule: TimetableDto[] = [];
 
   // Get currenDay schedule
-  for (const slot of timetable ) {
+  for (const slot of timetable) {
     if (slot.dayOfWeek == currentDay && slot.className == student.currentClassName) currentDaySchedule.push(slot);
   }
 
@@ -69,7 +69,7 @@ export default function GuardianDashboardPage() {
             <p className="font-semibold">Số tiết học hoàn thành</p>
 
             <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-purple-500 flex-shrink-0">
-              <BookOpen/>
+              <BookOpen />
             </div>
           </div>
 
@@ -127,10 +127,10 @@ export default function GuardianDashboardPage() {
             <h2 className="font-semibold mb-4">Điểm gần đây</h2>
 
             <div className="space-y-4">
-              <ScoreRow subject="Toán học" date="2024-01-10" score="9" />
-              <ScoreRow subject="Văn học" date="2024-01-09" score="8.5" />
-              <ScoreRow subject="Tiếng Anh" date="2024-01-08" score="8" />
-              <ScoreRow subject="Vật lý" date="2024-01-07" score="9.5" />
+              <ScoreRow subject="Toán học" date="10/01/2024" score="9" />
+              <ScoreRow subject="Văn học" date="09/01/2024" score="8.5" />
+              <ScoreRow subject="Tiếng Anh" date="08/01/2024" score="8" />
+              <ScoreRow subject="Vật lý" date="07/01/2024" score="9.5" />
             </div>
           </div>
 
@@ -202,9 +202,8 @@ function ScoreRow({
 
       <div className="flex items-center gap-1">
         <span
-          className={`font-semibold ${
-            up ? "text-green-600" : down ? "text-red-600" : "text-blue-600"
-          }`}
+          className={`font-semibold ${up ? "text-green-600" : down ? "text-red-600" : "text-blue-600"
+            }`}
         >
           {score}
         </span>

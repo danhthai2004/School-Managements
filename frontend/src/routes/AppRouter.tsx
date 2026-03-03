@@ -30,7 +30,9 @@ import TeacherAssignment from "../views/school-admin/pages/TeacherAssignment";
 import TimetableManagement from "../views/school-admin/pages/TimetableManagement";
 import TimetableDetailView from "../views/school-admin/pages/TimetableDetailView";
 import NotificationManagement from "../views/school-admin/pages/NotificationManagement";
-import ExamScheduleManagement from "../views/school-admin/pages/ExamScheduleManagement";
+import RoomManagement from "../views/school-admin/pages/RoomManagement";
+import ExamSessionManagement from "../views/school-admin/pages/ExamSessionManagement";
+import ExamSessionDetailPage from "../views/school-admin/pages/ExamSessionDetailPage";
 import ReportsPage from "../views/school-admin/pages/ReportsPage";
 import GuardianLayout from "../components/layout/GuardianLayout";
 import GuardianNotification from "../views/guardian/GuardianNotification";
@@ -55,8 +57,8 @@ export default function AppRouter() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="/login" element={<LoginPage/>} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage/>} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/verify" element={<VerifyPage />} />
       <Route path="/new-password" element={<NewPasswordPage />} />
 
@@ -107,23 +109,25 @@ export default function AppRouter() {
         <Route path="schedule" element={<TimetableManagement />} />
         <Route path="schedule/:id" element={<TimetableDetailView />} />
         <Route path="notifications" element={<NotificationManagement />} />
-        <Route path="exam-schedules" element={<ExamScheduleManagement />} />
+        <Route path="rooms" element={<RoomManagement />} />
+        <Route path="exam-sessions" element={<ExamSessionManagement />} />
+        <Route path="exam-sessions/:id" element={<ExamSessionDetailPage />} />
         <Route path="reports" element={<ReportsPage />} />
       </Route>
 
       <Route path="/guardian" element={
         <ProtectedRoute>
-          <GuardianLayout/>
+          <GuardianLayout />
         </ProtectedRoute>
       }>
         <Route index element={<Navigate to="" replace />} />
-        <Route path="overview" element={<GuardianDashboardPage/>} />
-        <Route path="grading" element={<StudentScore/>} />
-        <Route path="attendance" element={<StudentAttendance/>} />
-        <Route path="notification" element={<GuardianNotification/>}/>
-        <Route path="timetable" element={<StudentTimetable/>}/>
-        <Route path="examschedule" element={<GuardianStudentExamSchedulePage/>}/>
-        <Route path="profile" element={<GuardianProfile/>}/>
+        <Route path="overview" element={<GuardianDashboardPage />} />
+        <Route path="grading" element={<StudentScore />} />
+        <Route path="attendance" element={<StudentAttendance />} />
+        <Route path="notification" element={<GuardianNotification />} />
+        <Route path="timetable" element={<StudentTimetable />} />
+        <Route path="examschedule" element={<GuardianStudentExamSchedulePage />} />
+        <Route path="profile" element={<GuardianProfile />} />
       </Route>
 
       <Route path="/student" element={

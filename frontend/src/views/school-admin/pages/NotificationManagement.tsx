@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Bell, Send, X } from "lucide-react";
+import { useToast } from "../../../context/ToastContext";
 
 interface Notification {
     id: string;
@@ -14,6 +15,7 @@ interface Notification {
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 export default function NotificationManagement() {
+    const { toast } = useToast();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -30,8 +32,9 @@ export default function NotificationManagement() {
                 const data = await res.json();
                 setNotifications(data);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error fetching notifications:", error);
+            toast.error(error?.response?.data?.message || "Lỗi khi tải danh sách thông báo");
         } finally {
             setLoading(false);
         }
@@ -60,10 +63,14 @@ export default function NotificationManagement() {
             if (res.ok) {
                 setFormData({ title: "", message: "" });
                 setShowModal(false);
+                toast.success("Tạo thông báo thành công!");
                 fetchNotifications();
+            } else {
+                toast.error("Lỗi khi tạo thông báo");
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error creating notification:", error);
+            toast.error(error?.response?.data?.message || "Lỗi khi tạo thông báo");
         } finally {
             setSubmitting(false);
         }
@@ -80,21 +87,25 @@ export default function NotificationManagement() {
             });
 
             if (res.ok) {
+                toast.success("Đã xóa thông báo");
                 fetchNotifications();
+            } else {
+                toast.error("Lỗi khi xóa thông báo");
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error deleting notification:", error);
+            toast.error(error?.response?.data?.message || "Lỗi khi xóa thông báo");
         }
     };
 
     const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleString("vi-VN", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-        });
+        const d = new Date(dateString);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        const hours = String(d.getHours()).padStart(2, '0');
+        const mins = String(d.getMinutes()).padStart(2, '0');
+        return `${hours}:${mins} ${day}/${month}/${year}`;
     };
 
     if (loading) {
@@ -115,7 +126,7 @@ export default function NotificationManagement() {
                 </div>
                 <button
                     onClick={() => setShowModal(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
                 >
                     <Plus className="w-5 h-5" />
                     <span>Tạo thông báo</span>
@@ -170,16 +181,26 @@ export default function NotificationManagement() {
 
             {/* Create Modal */}
             {showModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl animate-fade-in-up">
-                        <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                            <h2 className="text-xl font-bold text-gray-900">Tạo thông báo mới</h2>
-                            <button
-                                onClick={() => setShowModal(false)}
-                                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-gradient-to-br from-slate-900/70 to-slate-800/70 backdrop-blur-sm" onClick={() => setShowModal(false)} />
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden z-[100]">
+                        {/* Gradient Header */}
+                        <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500 px-6 py-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                                        <Bell className="w-5 h-5 text-white" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-bold text-white">Tạo thông báo mới</h2>
+                                        <p className="text-blue-100 text-sm">Gửi thông báo đến học sinh trong trường</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setShowModal(false)}
+                                    className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -229,7 +250,7 @@ export default function NotificationManagement() {
                                 <button
                                     type="submit"
                                     disabled={submitting}
-                                    className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg font-medium hover:shadow-lg transition-all disabled:opacity-50"
                                 >
                                     {submitting ? (
                                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

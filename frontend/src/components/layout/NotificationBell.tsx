@@ -118,17 +118,20 @@ export default function NotificationBell({ apiEndpoint, countEndpoint }: Notific
         if (diffMins < 60) return `${diffMins} phút trước`;
         if (diffHours < 24) return `${diffHours} giờ trước`;
         if (diffDays < 7) return `${diffDays} ngày trước`;
-        return date.toLocaleDateString("vi-VN");
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
     };
 
     const formatDateTime = (dateString: string) => {
-        return new Date(dateString).toLocaleString("vi-VN", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit",
-        });
+        const d = new Date(dateString);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        const hours = String(d.getHours()).padStart(2, '0');
+        const mins = String(d.getMinutes()).padStart(2, '0');
+        return `${hours}:${mins} ${day}/${month}/${year}`;
     };
 
     const handleBellClick = () => {

@@ -190,6 +190,21 @@ export type BulkDeleteResponse = {
     errors: string[];
 };
 
+export type RoomDto = {
+    id: string;
+    name: string;
+    capacity: number;
+    building: string | null;
+    status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE';
+};
+
+export type CreateRoomRequest = {
+    name: string;
+    capacity: number;
+    building?: string;
+    status?: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE';
+};
+
 // ==================== SERVICE ====================
 
 export const schoolAdminService = {
@@ -428,6 +443,36 @@ export const schoolAdminService = {
 
     deleteCombination: async (id: string): Promise<void> => {
         await api.delete(`/school/combinations/${id}`);
+    },
+
+    // ==================== Room Management ====================
+    listRooms: async (page = 0, size = 50): Promise<{ content: RoomDto[]; totalElements: number }> => {
+        const res = await api.get<{ content: RoomDto[]; totalElements: number }>("/school/rooms", { params: { page, size } });
+        return res.data;
+    },
+
+    listActiveRooms: async (): Promise<RoomDto[]> => {
+        const res = await api.get<RoomDto[]>("/school/rooms/active");
+        return res.data;
+    },
+
+    createRoom: async (req: CreateRoomRequest): Promise<RoomDto> => {
+        const res = await api.post<RoomDto>("/school/rooms", req);
+        return res.data;
+    },
+
+    updateRoom: async (id: string, req: CreateRoomRequest): Promise<RoomDto> => {
+        const res = await api.put<RoomDto>(`/school/rooms/${id}`, req);
+        return res.data;
+    },
+
+    deleteRoom: async (id: string): Promise<void> => {
+        await api.delete(`/school/rooms/${id}`);
+    },
+
+    updateRoomStatus: async (id: string, status: string): Promise<RoomDto> => {
+        const res = await api.patch<RoomDto>(`/school/rooms/${id}/status`, null, { params: { status } });
+        return res.data;
     },
 
     // Teacher Assignments

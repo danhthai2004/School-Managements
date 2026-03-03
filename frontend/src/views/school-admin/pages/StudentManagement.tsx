@@ -50,7 +50,7 @@ const StudentManagement = () => {
     const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
 
     // Success toast state - Replaced by global useToast
-    const { showSuccess } = useToast();
+    const { showSuccess, toast } = useToast();
 
     // Filter states
     const [searchTerm, setSearchTerm] = useState("");
@@ -169,7 +169,7 @@ const StudentManagement = () => {
 
             return result; // RETURN result for BatchDeleteModal
         } catch (error) {
-            alert("Có lỗi xảy ra khi xóa học sinh");
+            toast.error("Có lỗi xảy ra khi xóa học sinh");
             return { deleted: 0, failed: selectedStudentIds.size, errors: ["Lỗi hệ thống"] };
         }
     };

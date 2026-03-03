@@ -29,18 +29,15 @@ public class SchoolAdminController {
     private final UserLookupService userLookup;
     private final com.schoolmanagement.backend.service.StudentAccountService studentAccountService;
     private final com.schoolmanagement.backend.service.NotificationService notificationService;
-    private final com.schoolmanagement.backend.service.ExamScheduleService examScheduleService;
 
     public SchoolAdminController(SchoolAdminService schoolAdminService,
             UserLookupService userLookup,
             com.schoolmanagement.backend.service.StudentAccountService studentAccountService,
-            com.schoolmanagement.backend.service.NotificationService notificationService,
-            com.schoolmanagement.backend.service.ExamScheduleService examScheduleService) {
+            com.schoolmanagement.backend.service.NotificationService notificationService) {
         this.schoolAdminService = schoolAdminService;
         this.userLookup = userLookup;
         this.studentAccountService = studentAccountService;
         this.notificationService = notificationService;
-        this.examScheduleService = examScheduleService;
     }
 
     // ==================== STATISTICS ====================
@@ -251,47 +248,5 @@ public class SchoolAdminController {
     }
 
     public record NotificationCountResponse(long count) {
-    }
-
-    // ==================== EXAM SCHEDULE ====================
-
-    /**
-     * Generate exam schedules for selected subjects and grades.
-     */
-    @PostMapping("/exam-schedules/generate")
-    @Transactional
-    public java.util.List<com.schoolmanagement.backend.dto.ExamScheduleViewDto> generateExamSchedule(
-            @Valid @RequestBody com.schoolmanagement.backend.dto.ExamScheduleGenerateRequest request,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        log.info("[ExamSchedule] Generating exam schedule - User: {}, ExamType: {}",
-                principal.getEmail(), request.examType());
-        var admin = userLookup.requireById(principal.getId());
-        return examScheduleService.generateExamSchedule(admin.getSchool(), request, admin);
-    }
-
-    /**
-     * Get all exam schedules for the school.
-     */
-    @GetMapping("/exam-schedules")
-    public java.util.List<com.schoolmanagement.backend.dto.ExamScheduleViewDto> getExamSchedules(
-            @RequestParam String academicYear,
-            @RequestParam Integer semester,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        var admin = userLookup.requireById(principal.getId());
-        return examScheduleService.getExamSchedules(admin.getSchool(), academicYear, semester);
-    }
-
-    /**
-     * Delete exam schedules by type and period.
-     */
-    @DeleteMapping("/exam-schedules")
-    @Transactional
-    public void deleteExamSchedules(
-            @RequestParam com.schoolmanagement.backend.domain.ExamType examType,
-            @RequestParam String academicYear,
-            @RequestParam Integer semester,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        var admin = userLookup.requireById(principal.getId());
-        examScheduleService.deleteExistingSchedules(admin.getSchool(), examType, academicYear, semester);
     }
 }

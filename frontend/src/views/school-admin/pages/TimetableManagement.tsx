@@ -7,6 +7,7 @@ import { Plus, Play, Calendar, Eye, Loader2, X, AlertCircle, CheckCircle2, Trash
 import { schoolAdminService } from "../../../services/schoolAdminService";
 import { useToast } from "../../../context/ToastContext";
 import { useConfirmation } from "../../../hooks/useConfirmation";
+import { formatDate } from "../../../utils/dateHelpers";
 
 interface Timetable {
     id: string;
@@ -315,7 +316,7 @@ export default function TimetableManagement() {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-gray-500 text-sm">
-                                        {new Date(t.createdAt).toLocaleDateString("vi-VN")}
+                                        {formatDate(t.createdAt)}
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex items-center justify-end gap-2">

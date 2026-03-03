@@ -118,12 +118,10 @@ export default function StudentOverviewPage() {
 
 function TodayScheduleCard({ slots }: { slots: TimetableSlotDto[] }) {
     const today = new Date();
-    const formattedDate = today.toLocaleDateString('vi-VN', {
-        weekday: 'long',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-    });
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const year = today.getFullYear();
+    const formattedDate = `${day}/${month}/${year}`;
 
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -175,11 +173,11 @@ function UpcomingExamsCard({ exams }: { exams: ExamScheduleDto[] }) {
     };
 
     const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('vi-VN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        });
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
     };
 
     const upcomingExams = exams.filter(e => getDaysUntil(e.examDate) >= 0).slice(0, 3);
@@ -269,18 +267,20 @@ function NotificationsCard() {
         if (diffMins < 60) return `${diffMins} phút trước`;
         if (diffHours < 24) return `${diffHours} giờ trước`;
         if (diffDays < 7) return `${diffDays} ngày trước`;
-        return date.toLocaleDateString('vi-VN');
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
     };
 
     const formatFullDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('vi-VN', {
-            weekday: 'long',
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        const d = new Date(dateString);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        const hours = String(d.getHours()).padStart(2, '0');
+        const mins = String(d.getMinutes()).padStart(2, '0');
+        return `${day}/${month}/${year} ${hours}:${mins}`;
     };
 
     return (

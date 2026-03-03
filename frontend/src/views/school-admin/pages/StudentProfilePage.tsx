@@ -4,13 +4,14 @@ import { createPortal } from 'react-dom';
 import { schoolAdminService } from '../../../services/schoolAdminService';
 import type { StudentProfileDto, ClassRoomDto } from '../../../services/schoolAdminService';
 import { XIcon } from '../SchoolAdminIcons';
+import { useToast } from '../../../context/ToastContext';
 
 // Format date for display
 const formatDate = (dateStr: string | null): string => {
     if (!dateStr) return '—';
     try {
         const [year, month, day] = dateStr.split('-');
-        return `${day}/${month}/${year}`;
+        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
     } catch {
         return dateStr;
     }
@@ -20,7 +21,10 @@ const formatDate = (dateStr: string | null): string => {
 const formatInstant = (instantStr: string): string => {
     try {
         const date = new Date(instantStr);
-        return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
     } catch {
         return instantStr;
     }
@@ -151,6 +155,7 @@ const TransferModal = ({
 export default function StudentProfilePage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { toast } = useToast();
     const [profile, setProfile] = useState<StudentProfileDto | null>(null);
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
     const [loading, setLoading] = useState(true);
@@ -188,8 +193,9 @@ export default function StudentProfilePage() {
             const updatedProfile = await schoolAdminService.transferStudent(id, newClassId);
             setProfile(updatedProfile);
             setShowTransferModal(false);
+            toast.success("Chuyển lớp thành công");
         } catch (err: any) {
-            alert(err?.response?.data?.message || 'Không thể chuyển lớp');
+            toast.error(err?.response?.data?.message || 'Không thể chuyển lớp');
         }
     };
 
@@ -201,8 +207,9 @@ export default function StudentProfilePage() {
             setUploadingAvatar(true);
             const { url } = await schoolAdminService.uploadAvatar(id, file);
             setProfile(prev => prev ? { ...prev, avatarUrl: url } : prev);
+            toast.success("Cập nhật ảnh đại diện thành công");
         } catch (err: any) {
-            alert(err?.response?.data?.message || 'Lỗi khi tải file lên');
+            toast.error(err?.response?.data?.message || 'Lỗi khi tải file lên');
         } finally {
             setUploadingAvatar(false);
             // reset input
