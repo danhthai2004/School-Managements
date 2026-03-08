@@ -6,6 +6,9 @@ import com.schoolmanagement.backend.domain.entity.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.School;
 import com.schoolmanagement.backend.domain.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -47,4 +50,17 @@ public interface ClassRoomRepository extends JpaRepository<ClassRoom, UUID> {
                         ClassRoomStatus status);
 
         Optional<ClassRoom> findByHomeroomTeacher(User homeroomTeacher);
+
+        // Find classrooms by school and list of grades
+        List<ClassRoom> findBySchoolAndGradeIn(School school, List<Integer> grades);
+
+        // --- Methods added for Teacher Portal (fuuko branch) ---
+
+        Optional<ClassRoom> findByHomeroomTeacher_IdAndAcademicYear(UUID teacherId, String academicYear);
+
+        Optional<ClassRoom> findTopByHomeroomTeacher_IdOrderByAcademicYearDesc(UUID teacherId);
+
+        @Modifying
+        @Query("UPDATE ClassRoom c SET c.homeroomTeacher = null WHERE c.homeroomTeacher.id = :userId")
+        void nullifyHomeroomTeacher(@Param("userId") UUID userId);
 }

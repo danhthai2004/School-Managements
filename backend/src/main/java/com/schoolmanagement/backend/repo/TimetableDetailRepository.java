@@ -5,6 +5,9 @@ import com.schoolmanagement.backend.domain.entity.Timetable;
 import com.schoolmanagement.backend.domain.entity.TimetableDetail;
 import com.schoolmanagement.backend.domain.entity.Teacher;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.DayOfWeek;
@@ -44,13 +47,24 @@ public interface TimetableDetailRepository extends JpaRepository<TimetableDetail
                         com.schoolmanagement.backend.domain.entity.ClassRoom classRoom,
                         com.schoolmanagement.backend.domain.entity.Subject subject);
 
-        java.util.Optional<TimetableDetail> findByTimetableAndClassRoomAndDayOfWeekAndSlotIndex(Timetable timetable,
+        Optional<TimetableDetail> findByTimetableAndClassRoomAndDayOfWeekAndSlotIndex(Timetable timetable,
                         com.schoolmanagement.backend.domain.entity.ClassRoom classRoom, java.time.DayOfWeek dayOfWeek,
                         int slotIndex);
 
-        @org.springframework.data.jpa.repository.Modifying
-        @org.springframework.data.jpa.repository.Query("UPDATE TimetableDetail t SET t.teacher = null WHERE t.teacher = :teacher")
-        void unlinkTeacherFromTimetable(@org.springframework.data.repository.query.Param("teacher") Teacher teacher);
+        @Modifying
+        @Query("UPDATE TimetableDetail t SET t.teacher = null WHERE t.teacher = :teacher")
+        void unlinkTeacherFromTimetable(@Param("teacher") Teacher teacher);
 
         boolean existsByTeacher(Teacher teacher);
+
+        List<TimetableDetail> findByClassRoom(ClassRoom classRoom);
+
+        // --- Method added for Teacher Portal (fuuko branch) ---
+
+        Optional<TimetableDetail> findByTimetableAndTeacherAndDayOfWeekAndSlotIndex(
+                        Timetable timetable, Teacher teacher, DayOfWeek dayOfWeek, int slotIndex);
+
+        @Modifying
+        @Query("UPDATE TimetableDetail t SET t.teacher = null WHERE t.teacher.id = :teacherId")
+        void nullifyTeacherId(@Param("teacherId") UUID teacherId);
 }

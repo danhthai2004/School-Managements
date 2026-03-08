@@ -1,6 +1,7 @@
 package com.schoolmanagement.backend.service.chat;
 
 import com.schoolmanagement.backend.domain.ChatIntent;
+import com.schoolmanagement.backend.domain.AttendanceStatus;
 import com.schoolmanagement.backend.domain.entity.*;
 import com.schoolmanagement.backend.dto.ChatContext;
 import com.schoolmanagement.backend.repo.*;
@@ -94,10 +95,10 @@ public class AttendanceHandler implements ChatHandler {
         }
 
         // Thống kê theo trạng thái
-        long present = records.stream().filter(a -> "PRESENT".equals(a.getStatus())).count();
-        long absent = records.stream().filter(a -> "ABSENT".equals(a.getStatus())).count();
-        long late = records.stream().filter(a -> "LATE".equals(a.getStatus())).count();
-        long excused = records.stream().filter(a -> "EXCUSED".equals(a.getStatus())).count();
+        long present = records.stream().filter(a -> AttendanceStatus.PRESENT.equals(a.getStatus())).count();
+        long absent = records.stream().filter(a -> AttendanceStatus.ABSENT_UNEXCUSED.equals(a.getStatus())).count();
+        long late = records.stream().filter(a -> AttendanceStatus.LATE.equals(a.getStatus())).count();
+        long excused = records.stream().filter(a -> AttendanceStatus.ABSENT_EXCUSED.equals(a.getStatus())).count();
         long total = records.size();
 
         Map<String, Object> data = new LinkedHashMap<>();
@@ -114,17 +115,16 @@ public class AttendanceHandler implements ChatHandler {
 
         // Lấy 5 lần vắng gần nhất (nếu có)
         List<Map<String, Object>> recentAbsences = records.stream()
-                .filter(a -> "ABSENT".equals(a.getStatus()) || "LATE".equals(a.getStatus()))
-                .sorted(Comparator.comparing(a -> a.getSession().getSessionDate(), Comparator.reverseOrder()))
+                .filter(a -> AttendanceStatus.ABSENT_UNEXCUSED.equals(a.getStatus())
+                        || AttendanceStatus.LATE.equals(a.getStatus()))
+                .sorted(Comparator.comparing(Attendance::getAttendanceDate, Comparator.reverseOrder()))
                 .limit(5)
                 .map(a -> {
                     Map<String, Object> item = new LinkedHashMap<>();
-                    item.put("date", a.getSession().getSessionDate().toString());
-                    item.put("status", a.getStatus());
-                    item.put("subject", a.getSession().getSubject() != null
-                            ? a.getSession().getSubject().getName()
-                            : "N/A");
-                    item.put("note", a.getNotes() != null ? a.getNotes() : "");
+                    item.put("date", a.getAttendanceDate().toString());
+                    item.put("status", a.getStatus().name());
+                    item.put("subject", "N/A");
+                    item.put("note", a.getNote() != null ? a.getNote() : "");
                     return item;
                 })
                 .toList();

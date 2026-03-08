@@ -24,14 +24,17 @@ public class ClassManagementService {
     private final UserRepository users;
     private final ClassEnrollmentRepository enrollments;
     private final com.schoolmanagement.backend.repo.CombinationRepository combinations;
+    private final com.schoolmanagement.backend.repo.RoomRepository rooms;
 
     public ClassManagementService(ClassRoomRepository classRooms, UserRepository users,
             ClassEnrollmentRepository enrollments,
-            com.schoolmanagement.backend.repo.CombinationRepository combinations) {
+            com.schoolmanagement.backend.repo.CombinationRepository combinations,
+            com.schoolmanagement.backend.repo.RoomRepository rooms) {
         this.classRooms = classRooms;
         this.users = users;
         this.enrollments = enrollments;
         this.combinations = combinations;
+        this.rooms = rooms;
     }
 
     // ==================== CLASS ROOM MANAGEMENT ====================
@@ -64,14 +67,25 @@ public class ClassManagementService {
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy tổ hợp môn."));
         }
 
+        com.schoolmanagement.backend.domain.entity.Room room = null;
+        if (req.roomId() != null) {
+            room = rooms.findById(req.roomId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy phòng học."));
+            if (!room.getSchool().getId().equals(school.getId())) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "Phòng học không thuộc trường này.");
+            }
+        }
+
         ClassRoom classRoom = ClassRoom.builder()
                 .name(req.name())
                 .grade(req.grade())
                 .academicYear(req.academicYear())
                 .maxCapacity(req.maxCapacity())
-                .roomNumber(req.roomNumber())
+                .room(room)
                 .department(req.department() != null ? req.department()
                         : com.schoolmanagement.backend.domain.ClassDepartment.KHONG_PHAN_BAN)
+                .session(req.session() != null ? req.session()
+                        : com.schoolmanagement.backend.domain.SessionType.SANG)
                 .school(school)
                 .homeroomTeacher(teacher)
                 .combination(combination)
@@ -122,13 +136,24 @@ public class ClassManagementService {
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy tổ hợp môn."));
         }
 
+        com.schoolmanagement.backend.domain.entity.Room room = null;
+        if (req.roomId() != null) {
+            room = rooms.findById(req.roomId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy phòng học."));
+            if (!room.getSchool().getId().equals(school.getId())) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "Phòng học không thuộc trường này.");
+            }
+        }
+
         classRoom.setName(req.name());
         classRoom.setGrade(req.grade());
         classRoom.setAcademicYear(req.academicYear());
         classRoom.setMaxCapacity(req.maxCapacity());
-        classRoom.setRoomNumber(req.roomNumber());
+        classRoom.setRoom(room);
         classRoom.setDepartment(req.department() != null ? req.department()
                 : com.schoolmanagement.backend.domain.ClassDepartment.KHONG_PHAN_BAN);
+        classRoom.setSession(req.session() != null ? req.session()
+                : com.schoolmanagement.backend.domain.SessionType.SANG);
         classRoom.setHomeroomTeacher(teacher);
         classRoom.setCombination(combination);
 
@@ -147,6 +172,19 @@ public class ClassManagementService {
 
         // TODO: Check if class has students before delete
         classRooms.delete(classRoom);
+    }
+
+    @Transactional(readOnly = true)
+    public ClassRoom getClassRoom(UUID studentId, String academicYear) {
+        UUID classId = enrollments
+                .findLatestClassroomId(studentId, academicYear)
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Học sinh không ở lớp học nào"));
+        ClassRoom classRoom = classRooms.findById(classId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học"));
+
+        return classRoom;
     }
 
     @Transactional(readOnly = true)
@@ -176,8 +214,10 @@ public class ClassManagementService {
                 classRoom.getGrade(),
                 classRoom.getAcademicYear(),
                 classRoom.getMaxCapacity(),
-                classRoom.getRoomNumber(),
+                classRoom.getRoom() != null ? classRoom.getRoom().getId() : null,
+                classRoom.getRoom() != null ? classRoom.getRoom().getName() : null,
                 classRoom.getDepartment() != null ? classRoom.getDepartment().name() : null,
+                classRoom.getSession() != null ? classRoom.getSession().name() : "SANG",
                 classRoom.getStatus().name(),
                 teacher != null ? teacher.getId() : null,
                 teacher != null ? teacher.getFullName() : null,

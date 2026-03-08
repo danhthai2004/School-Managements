@@ -5,7 +5,8 @@ import {
     schoolAdminService,
     type ClassRoomDto,
     type UserDto,
-    type CombinationDto
+    type CombinationDto,
+    type RoomDto
 } from "../../../services/schoolAdminService";
 import { PlusIcon } from "../SchoolAdminIcons";
 import AddClassModal from "../components/class/AddClassModal";
@@ -20,6 +21,7 @@ const ClassManagement = () => {
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
     const [teachers, setTeachers] = useState<UserDto[]>([]);
     const [combinations, setCombinations] = useState<CombinationDto[]>([]);
+    const [rooms, setRooms] = useState<RoomDto[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -54,15 +56,17 @@ const ClassManagement = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [classesData, teachersData, combinationsData, statsData] = await Promise.all([
+            const [classesData, teachersData, combinationsData, statsData, roomsData] = await Promise.all([
                 schoolAdminService.listClasses(),
                 schoolAdminService.listTeachers(),
                 schoolAdminService.listCombinations(),
-                schoolAdminService.getStats()
+                schoolAdminService.getStats(),
+                schoolAdminService.listActiveRooms()
             ]);
             setClasses(classesData);
             setTeachers(teachersData);
             setCombinations(combinationsData);
+            setRooms(roomsData);
             if (statsData?.currentAcademicYear) {
                 setCurrentAcademicYear(statsData.currentAcademicYear);
             }
@@ -121,7 +125,7 @@ const ClassManagement = () => {
                                 </td>
                                 <td className="px-6 py-4 text-gray-600">{cls.grade}</td>
                                 <td className="px-6 py-4 text-gray-600">{cls.academicYear}</td>
-                                <td className="px-6 py-4 text-gray-600">{cls.roomNumber || "—"}</td>
+                                <td className="px-6 py-4 text-gray-600">{cls.roomName || "—"}</td>
                                 <td className="px-6 py-4 text-gray-600">
                                     {cls.combinationName ? (
                                         <span className="text-blue-600 font-medium">{cls.combinationName}</span>
@@ -181,6 +185,7 @@ const ClassManagement = () => {
                 onSuccess={fetchData}
                 teachers={teachers}
                 combinations={combinations}
+                rooms={rooms}
                 defaultAcademicYear={currentAcademicYear}
             />
             <EditClassModal
@@ -193,6 +198,7 @@ const ClassManagement = () => {
                 onSuccess={fetchData}
                 teachers={teachers}
                 combinations={combinations}
+                rooms={rooms}
             />
             <DeleteConfirmModal
                 isOpen={showDeleteModal}

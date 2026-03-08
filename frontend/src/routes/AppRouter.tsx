@@ -29,9 +29,41 @@ import CombinationManagement from "../views/school-admin/pages/CombinationManage
 import TeacherAssignment from "../views/school-admin/pages/TeacherAssignment";
 import TimetableManagement from "../views/school-admin/pages/TimetableManagement";
 import TimetableDetailView from "../views/school-admin/pages/TimetableDetailView";
+import NotificationManagement from "../views/school-admin/pages/NotificationManagement";
+import RoomManagement from "../views/school-admin/pages/RoomManagement";
+import ExamSessionManagement from "../views/school-admin/pages/ExamSessionManagement";
+import ExamSessionDetailPage from "../views/school-admin/pages/ExamSessionDetailPage";
 import ReportsPage from "../views/school-admin/pages/ReportsPage";
+import GuardianLayout from "../components/layout/GuardianLayout";
+import GuardianNotification from "../views/guardian/GuardianNotification";
+import StudentAttendance from "../views/guardian/StudentAttendance";
+import StudentScore from "../views/guardian/StudentScore";
+import StudentTimetable from "../views/guardian/StudentTimetable";
+import GuardianDashboardPage from "../views/guardian/GuardianDashboardPage";
 
+// Student
+import StudentLayout from "../components/layout/StudentLayout";
+import StudentOverviewPage from "../views/Student/StudentOverviewPage";
+import StudentTimetablePage from "../views/Student/StudentTimetablePage";
+import StudentExamSchedulePage from "../views/Student/StudentExamSchedulePage.tsx";
+import StudentScoresPage from "../views/Student/StudentScoresPage";
+import StudentAttendancePage from "../views/Student/StudentAttendancePage";
+import StudentAnalysisPage from "../views/Student/StudentAnalysisPage";
+import GuardianStudentExamSchedulePage from "../views/guardian/GuardianStudentExamSchedulePage.tsx";
+import GuardianProfile from "../views/guardian/GuardianProfile.tsx";
 
+// Teacher Portal
+import TeacherLayout from "../views/teacher/TeacherLayout";
+import TeacherDashboard from "../views/teacher/pages/TeacherDashboard";
+import SchedulePage from "../views/teacher/pages/SchedulePage";
+import AttendancePage from "../views/teacher/pages/AttendancePage";
+import GradesPage from "../views/teacher/pages/GradesPage";
+import ClassMapPage from "../views/teacher/pages/ClassMapPage";
+import TeacherReportsPage from "../views/teacher/pages/ReportsPage";
+import TeacherNotificationsPage from "../views/teacher/pages/NotificationsPage";
+import StudentListPage from "../views/teacher/pages/StudentListPage";
+import SettingsPage from "../views/teacher/pages/SettingsPage";
+import TeacherExamSchedulePage from "../views/teacher/pages/TeacherExamSchedulePage";
 
 
 export default function AppRouter() {
@@ -89,7 +121,59 @@ export default function AppRouter() {
         <Route path="assignments" element={<TeacherAssignment />} />
         <Route path="schedule" element={<TimetableManagement />} />
         <Route path="schedule/:id" element={<TimetableDetailView />} />
+        <Route path="notifications" element={<NotificationManagement />} />
+        <Route path="rooms" element={<RoomManagement />} />
+        <Route path="exam-sessions" element={<ExamSessionManagement />} />
+        <Route path="exam-sessions/:id" element={<ExamSessionDetailPage />} />
         <Route path="reports" element={<ReportsPage />} />
+      </Route>
+
+      <Route path="/guardian" element={
+        <ProtectedRoute>
+          <GuardianLayout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<Navigate to="" replace />} />
+        <Route path="overview" element={<GuardianDashboardPage />} />
+        <Route path="grading" element={<StudentScore />} />
+        <Route path="attendance" element={<StudentAttendance />} />
+        <Route path="notification" element={<GuardianNotification />} />
+        <Route path="timetable" element={<StudentTimetable />} />
+        <Route path="examschedule" element={<GuardianStudentExamSchedulePage />} />
+        <Route path="profile" element={<GuardianProfile />} />
+      </Route>
+
+      <Route path="/student" element={
+        <ProtectedRoute requiredRole="STUDENT">
+          <StudentLayout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<Navigate to="overview" replace />} />
+        <Route path="overview" element={<StudentOverviewPage />} />
+        <Route path="timetable" element={<StudentTimetablePage />} />
+        <Route path="exam-schedule" element={<StudentExamSchedulePage />} />
+        <Route path="scores" element={<StudentScoresPage />} />
+        <Route path="attendance" element={<StudentAttendancePage />} />
+        <Route path="analysis" element={<StudentAnalysisPage />} />
+      </Route>
+
+      {/* Teacher Portal Routes */}
+      <Route path="/teacher" element={
+        <ProtectedRoute requiredRole="TEACHER">
+          <TeacherLayout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<TeacherDashboard />} />
+        <Route path="schedule" element={<SchedulePage />} />
+        <Route path="attendance" element={<AttendancePage />} />
+        <Route path="grades" element={<GradesPage />} />
+        <Route path="class-map" element={<ClassMapPage />} />
+        <Route path="reports" element={<TeacherReportsPage />} />
+        <Route path="notifications" element={<TeacherNotificationsPage />} />
+        <Route path="students" element={<StudentListPage />} />
+        <Route path="settings" element={<SettingsPage />} />
+        <Route path="exam-schedule" element={<TeacherExamSchedulePage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />

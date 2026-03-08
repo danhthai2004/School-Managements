@@ -37,7 +37,7 @@ const TeacherManagement = () => {
 
 
     // Success toast state - Replaced by global useToast
-    const { showSuccess } = useToast();
+    const { showSuccess, toast } = useToast();
 
     // New State for Filter & Sort
     const [subjects, setSubjects] = useState<any[]>([]);
@@ -106,7 +106,7 @@ const TeacherManagement = () => {
             return result;
         } catch (error) {
             console.error("Failed to delete teachers:", error);
-            alert("Có lỗi xảy ra khi xóa giáo viên");
+            toast.error("Có lỗi xảy ra khi xóa giáo viên");
             return { deleted: 0, failed: selectedTeacherIds.size, errors: ["Lỗi hệ thống"] };
         }
     };

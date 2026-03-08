@@ -30,7 +30,8 @@ public class Guardian {
     @Column(length = 254)
     private String email;
 
-    // relationship removed (moved to join table)
+    @Column(length = 50)
+    private String relationship;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")

@@ -81,6 +81,18 @@ public class TeacherController {
         return teacherManagementService.deleteTeachers(admin.getSchool(), request);
     }
 
+    @Transactional
+    @DeleteMapping("/teachers/{teacherId}")
+    public void deleteTeacher(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID teacherId) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        teacherManagementService.deleteTeacher(admin.getSchool(), teacherId);
+    }
+
     /**
      * Import teachers from Excel file
      * Excel columns: fullName/Họ tên (required), dateOfBirth/Ngày sinh, gender/Giới

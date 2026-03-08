@@ -77,15 +77,15 @@ public class Notification {
 
     @Column(name = "send_in_app")
     @Builder.Default
-    private boolean sendInApp = true;
+    private Boolean sendInApp = true;
 
     @Column(name = "send_email")
     @Builder.Default
-    private boolean sendEmail = false;
+    private Boolean sendEmail = false;
 
     @Column(name = "send_sms")
     @Builder.Default
-    private boolean sendSMS = false;
+    private Boolean sendSMS = false;
 
     @Column(length = 20)
     @Builder.Default

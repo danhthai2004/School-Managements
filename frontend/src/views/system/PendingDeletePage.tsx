@@ -54,8 +54,8 @@ export default function PendingDeletePage() {
     <div className="max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Tài khoản chờ xóa</h1>
-          <p className="text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900">Tài khoản chờ xóa</h1>
+          <p className="text-gray-500 mt-1">
             Các tài khoản sẽ tự động xóa sau 14 ngày kể từ khi đánh dấu
           </p>
         </div>

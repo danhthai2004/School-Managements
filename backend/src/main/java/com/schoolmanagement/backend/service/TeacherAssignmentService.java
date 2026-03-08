@@ -46,7 +46,12 @@ public class TeacherAssignmentService {
                             .subject(subject)
                             .school(school)
                             .teacher(null) // Initially no teacher assigned
-                            .lessonsPerWeek(subject.getTotalLessons()) // Default from subject
+                            .lessonsPerWeek(subject.getTotalLessons() != null ? subject.getTotalLessons() : 2) // Default
+                                                                                                               // from
+                                                                                                               // subject
+                                                                                                               // or
+                                                                                                               // fallback
+                                                                                                               // to 2
                             .build();
                     assignments.save(assignment);
                 }

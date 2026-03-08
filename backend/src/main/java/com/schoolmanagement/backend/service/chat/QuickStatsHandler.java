@@ -2,6 +2,7 @@ package com.schoolmanagement.backend.service.chat;
 
 import com.schoolmanagement.backend.domain.ChatIntent;
 import com.schoolmanagement.backend.domain.Role;
+import com.schoolmanagement.backend.domain.AttendanceStatus;
 import com.schoolmanagement.backend.domain.entity.*;
 import com.schoolmanagement.backend.dto.ChatContext;
 import com.schoolmanagement.backend.repo.*;
@@ -65,25 +66,20 @@ public class QuickStatsHandler implements ChatHandler {
 
         // Điểm danh hôm nay
         LocalDate today = LocalDate.now();
-        List<AttendanceSession> todaySessions = attendanceSessionRepository
-                .findAllBySchoolAndSessionDateBetween(school, today, today);
+        List<Attendance> attendances = attendanceRepository.findBySchoolAndAttendanceDateBetween(school, today, today);
 
-        long totalAttendanceRecords = 0;
+        long totalAttendanceRecords = attendances.size();
         long absentToday = 0;
         long lateToday = 0;
         long excusedToday = 0;
         long presentToday = 0;
 
-        for (AttendanceSession session : todaySessions) {
-            List<Attendance> attendances = attendanceRepository.findAllBySession(session);
-            totalAttendanceRecords += attendances.size();
-            for (Attendance a : attendances) {
-                switch (a.getStatus()) {
-                    case "ABSENT" -> absentToday++;
-                    case "LATE" -> lateToday++;
-                    case "EXCUSED" -> excusedToday++;
-                    case "PRESENT" -> presentToday++;
-                }
+        for (Attendance a : attendances) {
+            switch (a.getStatus()) {
+                case ABSENT_UNEXCUSED -> absentToday++;
+                case LATE -> lateToday++;
+                case ABSENT_EXCUSED -> excusedToday++;
+                case PRESENT -> presentToday++;
             }
         }
 
@@ -98,8 +94,8 @@ public class QuickStatsHandler implements ChatHandler {
         data.put("totalClasses", totalClasses);
 
         // Điểm danh hôm nay
-        data.put("hasAttendanceToday", !todaySessions.isEmpty());
-        data.put("sessionsToday", todaySessions.size());
+        data.put("hasAttendanceToday", !attendances.isEmpty());
+        data.put("sessionsToday", (int) attendances.stream().map(a -> a.getClassRoom().getId()).distinct().count());
         data.put("presentToday", presentToday);
         data.put("absentToday", absentToday);
         data.put("lateToday", lateToday);

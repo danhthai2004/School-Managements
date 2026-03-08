@@ -139,7 +139,10 @@ export default function CombinationManagement() {
     const electives = subjects.filter(s => s.type === 'ELECTIVE' && s.active && s.stream === formData.stream);
     // Relaxed filtering for Specialized Subjects: Show ALL active specialized subjects
     const specialized = subjects.filter(s => s.type === 'SPECIALIZED' && s.active);
-    const compulsory = subjects.filter(s => s.type === 'COMPULSORY' && s.active);
+    // Filter out ACTIVITY subjects (Chào cờ, Sinh hoạt lớp)
+    const compulsory = subjects.filter(s =>
+        s.type === 'COMPULSORY' && s.active && s.code !== 'CC' && s.code !== 'SHL'
+    );
 
     return (
         <div className="p-4 space-y-6">
@@ -147,7 +150,7 @@ export default function CombinationManagement() {
                 {/* Header title removed to avoid duplication when embedded */}
                 <button
                     onClick={() => { resetForm(); setIsModalOpen(true); }}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
+                    className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium hover:shadow-lg transition-all"
                 >
                     <Plus className="w-5 h-5" />
                     Tạo Tổ hợp mới
@@ -229,14 +232,25 @@ export default function CombinationManagement() {
 
             {/* Create Modal */}
             {isModalOpen && createPortal(
-                <div className="fixed inset-0 z-[100] flex items-center justify-center">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-gradient-to-br from-slate-900/70 to-slate-800/70 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
                     <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 overflow-hidden max-h-[90vh] flex flex-col z-[100]">
-                        <div className="bg-white px-6 py-4 border-b border-gray-100 flex justify-between items-center flex-none z-[110]">
-                            <h2 className="text-xl font-bold text-gray-900">{editingId ? 'Cập nhật Tổ hợp' : 'Tạo Tổ hợp mới'}</h2>
-                            <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                                <X className="w-6 h-6" />
-                            </button>
+                        {/* Gradient Header */}
+                        <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500 px-6 py-4 flex-none z-[110]">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                                        <Plus className="w-5 h-5 text-white" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-bold text-white">{editingId ? 'Cập nhật Tổ hợp' : 'Tạo Tổ hợp mới'}</h2>
+                                        <p className="text-blue-100 text-sm">{editingId ? 'Chỉnh sửa thông tin tổ hợp môn' : 'Thiết lập tổ hợp môn học mới'}</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setIsModalOpen(false)} className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
                         </div>
 
                         <div className="p-6 space-y-6 overflow-y-auto">
@@ -388,7 +402,7 @@ export default function CombinationManagement() {
                                 disabled={submitting || formData.electiveSubjectIds.length !== 4 || formData.specializedSubjectIds.length !== 3}
                                 className={`px-6 py-2 rounded-lg text-white font-medium flex items-center gap-2 ${submitting || formData.electiveSubjectIds.length !== 4 || formData.specializedSubjectIds.length !== 3
                                     ? 'bg-blue-300 cursor-not-allowed'
-                                    : 'bg-blue-600 hover:bg-blue-700 shadow-sm'
+                                    : 'bg-gradient-to-r from-blue-600 to-blue-500 hover:shadow-lg'
                                     }`}
                             >
                                 {submitting ? 'Đang xử lý...' : (editingId ? 'Cập nhật' : 'Tạo Tổ hợp')}

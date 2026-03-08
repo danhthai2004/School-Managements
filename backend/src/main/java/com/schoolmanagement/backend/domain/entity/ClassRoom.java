@@ -2,6 +2,7 @@ package com.schoolmanagement.backend.domain.entity;
 
 import com.schoolmanagement.backend.domain.ClassDepartment;
 import com.schoolmanagement.backend.domain.ClassRoomStatus;
+import com.schoolmanagement.backend.domain.SessionType;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.UUID;
@@ -34,13 +35,20 @@ public class ClassRoom {
     @Column(nullable = false)
     private int maxCapacity; // Sĩ số (1-35)
 
-    @Column(name = "room_number", length = 20)
-    private String roomNumber; // Phòng học: "A201", "B102"
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "room_id")
+    private Room room; // Phòng học thực tế
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     @Builder.Default
     private ClassDepartment department = ClassDepartment.KHONG_PHAN_BAN;
+
+    /** Buổi học chính của lớp (Sáng/Chiều) */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    @Builder.Default
+    private SessionType session = SessionType.SANG;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

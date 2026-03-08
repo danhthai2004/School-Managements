@@ -15,8 +15,10 @@ export type ClassRoomDto = {
     grade: number;
     academicYear: string;
     maxCapacity: number;
-    roomNumber: string | null;
+    roomId: string | null;
+    roomName: string | null;
     department: string | null;
+    session: 'SANG' | 'CHIEU' | null;
     status: string;
     homeroomTeacherId: string | null;
     homeroomTeacherName: string | null;
@@ -30,8 +32,9 @@ export type CreateClassRoomRequest = {
     grade: number;
     academicYear: string;
     maxCapacity: number;
-    roomNumber?: string;
+    roomId?: string;
     department?: 'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI';
+    session?: 'SANG' | 'CHIEU';
     homeroomTeacherId?: string;
     combinationId?: string;
 };
@@ -55,7 +58,6 @@ export type GuardianDto = {
     studentName: string;
     studentClass: string;
 };
-
 export type StudentDto = {
     id: string;
     studentCode: string;
@@ -106,7 +108,7 @@ export type CreateStudentRequest = {
     enrollmentDate?: string;
     classId?: string;
     academicYear?: string;
-    department?: 'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI';
+    combinationId?: string;
     grade?: number;
     guardian?: GuardianRequest;
 };
@@ -188,6 +190,21 @@ export type BulkDeleteResponse = {
     errors: string[];
 };
 
+export type RoomDto = {
+    id: string;
+    name: string;
+    capacity: number;
+    building: string | null;
+    status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE';
+};
+
+export type CreateRoomRequest = {
+    name: string;
+    capacity: number;
+    building?: string;
+    status?: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE';
+};
+
 // ==================== SERVICE ====================
 
 export const schoolAdminService = {
@@ -251,7 +268,6 @@ export const schoolAdminService = {
         const res = await api.post<BulkDeleteResponse>("/school/teachers/bulk-delete", { ids });
         return res.data;
     },
-
     // Import teachers from Excel
     importTeachersFromExcel: async (file: File): Promise<ImportTeacherResult> => {
         const formData = new FormData();
@@ -264,7 +280,6 @@ export const schoolAdminService = {
         });
         return res.data;
     },
-
 
 
     // Users
@@ -317,6 +332,17 @@ export const schoolAdminService = {
     transferStudent: async (studentId: string, newClassId: string): Promise<StudentProfileDto> => {
         const res = await api.post<StudentProfileDto>(`/school/students/${studentId}/transfer`, null, {
             params: { newClassId }
+        });
+        return res.data;
+    },
+
+    uploadAvatar: async (studentId: string, file: File): Promise<{ url: string }> => {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await api.post<{ url: string }>(`/school/students/${studentId}/avatar`, formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
         });
         return res.data;
     },
@@ -419,6 +445,44 @@ export const schoolAdminService = {
         await api.delete(`/school/combinations/${id}`);
     },
 
+    // ==================== Room Management ====================
+    listRooms: async (page = 0, size = 50): Promise<{ content: RoomDto[]; totalElements: number }> => {
+        const res = await api.get<{ content: RoomDto[]; totalElements: number }>("/school/rooms", { params: { page, size } });
+        return res.data;
+    },
+
+    listActiveRooms: async (): Promise<RoomDto[]> => {
+        const res = await api.get<RoomDto[]>("/school/rooms/active");
+        return res.data;
+    },
+
+    createRoom: async (req: CreateRoomRequest): Promise<RoomDto> => {
+        const res = await api.post<RoomDto>("/school/rooms", req);
+        return res.data;
+    },
+
+    updateReportSetting(id: string, req: object): Promise<void> {
+        return api.put(`/api/school/report-settings/${id}`, req);
+    },
+
+    deleteReportSetting(id: string): Promise<void> {
+        return api.delete(`/api/school/report-settings/${id}`);
+    },
+
+    updateRoom: async (id: string, req: CreateRoomRequest): Promise<RoomDto> => {
+        const res = await api.put<RoomDto>(`/school/rooms/${id}`, req);
+        return res.data;
+    },
+
+    deleteRoom: async (id: string): Promise<void> => {
+        await api.delete(`/school/rooms/${id}`);
+    },
+
+    updateRoomStatus: async (id: string, status: string): Promise<RoomDto> => {
+        const res = await api.patch<RoomDto>(`/school/rooms/${id}/status`, null, { params: { status } });
+        return res.data;
+    },
+
     // Teacher Assignments
     initializeAssignments: async (): Promise<void> => {
         await api.post("/school/assignments/init");
@@ -483,7 +547,7 @@ export type SubjectDto = {
     id: string;
     name: string;
     code: string | null;
-    type: 'COMPULSORY' | 'ELECTIVE' | 'SPECIALIZED';
+    type: 'COMPULSORY' | 'ELECTIVE' | 'SPECIALIZED' | 'ACTIVITY';
     stream: 'TU_NHIEN' | 'XA_HOI' | null;
     totalLessons: number | null;
     active: boolean;

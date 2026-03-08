@@ -14,77 +14,85 @@ import java.util.UUID;
 @Builder
 @Entity
 @Table(name = "grades", indexes = {
-        @Index(name = "idx_grade_student", columnList = "student_id"),
-        @Index(name = "idx_grade_subject", columnList = "subject_id"),
-        @Index(name = "idx_grade_class", columnList = "class_id")
+                @Index(name = "idx_grade_student", columnList = "student_id"),
+                @Index(name = "idx_grade_subject", columnList = "subject_id"),
+                @Index(name = "idx_grade_class", columnList = "class_id")
 }, uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "student_id", "subject_id", "class_id", "semester" })
+                @UniqueConstraint(columnNames = { "student_id", "subject_id", "class_id", "semester" })
 })
 public class Grade {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+        @Id
+        @GeneratedValue(strategy = GenerationType.UUID)
+        private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "student_id", nullable = false)
-    private Student student;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "student_id", nullable = false)
+        private Student student;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "subject_id", nullable = false)
-    private Subject subject;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "subject_id", nullable = false)
+        private Subject subject;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "class_id", nullable = false)
-    private ClassRoom classRoom;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "class_id", nullable = false)
+        private ClassRoom classRoom;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "teacher_id", nullable = false)
-    private Teacher teacher;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "teacher_id", nullable = false)
+        private Teacher teacher;
 
-    @Column(name = "academic_year", nullable = false)
-    private String academicYear;
+        @Column(name = "academic_year", nullable = false)
+        private String academicYear;
 
-    @Column(nullable = false)
-    private int semester;
+        @Column(nullable = false)
+        private int semester;
 
-    // Scores
-    @Column(name = "oral_score", precision = 4, scale = 2)
-    private BigDecimal oralScore;
+        // Dynamic regular assessment scores (replaces fixed oralScore, test15min,
+        // test45min)
+        @OneToMany(mappedBy = "grade", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+        @OrderBy("scoreIndex ASC")
+        @Builder.Default
+        private java.util.List<RegularScore> regularScores = new java.util.ArrayList<>();
 
-    @Column(name = "test_15min_score", precision = 4, scale = 2)
-    private BigDecimal test15minScore;
+        // Legacy fixed score columns (kept for backward compatibility)
+        // Scores
+        @Column(name = "oral_score", precision = 4, scale = 2)
+        private BigDecimal oralScore;
 
-    @Column(name = "test_45min_score", precision = 4, scale = 2)
-    private BigDecimal test45minScore;
+        @Column(name = "test_15min_score", precision = 4, scale = 2)
+        private BigDecimal test15minScore;
 
-    @Column(name = "midterm_score", precision = 4, scale = 2)
-    private BigDecimal midtermScore;
+        @Column(name = "test_45min_score", precision = 4, scale = 2)
+        private BigDecimal test45minScore;
 
-    @Column(name = "final_score", precision = 4, scale = 2)
-    private BigDecimal finalScore;
+        @Column(name = "midterm_score", precision = 4, scale = 2)
+        private BigDecimal midtermScore;
 
-    // Calculated
-    @Column(name = "average_score", precision = 4, scale = 2)
-    private BigDecimal averageScore;
+        @Column(name = "final_score", precision = 4, scale = 2)
+        private BigDecimal finalScore;
 
-    @Column(name = "performance_category", length = 20)
-    private String performanceCategory;
+        // Calculated
+        @Column(name = "average_score", precision = 4, scale = 2)
+        private BigDecimal averageScore;
 
-    @Column(columnDefinition = "TEXT")
-    private String notes;
+        @Column(name = "performance_category", length = 20)
+        private String performanceCategory;
 
-    @Column(name = "recorded_at")
-    @Builder.Default
-    private Instant recordedAt = Instant.now();
+        @Column(columnDefinition = "TEXT")
+        private String notes;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "recorded_by")
-    private User recordedBy;
+        @Column(name = "recorded_at")
+        @Builder.Default
+        private Instant recordedAt = Instant.now();
 
-    @Column(name = "updated_at")
-    private Instant updatedAt;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "recorded_by")
+        private User recordedBy;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "updated_by")
-    private User updatedBy;
+        @Column(name = "updated_at")
+        private Instant updatedAt;
+
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "updated_by")
+        private User updatedBy;
 }

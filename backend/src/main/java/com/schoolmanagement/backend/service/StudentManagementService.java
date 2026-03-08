@@ -1,9 +1,26 @@
 package com.schoolmanagement.backend.service;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.schoolmanagement.backend.domain.ClassRoomStatus;
 import com.schoolmanagement.backend.domain.StudentStatus;
-import com.schoolmanagement.backend.domain.entity.*;
+import com.schoolmanagement.backend.domain.entity.ClassEnrollment;
+import com.schoolmanagement.backend.domain.entity.ClassRoom;
+import com.schoolmanagement.backend.domain.entity.Guardian;
+import com.schoolmanagement.backend.domain.entity.School;
+import com.schoolmanagement.backend.domain.entity.Student;
+import com.schoolmanagement.backend.domain.entity.User;
 import com.schoolmanagement.backend.dto.BulkPromoteResponse;
+import com.schoolmanagement.backend.dto.BulkAccountCreationResponse;
 import com.schoolmanagement.backend.dto.StudentDto;
 import com.schoolmanagement.backend.dto.StudentGuardianDto;
 import com.schoolmanagement.backend.dto.StudentProfileDto;
@@ -36,6 +53,9 @@ public class StudentManagementService {
     private final ClassEnrollmentRepository enrollments;
     private final StudentAccountService studentAccountService;
     private final com.schoolmanagement.backend.repo.UserRepository users;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private FileStorageService fileStorageService;
 
     @org.springframework.beans.factory.annotation.Autowired
     private BulkDeleteHelperService bulkDeleteHelper;
@@ -129,21 +149,27 @@ public class StudentManagementService {
                     List<Guardian> existing = guardians.findByEmailIgnoreCase(cleanEmail);
                     if (!existing.isEmpty()) {
                         guardian = existing.get(0);
+                        // Update relationship if provided
+                        if (g.relationship() != null && !g.relationship().isBlank()) {
+                            guardian.setRelationship(g.relationship().trim());
+                        }
                     } else {
 
                         guardian = Guardian.builder()
                                 .fullName(g.fullName().trim())
                                 .phone(g.phone() != null ? g.phone().trim() : null)
                                 .email(cleanEmail)
+                                .relationship(g.relationship() != null ? g.relationship().trim() : null)
                                 .build();
                         guardian = guardians.save(guardian);
                     }
                 } else {
                     // No email -> Force create with NULL email
                     guardian = Guardian.builder()
-                            .fullName(g.fullName() != null ? g.fullName().trim() : "Phụ huynh") // Fallback name
+                            .fullName(g.fullName() != null ? g.fullName().trim() : "Người giám hộ")
                             .phone(g.phone() != null ? g.phone().trim() : null)
                             .email(null)
+                            .relationship(g.relationship() != null ? g.relationship().trim() : null)
                             .build();
                     guardian = guardians.save(guardian);
                 }
@@ -183,14 +209,14 @@ public class StudentManagementService {
                     .enrolledAt(Instant.now())
                     .build();
             enrollments.save(enrollment);
-        } else if (req.department() != null && req.grade() != null) {
-            // Auto-assign to class based on department
+        } else if (req.combinationId() != null && req.grade() != null) {
+            // Auto-assign to class based on combination
             String academicYear = req.academicYear() != null ? req.academicYear()
                     : classRooms.findFirstBySchoolOrderByAcademicYearDesc(school)
                             .map(ClassRoom::getAcademicYear).orElse("");
 
             if (!academicYear.isBlank()) {
-                autoAssignStudentToClass(school, student, req.department(), academicYear, req.grade());
+                autoAssignStudentToClass(school, student, req.combinationId(), academicYear, req.grade());
             }
         }
 
@@ -227,6 +253,50 @@ public class StudentManagementService {
         }
 
         return toStudentDto(student);
+    }
+
+    @Transactional(readOnly = true)
+    public Student getSingleStudent(UUID studentId) {
+        Student student = students.findById(studentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+
+        return student;
+    }
+
+    // Find student with Guardian ID
+    @Transactional(readOnly = true)
+    public StudentDto getStudentWithGuardian(String guardianEmail) {
+        List<Guardian> guardianList = guardians.findByEmailIgnoreCase(guardianEmail);
+        if (guardianList.isEmpty()) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy phụ huynh");
+        }
+        Guardian guardian = guardianList.get(0);
+        if (guardian.getStudents() == null || guardian.getStudents().isEmpty()) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "Phụ huynh chưa có học sinh nào");
+        }
+        // For backwards compatibility with the portal, returning the first student
+        return toStudentDto(guardian.getStudents().iterator().next());
+    }
+
+    @Transactional
+    public String uploadAvatar(School school, UUID studentId, org.springframework.web.multipart.MultipartFile file) {
+        Student student = students.findById(studentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+
+        if (!student.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Học sinh không thuộc trường này");
+        }
+
+        try {
+            // "avatars" is the folder name in Cloudinary
+            String url = fileStorageService.uploadFile(file, "avatars");
+            student.setAvatarUrl(url);
+            students.save(student);
+            return url;
+        } catch (java.io.IOException e) {
+            log.error("Error uploading avatar for student {}", studentId, e);
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi khi upload ảnh đại diện: " + e.getMessage());
+        }
     }
 
     // @Transactional - REMOVED to allow partial success (each delete is its own
@@ -373,22 +443,25 @@ public class StudentManagementService {
                         guardian.setFullName(g.fullName().trim());
                         if (g.phone() != null)
                             guardian.setPhone(g.phone().trim());
+                        if (g.relationship() != null && !g.relationship().isBlank())
+                            guardian.setRelationship(g.relationship().trim());
                         guardian = guardians.save(guardian);
                     } else {
                         guardian = Guardian.builder()
                                 .fullName(g.fullName().trim())
                                 .phone(g.phone() != null ? g.phone().trim() : null)
                                 .email(cleanEmail)
+                                .relationship(g.relationship() != null ? g.relationship().trim() : null)
                                 .build();
                         guardian = guardians.save(guardian);
                     }
                 } else {
-
                     // No email -> Force create with NULL email
                     guardian = Guardian.builder()
-                            .fullName(g.fullName() != null ? g.fullName().trim() : "Phụ huynh") // Fallback name
+                            .fullName(g.fullName() != null ? g.fullName().trim() : "Người giám hộ")
                             .phone(g.phone() != null ? g.phone().trim() : null)
                             .email(null)
+                            .relationship(g.relationship() != null ? g.relationship().trim() : null)
                             .build();
                     guardian = guardians.save(guardian);
                 }
@@ -490,8 +563,7 @@ public class StudentManagementService {
                     student.getGuardian().getFullName(),
                     student.getGuardian().getPhone(),
                     student.getGuardian().getEmail(),
-                    "Phụ huynh" // Default relationship
-            );
+                    student.getGuardian().getRelationship());
         }
 
         // Get current class enrollment
@@ -526,7 +598,7 @@ public class StudentManagementService {
     }
 
     private void autoAssignStudentToClass(School school, Student student,
-            com.schoolmanagement.backend.domain.ClassDepartment department, String academicYear, int grade) {
+            UUID combinationId, String academicYear, int grade) {
         // Find all active classes for the grade
         List<ClassRoom> classes = classRooms.findAllBySchoolAndGradeAndAcademicYearAndStatus(
                 school, grade, academicYear, ClassRoomStatus.ACTIVE);
@@ -540,9 +612,9 @@ public class StudentManagementService {
             counts.put(c.getId(), enrollments.countByClassRoom(c));
         }
 
-        // Filter by connection to department/stream
+        // Filter by connection to combination
         List<ClassRoom> candidates = classes.stream()
-                .filter(c -> matchesDepartment(c, department))
+                .filter(c -> c.getCombination() != null && c.getCombination().getId().equals(combinationId))
                 .sorted(java.util.Comparator.comparingLong(c -> counts.get(c.getId())))
                 .toList();
 
@@ -568,28 +640,6 @@ public class StudentManagementService {
         }
     }
 
-    private boolean matchesDepartment(ClassRoom classRoom,
-            com.schoolmanagement.backend.domain.ClassDepartment studentDept) {
-        if (studentDept == null || studentDept == com.schoolmanagement.backend.domain.ClassDepartment.KHONG_PHAN_BAN) {
-            return true;
-        }
-
-        // Check combination stream first
-        if (classRoom.getCombination() != null && classRoom.getCombination().getStream() != null) {
-            String streamName = classRoom.getCombination().getStream().name();
-            if (streamName.equals(studentDept.name())) {
-                return true;
-            }
-        }
-
-        // Check class department as fallback
-        if (classRoom.getDepartment() == studentDept) {
-            return true;
-        }
-
-        return false;
-    }
-
     // ==================== STUDENT PROFILE ====================
 
     /**
@@ -608,8 +658,7 @@ public class StudentManagementService {
                     student.getGuardian().getFullName(),
                     student.getGuardian().getPhone(),
                     student.getGuardian().getEmail(),
-                    "Phụ huynh" // Default relationship
-            );
+                    student.getGuardian().getRelationship());
         }
 
         // Get enrollment history
@@ -797,4 +846,5 @@ public class StudentManagementService {
 
         return new BulkPromoteResponse(promoted, skipped, errors);
     }
+
 }

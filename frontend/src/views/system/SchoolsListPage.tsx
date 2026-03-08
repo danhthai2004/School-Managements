@@ -87,8 +87,8 @@ export default function SchoolsListPage() {
     <div className="max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Danh sách trường học</h1>
-          <p className="text-slate-500 mt-1">Quản lý tất cả trường trong hệ thống</p>
+          <h1 className="text-2xl font-bold text-gray-900">Danh sách trường học</h1>
+          <p className="text-gray-500 mt-1">Quản lý tất cả trường trong hệ thống</p>
         </div>
         <button
           onClick={() => setShowCreate(!showCreate)}

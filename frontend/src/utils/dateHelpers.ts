@@ -48,11 +48,21 @@ export const parseDateDDMMYYYY = (dateStr: string): string | undefined => {
     return `${year}-${month}-${day}`;
 };
 
-/** Format an ISO date string (or null) to DD/MM/YYYY for display, returns '—' on failure. */
-export const formatDate = (dateString: string | null | undefined): string => {
-    if (!dateString) return '—';
+/** Format an ISO date string, Date object (or null) to DD/MM/YYYY for display, returns '—' on failure. */
+export const formatDate = (input: string | Date | null | undefined): string => {
+    if (!input) return '—';
     try {
-        const date = new Date(dateString);
+        let date: Date;
+        if (input instanceof Date) {
+            date = input;
+        } else {
+            // Check for yyyy-mm-dd format manually to prevent timezone shifts
+            if (typeof input === 'string' && input.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                const [year, month, day] = input.split('-');
+                return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+            }
+            date = new Date(input);
+        }
         if (isNaN(date.getTime())) return '—';
         const day = String(date.getDate()).padStart(2, '0');
         const month = String(date.getMonth() + 1).padStart(2, '0');
