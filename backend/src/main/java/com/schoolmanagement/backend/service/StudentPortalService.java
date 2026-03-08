@@ -317,7 +317,7 @@ public class StudentPortalService {
                 long presentDays = attendances.stream()
                                 .filter(a -> a.getStatus() == AttendanceStatus.PRESENT).count();
                 long absentDays = attendances.stream()
-                                .filter(a -> a.getStatus() == AttendanceStatus.ABSENT).count();
+                                .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED).count();
                 long lateDays = attendances.stream()
                                 .filter(a -> a.getStatus() == AttendanceStatus.LATE).count();
 
@@ -515,7 +515,9 @@ public class StudentPortalService {
                                 .subjectName(detail.getSubject().getName())
                                 .teacherName(detail.getTeacher() != null ? detail.getTeacher().getFullName()
                                                 : "Chưa phân công")
-                                .room(detail.getClassRoom().getRoomNumber())
+                                .room(detail.getClassRoom().getRoom() != null
+                                                ? detail.getClassRoom().getRoom().getName()
+                                                : "Chưa xếp")
                                 .build();
         }
 

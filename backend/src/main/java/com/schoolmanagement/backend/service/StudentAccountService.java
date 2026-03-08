@@ -211,7 +211,7 @@ public class StudentAccountService {
                     String studentName = students.isEmpty() ? "N/A" : students.get(0).getFullName();
                     // Relationship is no longer stored in link table. Hardcode or generic?
                     // In Many-to-One, guardian is parent.
-                    String relationship = "Phụ huynh";
+                    String relationship = g.getRelationship();
 
                     Student student = students.isEmpty() ? null : students.get(0);
                     String className = "N/A";
@@ -340,8 +340,7 @@ public class StudentAccountService {
                     student.getGuardian().getFullName(),
                     student.getGuardian().getPhone(),
                     student.getGuardian().getEmail(),
-                    "Phụ huynh" // Default relationship
-            );
+                    student.getGuardian().getRelationship());
         }
 
         // Get current class enrollment

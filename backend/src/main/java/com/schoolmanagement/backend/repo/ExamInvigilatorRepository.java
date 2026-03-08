@@ -38,4 +38,23 @@ public interface ExamInvigilatorRepository extends JpaRepository<ExamInvigilator
                         @Param("examDate") LocalDate examDate,
                         @Param("startTime") LocalTime startTime,
                         @Param("endTime") LocalTime endTime);
+
+        @Query("SELECT ei FROM ExamInvigilator ei " +
+                        "JOIN ei.examRoom er " +
+                        "JOIN er.examSchedule es " +
+                        "WHERE ei.teacher.id = :teacherId " +
+                        "ORDER BY es.examDate ASC, es.startTime ASC")
+        List<ExamInvigilator> findByTeacherOrderByExamDate(@Param("teacherId") UUID teacherId);
+
+        @Query("SELECT ei FROM ExamInvigilator ei " +
+                        "JOIN ei.examRoom er " +
+                        "JOIN er.examSchedule es " +
+                        "WHERE ei.teacher.id = :teacherId " +
+                        "AND es.academicYear = :academicYear " +
+                        "AND es.semester = :semester " +
+                        "ORDER BY es.examDate ASC, es.startTime ASC")
+        List<ExamInvigilator> findByTeacherAndAcademicYearAndSemesterOrderByExamDate(
+                        @Param("teacherId") UUID teacherId,
+                        @Param("academicYear") String academicYear,
+                        @Param("semester") int semester);
 }

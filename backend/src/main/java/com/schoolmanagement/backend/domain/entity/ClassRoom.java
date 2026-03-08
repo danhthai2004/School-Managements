@@ -35,8 +35,9 @@ public class ClassRoom {
     @Column(nullable = false)
     private int maxCapacity; // Sĩ số (1-35)
 
-    @Column(name = "room_number", length = 20)
-    private String roomNumber; // Phòng học: "A201", "B102"
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "room_id")
+    private Room room; // Phòng học thực tế
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)

@@ -149,21 +149,27 @@ public class StudentManagementService {
                     List<Guardian> existing = guardians.findByEmailIgnoreCase(cleanEmail);
                     if (!existing.isEmpty()) {
                         guardian = existing.get(0);
+                        // Update relationship if provided
+                        if (g.relationship() != null && !g.relationship().isBlank()) {
+                            guardian.setRelationship(g.relationship().trim());
+                        }
                     } else {
 
                         guardian = Guardian.builder()
                                 .fullName(g.fullName().trim())
                                 .phone(g.phone() != null ? g.phone().trim() : null)
                                 .email(cleanEmail)
+                                .relationship(g.relationship() != null ? g.relationship().trim() : null)
                                 .build();
                         guardian = guardians.save(guardian);
                     }
                 } else {
                     // No email -> Force create with NULL email
                     guardian = Guardian.builder()
-                            .fullName(g.fullName() != null ? g.fullName().trim() : "Phụ huynh") // Fallback name
+                            .fullName(g.fullName() != null ? g.fullName().trim() : "Người giám hộ")
                             .phone(g.phone() != null ? g.phone().trim() : null)
                             .email(null)
+                            .relationship(g.relationship() != null ? g.relationship().trim() : null)
                             .build();
                     guardian = guardians.save(guardian);
                 }
@@ -203,14 +209,14 @@ public class StudentManagementService {
                     .enrolledAt(Instant.now())
                     .build();
             enrollments.save(enrollment);
-        } else if (req.department() != null && req.grade() != null) {
-            // Auto-assign to class based on department
+        } else if (req.combinationId() != null && req.grade() != null) {
+            // Auto-assign to class based on combination
             String academicYear = req.academicYear() != null ? req.academicYear()
                     : classRooms.findFirstBySchoolOrderByAcademicYearDesc(school)
                             .map(ClassRoom::getAcademicYear).orElse("");
 
             if (!academicYear.isBlank()) {
-                autoAssignStudentToClass(school, student, req.department(), academicYear, req.grade());
+                autoAssignStudentToClass(school, student, req.combinationId(), academicYear, req.grade());
             }
         }
 
@@ -437,22 +443,25 @@ public class StudentManagementService {
                         guardian.setFullName(g.fullName().trim());
                         if (g.phone() != null)
                             guardian.setPhone(g.phone().trim());
+                        if (g.relationship() != null && !g.relationship().isBlank())
+                            guardian.setRelationship(g.relationship().trim());
                         guardian = guardians.save(guardian);
                     } else {
                         guardian = Guardian.builder()
                                 .fullName(g.fullName().trim())
                                 .phone(g.phone() != null ? g.phone().trim() : null)
                                 .email(cleanEmail)
+                                .relationship(g.relationship() != null ? g.relationship().trim() : null)
                                 .build();
                         guardian = guardians.save(guardian);
                     }
                 } else {
-
                     // No email -> Force create with NULL email
                     guardian = Guardian.builder()
-                            .fullName(g.fullName() != null ? g.fullName().trim() : "Phụ huynh") // Fallback name
+                            .fullName(g.fullName() != null ? g.fullName().trim() : "Người giám hộ")
                             .phone(g.phone() != null ? g.phone().trim() : null)
                             .email(null)
+                            .relationship(g.relationship() != null ? g.relationship().trim() : null)
                             .build();
                     guardian = guardians.save(guardian);
                 }
@@ -554,8 +563,7 @@ public class StudentManagementService {
                     student.getGuardian().getFullName(),
                     student.getGuardian().getPhone(),
                     student.getGuardian().getEmail(),
-                    "Phụ huynh" // Default relationship
-            );
+                    student.getGuardian().getRelationship());
         }
 
         // Get current class enrollment
@@ -590,7 +598,7 @@ public class StudentManagementService {
     }
 
     private void autoAssignStudentToClass(School school, Student student,
-            com.schoolmanagement.backend.domain.ClassDepartment department, String academicYear, int grade) {
+            UUID combinationId, String academicYear, int grade) {
         // Find all active classes for the grade
         List<ClassRoom> classes = classRooms.findAllBySchoolAndGradeAndAcademicYearAndStatus(
                 school, grade, academicYear, ClassRoomStatus.ACTIVE);
@@ -604,9 +612,9 @@ public class StudentManagementService {
             counts.put(c.getId(), enrollments.countByClassRoom(c));
         }
 
-        // Filter by connection to department/stream
+        // Filter by connection to combination
         List<ClassRoom> candidates = classes.stream()
-                .filter(c -> matchesDepartment(c, department))
+                .filter(c -> c.getCombination() != null && c.getCombination().getId().equals(combinationId))
                 .sorted(java.util.Comparator.comparingLong(c -> counts.get(c.getId())))
                 .toList();
 
@@ -632,28 +640,6 @@ public class StudentManagementService {
         }
     }
 
-    private boolean matchesDepartment(ClassRoom classRoom,
-            com.schoolmanagement.backend.domain.ClassDepartment studentDept) {
-        if (studentDept == null || studentDept == com.schoolmanagement.backend.domain.ClassDepartment.KHONG_PHAN_BAN) {
-            return true;
-        }
-
-        // Check combination stream first
-        if (classRoom.getCombination() != null && classRoom.getCombination().getStream() != null) {
-            String streamName = classRoom.getCombination().getStream().name();
-            if (streamName.equals(studentDept.name())) {
-                return true;
-            }
-        }
-
-        // Check class department as fallback
-        if (classRoom.getDepartment() == studentDept) {
-            return true;
-        }
-
-        return false;
-    }
-
     // ==================== STUDENT PROFILE ====================
 
     /**
@@ -672,8 +658,7 @@ public class StudentManagementService {
                     student.getGuardian().getFullName(),
                     student.getGuardian().getPhone(),
                     student.getGuardian().getEmail(),
-                    "Phụ huynh" // Default relationship
-            );
+                    student.getGuardian().getRelationship());
         }
 
         // Get enrollment history

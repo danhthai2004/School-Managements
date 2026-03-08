@@ -72,14 +72,14 @@ public class HomeroomHandler implements ChatHandler {
 
         for (Attendance a : attendances) {
             switch (a.getStatus()) {
-                case ABSENT -> {
+                case ABSENT_UNEXCUSED -> {
                     absentToday++;
                     if (a.getStudent() != null) {
                         absentStudentNames.add(a.getStudent().getFullName());
                     }
                 }
                 case LATE -> lateToday++;
-                case EXCUSED -> excusedToday++;
+                case ABSENT_EXCUSED -> excusedToday++;
                 case PRESENT -> {
                 }
             }
@@ -90,7 +90,7 @@ public class HomeroomHandler implements ChatHandler {
         data.put("className", classRoom.getName());
         data.put("grade", classRoom.getGrade());
         data.put("academicYear", classRoom.getAcademicYear());
-        data.put("roomNumber", classRoom.getRoomNumber() != null ? classRoom.getRoomNumber() : "Chưa gán");
+        data.put("roomNumber", classRoom.getRoom() != null ? classRoom.getRoom().getName() : "Chưa gán");
         data.put("totalStudents", totalStudents);
         data.put("date", today.toString());
         data.put("absentToday", absentToday);

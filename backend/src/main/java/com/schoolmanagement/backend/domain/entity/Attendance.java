@@ -7,6 +7,7 @@ import lombok.*;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.UUID;
 
 /**
@@ -49,11 +50,27 @@ public class Attendance {
     private String note;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "school_id", nullable = false)
+    @JoinColumn(name = "school_id")
     private School school;
 
     @Column(name = "recorded_by")
     private UUID recordedBy;
+
+    // --- Fields added for Teacher Portal (fuuko branch) ---
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subject_id")
+    private Subject subject;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "teacher_id")
+    private Teacher teacher;
+
+    @Column(name = "slot_index")
+    private Integer slotIndex;
+
+    @Column(columnDefinition = "TEXT")
+    private String remarks;
 
     @Column(name = "created_at", nullable = false)
     @Builder.Default
@@ -65,5 +82,19 @@ public class Attendance {
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = Instant.now();
+    }
+
+    /**
+     * Alias getter so fuuko-branch service code calling getDate() works
+     * without renaming the column.
+     */
+    @Transient
+    @JsonIgnore
+    public LocalDate getDate() {
+        return this.attendanceDate;
+    }
+
+    public void setDate(LocalDate date) {
+        this.attendanceDate = date;
     }
 }

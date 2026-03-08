@@ -52,6 +52,19 @@ import StudentAnalysisPage from "../views/Student/StudentAnalysisPage";
 import GuardianStudentExamSchedulePage from "../views/guardian/GuardianStudentExamSchedulePage.tsx";
 import GuardianProfile from "../views/guardian/GuardianProfile.tsx";
 
+// Teacher Portal
+import TeacherLayout from "../views/teacher/TeacherLayout";
+import TeacherDashboard from "../views/teacher/pages/TeacherDashboard";
+import SchedulePage from "../views/teacher/pages/SchedulePage";
+import AttendancePage from "../views/teacher/pages/AttendancePage";
+import GradesPage from "../views/teacher/pages/GradesPage";
+import ClassMapPage from "../views/teacher/pages/ClassMapPage";
+import TeacherReportsPage from "../views/teacher/pages/ReportsPage";
+import TeacherNotificationsPage from "../views/teacher/pages/NotificationsPage";
+import StudentListPage from "../views/teacher/pages/StudentListPage";
+import SettingsPage from "../views/teacher/pages/SettingsPage";
+import TeacherExamSchedulePage from "../views/teacher/pages/TeacherExamSchedulePage";
+
 
 export default function AppRouter() {
   return (
@@ -142,6 +155,25 @@ export default function AppRouter() {
         <Route path="scores" element={<StudentScoresPage />} />
         <Route path="attendance" element={<StudentAttendancePage />} />
         <Route path="analysis" element={<StudentAnalysisPage />} />
+      </Route>
+
+      {/* Teacher Portal Routes */}
+      <Route path="/teacher" element={
+        <ProtectedRoute requiredRole="TEACHER">
+          <TeacherLayout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<TeacherDashboard />} />
+        <Route path="schedule" element={<SchedulePage />} />
+        <Route path="attendance" element={<AttendancePage />} />
+        <Route path="grades" element={<GradesPage />} />
+        <Route path="class-map" element={<ClassMapPage />} />
+        <Route path="reports" element={<TeacherReportsPage />} />
+        <Route path="notifications" element={<TeacherNotificationsPage />} />
+        <Route path="students" element={<StudentListPage />} />
+        <Route path="settings" element={<SettingsPage />} />
+        <Route path="exam-schedule" element={<TeacherExamSchedulePage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />
