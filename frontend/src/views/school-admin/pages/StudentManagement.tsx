@@ -4,7 +4,8 @@ import {
     schoolAdminService,
     type StudentDto,
     type ClassRoomDto,
-    type ImportStudentResult
+    type ImportStudentResult,
+    type CombinationDto
 } from "../../../services/schoolAdminService";
 import { PlusIcon } from "../SchoolAdminIcons";
 import { StatusBadge } from '../../../components/common/StatusBadge';
@@ -30,6 +31,7 @@ const StudentManagement = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [students, setStudents] = useState<StudentDto[]>([]);
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
+    const [combinations, setCombinations] = useState<CombinationDto[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentAcademicYear, setCurrentAcademicYear] = useState<string>("");
@@ -115,13 +117,15 @@ const StudentManagement = () => {
     const fetchData = async (silent = false) => {
         try {
             if (!silent) setLoading(true);
-            const [studentsData, classesData, statsData] = await Promise.all([
+            const [studentsData, classesData, statsData, combinationsData] = await Promise.all([
                 schoolAdminService.listStudents(searchParams.get("classId") || undefined),
                 schoolAdminService.listClasses(),
-                schoolAdminService.getStats()
+                schoolAdminService.getStats(),
+                schoolAdminService.listCombinations()
             ]);
             setStudents(studentsData);
             setClasses(classesData);
+            setCombinations(combinationsData);
             if (statsData?.currentAcademicYear) {
                 setCurrentAcademicYear(statsData.currentAcademicYear);
             }
@@ -436,6 +440,7 @@ const StudentManagement = () => {
                     showSuccess("Thêm học sinh thành công!");
                 }}
                 classes={classes}
+                combinations={combinations}
             />
 
             <StudentDetailModal

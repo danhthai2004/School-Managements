@@ -15,7 +15,8 @@ export type ClassRoomDto = {
     grade: number;
     academicYear: string;
     maxCapacity: number;
-    roomNumber: string | null;
+    roomId: string | null;
+    roomName: string | null;
     department: string | null;
     session: 'SANG' | 'CHIEU' | null;
     status: string;
@@ -31,7 +32,7 @@ export type CreateClassRoomRequest = {
     grade: number;
     academicYear: string;
     maxCapacity: number;
-    roomNumber?: string;
+    roomId?: string;
     department?: 'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI';
     session?: 'SANG' | 'CHIEU';
     homeroomTeacherId?: string;
@@ -57,7 +58,6 @@ export type GuardianDto = {
     studentName: string;
     studentClass: string;
 };
-
 export type StudentDto = {
     id: string;
     studentCode: string;
@@ -108,7 +108,7 @@ export type CreateStudentRequest = {
     enrollmentDate?: string;
     classId?: string;
     academicYear?: string;
-    department?: 'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI';
+    combinationId?: string;
     grade?: number;
     guardian?: GuardianRequest;
 };
@@ -459,6 +459,14 @@ export const schoolAdminService = {
     createRoom: async (req: CreateRoomRequest): Promise<RoomDto> => {
         const res = await api.post<RoomDto>("/school/rooms", req);
         return res.data;
+    },
+
+    updateReportSetting(id: string, req: object): Promise<void> {
+        return api.put(`/api/school/report-settings/${id}`, req);
+    },
+
+    deleteReportSetting(id: string): Promise<void> {
+        return api.delete(`/api/school/report-settings/${id}`);
     },
 
     updateRoom: async (id: string, req: CreateRoomRequest): Promise<RoomDto> => {

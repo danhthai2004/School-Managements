@@ -31,15 +31,18 @@ public class StudentImportService {
     private final ClassRoomRepository classRooms;
     private final ClassEnrollmentRepository enrollments;
     private final com.schoolmanagement.backend.repo.UserRepository users;
+    private final com.schoolmanagement.backend.repo.CombinationRepository combinations;
 
     public StudentImportService(StudentRepository students, GuardianRepository guardians,
             ClassRoomRepository classRooms, ClassEnrollmentRepository enrollments,
-            com.schoolmanagement.backend.repo.UserRepository users) {
+            com.schoolmanagement.backend.repo.UserRepository users,
+            com.schoolmanagement.backend.repo.CombinationRepository combinations) {
         this.students = students;
         this.guardians = guardians;
         this.classRooms = classRooms;
         this.enrollments = enrollments;
         this.users = users;
+        this.combinations = combinations;
     }
 
     // ==================== EXCEL IMPORT ====================
@@ -60,8 +63,8 @@ public class StudentImportService {
         }
 
         List<ImportStudentResult.ImportError> errors = new ArrayList<>();
-        // Use a map to store student along with their department for assignment
-        Map<Student, ClassDepartment> studentDepartmentMap = new LinkedHashMap<>(); // Preserve order
+        // Use a map to store student along with their combination for assignment
+        Map<Student, Combination> studentCombinationMap = new LinkedHashMap<>(); // Preserve order
         int totalRows = 0;
         int successCount = 0;
         int failedCount = 0;
@@ -121,9 +124,9 @@ public class StudentImportService {
                     // Parse gender
                     Gender gender = parseGenderFromRow(row, columnMap, "gender", "giới tính", "gioitinh");
 
-                    // Parse department
-                    ClassDepartment department = parseDepartmentFromRow(row, columnMap, "department", "ban",
-                            "phân ban");
+                    // Parse combination
+                    Combination combination = parseCombinationFromRow(row, columnMap, school, "tổ hợp", "combination",
+                            "mã tổ hợp", "tohop");
 
                     // Other fields
                     String birthPlace = getValueFromRow(row, columnMap, "birthplace", "nơi sinh", "noisinh");
@@ -164,6 +167,8 @@ public class StudentImportService {
                             "tenphuhuynh");
                     String guardianPhone = getValueFromRow(row, columnMap, "guardianphone", "sđt phụ huynh",
                             "sdtphuhuynh");
+                    String guardianRelationship = getValueFromRow(row, columnMap, "guardianrelationship",
+                            "quan hệ", "quanhe", "mối quan hệ");
 
                     // Sanitize guardian email early for validation
                     String guardianEmail = null;
@@ -215,8 +220,10 @@ public class StudentImportService {
 
                     student = students.save(student);
 
-                    // Store student with their parsed department (can be null if not provided)
-                    studentDepartmentMap.put(student, department);
+                    // Store student with their parsed combination (can be null if not provided)
+                    if (combination != null) {
+                        studentCombinationMap.put(student, combination);
+                    }
 
                     // Process Guardian Logic (Many-to-One Refactor)
                     if (guardianName != null && !guardianName.isBlank()) {
@@ -242,6 +249,7 @@ public class StudentImportService {
                                         .fullName(guardianName.trim())
                                         .phone(guardianPhone)
                                         .email(guardianEmail)
+                                        .relationship(guardianRelationship)
                                         .build();
                                 guardian = guardians.save(guardian);
                             }
@@ -250,7 +258,8 @@ public class StudentImportService {
                             guardian = Guardian.builder()
                                     .fullName(guardianName.trim())
                                     .phone(guardianPhone)
-                                    .email(null) // Generic null
+                                    .email(null)
+                                    .relationship(guardianRelationship)
                                     .build();
                             guardian = guardians.save(guardian);
                         }
@@ -278,18 +287,18 @@ public class StudentImportService {
 
         // Auto assign students to classes if requested
         int assignedCount = 0;
-        if (autoAssign && !studentDepartmentMap.isEmpty()) {
-            assignedCount = autoAssignStudentsToClasses(school, studentDepartmentMap, academicYear, grade);
+        if (autoAssign && !studentCombinationMap.isEmpty()) {
+            assignedCount = autoAssignStudentsToClasses(school, studentCombinationMap, academicYear, grade);
         }
 
         return new ImportStudentResult(totalRows, successCount, failedCount, assignedCount, errors);
     }
 
     /**
-     * Auto-assign students to classes based on department
+     * Auto-assign students to classes based on combination
      * Uses round-robin distribution to balance class sizes
      */
-    private int autoAssignStudentsToClasses(School school, Map<Student, ClassDepartment> studentDepartmentMap,
+    private int autoAssignStudentsToClasses(School school, Map<Student, Combination> studentCombinationMap,
             String academicYear, int grade) {
         int assignedCount = 0;
 
@@ -307,13 +316,13 @@ public class StudentImportService {
             classEnrollmentCounts.put(classRoom.getId(), enrollments.countByClassRoom(classRoom));
         }
 
-        for (Map.Entry<Student, ClassDepartment> entry : studentDepartmentMap.entrySet()) {
+        for (Map.Entry<Student, Combination> entry : studentCombinationMap.entrySet()) {
             Student student = entry.getKey();
-            ClassDepartment studentDept = entry.getValue();
+            Combination studentComb = entry.getValue();
 
-            // Filter classes matching student's department
+            // Filter classes matching student's combination
             List<ClassRoom> candidateClasses = allClasses.stream()
-                    .filter(c -> matchesDepartment(c, studentDept))
+                    .filter(c -> c.getCombination() != null && c.getCombination().getId().equals(studentComb.getId()))
                     .sorted(Comparator.comparingLong(c -> classEnrollmentCounts.get(c.getId())))
                     .toList();
 
@@ -357,32 +366,7 @@ public class StudentImportService {
         return assignedCount;
     }
 
-    private boolean matchesDepartment(ClassRoom classRoom, ClassDepartment studentDept) {
-        // If student has no department or is KHONG_PHAN_BAN, they can go to any class
-        // BUT ideally we prefer KHONG_PHAN_BAN classes if any.
-        // For simplicity: if student dept is null/NONE, return true (can be assigned
-        // anywhere,
-        // sorting logic will prefer emptier classes)
-        if (studentDept == null || studentDept == ClassDepartment.KHONG_PHAN_BAN) {
-            return true;
-        }
-
-        // Check combination stream first (stronger link)
-        if (classRoom.getCombination() != null && classRoom.getCombination().getStream() != null) {
-            String streamName = classRoom.getCombination().getStream().name();
-            // Assuming StreamType names match ClassDepartment names (TU_NHIEN, XA_HOI)
-            if (streamName.equals(studentDept.name())) {
-                return true;
-            }
-        }
-
-        // Check class department as fallback
-        if (classRoom.getDepartment() == studentDept) {
-            return true;
-        }
-
-        return false;
-    }
+    // Removal of matchesDepartment
 
     // ==================== EXCEL HELPER METHODS ====================
 
@@ -494,18 +478,24 @@ public class StudentImportService {
         return null;
     }
 
-    private ClassDepartment parseDepartmentFromRow(Row row, Map<String, Integer> columnMap, String... possibleNames) {
+    private Combination parseCombinationFromRow(Row row, Map<String, Integer> columnMap, School school,
+            String... possibleNames) {
         String value = getValueFromRow(row, columnMap, possibleNames);
-        if (value == null)
-            return ClassDepartment.KHONG_PHAN_BAN;
+        if (value == null || value.isBlank())
+            return null;
 
-        value = value.toLowerCase().trim();
-        if (value.contains("tự nhiên") || value.contains("tu nhien") || value.equals("tn") || value.equals("a")) {
-            return ClassDepartment.TU_NHIEN;
-        } else if (value.contains("xã hội") || value.contains("xa hoi") || value.equals("xh") || value.equals("c")) {
-            return ClassDepartment.XA_HOI;
+        String searchVal = value.toLowerCase().trim();
+        List<Combination> allCombs = combinations.findAllBySchool(school);
+
+        for (Combination c : allCombs) {
+            String code = c.getCode() != null ? c.getCode().toLowerCase().trim() : "";
+            String name = c.getName() != null ? c.getName().toLowerCase().trim() : "";
+            if (code.equals(searchVal) || name.equals(searchVal) || name.contains(searchVal)) {
+                return c;
+            }
         }
-        return ClassDepartment.KHONG_PHAN_BAN;
+
+        return null;
     }
 
     // Copied from SchoolAdminService to be self-contained

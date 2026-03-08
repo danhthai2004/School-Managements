@@ -32,7 +32,7 @@ public record CreateStudentRequest(
                 String academicYear,
 
                 // Auto-assign params
-                com.schoolmanagement.backend.domain.ClassDepartment department,
+                UUID combinationId,
                 Integer grade,
 
                 // Guardian info

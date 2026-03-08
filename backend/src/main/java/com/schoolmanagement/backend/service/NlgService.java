@@ -4,6 +4,9 @@ import com.schoolmanagement.backend.dto.ChatContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+
 /**
  * Tầng 6 — Natural Language Generation (NLG)
  *
@@ -74,9 +77,13 @@ public class NlgService {
         try {
             String dataJson = objectMapper.writeValueAsString(context.data());
 
+            String todayStr = String.format("Hôm nay là %s, ngày %s",
+                    translateDayOfWeek(LocalDate.now().getDayOfWeek()),
+                    LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+
             String userPrompt = String.format(
-                    "CÂU HỎI CỦA NGƯỜI DÙNG: %s\n\nDỮ LIỆU:\n%s",
-                    question, dataJson);
+                    "THÔNG TIN HỆ THỐNG:\n%s\n\nCÂU HỎI CỦA NGƯỜI DÙNG: %s\n\nDỮ LIỆU:\n%s",
+                    todayStr, question, dataJson);
 
             return llmClient.generate(SYSTEM_PROMPT, userPrompt);
 
@@ -103,5 +110,17 @@ public class NlgService {
         } catch (Exception e) {
             return "Đã có dữ liệu nhưng không thể hiển thị.";
         }
+    }
+
+    private String translateDayOfWeek(java.time.DayOfWeek day) {
+        return switch (day) {
+            case MONDAY -> "Thứ Hai";
+            case TUESDAY -> "Thứ Ba";
+            case WEDNESDAY -> "Thứ Tư";
+            case THURSDAY -> "Thứ Năm";
+            case FRIDAY -> "Thứ Sáu";
+            case SATURDAY -> "Thứ Bảy";
+            case SUNDAY -> "Chủ Nhật";
+        };
     }
 }

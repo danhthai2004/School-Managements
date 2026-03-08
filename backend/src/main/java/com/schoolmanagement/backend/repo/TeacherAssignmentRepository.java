@@ -17,7 +17,7 @@ public interface TeacherAssignmentRepository extends JpaRepository<TeacherAssign
 
     List<TeacherAssignment> findAllByClassRoom(ClassRoom classRoom);
 
-    List<TeacherAssignment> findAllByTeacher(User teacher);
+    List<TeacherAssignment> findAllByTeacher(com.schoolmanagement.backend.domain.entity.Teacher teacher);
 
     Optional<TeacherAssignment> findByClassRoomAndSubject(ClassRoom classRoom,
             com.schoolmanagement.backend.domain.entity.Subject subject);

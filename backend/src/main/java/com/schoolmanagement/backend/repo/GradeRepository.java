@@ -29,6 +29,8 @@ public interface GradeRepository extends JpaRepository<Grade, UUID> {
 
         List<Grade> findAllByClassRoomAndSemester(ClassRoom classRoom, int semester);
 
+        List<Grade> findAllByClassRoomAndSubjectAndSemester(ClassRoom classRoom, Subject subject, int semester);
+
         List<Grade> findAllBySubject(Subject subject);
 
         @Query("SELECT g FROM Grade g WHERE g.classRoom.school = :school")

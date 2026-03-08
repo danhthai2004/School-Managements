@@ -76,9 +76,9 @@ public class QuickStatsHandler implements ChatHandler {
 
         for (Attendance a : attendances) {
             switch (a.getStatus()) {
-                case ABSENT -> absentToday++;
+                case ABSENT_UNEXCUSED -> absentToday++;
                 case LATE -> lateToday++;
-                case EXCUSED -> excusedToday++;
+                case ABSENT_EXCUSED -> excusedToday++;
                 case PRESENT -> presentToday++;
             }
         }

@@ -36,7 +36,7 @@ public class GuardianService {
         guardian.getFullName(),
         guardian.getEmail(),
         guardian.getPhone(),
-        "Phụ huynh",
+        guardian.getRelationship(),
         studentName,
         studentClass);
   }
