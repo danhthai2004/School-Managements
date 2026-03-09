@@ -1,5 +1,9 @@
 package com.schoolmanagement.backend.dto.student;
 
+import com.schoolmanagement.backend.dto.exam.ExamScheduleDto;
+
+import com.schoolmanagement.backend.dto.timetable.TimetableSlotDto;
+
 import lombok.Builder;
 import lombok.Data;
 import java.util.List;

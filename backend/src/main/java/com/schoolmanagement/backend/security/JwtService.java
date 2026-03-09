@@ -1,6 +1,6 @@
 package com.schoolmanagement.backend.security;
 
-import com.schoolmanagement.backend.domain.entity.User;
+import com.schoolmanagement.backend.domain.entity.auth.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
