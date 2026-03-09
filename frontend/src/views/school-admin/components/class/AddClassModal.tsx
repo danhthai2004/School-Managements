@@ -4,7 +4,8 @@ import {
     schoolAdminService,
     type UserDto,
     type CreateClassRoomRequest,
-    type CombinationDto
+    type CombinationDto,
+    type RoomDto
 } from "../../../../services/schoolAdminService";
 import { XIcon } from "../../SchoolAdminIcons";
 
@@ -14,16 +15,16 @@ interface AddClassModalProps {
     onSuccess: () => void;
     teachers: UserDto[];
     combinations: CombinationDto[];
+    rooms: RoomDto[];
     defaultAcademicYear: string;
 }
 
-function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, defaultAcademicYear }: AddClassModalProps) {
+function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, rooms, defaultAcademicYear }: AddClassModalProps) {
     const [name, setName] = useState("");
     const [grade, setGrade] = useState(10);
     const [academicYear, setAcademicYear] = useState(defaultAcademicYear);
     const [maxCapacity, setMaxCapacity] = useState(35);
-    const [roomNumber, setRoomNumber] = useState("");
-    const [department, setDepartment] = useState<'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI'>("KHONG_PHAN_BAN");
+    const [roomId, setRoomId] = useState("");
     const [combinationId, setCombinationId] = useState("");
     const [homeroomTeacherId, setHomeroomTeacherId] = useState("");
     const [loading, setLoading] = useState(false);
@@ -40,8 +41,7 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, def
                 grade,
                 academicYear: academicYear.trim(),
                 maxCapacity,
-                roomNumber: roomNumber.trim() || undefined,
-                department,
+                roomId: roomId || undefined,
                 combinationId: combinationId || undefined
             };
             if (homeroomTeacherId) {
@@ -51,8 +51,7 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, def
             setName("");
             setGrade(10);
             setMaxCapacity(35);
-            setRoomNumber("");
-            setDepartment("KHONG_PHAN_BAN");
+            setRoomId("");
             setCombinationId("");
             setHomeroomTeacherId("");
             onSuccess();
@@ -187,29 +186,19 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, def
                                     </select>
                                     <p className="text-xs text-gray-500 mt-1">Chọn tổ hợp thay cho phân ban truyền thống</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Phòng học</label>
-                                        <input
-                                            type="text"
-                                            value={roomNumber}
-                                            onChange={(e) => setRoomNumber(e.target.value)}
-                                            placeholder="VD: A201"
-                                            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Phân ban (Cũ)</label>
-                                        <select
-                                            value={department}
-                                            onChange={(e) => setDepartment(e.target.value as any)}
-                                            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm bg-white"
-                                        >
-                                            <option value="KHONG_PHAN_BAN">Không phân ban</option>
-                                            <option value="TU_NHIEN">Ban Tự nhiên</option>
-                                            <option value="XA_HOI">Ban Xã hội</option>
-                                        </select>
-                                    </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Phòng học</label>
+                                    <select
+                                        value={roomId}
+                                        onChange={(e) => setRoomId(e.target.value)}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm bg-white"
+                                    >
+                                        <option value="">-- Chọn phòng học --</option>
+                                        {rooms.filter(r => r.status === 'ACTIVE').map((r) => (
+                                            <option key={r.id} value={r.id}>{r.name} {r.building ? `(${r.building})` : ''} - {r.capacity} chỗ</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-gray-500 mt-1">Quản lý phòng học tại mục Phòng học</p>
                                 </div>
                             </div>
                         </div>

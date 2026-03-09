@@ -4,13 +4,14 @@ import { createPortal } from 'react-dom';
 import { schoolAdminService } from '../../../services/schoolAdminService';
 import type { StudentProfileDto, ClassRoomDto } from '../../../services/schoolAdminService';
 import { XIcon } from '../SchoolAdminIcons';
+import { useToast } from '../../../context/ToastContext';
 
 // Format date for display
 const formatDate = (dateStr: string | null): string => {
     if (!dateStr) return '—';
     try {
         const [year, month, day] = dateStr.split('-');
-        return `${day}/${month}/${year}`;
+        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
     } catch {
         return dateStr;
     }
@@ -20,7 +21,10 @@ const formatDate = (dateStr: string | null): string => {
 const formatInstant = (instantStr: string): string => {
     try {
         const date = new Date(instantStr);
-        return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
     } catch {
         return instantStr;
     }
@@ -151,6 +155,7 @@ const TransferModal = ({
 export default function StudentProfilePage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { toast } = useToast();
     const [profile, setProfile] = useState<StudentProfileDto | null>(null);
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
     const [loading, setLoading] = useState(true);
@@ -188,8 +193,9 @@ export default function StudentProfilePage() {
             const updatedProfile = await schoolAdminService.transferStudent(id, newClassId);
             setProfile(updatedProfile);
             setShowTransferModal(false);
+            toast.success("Chuyển lớp thành công");
         } catch (err: any) {
-            alert(err?.response?.data?.message || 'Không thể chuyển lớp');
+            toast.error(err?.response?.data?.message || 'Không thể chuyển lớp');
         }
     };
 
@@ -200,9 +206,10 @@ export default function StudentProfilePage() {
         try {
             setUploadingAvatar(true);
             const { url } = await schoolAdminService.uploadAvatar(id, file);
-            setProfile(prev => prev ? { ...prev, student: { ...prev.student, avatarUrl: url } } : prev);
+            setProfile(prev => prev ? { ...prev, avatarUrl: url } : prev);
+            toast.success("Cập nhật ảnh đại diện thành công");
         } catch (err: any) {
-            alert(err?.response?.data?.message || 'Lỗi khi tải file lên');
+            toast.error(err?.response?.data?.message || 'Lỗi khi tải file lên');
         } finally {
             setUploadingAvatar(false);
             // reset input
@@ -265,10 +272,10 @@ export default function StudentProfilePage() {
                         <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl md:text-2xl font-bold shadow-lg shadow-blue-500/20 ring-4 ring-white border border-gray-100 overflow-hidden cursor-pointer"
                             onClick={() => !uploadingAvatar && avatarInputRef.current?.click()}
                         >
-                            {profile.student.avatarUrl ? (
-                                <img src={profile.student.avatarUrl} alt={profile.student.fullName} className="w-full h-full object-cover" />
+                            {profile.avatarUrl ? (
+                                <img src={profile.avatarUrl} alt={profile.fullName} className="w-full h-full object-cover" />
                             ) : (
-                                getInitials(profile.student.fullName)
+                                getInitials(profile.fullName)
                             )}
                             {/* Hover overlay */}
                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -296,7 +303,7 @@ export default function StudentProfilePage() {
                     {/* Info */}
                     <div className="flex-1 space-y-3 min-w-0">
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-900 tracking-tight leading-tight">{profile.student.fullName}</h1>
+                            <h1 className="text-2xl font-bold text-gray-900 tracking-tight leading-tight">{profile.fullName}</h1>
                         </div>
 
                         <div className="flex items-center gap-3 text-gray-500 text-sm">
@@ -304,20 +311,20 @@ export default function StudentProfilePage() {
                                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
                                 </svg>
-                                <span className="font-medium text-gray-700">{profile.student.studentCode}</span>
+                                <span className="font-medium text-gray-700">{profile.studentCode}</span>
                             </div>
                             <span className="text-gray-300">|</span>
                             <div className="flex items-center gap-1.5">
                                 <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                                 </svg>
-                                <span className="text-blue-700 font-medium">{profile.student.currentClassName || 'Chưa xếp lớp'}</span>
+                                <span className="text-blue-700 font-medium">{profile.currentClassName || 'Chưa xếp lớp'}</span>
                             </div>
                         </div>
 
                         {/* Status Badge - Moved below Student Code per request */}
                         <div className="pt-1">
-                            <StatusBadge status={profile.student.status} />
+                            <StatusBadge status={profile.status} />
                         </div>
                     </div>
 
@@ -352,37 +359,37 @@ export default function StudentProfilePage() {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3 border border-slate-200/60">
                                 <p className="text-xs text-gray-500 mb-1">Ngày sinh</p>
-                                <p className="font-medium text-gray-800">{formatDate(profile.student.dateOfBirth)}</p>
+                                <p className="font-medium text-gray-800">{formatDate(profile.dateOfBirth)}</p>
                             </div>
                             <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3 border border-slate-200/60">
                                 <p className="text-xs text-gray-500 mb-1">Giới tính</p>
                                 <p className="font-medium text-gray-800">
-                                    {profile.student.gender === 'MALE' ? 'Nam' : profile.student.gender === 'FEMALE' ? 'Nữ' : 'Khác'}
+                                    {profile.gender === 'MALE' ? 'Nam' : profile.gender === 'FEMALE' ? 'Nữ' : 'Khác'}
                                 </p>
                             </div>
                             <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3 border border-slate-200/60">
                                 <p className="text-xs text-gray-500 mb-1">Nơi sinh</p>
-                                <p className="font-medium text-gray-800">{profile.student.birthPlace || '—'}</p>
+                                <p className="font-medium text-gray-800">{profile.birthPlace || '—'}</p>
                             </div>
                             <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3 border border-slate-200/60">
                                 <p className="text-xs text-gray-500 mb-1">Ngày nhập học</p>
-                                <p className="font-medium text-gray-800">{formatDate(profile.student.enrollmentDate)}</p>
+                                <p className="font-medium text-gray-800">{formatDate(profile.enrollmentDate)}</p>
                             </div>
                             <div className="col-span-2 bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3 border border-slate-200/60">
                                 <p className="text-xs text-gray-500 mb-1">Địa chỉ</p>
-                                <p className="font-medium text-gray-800">{profile.student.address || '—'}</p>
+                                <p className="font-medium text-gray-800">{profile.address || '—'}</p>
                             </div>
                             <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3 border border-slate-200/60">
                                 <p className="text-xs text-gray-500 mb-1">Email</p>
-                                <p className="font-medium text-gray-800">{profile.student.email || '—'}</p>
+                                <p className="font-medium text-gray-800">{profile.email || '—'}</p>
                             </div>
                             <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3 border border-slate-200/60">
                                 <p className="text-xs text-gray-500 mb-1">Điện thoại</p>
-                                <p className="font-medium text-gray-800">{profile.student.phone || '—'}</p>
+                                <p className="font-medium text-gray-800">{profile.phone || '—'}</p>
                             </div>
                             <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3 border border-slate-200/60">
                                 <p className="text-xs text-gray-500 mb-1">Lớp hiện tại</p>
-                                <p className="font-medium text-blue-600">{profile.student.currentClassName || '—'}</p>
+                                <p className="font-medium text-blue-600">{profile.currentClassName || '—'}</p>
                             </div>
                         </div>
                     </div>
@@ -401,16 +408,14 @@ export default function StudentProfilePage() {
                             <h2 className="text-lg font-semibold text-gray-900">Phụ huynh</h2>
                         </div>
                         <div className="p-6">
-                            {profile.student.guardians && profile.student.guardians.length > 0 ? (
+                            {profile.guardian ? (
                                 <div className="space-y-3">
-                                    {profile.student.guardians.map((guardian, idx) => (
-                                        <div key={guardian.id || idx} className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-4 border border-slate-200/60">
-                                            <p className="font-semibold text-gray-900">{guardian.fullName}</p>
-                                            {guardian.relationship && <p className="text-xs text-blue-600 font-medium">{guardian.relationship}</p>}
-                                            {guardian.phone && <p className="text-sm text-gray-600 mt-1">📞 {guardian.phone}</p>}
-                                            {guardian.email && <p className="text-sm text-gray-600">✉️ {guardian.email}</p>}
-                                        </div>
-                                    ))}
+                                    <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-4 border border-slate-200/60">
+                                        <p className="font-semibold text-gray-900">{profile.guardian.fullName}</p>
+                                        {profile.guardian.relationship && <p className="text-xs text-blue-600 font-medium">{profile.guardian.relationship}</p>}
+                                        {profile.guardian.phone && <p className="text-sm text-gray-600 mt-1">📞 {profile.guardian.phone}</p>}
+                                        {profile.guardian.email && <p className="text-sm text-gray-600">✉️ {profile.guardian.email}</p>}
+                                    </div>
                                 </div>
                             ) : (
                                 <p className="text-gray-500 text-sm">Chưa có thông tin phụ huynh</p>
@@ -440,7 +445,7 @@ export default function StudentProfilePage() {
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
                                         {profile.enrollmentHistory.map((e, idx) => (
-                                            <tr key={e.id || idx} className="hover:bg-blue-50 transition-colors">
+                                            <tr key={e.enrollmentId || idx} className="hover:bg-blue-50 transition-colors">
                                                 <td className="py-4 px-6 font-medium text-gray-900">{e.academicYear}</td>
                                                 <td className="py-4 px-6 text-blue-600 font-medium">{e.className}</td>
                                                 <td className="py-4 px-6 text-gray-600">{formatInstant(e.enrolledAt)}</td>
@@ -492,9 +497,9 @@ export default function StudentProfilePage() {
             {/* Transfer Modal */}
             <TransferModal
                 isOpen={showTransferModal}
-                studentName={profile.student.fullName}
+                studentName={profile.fullName}
                 classes={classes}
-                currentClassId={profile.student.currentClassId}
+                currentClassId={profile.currentClassId}
                 onClose={() => setShowTransferModal(false)}
                 onTransfer={handleTransfer}
             />

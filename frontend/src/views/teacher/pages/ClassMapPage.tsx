@@ -11,8 +11,8 @@ export default function ClassMapPage() {
     return (
         <div className="animate-fade-in-up">
             <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 mb-1">Sơ đồ lớp</h1>
-                <p className="text-gray-500">
+                <h1 className="text-2xl font-bold text-gray-900">Sơ đồ lớp</h1>
+                <p className="text-gray-500 mt-1">
                     {teacherProfile?.isHomeroomTeacher 
                         ? "Quản lý sơ đồ chỗ ngồi học sinh trong lớp chủ nhiệm"
                         : "Xem sơ đồ chỗ ngồi các lớp bạn dạy"

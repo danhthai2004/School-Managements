@@ -1,494 +1,357 @@
-import React, { useEffect, useState, useMemo } from "react";
-import { toast } from "react-hot-toast";
-import { Plus, Trash2, Star, Search, Users, BookOpen, Link2, UserCheck } from "lucide-react";
-import { schoolAdminService } from "../../../services/schoolAdminService";
-import type { TeacherDto, SubjectDto } from "../../../services/schoolAdminService";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { schoolAdminService, type ClassRoomDto } from "../../../services/schoolAdminService";
 import type { TeacherAssignmentDto } from "../../../services/dtos/TeacherAssignmentDto";
-import LoadingSpinner from "../../../components/LoadingSpinner";
+import { RefreshCw, CheckCircle, AlertCircle, UserPlus, X, Filter as FilterIcon } from "lucide-react";
+import { useToast } from "../../../context/ToastContext";
+import { useConfirmation } from "../../../hooks/useConfirmation";
 
-type ViewMode = "bySubject" | "byTeacher";
+export default function TeacherAssignment() {
+    const { showSuccess, toast } = useToast();
+    const { confirm, ConfirmationDialog } = useConfirmation();
 
-const TeacherAssignment: React.FC = () => {
-  const [assignments, setAssignments] = useState<TeacherAssignmentDto[]>([]);
-  const [teachers, setTeachers] = useState<TeacherDto[]>([]);
-  const [subjects, setSubjects] = useState<SubjectDto[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+    const [classes, setClasses] = useState<ClassRoomDto[]>([]);
+    const [selectedClassId, setSelectedClassId] = useState<string>("");
+    const [gradeFilter, setGradeFilter] = useState<string>("ALL");
+    const [assignments, setAssignments] = useState<TeacherAssignmentDto[]>([]);
+    const [teachers, setTeachers] = useState<any[]>([]); // UserDto or TeacherDto
+    const [loading, setLoading] = useState(false);
 
-  // Form state
-  const [selectedTeacherId, setSelectedTeacherId] = useState("");
-  const [selectedSubjectId, setSelectedSubjectId] = useState("");
 
-  // UI state
-  const [viewMode, setViewMode] = useState<ViewMode>("bySubject");
-  const [searchQuery, setSearchQuery] = useState("");
+    // Modal State
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [currentAssignment, setCurrentAssignment] = useState<TeacherAssignmentDto | null>(null);
+    const [selectedTeacherId, setSelectedTeacherId] = useState<string>("");
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+    useEffect(() => {
+        fetchClasses();
+        fetchTeachers();
+    }, []);
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [assignmentsData, teachersData, subjectsData] = await Promise.all([
-        schoolAdminService.listAssignments(),
-        schoolAdminService.listTeacherProfiles(),
-        schoolAdminService.listSubjects(),
-      ]);
-      setAssignments(assignmentsData);
-      setTeachers(teachersData);
-      setSubjects(subjectsData);
-    } catch (error) {
-      toast.error("Không thể tải dữ liệu");
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    useEffect(() => {
+        if (selectedClassId) {
+            fetchAssignments(selectedClassId);
+        } else {
+            setAssignments([]);
+        }
+    }, [selectedClassId]);
 
-  const refreshAssignments = async () => {
-    try {
-      const data = await schoolAdminService.listAssignments();
-      setAssignments(data);
-    } catch (_) {
-      // silent refresh
-    }
-  };
-
-  const handleError = (error: unknown, fallbackMessage: string) => {
-    const message = (error as any)?.response?.data?.message || fallbackMessage;
-    toast.error(message);
-    console.error(error);
-  };
-
-  const handleAddAssignment = async () => {
-    if (!selectedTeacherId || !selectedSubjectId) {
-      toast.error("Vui lòng chọn cả giáo viên và môn học");
-      return;
-    }
-    const exists = assignments.some(
-      (a) => a.teacherId === selectedTeacherId && a.subjectId === selectedSubjectId
-    );
-    if (exists) {
-      toast.error("Giáo viên đã được phân công dạy môn này");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const newAssignment = await schoolAdminService.addAssignment(
-        selectedTeacherId,
-        selectedSubjectId
-      );
-      setAssignments([...assignments, newAssignment]);
-      toast.success("Thêm phân công thành công");
-      setSelectedTeacherId("");
-    } catch (error) {
-      const status = (error as any)?.response?.status;
-      if (status === 409) {
-        toast.error("Giáo viên đã được phân công dạy môn này");
-        // Refresh to sync client state with server
-        await refreshAssignments();
-      } else {
-        handleError(error, "Không thể thêm phân công");
-      }
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleRemoveAssignment = async (id: string, teacherName: string) => {
-    if (!window.confirm(`Xóa phân công của ${teacherName}?`)) return;
-    try {
-      await schoolAdminService.removeAssignment(id);
-      setAssignments(assignments.filter((a) => a.id !== id));
-      toast.success("Đã xóa phân công");
-    } catch (error) {
-      handleError(error, "Không thể xóa phân công");
-    }
-  };
-
-  const handleToggleHead = async (assignment: TeacherAssignmentDto) => {
-    try {
-      const updatedList = await schoolAdminService.setHeadOfDepartment(
-        assignment.id,
-        !assignment.isHeadOfDepartment
-      );
-      // Merge: replace all returned assignments in our state
-      setAssignments((prev) => {
-        const updatedIds = new Set(updatedList.map((u) => u.id));
-        return prev.map((a) => {
-          if (updatedIds.has(a.id)) {
-            return updatedList.find((u) => u.id === a.id)!;
-          }
-          return a;
-        });
-      });
-      const toggled = updatedList.find((u) => u.id === assignment.id);
-      toast.success(
-        toggled?.isHeadOfDepartment
-          ? "Đã đặt làm Tổ trưởng chuyên môn"
-          : "Đã gỡ chức Tổ trưởng chuyên môn"
-      );
-    } catch (error) {
-      handleError(error, "Không thể cập nhật trạng thái Tổ trưởng");
-    }
-  };
-
-  // ==================== COMPUTED DATA ====================
-
-  const stats = useMemo(() => {
-    const uniqueTeachers = new Set(assignments.map((a) => a.teacherId));
-    const uniqueSubjects = new Set(assignments.map((a) => a.subjectId));
-    return {
-      totalAssignments: assignments.length,
-      assignedTeachers: uniqueTeachers.size,
-      assignedSubjects: uniqueSubjects.size,
+    const fetchClasses = async () => {
+        try {
+            const data = await schoolAdminService.listClasses();
+            setClasses(data);
+            if (data.length > 0) {
+                setSelectedClassId(data[0].id);
+            }
+        } catch (error) {
+            console.error(error);
+            console.error("Không thể tải danh sách lớp", error);
+        }
     };
-  }, [assignments]);
 
-  const filteredAssignments = useMemo(() => {
-    if (!searchQuery.trim()) return assignments;
-    const q = searchQuery.toLowerCase();
-    return assignments.filter(
-      (a) =>
-        (a.teacherName || "").toLowerCase().includes(q) ||
-        (a.subjectName || "").toLowerCase().includes(q)
-    );
-  }, [assignments, searchQuery]);
+    const fetchTeachers = async () => {
+        try {
+            // Need a list of ALL teachers to assign, with profile details (subjectId)
+            const data = await schoolAdminService.listTeacherProfiles();
+            setTeachers(data);
+        } catch (error) {
+            console.error(error);
+        }
+    };
 
-  // Group by subject
-  const assignmentsBySubject = useMemo(() => {
-    return subjects
-      .map((subject) => ({
-        subject,
-        assignments: filteredAssignments.filter((a) => a.subjectId === subject.id),
-      }))
-      .filter((group) => !searchQuery.trim() || group.assignments.length > 0);
-  }, [subjects, filteredAssignments, searchQuery]);
+    const fetchAssignments = async (classId: string) => {
+        setLoading(true);
+        try {
+            const data = await schoolAdminService.listAssignments(classId);
+            setAssignments(data);
 
-  // Group by teacher
-  const assignmentsByTeacher = useMemo(() => {
-    const map = new Map<string, { teacher: TeacherDto; assignments: TeacherAssignmentDto[] }>();
-    for (const t of teachers) {
-      const teacherAssigns = filteredAssignments.filter((a) => a.teacherId === t.id);
-      if (!searchQuery.trim() || teacherAssigns.length > 0) {
-        map.set(t.id, { teacher: t, assignments: teacherAssigns });
-      }
-    }
-    return Array.from(map.values());
-  }, [teachers, filteredAssignments, searchQuery]);
+            // If explicit init required
+            if (data.length === 0) {
+                // Auto init? Or show button?
+            }
+        } catch (error) {
+            console.error(error);
+            console.error("Không thể tải phân công chuyên môn", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  // Unassigned teachers (no assignment at all)
-  const unassignedTeachers = useMemo(() => {
-    const assignedIds = new Set(assignments.map((a) => a.teacherId));
-    return teachers.filter((t) => !assignedIds.has(t.id));
-  }, [teachers, assignments]);
-
-  if (loading) return <LoadingSpinner />;
-
-  return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">Phân công chuyên môn</h1>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center">
-            <Users className="w-6 h-6 text-indigo-600" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-gray-900">{stats.assignedTeachers}<span className="text-sm font-normal text-gray-400">/{teachers.length}</span></p>
-            <p className="text-sm text-gray-500">Giáo viên đã phân công</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
-            <BookOpen className="w-6 h-6 text-emerald-600" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-gray-900">{stats.assignedSubjects}<span className="text-sm font-normal text-gray-400">/{subjects.length}</span></p>
-            <p className="text-sm text-gray-500">Môn học có giáo viên</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
-            <Link2 className="w-6 h-6 text-amber-600" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-gray-900">{stats.totalAssignments}</p>
-            <p className="text-sm text-gray-500">Tổng phân công</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Add Assignment Card */}
-      <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 mb-6">
-        <h2 className="text-base font-semibold mb-3 text-gray-700">Thêm phân công mới</h2>
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-          <div className="md:col-span-5">
-            <label htmlFor="select-teacher" className="block text-sm font-medium text-gray-600 mb-1">Giáo viên</label>
-            <select
-              id="select-teacher"
-              title="Chọn giáo viên"
-              className="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 border text-sm"
-              value={selectedTeacherId}
-              onChange={(e) => setSelectedTeacherId(e.target.value)}
-            >
-              <option value="">— Chọn giáo viên —</option>
-              {teachers.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.fullName} ({t.teacherCode})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="md:col-span-5">
-            <label htmlFor="select-subject" className="block text-sm font-medium text-gray-600 mb-1">Môn học</label>
-            <select
-              id="select-subject"
-              title="Chọn môn học"
-              className="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 border text-sm"
-              value={selectedSubjectId}
-              onChange={(e) => setSelectedSubjectId(e.target.value)}
-            >
-              <option value="">— Chọn môn học —</option>
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} {s.code ? `(${s.code})` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="md:col-span-2">
-            <button
-              onClick={handleAddAssignment}
-              disabled={!selectedTeacherId || !selectedSubjectId || submitting}
-              className="w-full bg-indigo-600 text-white px-4 py-2.5 rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors text-sm font-medium"
-            >
-              <Plus size={16} />
-              Phân công
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Toolbar: Search + View Toggle */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-        <div className="relative w-full sm:w-80">
-          <label htmlFor="search-assignment" className="sr-only">Tìm kiếm</label>
-          <input
-            id="search-assignment"
-            name="search-assignment"
-            type="text"
-            placeholder="Tìm giáo viên hoặc môn học..."
-            className="w-full pl-10 pr-4 py-2.5 bg-white rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-        </div>
-
-        <div className="flex bg-gray-100 rounded-lg p-1">
-          <button
-            onClick={() => setViewMode("bySubject")}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              viewMode === "bySubject"
-                ? "bg-white text-indigo-700 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            <BookOpen className="inline w-4 h-4 mr-1.5 -mt-0.5" />
-            Theo Môn học
-          </button>
-          <button
-            onClick={() => setViewMode("byTeacher")}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              viewMode === "byTeacher"
-                ? "bg-white text-indigo-700 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            <Users className="inline w-4 h-4 mr-1.5 -mt-0.5" />
-            Theo Giáo viên
-          </button>
-        </div>
-      </div>
-
-      {/* View: By Subject */}
-      {viewMode === "bySubject" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {assignmentsBySubject.map(({ subject, assignments: subjectAssignments }) => (
-            <div key={subject.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-              <div className="bg-gradient-to-r from-indigo-50 to-blue-50 px-4 py-3 border-b border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-indigo-700 text-sm">{subject.name}</h3>
-                    {subject.code && <p className="text-xs text-gray-400 mt-0.5">Mã: {subject.code}</p>}
-                  </div>
-                  <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">
-                    {subjectAssignments.length} GV
-                  </span>
-                </div>
-              </div>
-              
-              <div className="p-3 flex-1">
-                {subjectAssignments.length === 0 ? (
-                  <p className="text-sm italic text-gray-400 text-center py-4">Chưa có giáo viên</p>
-                ) : (
-                  <div className="space-y-2">
-                    {subjectAssignments.map((assignment) => (
-                      <AssignmentRow
-                        key={assignment.id}
-                        assignment={assignment}
-                        displayName={assignment.teacherName || ""}
-                        onToggleHead={() => handleToggleHead(assignment)}
-                        onRemove={() => handleRemoveAssignment(assignment.id, assignment.teacherName || "Giáo viên")}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* View: By Teacher */}
-      {viewMode === "byTeacher" && (
-        <div className="space-y-4">
-          {assignmentsByTeacher.map(({ teacher, assignments: teacherAssigns }) => (
-            <div key={teacher.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="bg-gradient-to-r from-gray-50 to-slate-50 px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold text-sm flex-shrink-0">
-                    {(teacher.fullName || "?").charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800 text-sm">{teacher.fullName}</h3>
-                    <p className="text-xs text-gray-400">{teacher.teacherCode} · Tối đa {teacher.maxPeriodsPerWeek} tiết/tuần</p>
-                  </div>
-                </div>
-                <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
-                  {teacherAssigns.length} môn
-                </span>
-              </div>
-              <div className="p-4">
-                {teacherAssigns.length === 0 ? (
-                  <p className="text-sm italic text-gray-400 text-center py-2">Chưa được phân công môn nào</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {teacherAssigns.map((assignment) => (
-                      <div
-                        key={assignment.id}
-                        className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg pl-3 pr-1 py-1.5"
-                      >
-                        <span className="text-sm text-gray-700 font-medium">{assignment.subjectName}</span>
-                        {assignment.isHeadOfDepartment && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                            Tổ trưởng
-                          </span>
-                        )}
-                        <button
-                          onClick={() => handleToggleHead(assignment)}
-                          className={`p-1 rounded-full transition-colors ${
-                            assignment.isHeadOfDepartment
-                              ? "text-yellow-500 hover:bg-yellow-50"
-                              : "text-gray-300 hover:text-yellow-500 hover:bg-gray-100"
-                          }`}
-                          title={assignment.isHeadOfDepartment ? "Gỡ chức Tổ trưởng" : "Đặt làm Tổ trưởng"}
-                        >
-                          {assignment.isHeadOfDepartment ? <Star size={14} fill="currentColor" /> : <Star size={14} />}
-                        </button>
-                        <button
-                          onClick={() => handleRemoveAssignment(assignment.id, assignment.teacherName || "Giáo viên")}
-                          className="p-1 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                          title="Xóa phân công"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {/* Unassigned teachers section */}
-          {unassignedTeachers.length > 0 && !searchQuery.trim() && (
-            <div className="bg-white rounded-xl shadow-sm border border-orange-200 overflow-hidden">
-              <div className="bg-gradient-to-r from-orange-50 to-amber-50 px-5 py-3 border-b border-orange-100">
-                <div className="flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 text-orange-500" />
-                  <h3 className="font-semibold text-orange-700 text-sm">
-                    Giáo viên chưa phân công ({unassignedTeachers.length})
-                  </h3>
-                </div>
-              </div>
-              <div className="p-4">
-                <div className="flex flex-wrap gap-2">
-                  {unassignedTeachers.map((t) => (
-                    <span
-                      key={t.id}
-                      className="inline-flex items-center gap-1.5 text-sm text-orange-700 bg-orange-50 border border-orange-100 px-3 py-1.5 rounded-lg"
-                    >
-                      <span className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-semibold text-xs flex-shrink-0">
-                        {(t.fullName || "?").charAt(0).toUpperCase()}
-                      </span>
-                      {t.fullName}
+    const handleInit = async () => {
+        confirm({
+            title: "Khởi tạo dữ liệu phân công",
+            message: (
+                <span>
+                    Hệ thống sẽ tự động tạo danh sách phân công cho tất cả các lớp dựa trên <strong>Tổ hợp môn</strong>.<br />
+                    <span className="text-sm text-gray-500 mt-2 block">
+                        Lưu ý: Các phân công đã có sẽ không bị ảnh hưởng.
                     </span>
-                  ))}
+                </span>
+            ),
+            confirmText: "Khởi tạo ngay",
+            onConfirm: async () => {
+                try {
+                    setLoading(true);
+                    await schoolAdminService.initializeAssignments();
+                    showSuccess("Khởi tạo dữ liệu thành công!");
+                    if (selectedClassId) fetchAssignments(selectedClassId);
+                } catch (error) {
+                    console.error(error);
+                    // keep simple alert or use a error toast if available, sticking to console/alert for error is distinct from confirmation request
+                    toast.error("Lỗi khởi tạo dữ liệu");
+                } finally {
+                    setLoading(false);
+                }
+            }
+        });
+    };
+
+    const handleOpenAssign = (assignment: TeacherAssignmentDto) => {
+        setCurrentAssignment(assignment);
+        setSelectedTeacherId(assignment.teacherId || "");
+        setIsModalOpen(true);
+    };
+
+    const handleSaveAssignment = async () => {
+        if (!currentAssignment) return;
+        try {
+            await schoolAdminService.assignTeacher(currentAssignment.id, selectedTeacherId || null);
+            showSuccess("Đã cập nhật giáo viên phụ trách");
+            setIsModalOpen(false);
+            fetchAssignments(selectedClassId);
+        } catch (error) {
+            console.error(error);
+            toast.error("Lỗi cập nhật phân công");
+        }
+    };
+
+    const getAssignedCount = () => assignments.filter(a => a.teacherId).length;
+    const getProgressColor = () => {
+        const count = getAssignedCount();
+        const total = assignments.length;
+        if (total === 0) return 'bg-gray-200';
+        if (count === total) return 'bg-green-500';
+        if (count > total / 2) return 'bg-blue-500';
+        return 'bg-orange-500';
+    };
+
+    const filteredClasses = classes.filter(c => gradeFilter === "ALL" || c.grade.toString() === gradeFilter);
+
+    return (
+        <div className="space-y-6 p-4">
+            <div className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Phân công Chuyên môn</h1>
+                    <p className="text-gray-500">Gán giáo viên phụ trách cho từng môn học của lớp</p>
                 </div>
-              </div>
+                <button
+                    onClick={handleInit}
+                    className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+                >
+                    <RefreshCw className="w-5 h-5" />
+                    Khởi tạo lại Dữ liệu
+                </button>
             </div>
-          )}
+
+            {/* Filters */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                <div className="flex flex-wrap gap-4 items-center">
+                    <div className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                        <FilterIcon className="text-slate-400" size={18} />
+                        Bộ lọc:
+                    </div>
+
+                    <select
+                        className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        value={gradeFilter}
+                        onChange={(e) => {
+                            setGradeFilter(e.target.value);
+                            setSelectedClassId(""); // Reset class when grade changes
+                        }}
+                    >
+                        <option value="ALL">Tất cả các khối</option>
+                        <option value="10">Khối 10</option>
+                        <option value="11">Khối 11</option>
+                        <option value="12">Khối 12</option>
+                    </select>
+
+                    <select
+                        value={selectedClassId}
+                        onChange={(e) => setSelectedClassId(e.target.value)}
+                        className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all min-w-[200px]"
+                    >
+                        <option value="">-- Chọn lớp --</option>
+                        {filteredClasses.map(c => (
+                            <option key={c.id} value={c.id}>{c.name} (Khối {c.grade})</option>
+                        ))}
+                    </select>
+
+                    {selectedClassId && assignments.length > 0 && (
+                        <div className="ml-auto flex items-center gap-4">
+                            <div className="flex flex-col items-end">
+                                <span className="text-xs text-slate-500">Tiến độ phân công</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-slate-700">{getAssignedCount()}/{assignments.length} môn</span>
+                                    <div className="w-24 bg-gray-200 rounded-full h-2">
+                                        <div className={`h-2 rounded-full ${getProgressColor()}`} style={{ width: `${(getAssignedCount() / assignments.length) * 100}%` }}></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Assignments List */}
+            {loading ? (
+                <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                </div>
+            ) : assignments.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                    <p className="text-gray-500 mb-4">Chưa có dữ liệu phân công cho lớp này.</p>
+                    <button onClick={handleInit} className="text-blue-600 font-medium hover:underline">
+                        Click để khởi tạo
+                    </button>
+                </div>
+            ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Môn học</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Số tiết/Tuần</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Giáo viên phụ trách</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {assignments.map(assign => (
+                                <tr key={assign.id} className="hover:bg-blue-50 transition-colors">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex items-center">
+                                            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs mr-3">
+                                                {assign.subjectName.substring(0, 1)}
+                                            </div>
+                                            <div className="text-sm font-medium text-gray-900">{assign.subjectName}</div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {assign.lessonsPerWeek} tiết
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        {assign.teacherId ? (
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                <CheckCircle className="w-3 h-3 mr-1" />
+                                                {assign.teacherName}
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                <AlertCircle className="w-3 h-3 mr-1" />
+                                                Chưa gán
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <button
+                                            onClick={() => handleOpenAssign(assign)}
+                                            className="text-blue-600 hover:text-blue-900 flex items-center gap-1 ml-auto"
+                                        >
+                                            <UserPlus className="w-4 h-4" />
+                                            {assign.teacherId ? 'Thay đổi' : 'Gán GV'}
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {/* Assign Modal */}
+            {isModalOpen && currentAssignment && createPortal(
+                <div className="fixed inset-0 z-[100] flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] flex flex-col z-[100]">
+                        <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 flex-none z-[110]">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-bold text-white">
+                                    Phân công: {currentAssignment.subjectName}
+                                </h3>
+                                <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-6 space-y-4 overflow-y-auto">
+                            <p className="text-sm text-gray-500 mb-2">Lớp: {currentAssignment.className}</p>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Chọn Giáo viên</label>
+                            <select
+                                value={selectedTeacherId}
+                                onChange={(e) => setSelectedTeacherId(e.target.value)}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">-- Chưa gán --</option>
+                                {teachers
+                                    .filter(t => {
+                                        if (!currentAssignment?.subjectId) return true;
+                                        // Exact match using subjects array
+                                        if (t.subjects && t.subjects.some((s: any) => s.id === currentAssignment.subjectId)) {
+                                            return true;
+                                        }
+
+                                        // Specialized subject match (e.g. "CD_TOAN" checking against subject codes or names)
+                                        // If strict match failed, maybe check names? 
+                                        // For now, let's trust the ID match. The backend allows specialization matching, 
+                                        // but frontend list should probably be strict or check all subjects.
+
+                                        // Also check if any of teacher's subjects is a "parent" of the assignment subject
+                                        // e.g. Assignment is "Chuyên đề Toán" (CD_TOAN), Teacher has "Toán" (TOAN)
+                                        // The backend logic: if (assignmentCode.contains(teacherSubjectCode))
+
+                                        // We don't have codes easily here unless SubjectDto has it. 
+                                        // SubjectDto has 'code'. teacher.subjects is SubjectDto[].
+
+                                        if (t.subjects && currentAssignment.subjectName) {
+                                            return t.subjects.some((s: any) => {
+                                                // Name match fallback (e.g. "Toán" in "Chuyên đề Toán")
+                                                return currentAssignment.subjectName.includes(s.name);
+                                            });
+                                        }
+
+                                        return false;
+                                    })
+                                    .map(t => (
+                                        <option key={t.id} value={t.id}>{t.fullName} ({t.email})</option>
+                                    ))}
+                            </select>
+                            <p className="text-xs text-gray-500 mt-2">
+                                * Chỉ hiển thị giáo viên giảng dạy môn {currentAssignment.subjectName}
+                            </p>
+                        </div>
+
+                        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 flex-none">
+                            <button
+                                onClick={() => setIsModalOpen(false)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-white font-medium"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleSaveAssignment}
+                                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg hover:shadow-lg font-medium"
+                            >
+                                Lưu thay đổi
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Confirmation Dialog */}
+            <ConfirmationDialog />
         </div>
-      )}
-    </div>
-  );
-};
-
-// ==================== Sub-component ====================
-
-const AssignmentRow: React.FC<{
-  assignment: TeacherAssignmentDto;
-  displayName: string;
-  onToggleHead: () => void;
-  onRemove: () => void;
-}> = ({ assignment, displayName, onToggleHead, onRemove }) => (
-  <div className="flex items-center justify-between bg-gray-50 p-2.5 rounded-lg border border-gray-100">
-    <div className="flex-1 min-w-0 mr-2">
-      <p className="text-sm font-medium text-gray-800 truncate" title={displayName}>
-        {displayName}
-      </p>
-      {assignment.isHeadOfDepartment && (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 mt-0.5">
-          Tổ trưởng
-        </span>
-      )}
-    </div>
-    <div className="flex items-center gap-0.5 shrink-0">
-      <button
-        onClick={onToggleHead}
-        className={`p-1.5 rounded-full transition-colors ${
-          assignment.isHeadOfDepartment
-            ? "text-yellow-500 hover:bg-yellow-50"
-            : "text-gray-300 hover:text-yellow-500 hover:bg-gray-100"
-        }`}
-        title={assignment.isHeadOfDepartment ? "Gỡ chức Tổ trưởng" : "Đặt làm Tổ trưởng"}
-      >
-        {assignment.isHeadOfDepartment ? <Star size={15} fill="currentColor" /> : <Star size={15} />}
-      </button>
-      <button
-        onClick={onRemove}
-        className="p-1.5 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-        title="Xóa phân công"
-      >
-        <Trash2 size={15} />
-      </button>
-    </div>
-  </div>
-);
-
-export default TeacherAssignment;
+    );
+}

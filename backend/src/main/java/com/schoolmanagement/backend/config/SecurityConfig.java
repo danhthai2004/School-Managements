@@ -43,6 +43,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/api/system/**").hasRole("SYSTEM_ADMIN")
                         .requestMatchers("/api/school/**").hasRole("SCHOOL_ADMIN")
+                        .requestMatchers("/api/school-admin/**").hasRole("SCHOOL_ADMIN")
                         .requestMatchers("/api/teacher/**").hasRole("TEACHER")
                         .requestMatchers("/api/student/**").hasRole("STUDENT")
                         .requestMatchers("/api/guardian/**").hasRole("GUARDIAN")

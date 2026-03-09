@@ -1,6 +1,6 @@
 package com.schoolmanagement.backend.security;
 
-import com.schoolmanagement.backend.repo.UserRepository;
+import com.schoolmanagement.backend.repo.auth.UserRepository;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;

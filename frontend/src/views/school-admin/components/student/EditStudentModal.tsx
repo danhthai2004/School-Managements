@@ -71,12 +71,11 @@ function EditStudentModal({ isOpen, student, classes, onClose, onSuccess }: Edit
             }
 
             // Set guardian info
-            const firstGuardian = student.guardians?.[0];
-            if (firstGuardian) {
-                setGuardianName(firstGuardian.fullName || "");
-                setGuardianPhone(firstGuardian.phone || "");
-                setGuardianEmail(firstGuardian.email || "");
-                setGuardianRelationship(firstGuardian.relationship || "");
+            if (student.guardian) {
+                setGuardianName(student.guardian.fullName || "");
+                setGuardianPhone(student.guardian.phone || "");
+                setGuardianEmail(student.guardian.email || "");
+                setGuardianRelationship(student.guardian.relationship || "");
             } else {
                 setGuardianName("");
                 setGuardianPhone("");
@@ -133,13 +132,13 @@ function EditStudentModal({ isOpen, student, classes, onClose, onSuccess }: Edit
                 phone: phone.trim() || undefined,
                 status,
                 classId: classId || undefined,
-                guardians: guardianName ? [{
-                    id: student.guardians?.[0]?.id,
+                guardian: guardianName ? {
+                    id: student.guardian?.id,
                     fullName: guardianName.trim(),
                     phone: guardianPhone.trim() || undefined,
                     email: guardianEmail.trim() || undefined,
                     relationship: guardianRelationship.trim() || undefined,
-                }] : undefined,
+                } : undefined,
             };
 
             await schoolAdminService.updateStudent(student.id, req);
@@ -238,7 +237,6 @@ function EditStudentModal({ isOpen, student, classes, onClose, onSuccess }: Edit
                                         onChangeRaw={(e) => {
                                             if (!e) return;
                                             const target = e.target as HTMLInputElement;
-                                            if (typeof target.value !== 'string') return;
                                             const isDeleting = (e.nativeEvent as any).inputType?.startsWith('delete');
                                             const formatted = formatDateInput(target.value, isDeleting);
                                             setDateInputValue(formatted);
@@ -253,14 +251,9 @@ function EditStudentModal({ isOpen, student, classes, onClose, onSuccess }: Edit
                                         dateFormat="dd/MM/yyyy"
                                         placeholderText="VD: 20/01/2005"
                                         showYearDropdown
-                                        showMonthDropdown
                                         scrollableYearDropdown
                                         yearDropdownItemNumber={100}
                                         maxDate={new Date()}
-                                        openToDate={dateOfBirth || new Date(2008, 0, 1)}
-                                        popperProps={{ strategy: "fixed" }}
-                                        popperClassName="react-datepicker-popper-fixed"
-                                        shouldCloseOnSelect={false}
                                         wrapperClassName="w-full block"
                                         customInput={
                                             <CustomDateInput

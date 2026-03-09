@@ -48,7 +48,7 @@ public class RestExceptionHandler {
         Throwable rootCause = NestedExceptionUtils.getRootCause(ex);
         if (rootCause != null && rootCause.getMessage().contains("violates unique constraint")) {
             // Can be more specific here if needed by parsing the constraint name
-            message = "Dữ liệu bị trùng lặp.";
+            message = "Dữ liệu bị trùng lặp: " + rootCause.getMessage();
         }
         log.error("Data integrity violation", ex);
         var status = HttpStatus.CONFLICT;

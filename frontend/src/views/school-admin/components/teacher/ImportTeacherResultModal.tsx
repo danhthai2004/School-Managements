@@ -48,7 +48,7 @@ export default function ImportTeacherResultModal({ result, onClose }: ImportTeac
                                 {result.errors.map((err, idx) => (
                                     <div key={idx} className="text-red-700 py-1 border-b border-red-100 last:border-0">
                                         <span className="font-medium">Dòng {err.rowNumber}</span>
-                                        {err.studentName && <span> ({err.studentName})</span>}: {err.errorMessage}
+                                        {err.teacherName && <span> ({err.teacherName})</span>}: {err.errorMessage}
                                     </div>
                                 ))}
                             </div>

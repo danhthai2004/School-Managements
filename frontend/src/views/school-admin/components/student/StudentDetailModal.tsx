@@ -107,7 +107,7 @@ function StudentDetailModal({ isOpen, student, onClose, onEdit }: StudentDetailM
                     </div>
 
                     {/* Guardians Information */}
-                    {student.guardians?.length > 0 && (
+                    {student.guardian && (
                         <div>
                             <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 border-b pb-2">
                                 Người giám hộ
@@ -116,19 +116,19 @@ function StudentDetailModal({ isOpen, student, onClose, onEdit }: StudentDetailM
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <span className="text-xs text-gray-500">Họ tên</span>
-                                        <p className="text-sm font-medium text-gray-900">{student.guardians[0].fullName}</p>
+                                        <p className="text-sm font-medium text-gray-900">{student.guardian.fullName}</p>
                                     </div>
                                     <div>
                                         <span className="text-xs text-gray-500">Quan hệ</span>
-                                        <p className="text-sm font-medium text-gray-900">{student.guardians[0].relationship || '—'}</p>
+                                        <p className="text-sm font-medium text-gray-900">{student.guardian.relationship || '—'}</p>
                                     </div>
                                     <div>
                                         <span className="text-xs text-gray-500">Số điện thoại</span>
-                                        <p className="text-sm font-medium text-gray-900">{student.guardians[0].phone || '—'}</p>
+                                        <p className="text-sm font-medium text-gray-900">{student.guardian.phone || '—'}</p>
                                     </div>
                                     <div>
                                         <span className="text-xs text-gray-500">Email</span>
-                                        <p className="text-sm font-medium text-gray-900">{student.guardians[0].email || '—'}</p>
+                                        <p className="text-sm font-medium text-gray-900">{student.guardian.email || '—'}</p>
                                     </div>
                                 </div>
                             </div>
@@ -146,7 +146,7 @@ function StudentDetailModal({ isOpen, student, onClose, onEdit }: StudentDetailM
                         {onEdit && (
                             <button
                                 onClick={onEdit}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg font-medium hover:shadow-lg transition-all"
                             >
                                 Chỉnh sửa
                             </button>

@@ -1,0 +1,28 @@
+package com.schoolmanagement.backend.repo.teacher;
+
+import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
+import com.schoolmanagement.backend.domain.entity.admin.School;
+import com.schoolmanagement.backend.domain.entity.teacher.TeacherAssignment;
+import com.schoolmanagement.backend.domain.entity.auth.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public interface TeacherAssignmentRepository extends JpaRepository<TeacherAssignment, UUID> {
+    List<TeacherAssignment> findAllBySchool(School school);
+
+    List<TeacherAssignment> findAllByClassRoom(ClassRoom classRoom);
+
+    List<TeacherAssignment> findAllByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
+
+    Optional<TeacherAssignment> findByClassRoomAndSubject(ClassRoom classRoom,
+            com.schoolmanagement.backend.domain.entity.classes.Subject subject);
+
+    void deleteAllByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
+
+    boolean existsByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
+}

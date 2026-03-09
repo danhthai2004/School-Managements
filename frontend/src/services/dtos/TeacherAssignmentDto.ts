@@ -1,8 +1,10 @@
 export type TeacherAssignmentDto = {
-  id: string;
-  subjectId: string;
-  subjectName: string;
-  teacherId: string;
-  teacherName: string;
-  isHeadOfDepartment: boolean;
+    id: string;
+    classId: string;
+    className: string;
+    subjectId: string;
+    subjectName: string;
+    teacherId: string | null;
+    teacherName: string | null;
+    lessonsPerWeek: number;
 };

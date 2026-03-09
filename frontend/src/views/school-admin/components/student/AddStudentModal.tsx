@@ -5,7 +5,8 @@ import "react-datepicker/dist/react-datepicker.css";
 import {
     schoolAdminService,
     type ClassRoomDto,
-    type CreateStudentRequest
+    type CreateStudentRequest,
+    type CombinationDto
 } from "../../../../services/schoolAdminService";
 import { XIcon } from "../../SchoolAdminIcons";
 import { formatDateInput, parseDateDDMMYYYY } from "../../../../utils/dateHelpers";
@@ -16,13 +17,14 @@ interface AddStudentModalProps {
     onClose: () => void;
     onSuccess: () => void;
     classes: ClassRoomDto[];
+    combinations: CombinationDto[];
 }
 
-function AddStudentModal({ isOpen, onClose, onSuccess, classes }: AddStudentModalProps) {
+function AddStudentModal({ isOpen, onClose, onSuccess, classes, combinations }: AddStudentModalProps) {
     const [fullName, setFullName] = useState("");
     const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
     const [dateInputValue, setDateInputValue] = useState("");
-    const [gender, setGender] = useState<'MALE' | 'FEMALE' | 'OTHER' | ''>("");
+    const [gender, setGender] = useState<'MALE' | 'FEMALE' | 'OTHER'>("MALE");
     const [birthPlace, setBirthPlace] = useState("");
     const [address, setAddress] = useState("");
     const [email, setEmail] = useState("");
@@ -31,7 +33,7 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes }: AddStudentModa
     // Assignment state
     const [assignmentMode, setAssignmentMode] = useState<'MANUAL' | 'AUTO'>("MANUAL");
     const [autoGrade, setAutoGrade] = useState<number>(10);
-    const [autoDepartment, setAutoDepartment] = useState<'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI'>("KHONG_PHAN_BAN");
+    const [autoCombinationId, setAutoCombinationId] = useState("");
 
     const [guardianName, setGuardianName] = useState("");
     const [guardianPhone, setGuardianPhone] = useState("");
@@ -76,23 +78,25 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes }: AddStudentModa
             const req: CreateStudentRequest = {
                 fullName: fullName.trim(),
                 dateOfBirth: dateOfBirthStr,
-                gender: gender as 'MALE' | 'FEMALE' | 'OTHER',
+                gender,
                 birthPlace: birthPlace.trim() || undefined,
                 address: address.trim() || undefined,
                 email: email.trim() || undefined,
                 phone: phone.trim() || undefined,
                 classId: assignmentMode === 'MANUAL' ? (classId || undefined) : undefined,
-                guardians: guardianName ? [{
+                grade: assignmentMode === 'AUTO' ? autoGrade : undefined,
+                combinationId: assignmentMode === 'AUTO' ? (autoCombinationId || undefined) : undefined,
+                guardian: guardianName ? {
                     fullName: guardianName.trim(),
                     phone: guardianPhone.trim() || undefined,
                     email: guardianEmail.trim() || undefined,
                     relationship: guardianRelationship.trim() || undefined,
-                }] : undefined,
+                } : undefined,
             };
             await schoolAdminService.createStudent(req);
             setFullName(""); setDateOfBirth(null); setDateInputValue(""); setGender("MALE");
             setBirthPlace(""); setAddress(""); setEmail(""); setPhone("");
-            setClassId(""); setAssignmentMode("MANUAL"); setAutoGrade(10); setAutoDepartment("KHONG_PHAN_BAN");
+            setClassId(""); setAssignmentMode("MANUAL"); setAutoGrade(10); setAutoCombinationId("");
             setGuardianName(""); setGuardianPhone(""); setGuardianEmail(""); setGuardianRelationship("");
             onSuccess();
             onClose();
@@ -181,7 +185,6 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes }: AddStudentModa
                                         onChangeRaw={(e) => {
                                             if (!e) return;
                                             const target = e.target as HTMLInputElement;
-                                            if (typeof target.value !== 'string') return;
                                             const isDeleting = (e.nativeEvent as any).inputType?.startsWith('delete');
                                             const formatted = formatDateInput(target.value, isDeleting);
                                             setDateInputValue(formatted);
@@ -197,14 +200,9 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes }: AddStudentModa
                                         dateFormat="dd/MM/yyyy"
                                         placeholderText="VD: 20/01/2005"
                                         showYearDropdown
-                                        showMonthDropdown
                                         scrollableYearDropdown
                                         yearDropdownItemNumber={100}
                                         maxDate={new Date()}
-                                        openToDate={dateOfBirth || new Date(2008, 0, 1)}
-                                        popperProps={{ strategy: "fixed" }}
-                                        popperClassName="react-datepicker-popper-fixed"
-                                        shouldCloseOnSelect={false}
                                         wrapperClassName="w-full block"
                                         customInput={
                                             <CustomDateInput
@@ -337,15 +335,16 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes }: AddStudentModa
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-600 mb-1.5">Ban học</label>
+                                            <label className="block text-sm font-medium text-slate-600 mb-1.5">Tổ hợp môn</label>
                                             <select
-                                                value={autoDepartment}
-                                                onChange={(e) => setAutoDepartment(e.target.value as any)}
+                                                value={autoCombinationId}
+                                                onChange={(e) => setAutoCombinationId(e.target.value)}
                                                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
                                             >
-                                                <option value="KHONG_PHAN_BAN">Không phân ban</option>
-                                                <option value="TU_NHIEN">Ban Tự Nhiên</option>
-                                                <option value="XA_HOI">Ban Xã Hội</option>
+                                                <option value="">-- Chọn tổ hợp --</option>
+                                                {combinations.map((c) => (
+                                                    <option key={c.id} value={c.id}>{c.name} {c.code ? `(${c.code})` : ''}</option>
+                                                ))}
                                             </select>
                                         </div>
                                     </div>

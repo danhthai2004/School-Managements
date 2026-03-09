@@ -17,6 +17,31 @@ import {
     WarningIcon,
     CalendarIcon,
 } from "../TeacherIcons";
+import { useAuth } from "../../../context/AuthContext";
+
+// Animated Counter Component (synced with Admin Dashboard)
+const AnimatedCounter = ({ value, duration = 1000 }: { value: number | string; duration?: number }) => {
+    const [displayValue, setDisplayValue] = useState(0);
+    const isNumeric = typeof value === "number" || (!isNaN(Number(value)) && String(value).trim() !== "");
+    const numericValue = isNumeric ? Number(value) : 0;
+
+    useEffect(() => {
+        if (!isNumeric) return;
+        const startTime = Date.now();
+        const animate = () => {
+            const now = Date.now();
+            const progress = Math.min((now - startTime) / duration, 1);
+            const easeOutQuad = 1 - (1 - progress) * (1 - progress);
+            const currentValue = Math.floor(numericValue * easeOutQuad);
+            setDisplayValue(currentValue);
+            if (progress < 1) requestAnimationFrame(animate);
+        };
+        requestAnimationFrame(animate);
+    }, [numericValue, duration, isNumeric]);
+
+    if (!isNumeric) return <span>{value}</span>;
+    return <span>{displayValue.toLocaleString()}</span>;
+};
 
 type OutletContextType = {
     teacherProfile: TeacherProfile | null;
@@ -24,6 +49,7 @@ type OutletContextType = {
 
 export default function TeacherDashboard() {
     const { teacherProfile } = useOutletContext<OutletContextType>();
+    const { user } = useAuth();
     const [stats, setStats] = useState<TeacherDashboardStats | null>(null);
     const [schedule, setSchedule] = useState<TodayScheduleItem[]>([]);
     const [riskAnalysis, setRiskAnalysis] = useState<StudentRiskAnalysis[]>([]);
@@ -60,6 +86,14 @@ export default function TeacherDashboard() {
         }
     };
 
+    // Get greeting based on time of day (synced with Admin)
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return "Chào buổi sáng";
+        if (hour < 18) return "Chào buổi chiều";
+        return "Chào buổi tối";
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -72,10 +106,20 @@ export default function TeacherDashboard() {
 
     return (
         <div className="animate-fade-in-up">
-            {/* Welcome Banner */}
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-gray-900 mb-1">Dashboard - AI Insights</h1>
-                <p className="text-gray-500">Chào mừng quay trở lại! Hệ thống AI đã phân tích và đưa ra các đề xuất cho bạn.</p>
+            {/* Welcome Banner - Gradient (synced with Admin Dashboard) */}
+            <div className="mb-8 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                {/* Background decoration */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+
+                <div className="relative">
+                    <h2 className="text-2xl font-bold mb-1">
+                        {getGreeting()}, {user?.fullName || 'Thầy/Cô'}!
+                    </h2>
+                    <p className="text-blue-100 text-sm">
+                        Chào mừng bạn quay trở lại với SchoolIMS
+                    </p>
+                </div>
             </div>
 
             {/* Stats Cards */}
@@ -148,6 +192,26 @@ export default function TeacherDashboard() {
                 )}
             </div>
 
+            {/* Lịch dạy hôm nay */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 mb-8">
+                <div className="flex items-center gap-2 mb-4">
+                    <CalendarIcon />
+                    <h2 className="text-lg font-bold text-gray-900">Lịch dạy hôm nay</h2>
+                </div>
+
+                <div className="flex gap-4 overflow-x-auto pb-2">
+                    {schedule.length > 0 ? (
+                        schedule.map((item, index) => (
+                            <ScheduleCard key={index} item={item} />
+                        ))
+                    ) : (
+                        <div className="text-gray-500 py-6 text-center w-full italic bg-gray-50 rounded-lg border border-gray-100">
+                            Hôm nay không có lịch dạy
+                        </div>
+                    )}
+                </div>
+            </div>
+
             {/* Main Content Grid */}
             {isHomeroom && (
                 <div className="grid grid-cols-2 gap-6 mb-8">
@@ -189,57 +253,7 @@ export default function TeacherDashboard() {
                 </div>
             )}
 
-            {/* Lịch dạy hôm nay */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 mb-8">
-                <div className="flex items-center gap-2 mb-4">
-                    <CalendarIcon />
-                    <h2 className="text-lg font-bold text-gray-900">Lịch dạy hôm nay</h2>
-                </div>
 
-                <div className="flex gap-4 overflow-x-auto pb-2">
-                    {schedule.length > 0 ? (
-                        schedule.map((item, index) => (
-                            <ScheduleCard key={index} item={item} />
-                        ))
-                    ) : (
-                        <MockSchedule />
-                    )}
-                </div>
-            </div>
-
-            {/* Bottom Stats (homeroom only) */}
-            {isHomeroom && (
-                <div className="grid grid-cols-4 gap-6">
-                    <BottomStatCard
-                        icon="📊"
-                        label="GPA trung bình lớp"
-                        value={stats?.averageGpa?.toFixed(1) || "7.8"}
-                        bgColor="bg-blue-50"
-                        iconBg="bg-blue-100"
-                    />
-                    <BottomStatCard
-                        icon="📈"
-                        label="Chuyên cần TB"
-                        value={`${stats?.attendanceRate || 92}%`}
-                        bgColor="bg-green-50"
-                        iconBg="bg-green-100"
-                    />
-                    <BottomStatCard
-                        icon="🏆"
-                        label="Học sinh xuất sắc"
-                        value={stats?.excellentStudents || 12}
-                        bgColor="bg-yellow-50"
-                        iconBg="bg-yellow-100"
-                    />
-                    <BottomStatCard
-                        icon="📝"
-                        label="Bài tập chưa nộp"
-                        value={stats?.pendingAssignments || 8}
-                        bgColor="bg-orange-50"
-                        iconBg="bg-orange-100"
-                    />
-                </div>
-            )}
         </div>
     );
 }
@@ -255,6 +269,7 @@ function StatCard({
     iconColor,
     change,
     changePositive,
+    delay = 0,
 }: {
     title: string;
     value: string | number;
@@ -264,13 +279,19 @@ function StatCard({
     iconColor: string;
     change?: string;
     changePositive?: boolean;
+    delay?: number;
 }) {
     return (
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all">
+        <div
+            className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 animate-fade-in-up"
+            style={{ animationDelay: `${delay}ms` }}
+        >
             <div className="flex items-start justify-between">
                 <div>
                     <p className="text-sm text-gray-500 font-medium mb-1">{title}</p>
-                    <p className="text-2xl font-bold text-gray-900">{value}</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                        {typeof value === 'number' ? <AnimatedCounter value={value} /> : value}
+                    </p>
                     {subtitle && <p className="text-sm text-gray-400">{subtitle}</p>}
                     {change && (
                         <p className={`text-xs mt-1 ${changePositive ? 'text-green-600' : 'text-red-500'}`}>
@@ -369,8 +390,8 @@ function RecommendationCard({ recommendation }: { recommendation: AIRecommendati
                     <div className="flex items-center gap-2 mb-1">
                         <h4 className="font-medium text-gray-900">{recommendation.title}</h4>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${colors.bg} ${colors.text}`}>
-                            {recommendation.priority === 'HIGH' ? 'Ưu tiên cao' : 
-                             recommendation.priority === 'MEDIUM' ? 'Ưu tiên TB' : 'Ưu tiên thấp'}
+                            {recommendation.priority === 'HIGH' ? 'Ưu tiên cao' :
+                                recommendation.priority === 'MEDIUM' ? 'Ưu tiên TB' : 'Ưu tiên thấp'}
                         </span>
                     </div>
                     <p className="text-sm text-gray-500 mb-2">{recommendation.description}</p>
@@ -404,32 +425,6 @@ function ScheduleCard({ item }: { item: TodayScheduleItem }) {
             </div>
             <h4 className="font-semibold text-gray-900 mb-1">{item.subjectName}</h4>
             <p className="text-sm text-gray-500">Lớp {item.className} • Phòng {item.roomNumber}</p>
-        </div>
-    );
-}
-
-function BottomStatCard({
-    icon,
-    label,
-    value,
-    bgColor,
-    iconBg,
-}: {
-    icon: string;
-    label: string;
-    value: string | number;
-    bgColor: string;
-    iconBg: string;
-}) {
-    return (
-        <div className={`${bgColor} rounded-xl p-4 flex items-center gap-4`}>
-            <div className={`w-12 h-12 ${iconBg} rounded-xl flex items-center justify-center text-xl`}>
-                {icon}
-            </div>
-            <div>
-                <p className="text-xs text-gray-500">{label}</p>
-                <p className="text-xl font-bold text-gray-900">{value}</p>
-            </div>
         </div>
     );
 }
@@ -538,30 +533,6 @@ function MockRecommendations() {
                         </button>
                     </div>
                 </div>
-            </div>
-        </>
-    );
-}
-
-function MockSchedule() {
-    return (
-        <>
-            <div className="min-w-48 bg-gray-50 rounded-lg p-4 border border-gray-100">
-                <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-1 bg-blue-100 text-blue-600 text-xs font-medium rounded">Tiết 1</span>
-                    <span className="text-xs text-gray-500">07:00 - 07:45</span>
-                </div>
-                <h4 className="font-semibold text-gray-900 mb-1">Toán</h4>
-                <p className="text-sm text-gray-500">Lớp 10A1 • Phòng A101</p>
-            </div>
-
-            <div className="min-w-48 bg-gray-50 rounded-lg p-4 border border-gray-100">
-                <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-1 bg-blue-100 text-blue-600 text-xs font-medium rounded">Tiết 2</span>
-                    <span className="text-xs text-gray-500">07:50 - 08:35</span>
-                </div>
-                <h4 className="font-semibold text-gray-900 mb-1">Toán</h4>
-                <p className="text-sm text-gray-500">Lớp 10A2 • Phòng A102</p>
             </div>
         </>
     );

@@ -20,12 +20,12 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
     const [fullName, setFullName] = useState("");
     const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
     const [dateInputValue, setDateInputValue] = useState("");
-    const [gender, setGender] = useState<'MALE' | 'FEMALE' | 'OTHER' | ''>("");
+    const [gender, setGender] = useState<'MALE' | 'FEMALE' | 'OTHER'>("MALE");
     const [address, setAddress] = useState("");
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
     const [degree, setDegree] = useState("");
-    const [subjectId, setSubjectId] = useState<string>("");
+    const [subjectIds, setSubjectIds] = useState<string[]>([]);
     const [createAccount, setCreateAccount] = useState(true);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -60,19 +60,19 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
             const req: CreateTeacherRequest = {
                 fullName: fullName.trim(),
                 dateOfBirth: dateOfBirthStr,
-                gender: gender as 'MALE' | 'FEMALE' | 'OTHER',
+                gender,
                 address: address.trim() || undefined,
                 email: email.trim() || undefined,
                 phone: phone.trim() || undefined,
                 degree: degree.trim() || undefined,
-                subjectId: subjectId || undefined,
+                subjectIds: subjectIds.length > 0 ? subjectIds : undefined,
                 createAccount,
             };
             await schoolAdminService.createTeacher(req);
             // Reset form
             setFullName(""); setDateOfBirth(null); setDateInputValue(""); setGender("MALE");
             setAddress(""); setEmail(""); setPhone(""); setDegree("");
-            setSubjectId("");
+            setSubjectIds([]);
             setCreateAccount(true);
             onSuccess();
             onClose();
@@ -156,7 +156,6 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
                                         onChangeRaw={(e) => {
                                             if (!e) return;
                                             const target = e.target as HTMLInputElement;
-                                            if (typeof target.value !== 'string') return;
                                             const nativeEvent = e.nativeEvent as unknown as InputEvent;
                                             const isDeleting = nativeEvent.inputType?.startsWith('delete') || false;
                                             const formatted = formatDateInput(target.value, isDeleting);
@@ -172,14 +171,9 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
                                         dateFormat="dd/MM/yyyy"
                                         placeholderText="VD: 20/01/1990"
                                         showYearDropdown
-                                        showMonthDropdown
                                         scrollableYearDropdown
                                         yearDropdownItemNumber={100}
                                         maxDate={new Date()}
-                                        openToDate={dateOfBirth || new Date(2000, 0, 1)}
-                                        popperProps={{ strategy: "fixed" }}
-                                        popperClassName="react-datepicker-popper-fixed"
-                                        shouldCloseOnSelect={false}
                                         wrapperClassName="w-full block"
                                         customInput={
                                             <CustomDateInput
@@ -234,16 +228,46 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-slate-600 mb-1.5">Bộ môn giảng dạy</label>
-                                    <select
-                                        value={subjectId}
-                                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSubjectId(e.target.value)}
-                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
-                                    >
-                                        <option value="">-- Chọn bộ môn --</option>
-                                        {subjects.map((sub: any) => (
-                                            <option key={sub.id} value={sub.id}>{sub.name}</option>
-                                        ))}
-                                    </select>
+                                    <div className="space-y-2">
+                                        <select
+                                            value=""
+                                            onChange={(e) => {
+                                                const selectedId = e.target.value;
+                                                if (selectedId && !subjectIds.includes(selectedId)) {
+                                                    setSubjectIds([...subjectIds, selectedId]);
+                                                }
+                                            }}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
+                                        >
+                                            <option value="">-- Chọn thêm bộ môn --</option>
+                                            {subjects.filter(s => !subjectIds.includes(s.id)).map((sub: any) => (
+                                                <option key={sub.id} value={sub.id}>{sub.name}</option>
+                                            ))}
+                                        </select>
+
+                                        <div className="flex flex-wrap gap-2 min-h-[30px]">
+                                            {subjectIds.map(id => {
+                                                const sub = subjects.find(s => s.id === id);
+                                                return (
+                                                    <span key={id} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                                                        {sub?.name || 'Unknown'}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSubjectIds(subjectIds.filter(sid => sid !== id))}
+                                                            className="ml-2 text-blue-400 hover:text-blue-600 focus:outline-none"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L10 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                                            </svg>
+                                                        </button>
+                                                    </span>
+                                                );
+                                            })}
+                                            {subjectIds.length === 0 && (
+                                                <span className="text-gray-400 text-sm italic py-1">Chưa chọn môn nào</span>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-slate-600 mb-1.5">Bằng cấp</label>

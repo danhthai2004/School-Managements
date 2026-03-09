@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { teacherService, type HomeroomStudent, type TeacherProfile } from "../../../services/teacherService";
+import { StatusBadge } from "../../../components/common/StatusBadge";
 
 type OutletContextType = {
     teacherProfile: TeacherProfile | null;
@@ -11,20 +12,9 @@ const getConductBadgeClass = (grade?: string) => {
     switch (grade) {
         case "Xuất sắc": return "bg-green-100 text-green-700";
         case "Tốt": return "bg-blue-100 text-blue-700";
-        case "Khá": return "bg-yellow-100 text-yellow-700";
+        case "Khá": return "bg-amber-100 text-amber-700";
         case "Trung bình": return "bg-orange-100 text-orange-700";
         case "Yếu": return "bg-red-100 text-red-700";
-        default: return "bg-gray-100 text-gray-600";
-    }
-};
-
-// Helper to get status badge color
-const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-        case "ACTIVE": return "bg-green-100 text-green-700";
-        case "SUSPENDED": return "bg-yellow-100 text-yellow-700";
-        case "TRANSFERRED": return "bg-gray-100 text-gray-600";
-        case "GRADUATED": return "bg-blue-100 text-blue-700";
         default: return "bg-gray-100 text-gray-600";
     }
 };
@@ -40,18 +30,22 @@ const translateStatus = (status: string) => {
     }
 };
 
-// Statistics Card Component
-const StatCard = ({ icon, label, value, subValue, colorClass }: {
+// Statistics Card Component (Updated with hover effects from TeacherDashboard)
+const StatCard = ({ icon, label, value, subValue, colorClass, delay = 0 }: {
     icon: React.ReactNode;
     label: string;
     value: string | number;
     subValue?: string;
     colorClass: string;
+    delay?: number;
 }) => (
-    <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+    <div
+        className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 animate-fade-in-up"
+        style={{ animationDelay: `${delay}ms` }}
+    >
         <div className="flex items-center justify-between">
             <div>
-                <p className="text-sm text-gray-500 mb-1">{label}</p>
+                <p className="text-sm text-gray-500 font-medium mb-1">{label}</p>
                 <p className="text-2xl font-bold text-gray-900">{value}</p>
                 {subValue && <p className="text-xs text-gray-400 mt-1">{subValue}</p>}
             </div>
@@ -103,9 +97,7 @@ const StudentDetailModal = ({ student, onClose }: { student: HomeroomStudent | n
                             </div>
                             <div>
                                 <p className="text-xs text-gray-500 mb-1">Trạng thái</p>
-                                <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusBadgeClass(student.status)}`}>
-                                    {translateStatus(student.status)}
-                                </span>
+                                <StatusBadge status={student.status} />
                             </div>
                             <div>
                                 <p className="text-xs text-gray-500 mb-1">Điện thoại</p>
@@ -269,111 +261,113 @@ export default function StudentListPage() {
 
     return (
         <div className="animate-fade-in-up space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
+            {/* Header aligned with actions (Outside) */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 mb-1">
-                        Quản lý học sinh
+                    <h1 className="text-2xl font-bold text-gray-900">
+                        Danh sách học sinh
                     </h1>
-                    <p className="text-gray-500">
-                        Lớp {teacherProfile.homeroomClassName} • {stats.total} học sinh
+                    <p className="text-gray-500 mt-1">
+                        Lớp {teacherProfile.homeroomClassName}
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-all">
+                <div className="flex flex-wrap items-center gap-3">
+                    <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                         </svg>
-                        Import
+                        Nhập File
                     </button>
-                    <button 
+                    <button
                         onClick={handleExportExcel}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-green-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
                     >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
-                        Export Excel
+                        Xuất Excel
                     </button>
                 </div>
             </div>
 
             {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
                 <StatCard
                     icon={<svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>}
                     label="Tổng số học sinh"
                     value={stats.total}
                     colorClass="bg-blue-50"
+                    delay={0}
                 />
                 <StatCard
-                    icon={<svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                    icon={<svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                     label="Học sinh xuất sắc"
                     value={stats.excellent}
                     subValue="GPA ≥ 8.0"
-                    colorClass="bg-green-50"
+                    colorClass="bg-emerald-50 text-emerald-500"
+                    delay={100}
                 />
                 <StatCard
                     icon={<svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>}
                     label="Cần chú ý"
                     value={stats.needsAttention}
                     subValue="GPA < 5 hoặc CC < 80%"
-                    colorClass="bg-red-50"
+                    colorClass="bg-red-50 text-red-500"
+                    delay={200}
                 />
                 <StatCard
-                    icon={<svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
+                    icon={<svg className="w-6 h-6 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
                     label="GPA trung bình"
                     value={stats.averageGpa.toFixed(2)}
-                    colorClass="bg-purple-50"
+                    colorClass="bg-violet-50"
+                    delay={300}
                 />
             </div>
 
-            {/* Search and Filter Bar */}
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                <div className="flex flex-col md:flex-row gap-4">
-                    {/* Search Input */}
-                    <div className="flex-1 relative">
-                        <label htmlFor="student-search" className="sr-only">Tìm kiếm theo tên, MSHS, email...</label>
-                        <input
-                            id="student-search"
-                            type="text"
-                            placeholder="Tìm kiếm theo tên, MSHS, email..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all text-sm"
-                        />
-                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </div>
+            {/* Main Data Container */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden mt-2">
+                {/* Table Header & Title */}
+                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
+                    <h2 className="text-lg font-bold text-gray-900">Danh sách học sinh</h2>
+                    <span className="text-sm text-gray-500">
+                        Hiển thị <span className="font-medium text-gray-900">{filteredStudents.length}</span> / {stats.total} học sinh
+                    </span>
+                </div>
 
-                    {/* Status Filter */}
-                    <div className="relative">
-                        <label htmlFor="status-filter" className="sr-only">Lọc theo trạng thái</label>
+                {/* Filters Row */}
+                <div className="p-4 bg-white border-b border-gray-100 flex flex-wrap gap-4 items-center justify-between text-sm">
+                    <div className="flex flex-wrap gap-4 items-center w-full md:w-auto">
+                        {/* Search Input */}
+                        <div className="w-full md:w-64 relative">
+                            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            <input
+                                type="text"
+                                placeholder="Tìm kiếm học sinh..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none text-sm placeholder-slate-400"
+                            />
+                        </div>
+
+                        {/* Status Filter */}
                         <select
-                            id="status-filter"
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            className="appearance-none px-4 py-2.5 pr-10 bg-gray-50 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm cursor-pointer"
+                            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-600 focus:border-blue-500 outline-none cursor-pointer"
                         >
                             <option value="ALL">Tất cả trạng thái</option>
                             <option value="ACTIVE">Đang học</option>
                             <option value="SUSPENDED">Tạm nghỉ</option>
                             <option value="TRANSFERRED">Chuyển trường</option>
                         </select>
-                        <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </div>
 
-                    {/* Conduct Filter */}
-                    <div className="relative">
-                        <label htmlFor="conduct-filter" className="sr-only">Lọc theo hạnh kiểm</label>
+                        {/* Conduct Filter */}
                         <select
-                            id="conduct-filter"
                             value={conductFilter}
                             onChange={(e) => setConductFilter(e.target.value)}
-                            className="appearance-none px-4 py-2.5 pr-10 bg-gray-50 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm cursor-pointer"
+                            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-600 focus:border-blue-500 outline-none cursor-pointer"
                         >
                             <option value="ALL">Tất cả hạnh kiểm</option>
                             <option value="Xuất sắc">Xuất sắc</option>
@@ -382,100 +376,94 @@ export default function StudentListPage() {
                             <option value="Trung bình">Trung bình</option>
                             <option value="Yếu">Yếu</option>
                         </select>
-                        <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
                     </div>
                 </div>
-            </div>
 
-            {/* Student Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100">
-                    <h2 className="text-lg font-semibold text-gray-900">Danh sách học sinh</h2>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-gray-50">
+                {/* Student Table */}
+                <div className="w-full overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Học sinh</th>
                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">MSHS</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Liên hệ</th>
+                                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Liên hệ</th>
                                 <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">GPA</th>
                                 <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Chuyên cần</th>
                                 <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Hạnh kiểm</th>
                                 <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Trạng thái</th>
-                                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Thao tác</th>
+                                <th className="px-6 py-3 text-end text-xs font-semibold text-gray-500 uppercase">Thao tác</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody className="divide-y divide-gray-100 bg-white">
                             {filteredStudents.map((student) => (
-                                <tr key={student.id} className="hover:bg-blue-50/50 transition-colors">
+                                <tr key={student.id} className="hover:bg-blue-50 transition-colors group">
                                     {/* Student Name + Avatar */}
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold text-sm">
+                                            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
                                                 {student.fullName.charAt(0)}
                                             </div>
                                             <div>
-                                                <p className="text-sm font-medium text-gray-900">{student.fullName}</p>
+                                                <p className="text-sm font-medium text-gray-900 leading-none mb-1">{student.fullName}</p>
                                                 <p className="text-xs text-gray-500">{student.email || '—'}</p>
                                             </div>
                                         </div>
                                     </td>
                                     {/* MSHS */}
-                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{student.studentCode}</td>
-                                    {/* Contact */}
                                     <td className="px-6 py-4">
-                                        <div className="text-sm">
-                                            <div className="flex items-center gap-1 text-gray-600">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <span className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-md font-mono">
+                                            {student.studentCode}
+                                        </span>
+                                    </td>
+                                    {/* Contact */}
+                                    <td className="px-6 py-4 text-center">
+                                        <div className="text-sm flex flex-col items-center">
+                                            <div className="flex items-center justify-center gap-1 text-gray-600">
+                                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                                                 </svg>
                                                 {student.phone || '—'}
                                             </div>
-                                            <div className="flex items-center gap-1 text-gray-500 text-xs mt-1">
-                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <div className="flex items-center justify-center gap-1 text-gray-500 text-xs mt-1">
+                                                <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                                 </svg>
-                                                {student.parentEmail || '—'}
+                                                PH: {student.parentEmail && student.parentEmail.length > 15 ? student.parentEmail.substring(0, 15) + '...' : (student.parentEmail || '—')}
                                             </div>
                                         </div>
                                     </td>
                                     {/* GPA */}
-                                    <td className="px-6 py-4 text-center">
+                                    <td className="px-6 py-4 text-center whitespace-nowrap">
                                         <span className={`text-sm font-semibold ${(student.averageGpa || 0) >= 8 ? 'text-green-600' : (student.averageGpa || 0) < 5 ? 'text-red-600' : 'text-gray-900'}`}>
                                             {student.averageGpa?.toFixed(1) || '—'}
                                         </span>
                                     </td>
                                     {/* Attendance */}
-                                    <td className="px-6 py-4 text-center">
+                                    <td className="px-6 py-4 text-center whitespace-nowrap">
                                         <span className={`text-sm font-medium ${(student.attendanceRate || 0) >= 90 ? 'text-green-600' : (student.attendanceRate || 0) < 80 ? 'text-red-600' : 'text-yellow-600'}`}>
                                             {student.attendanceRate ? `${student.attendanceRate.toFixed(0)}%` : '—'}
                                         </span>
                                     </td>
                                     {/* Conduct */}
-                                    <td className="px-6 py-4 text-center">
-                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getConductBadgeClass(student.conductGrade)}`}>
+                                    <td className="px-6 py-4 text-center whitespace-nowrap">
+                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getConductBadgeClass(student.conductGrade)} whitespace-nowrap`}>
                                             {student.conductGrade || '—'}
                                         </span>
                                     </td>
                                     {/* Status */}
-                                    <td className="px-6 py-4 text-center">
-                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadgeClass(student.status)}`}>
-                                            {translateStatus(student.status)}
-                                        </span>
+                                    <td className="px-6 py-4 text-center whitespace-nowrap">
+                                        <StatusBadge status={student.status} />
                                     </td>
                                     {/* Actions */}
-                                    <td className="px-6 py-4 text-center">
+                                    <td className="px-6 py-4 text-end whitespace-nowrap">
                                         <button
                                             onClick={() => setSelectedStudent(student)}
-                                            className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100"
                                             title="Xem chi tiết"
                                         >
                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                             </svg>
                                         </button>
                                     </td>
@@ -486,13 +474,11 @@ export default function StudentListPage() {
                                     <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                                         {students.length === 0 ? (
                                             <div>
-                                                <div className="text-4xl mb-3">📚</div>
                                                 <p className="font-medium">Chưa có học sinh nào trong lớp</p>
                                                 <p className="text-sm mt-1">Liên hệ Admin để thêm học sinh vào lớp</p>
                                             </div>
                                         ) : (
                                             <div>
-                                                <div className="text-4xl mb-3">🔍</div>
                                                 <p className="font-medium">Không tìm thấy học sinh nào</p>
                                                 <p className="text-sm mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
                                             </div>
@@ -506,10 +492,10 @@ export default function StudentListPage() {
             </div>
 
             {/* Student Detail Modal */}
-            <StudentDetailModal 
-                student={selectedStudent} 
-                onClose={() => setSelectedStudent(null)} 
+            <StudentDetailModal
+                student={selectedStudent}
+                onClose={() => setSelectedStudent(null)}
             />
-        </div>
+        </div >
     );
 }

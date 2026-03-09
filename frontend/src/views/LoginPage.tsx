@@ -4,19 +4,11 @@ import AuthCard from "../components/layout/AuthCard";
 import GoogleLoginButton from "../components/auth/GoogleLoginButton";
 import { useAuth } from "../context/AuthContext";
 
-interface AxiosErrorLike {
-  response?: {
-    data?: {
-      message?: string;
-    };
-  };
-}
-
 function extractMessage(err: unknown): string {
   if (typeof err === "object" && err && "response" in err) {
     // axios error
-    const axiosErr = err as AxiosErrorLike;
-    return axiosErr?.response?.data?.message || "Đăng nhập thất bại.";
+    const anyErr = err as any;
+    return anyErr?.response?.data?.message || "Đăng nhập thất bại.";
   }
   return "Đăng nhập thất bại.";
 }
@@ -43,11 +35,12 @@ export default function LoginPage() {
           navigate("/system/overview");
         } else if (role === "SCHOOL_ADMIN") {
           navigate("/school-admin/dashboard");
+        } else if (role === "STUDENT") {
+          navigate("/student/overview");
         } else if (role === "TEACHER") {
           navigate("/teacher/dashboard");
         } else {
-          // For other roles (STUDENT, GUARDIAN, etc.)
-          navigate("/login");
+          navigate("/dashboard");
         }
         return;
       }
@@ -71,16 +64,7 @@ export default function LoginPage() {
     try {
       const res = await loginWithGoogle(idToken);
       if (res.status === "AUTHENTICATED") {
-        const role = res.user?.role;
-        if (role === "SYSTEM_ADMIN") {
-          navigate("/system/overview");
-        } else if (role === "SCHOOL_ADMIN") {
-          navigate("/school-admin/dashboard");
-        } else if (role === "TEACHER") {
-          navigate("/teacher/dashboard");
-        } else {
-          navigate("/login");
-        }
+        navigate("/dashboard");
         return;
       }
       if (res.status === "OTP_REQUIRED") {
@@ -106,30 +90,27 @@ export default function LoginPage() {
         ) : null}
 
         <div className="space-y-2">
-          <label htmlFor="email-input" className="flex items-center gap-2 text-sm font-medium text-slate-700">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
             <MailIcon /> Email
           </label>
           <input
-            id="email-input"
-            type="email"
             className="w-full rounded-xl bg-slate-100/80 px-4 py-3 text-sm outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500/30"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="example@school.edu.vn"
+            placeholder=""
           />
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="password-input" className="flex items-center gap-2 text-sm font-medium text-slate-700">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
             <LockIcon /> Mật khẩu
           </label>
           <input
-            id="password-input"
             type="password"
             className="w-full rounded-xl bg-slate-100/80 px-4 py-3 text-sm outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500/30"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Nhập mật khẩu"
+            placeholder=""
           />
         </div>
 

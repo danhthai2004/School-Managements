@@ -53,8 +53,8 @@ export default function SchedulePage() {
         <div className="animate-fade-in-up space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 mb-1">Thời khóa biểu</h1>
-                    <p className="text-gray-500">Xem lịch giảng dạy hàng tuần của bạn</p>
+                    <h1 className="text-2xl font-bold text-gray-900">Thời khóa biểu</h1>
+                    <p className="text-gray-500 mt-1">Xem lịch giảng dạy hàng tuần của bạn</p>
                 </div>
                 <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
                     <Calendar size={24} />

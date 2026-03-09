@@ -52,7 +52,17 @@ function TeacherDetailModal({ isOpen, teacher, onClose, onEdit }: TeacherDetailM
                         <InfoRow label="Địa chỉ" value={teacher.address} />
                         <InfoRow
                             label="Bộ môn"
-                            value={teacher.subjectName || '—'}
+                            value={
+                                teacher.subjects && teacher.subjects.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                        {teacher.subjects.map(sub => (
+                                            <span key={sub.id} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100">
+                                                {sub.name}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : '—'
+                            }
                         />
                         <InfoRow label="Bằng cấp" value={teacher.degree} />
                         <InfoRow label="Lớp chủ nhiệm" value={teacher.homeroomClassName} />
@@ -67,7 +77,7 @@ function TeacherDetailModal({ isOpen, teacher, onClose, onEdit }: TeacherDetailM
                         </button>
                         <button
                             onClick={() => onEdit(teacher)}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg font-medium hover:shadow-lg transition-all"
                         >
                             Chỉnh sửa
                         </button>

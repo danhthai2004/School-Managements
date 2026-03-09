@@ -19,6 +19,7 @@ import {
     UserIcon,
     LockIcon,
 } from "./TeacherIcons";
+import { ClipboardList } from "lucide-react";
 
 export default function TeacherLayout() {
     const { user, logout } = useAuth();
@@ -52,6 +53,7 @@ export default function TeacherLayout() {
     const commonMenuItems = [
         { path: "/teacher/dashboard", label: "Tổng quan", icon: <HomeIcon /> },
         { path: "/teacher/schedule", label: "Thời khóa biểu", icon: <CalendarIcon /> },
+        { path: "/teacher/exam-schedule", label: "Lịch thi", icon: <ClipboardList className="w-5 h-5" /> },
         { path: "/teacher/attendance", label: "Điểm danh", icon: <AttendanceIcon /> },
         { path: "/teacher/grades", label: "Nhập điểm", icon: <GradeIcon /> },
         { path: "/teacher/class-map", label: "Sơ đồ lớp", icon: <ClassMapIcon /> },
@@ -197,7 +199,7 @@ export default function TeacherLayout() {
 
                         {/* Right side */}
                         <div className="flex items-center gap-4">
-                            <button 
+                            <button
                                 className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                                 aria-label="Thông báo"
                             >

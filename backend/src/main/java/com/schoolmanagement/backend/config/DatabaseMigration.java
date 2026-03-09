@@ -34,20 +34,28 @@ public class DatabaseMigration implements CommandLineRunner {
      * part of the TeacherAssignment entity.
      */
     private void dropClassroomIdFromTeacherAssignments() {
-        try {
-            // Check if the column exists before trying to drop it
-            var columns = jdbc.queryForList(
-                    "SELECT column_name FROM information_schema.columns " +
-                            "WHERE table_name = 'teacher_assignments' AND column_name = 'classroom_id'");
-            if (!columns.isEmpty()) {
-                log.info("Dropping obsolete 'classroom_id' column from teacher_assignments table...");
-                jdbc.execute("ALTER TABLE teacher_assignments DROP COLUMN classroom_id");
-                log.info("Successfully dropped 'classroom_id' column from teacher_assignments.");
-            } else {
-                log.debug("Column 'classroom_id' already removed from teacher_assignments, skipping migration.");
-            }
-        } catch (Exception e) {
-            log.warn("Migration: Could not drop classroom_id from teacher_assignments: {}", e.getMessage());
-        }
+        // Migration disabled: The fuuko branch's Teacher Assignment features
+        // actively require the classroom_id field to assign teachers to specific
+        // classes.
+        // Do not drop this column.
+        /*
+         * try {
+         * var columns = jdbc.queryForList(
+         * "SELECT column_name FROM information_schema.columns " +
+         * "WHERE table_name = 'teacher_assignments' AND column_name = 'classroom_id'");
+         * if (!columns.isEmpty()) {
+         * log.
+         * info("Dropping obsolete 'classroom_id' column from teacher_assignments table..."
+         * );
+         * jdbc.execute("ALTER TABLE teacher_assignments DROP COLUMN classroom_id");
+         * log.
+         * info("Successfully dropped 'classroom_id' column from teacher_assignments.");
+         * }
+         * } catch (Exception e) {
+         * log.
+         * warn("Migration: Could not drop classroom_id from teacher_assignments: {}",
+         * e.getMessage());
+         * }
+         */
     }
 }

@@ -1,5 +1,4 @@
 import api from "./api";
-import type { TeacherAssignmentDto } from "./dtos/TeacherAssignmentDto";
 
 // ==================== TYPES ====================
 
@@ -16,8 +15,10 @@ export type ClassRoomDto = {
     grade: number;
     academicYear: string;
     maxCapacity: number;
-    roomNumber: string | null;
+    roomId: string | null;
+    roomName: string | null;
     department: string | null;
+    session: 'SANG' | 'CHIEU' | null;
     status: string;
     homeroomTeacherId: string | null;
     homeroomTeacherName: string | null;
@@ -31,8 +32,9 @@ export type CreateClassRoomRequest = {
     grade: number;
     academicYear: string;
     maxCapacity: number;
-    roomNumber?: string;
+    roomId?: string;
     department?: 'KHONG_PHAN_BAN' | 'TU_NHIEN' | 'XA_HOI';
+    session?: 'SANG' | 'CHIEU';
     homeroomTeacherId?: string;
     combinationId?: string;
 };
@@ -44,18 +46,7 @@ export type UserDto = {
     role: string;
     schoolId: string;
     schoolCode: string;
-};
-
-export type SchoolUserListDto = {
-    id: string;
-    email: string;
-    fullName: string;
-    role: string;
-    schoolId: string;
-    schoolCode: string;
-    schoolName: string;
     enabled: boolean;
-    pendingDeleteAt: string | null;
 };
 
 export type GuardianDto = {
@@ -64,8 +55,9 @@ export type GuardianDto = {
     phone: string | null;
     email: string | null;
     relationship: string | null;
+    studentName: string;
+    studentClass: string;
 };
-
 export type StudentDto = {
     id: string;
     studentCode: string;
@@ -81,8 +73,20 @@ export type StudentDto = {
     enrollmentDate: string | null;
     currentClassName: string | null;
     currentClassId: string | null;
-    guardians: GuardianDto[];
-    hasAccount?: boolean;
+    hasAccount: boolean;
+    guardian: GuardianDto | null;
+};
+
+export type ClassEnrollmentHistoryDto = {
+    enrollmentId: string;
+    classId: string;
+    className: string;
+    academicYear: string;
+    enrolledAt: string;
+};
+
+export type StudentProfileDto = StudentDto & {
+    enrollmentHistory: ClassEnrollmentHistoryDto[];
 };
 
 export type GuardianRequest = {
@@ -104,7 +108,9 @@ export type CreateStudentRequest = {
     enrollmentDate?: string;
     classId?: string;
     academicYear?: string;
-    guardians?: GuardianRequest[];
+    combinationId?: string;
+    grade?: number;
+    guardian?: GuardianRequest;
 };
 
 export type UpdateStudentRequest = {
@@ -118,7 +124,7 @@ export type UpdateStudentRequest = {
     status?: 'ACTIVE' | 'GRADUATED' | 'TRANSFERRED' | 'SUSPENDED';
     classId?: string;
     academicYear?: string;
-    guardians?: UpdateGuardianRequest[];
+    guardian?: UpdateGuardianRequest;
 };
 
 export type UpdateGuardianRequest = {
@@ -139,16 +145,14 @@ export type TeacherDto = {
     address: string | null;
     email: string | null;
     phone: string | null;
-    specialization: string | null;
     degree: string | null;
     status: string;
     homeroomClassId: string | null;
     homeroomClassName: string | null;
-    subjectId: string | null;
-    subjectName: string | null;
+    subjects: SubjectDto[];
+    subjectNames: string | null;
+    hasAccount: boolean;
     avatarUrl: string | null;
-    maxPeriodsPerWeek: number;
-    hasAccount?: boolean;
 };
 
 export type CreateTeacherRequest = {
@@ -159,25 +163,46 @@ export type CreateTeacherRequest = {
     address?: string;
     email?: string;
     phone?: string;
-    specialization?: string;
     degree?: string;
-    subjectId?: string;
+    subjectIds?: string[];
     createAccount: boolean;
 };
 
-export type GlobalSlotRequest = {
-    dayOfWeek: string;
-    slotIndex: number;
-    subjectId: string | null;
-    grades: number[];
+export type BulkPromoteRequest = {
+    studentIds: string[];
+    targetGrade: number;
+    targetAcademicYear: string;
 };
 
-export type ClassSlotRequest = {
-    classRoomId: string;
-    dayOfWeek: string;
-    slotIndex: number;
-    subjectId: string | null;
-    teacherId: string | null;
+export type BulkPromoteResponse = {
+    promoted: number;
+    skipped: number;
+    errors: string[];
+};
+
+export type BulkDeleteRequest = {
+    ids: string[];
+};
+
+export type BulkDeleteResponse = {
+    deleted: number;
+    failed: number;
+    errors: string[];
+};
+
+export type RoomDto = {
+    id: string;
+    name: string;
+    capacity: number;
+    building: string | null;
+    status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE';
+};
+
+export type CreateRoomRequest = {
+    name: string;
+    capacity: number;
+    building?: string;
+    status?: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE';
 };
 
 // ==================== SERVICE ====================
@@ -197,6 +222,11 @@ export const schoolAdminService = {
 
     createClass: async (req: CreateClassRoomRequest): Promise<ClassRoomDto> => {
         const res = await api.post<ClassRoomDto>("/school/classes", req);
+        return res.data;
+    },
+
+    getClass: async (id: string): Promise<ClassRoomDto> => {
+        const res = await api.get<ClassRoomDto>(`/school/classes/${id}`);
         return res.data;
     },
 
@@ -234,46 +264,48 @@ export const schoolAdminService = {
         await api.delete(`/school/teachers/${teacherId}`);
     },
 
+    bulkDeleteTeachers: async (ids: string[]): Promise<BulkDeleteResponse> => {
+        const res = await api.post<BulkDeleteResponse>("/school/teachers/bulk-delete", { ids });
+        return res.data;
+    },
+    // Import teachers from Excel
+    importTeachersFromExcel: async (file: File): Promise<ImportTeacherResult> => {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await api.post<ImportTeacherResult>("/school/teachers/import-excel", formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
+        return res.data;
+    },
+
+
     // Users
     listUsers: async (): Promise<UserDto[]> => {
         const res = await api.get<UserDto[]>("/school/users");
         return res.data;
     },
 
-    // User Lifecycle Management
-    listUsersWithStatus: async (): Promise<SchoolUserListDto[]> => {
-        const res = await api.get<SchoolUserListDto[]>("/school/users/manage");
-        return res.data;
+    resetPassword: async (userId: string): Promise<void> => {
+        await api.post(`/school/users/${userId}/reset-password`);
     },
 
-    listPendingDeleteUsers: async (): Promise<SchoolUserListDto[]> => {
-        const res = await api.get<SchoolUserListDto[]>("/school/users/pending");
-        return res.data;
+    updateUserStatus: async (userId: string, enabled: boolean): Promise<void> => {
+        await api.put(`/school/users/${userId}/status`, null, {
+            params: { enabled }
+        });
     },
 
-    enableUser: async (id: string): Promise<void> => {
-        await api.put(`/school/users/${id}/enable`);
-    },
-
-    disableUser: async (id: string): Promise<void> => {
-        await api.put(`/school/users/${id}/disable`);
-    },
-
-    markPendingDelete: async (id: string): Promise<void> => {
-        await api.delete(`/school/users/${id}`);
-    },
-
-    restoreUser: async (id: string): Promise<void> => {
-        await api.put(`/school/users/${id}/restore`);
-    },
-
-    permanentDeleteUser: async (id: string): Promise<void> => {
-        await api.delete(`/school/users/${id}/permanent`);
+    deleteUser: async (userId: string): Promise<void> => {
+        await api.delete(`/school/users/${userId}`);
     },
 
     // Students
-    listStudents: async (): Promise<StudentDto[]> => {
-        const res = await api.get<StudentDto[]>("/school/students");
+    listStudents: async (classId?: string): Promise<StudentDto[]> => {
+        const params = classId ? { classId } : {};
+        const res = await api.get<StudentDto[]>("/school/students", { params });
         return res.data;
     },
 
@@ -289,6 +321,35 @@ export const schoolAdminService = {
 
     updateStudent: async (studentId: string, req: UpdateStudentRequest): Promise<StudentDto> => {
         const res = await api.put<StudentDto>(`/school/students/${studentId}`, req);
+        return res.data;
+    },
+
+    getStudentProfile: async (studentId: string): Promise<StudentProfileDto> => {
+        const res = await api.get<StudentProfileDto>(`/school/students/${studentId}/profile`);
+        return res.data;
+    },
+
+    transferStudent: async (studentId: string, newClassId: string): Promise<StudentProfileDto> => {
+        const res = await api.post<StudentProfileDto>(`/school/students/${studentId}/transfer`, null, {
+            params: { newClassId }
+        });
+        return res.data;
+    },
+
+    uploadAvatar: async (studentId: string, file: File): Promise<{ url: string }> => {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await api.post<{ url: string }>(`/school/students/${studentId}/avatar`, formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
+        return res.data;
+    },
+
+    // Bulk Promotion
+    promoteStudents: async (req: BulkPromoteRequest): Promise<BulkPromoteResponse> => {
+        const res = await api.post<BulkPromoteResponse>("/school/students/promote", req);
         return res.data;
     },
 
@@ -317,53 +378,8 @@ export const schoolAdminService = {
         await api.delete(`/school/students/${studentId}`);
     },
 
-    // Bulk delete students
-    bulkDeleteStudents: async (studentIds: string[]): Promise<BulkDeleteResponse> => {
-        const res = await api.post<BulkDeleteResponse>("/school/students/bulk-delete", { ids: studentIds });
-        return res.data;
-    },
-
-    // Get class detail
-    getClass: async (classId: string): Promise<ClassRoomDto> => {
-        const res = await api.get<ClassRoomDto>(`/school/classes/${classId}`);
-        return res.data;
-    },
-
-    // Promote students
-    promoteStudents: async (req: BulkPromoteRequest): Promise<BulkPromoteResponse> => {
-        const res = await api.post<BulkPromoteResponse>("/school/students/promote", req);
-        return res.data;
-    },
-
-    // Student profile
-    getStudentProfile: async (studentId: string): Promise<StudentProfileDto> => {
-        const res = await api.get<StudentProfileDto>(`/school/students/${studentId}/profile`);
-        return res.data;
-    },
-
-    // Transfer student
-    transferStudent: async (studentId: string, newClassId: string): Promise<StudentProfileDto> => {
-        const res = await api.post<StudentProfileDto>(`/school/students/${studentId}/transfer?newClassId=${newClassId}`);
-        return res.data;
-    },
-
-    // Upload student avatar
-    uploadAvatar: async (studentId: string, file: File): Promise<{ url: string }> => {
-        const formData = new FormData();
-        formData.append("file", file);
-        const res = await api.post<{ url: string }>(`/school/students/${studentId}/avatar`, formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
-        return res.data;
-    },
-
-    // Import teachers from Excel
-    importTeachersFromExcel: async (file: File): Promise<ImportTeacherResult> => {
-        const formData = new FormData();
-        formData.append("file", file);
-        const res = await api.post<ImportTeacherResult>("/school/teachers/import-excel", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
+    bulkDeleteStudents: async (ids: string[]): Promise<BulkDeleteResponse> => {
+        const res = await api.post<BulkDeleteResponse>("/school/students/bulk-delete", { ids });
         return res.data;
     },
 
@@ -375,6 +391,32 @@ export const schoolAdminService = {
 
     createStudentAccounts: async (studentIds: string[]): Promise<BulkAccountCreationResponse> => {
         const res = await api.post<BulkAccountCreationResponse>("/school/students/accounts", studentIds);
+        return res.data;
+    },
+
+    deleteStudentAccount: async (studentId: string): Promise<void> => {
+        await api.delete(`/school/students/${studentId}/account`);
+    },
+
+    // Teacher Account Management
+    getTeachersEligibleForAccount: async (): Promise<TeacherDto[]> => {
+        const res = await api.get<TeacherDto[]>("/school/teachers/no-account");
+        return res.data;
+    },
+
+    createTeacherAccounts: async (teacherIds: string[]): Promise<BulkAccountCreationResponse> => {
+        const res = await api.post<BulkAccountCreationResponse>("/school/teachers/accounts", teacherIds);
+        return res.data;
+    },
+
+    // Guardian Account Management
+    getGuardiansEligibleForAccount: async (): Promise<GuardianDto[]> => {
+        const res = await api.get<GuardianDto[]>("/school/guardians/eligible-for-account");
+        return res.data;
+    },
+
+    createGuardianAccounts: async (guardianIds: string[]): Promise<BulkAccountCreationResponse> => {
+        const res = await api.post<BulkAccountCreationResponse>("/school/guardians/accounts", guardianIds);
         return res.data;
     },
 
@@ -403,47 +445,61 @@ export const schoolAdminService = {
         await api.delete(`/school/combinations/${id}`);
     },
 
-    // ==================== TEACHER ASSIGNMENT ====================
-
-    listAssignments: async (): Promise<TeacherAssignmentDto[]> => {
-        const response = await api.get<TeacherAssignmentDto[]>(
-            `/school/assignments`
-        );
-        return response.data;
+    // ==================== Room Management ====================
+    listRooms: async (page = 0, size = 50): Promise<{ content: RoomDto[]; totalElements: number }> => {
+        const res = await api.get<{ content: RoomDto[]; totalElements: number }>("/school/rooms", { params: { page, size } });
+        return res.data;
     },
 
-    addAssignment: async (
-        teacherId: string,
-        subjectId: string
-    ): Promise<TeacherAssignmentDto> => {
-        const response = await api.post<TeacherAssignmentDto>(
-            `/school/assignments`,
-            { teacherId, subjectId }
-        );
-        return response.data;
+    listActiveRooms: async (): Promise<RoomDto[]> => {
+        const res = await api.get<RoomDto[]>("/school/rooms/active");
+        return res.data;
     },
 
-    removeAssignment: async (assignmentId: string): Promise<void> => {
-        await api.delete(`/school/assignments/${assignmentId}`);
+    createRoom: async (req: CreateRoomRequest): Promise<RoomDto> => {
+        const res = await api.post<RoomDto>("/school/rooms", req);
+        return res.data;
     },
 
-    setHeadOfDepartment: async (
-        assignmentId: string,
-        isHead: boolean
-    ): Promise<TeacherAssignmentDto[]> => {
-        const response = await api.put<TeacherAssignmentDto[]>(
-            `/school/assignments/${assignmentId}/head?isHead=${isHead}`
-        );
-        return response.data;
+    updateReportSetting(id: string, req: object): Promise<void> {
+        return api.put(`/api/school/report-settings/${id}`, req);
     },
 
-    // Timetable Slots
-    updateGlobalSlot: async (timetableId: string, req: GlobalSlotRequest): Promise<void> => {
-        await api.post(`/school-admin/timetables/${timetableId}/global-slot`, req);
+    deleteReportSetting(id: string): Promise<void> {
+        return api.delete(`/api/school/report-settings/${id}`);
     },
 
-    updateClassSlot: async (timetableId: string, req: ClassSlotRequest): Promise<void> => {
-        await api.post(`/school-admin/timetables/${timetableId}/class-slot`, req);
+    updateRoom: async (id: string, req: CreateRoomRequest): Promise<RoomDto> => {
+        const res = await api.put<RoomDto>(`/school/rooms/${id}`, req);
+        return res.data;
+    },
+
+    deleteRoom: async (id: string): Promise<void> => {
+        await api.delete(`/school/rooms/${id}`);
+    },
+
+    updateRoomStatus: async (id: string, status: string): Promise<RoomDto> => {
+        const res = await api.patch<RoomDto>(`/school/rooms/${id}/status`, null, { params: { status } });
+        return res.data;
+    },
+
+    // Teacher Assignments
+    initializeAssignments: async (): Promise<void> => {
+        await api.post("/school/assignments/init");
+    },
+
+    listAssignments: async (classId?: string): Promise<import("./dtos/TeacherAssignmentDto").TeacherAssignmentDto[]> => {
+        const res = await api.get<import("./dtos/TeacherAssignmentDto").TeacherAssignmentDto[]>("/school/assignments", {
+            params: { classId }
+        });
+        return res.data;
+    },
+
+    assignTeacher: async (assignmentId: string, teacherId: string | null): Promise<import("./dtos/TeacherAssignmentDto").TeacherAssignmentDto> => {
+        const res = await api.put<import("./dtos/TeacherAssignmentDto").TeacherAssignmentDto>(`/school/assignments/${assignmentId}/teacher`, {
+            teacherId
+        });
+        return res.data;
     },
 };
 
@@ -470,49 +526,19 @@ export type ImportError = {
     errorMessage: string;
 };
 
-// ==================== BULK DELETE TYPES ====================
-
-export type BulkDeleteRequest = {
-    ids: string[];
-};
-
-export type BulkDeleteResponse = {
-    totalRequested: number;
-    successCount: number;
-    failedCount: number;
-    results: { id: string; success: boolean; message?: string }[];
-};
-
-// ==================== PROMOTION TYPES ====================
-
-export type BulkPromoteRequest = {
-    studentIds: string[];
-    targetAcademicYear: string;
-    targetGrade: number;
-};
-
-export type BulkPromoteResponse = {
-    totalRequested: number;
-    successCount: number;
-    failedCount: number;
-    results: { studentId: string; success: boolean; message?: string }[];
-};
-
-// ==================== TEACHER IMPORT TYPES ====================
+// ==================== IMPORT TEACHER RESULT TYPE ====================
 
 export type ImportTeacherResult = {
     totalRows: number;
     successCount: number;
     failedCount: number;
-    errors: ImportError[];
+    errors: ImportTeacherError[];
 };
 
-// ==================== STUDENT PROFILE TYPES ====================
-
-export type StudentProfileDto = {
-    student: StudentDto;
-    enrollmentHistory: { id: string; className: string; academicYear: string; enrolledAt: string }[];
-    attendanceSummary?: { totalDays: number; presentDays: number; absentDays: number; lateDays: number };
+export type ImportTeacherError = {
+    rowNumber: number;
+    teacherName: string;
+    errorMessage: string;
 };
 
 // ==================== CURRICULUM TYPES ====================
@@ -521,7 +547,7 @@ export type SubjectDto = {
     id: string;
     name: string;
     code: string | null;
-    type: 'COMPULSORY' | 'ELECTIVE' | 'SPECIALIZED';
+    type: 'COMPULSORY' | 'ELECTIVE' | 'SPECIALIZED' | 'ACTIVITY';
     stream: 'TU_NHIEN' | 'XA_HOI' | null;
     totalLessons: number | null;
     active: boolean;
@@ -544,63 +570,5 @@ export type CreateCombinationRequest = {
     specializedSubjectIds: string[];
 };
 
-// ==================== TIMETABLE SETTINGS TYPES ====================
 
-export type TimetableSettingsDto = {
-    periodsPerMorning: number;
-    periodsPerAfternoon: number;
-    periodDurationMinutes: number;
-    morningStartTime: string;
-    afternoonStartTime: string;
-    shortBreakMinutes: number;
-    longBreakMinutes: number;
-    longBreakAfterPeriod: number;
-};
 
-export type SlotTimeDto = {
-    slotIndex: number;
-    startTime: string;
-    endTime: string;
-    isAfterLongBreak: boolean;
-};
-
-export type TimetableScheduleSummaryDto = {
-    arrivalTime: string;
-    morningEndTime: string;
-    afternoonEndTime: string;
-    lunchBreakStart: string;
-    lunchBreakEnd: string;
-    lunchBreakDurationMinutes: number;
-    totalLearningMinutesPerDay: number;
-    morningSlots: SlotTimeDto[];
-    afternoonSlots: SlotTimeDto[];
-};
-
-// ==================== TIMETABLE SETTINGS SERVICE ====================
-
-export const timetableSettingsService = {
-    getSettings: async (): Promise<TimetableSettingsDto> => {
-        const res = await api.get<TimetableSettingsDto>("/school-admin/timetables/settings");
-        return res.data;
-    },
-
-    updateSettings: async (settings: TimetableSettingsDto): Promise<TimetableSettingsDto> => {
-        const res = await api.put<TimetableSettingsDto>("/school-admin/timetables/settings", settings);
-        return res.data;
-    },
-
-    getScheduleSummary: async (): Promise<TimetableScheduleSummaryDto> => {
-        const res = await api.get<TimetableScheduleSummaryDto>("/school-admin/timetables/settings/summary");
-        return res.data;
-    },
-
-    previewScheduleSummary: async (settings: TimetableSettingsDto): Promise<TimetableScheduleSummaryDto> => {
-        const res = await api.post<TimetableScheduleSummaryDto>("/school-admin/timetables/settings/preview", settings);
-        return res.data;
-    },
-
-    getSlotTimes: async (): Promise<SlotTimeDto[]> => {
-        const res = await api.get<SlotTimeDto[]>("/school-admin/timetables/slot-times");
-        return res.data;
-    },
-};

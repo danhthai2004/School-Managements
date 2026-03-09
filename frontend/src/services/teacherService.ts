@@ -20,7 +20,7 @@ export type TeacherDashboardStats = {
     // Common stats
     totalAssignedClasses: number;
     todayPeriods: number;
-    
+
     // Homeroom-only stats
     totalStudents?: number;
     homeroomClassName?: string;
@@ -179,6 +179,14 @@ export const teacherService = {
     getGradeBook: async (classId: string, subjectId: string, semester: number = 1): Promise<GradeBook> => {
         const res = await api.get<GradeBook>("/teacher/grades", {
             params: { classId, subjectId, semester }
+        });
+        return res.data;
+    },
+
+    // Get teacher exam schedule (invigilation)
+    getExamSchedule: async (academicYear?: string, semester?: number): Promise<import("../services/studentService").ExamScheduleDto[]> => {
+        const res = await api.get<import("../services/studentService").ExamScheduleDto[]>("/teacher/schedule/exam", {
+            params: { academicYear, semester }
         });
         return res.data;
     },
