@@ -1,9 +1,9 @@
 package com.schoolmanagement.backend.config;
 
-import com.schoolmanagement.backend.domain.Role;
-import com.schoolmanagement.backend.domain.entity.User;
-import com.schoolmanagement.backend.repo.UserRepository;
-import com.schoolmanagement.backend.service.CurriculumSeederService;
+import com.schoolmanagement.backend.domain.auth.Role;
+import com.schoolmanagement.backend.domain.entity.auth.User;
+import com.schoolmanagement.backend.repo.auth.UserRepository;
+import com.schoolmanagement.backend.service.timetable.CurriculumSeederService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
