@@ -1,7 +1,7 @@
 package com.schoolmanagement.backend.security;
 
-import com.schoolmanagement.backend.domain.Role;
-import com.schoolmanagement.backend.domain.entity.User;
+import com.schoolmanagement.backend.domain.auth.Role;
+import com.schoolmanagement.backend.domain.entity.auth.User;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
