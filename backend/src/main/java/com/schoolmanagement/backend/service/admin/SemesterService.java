@@ -152,12 +152,18 @@ public class SemesterService {
 
         // Thu thập lỗi chi tiết
         StringBuilder errors = new StringBuilder();
-        if (classCount > 0) errors.append(classCount).append(" lớp học, ");
-        if (enrollmentCount > 0) errors.append(enrollmentCount).append(" hồ sơ nhập học, ");
-        if (gradeCount > 0) errors.append(gradeCount).append(" bản ghi điểm, ");
-        if (timetableCount > 0) errors.append(timetableCount).append(" thời khóa biểu, ");
-        if (examCount > 0) errors.append(examCount).append(" kỳ thi, ");
-        if (attendanceCount > 0) errors.append(attendanceCount).append(" buổi điểm danh, ");
+        if (classCount > 0)
+            errors.append(classCount).append(" lớp học, ");
+        if (enrollmentCount > 0)
+            errors.append(enrollmentCount).append(" hồ sơ nhập học, ");
+        if (gradeCount > 0)
+            errors.append(gradeCount).append(" bản ghi điểm, ");
+        if (timetableCount > 0)
+            errors.append(timetableCount).append(" thời khóa biểu, ");
+        if (examCount > 0)
+            errors.append(examCount).append(" kỳ thi, ");
+        if (attendanceCount > 0)
+            errors.append(attendanceCount).append(" buổi điểm danh, ");
 
         if (errors.length() > 0) {
             errors.setLength(errors.length() - 2); // Bỏ ", " cuối
@@ -227,21 +233,22 @@ public class SemesterService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Học kỳ không tồn tại."));
     }
 
-    public com.schoolmanagement.backend.domain.entity.admin.AcademicYear getActiveAcademicYear(School school) {
+    public AcademicYear getActiveAcademicYear(School school) {
         return academicYearRepository.findBySchoolAndStatus(school, AcademicYearStatus.ACTIVE)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Năm học hiện tại không tìm thấy."));
     }
 
     /**
-     * Safe version of getActiveAcademicYear for read-only scenarios (like DTO mapping).
+     * Safe version of getActiveAcademicYear for read-only scenarios (like DTO
+     * mapping).
      * Returns null instead of throwing exception if no active year exists.
      */
-    public com.schoolmanagement.backend.domain.entity.admin.AcademicYear getActiveAcademicYearSafe(School school) {
+    public AcademicYear getActiveAcademicYearSafe(School school) {
         return academicYearRepository.findBySchoolAndStatus(school, AcademicYearStatus.ACTIVE)
                 .orElse(null);
     }
 
-    public com.schoolmanagement.backend.domain.entity.admin.AcademicYear getAcademicYearByName(School school, String name) {
+    public AcademicYear getAcademicYearByName(School school, String name) {
         return academicYearRepository.findBySchoolAndName(school, name)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Năm học không tồn tại: " + name));
     }
@@ -356,25 +363,21 @@ public class SemesterService {
     }
 
     /**
-     * Tự động xác định học kỳ hiện tại dựa trên thời gian thực.
+     * Lấy học kỳ hiện tại dựa trên thời gian thực.
      */
     public SemesterDto getCurrentSemester(School school) {
         LocalDate today = LocalDate.now();
         return semesterRepository.findCurrentBySchoolAndDate(school, today)
                 .map(this::toDto)
                 .orElseGet(() ->
-                        // Fallback: lấy học kỳ ACTIVE
-                        semesterRepository.findBySchoolAndStatus(school, SemesterStatus.ACTIVE)
-                                .map(this::toDto)
-                                .orElse(null)
-                );
+                // Fallback: lấy học kỳ ACTIVE
+                semesterRepository.findBySchoolAndStatus(school, SemesterStatus.ACTIVE)
+                        .map(this::toDto)
+                        .orElse(null));
     }
 
-    // ==================== HELPERS FOR OTHER SERVICES ====================
-
     /**
-     * Get the active Semester entity for a school.
-     * Priority: ACTIVE status → date-based match → null.
+     * Lấy Semester entity cho status → date-based match → null.
      * Other services should use this instead of hardcoded getCurrentAcademicYear().
      */
     public Semester getActiveSemesterEntity(School school) {
@@ -387,8 +390,10 @@ public class SemesterService {
     }
 
     /**
-     * Safe version of getActiveSemesterEntity that returns null instead of throwing exception.
-     * Useful for mapping DTOs where we don't want to kill the whole list if setup is incomplete.
+     * Safe version of getActiveSemesterEntity that returns null instead of throwing
+     * exception.
+     * Useful for mapping DTOs where we don't want to kill the whole list if setup
+     * is incomplete.
      */
     public Semester getActiveSemesterEntitySafe(School school) {
         try {
@@ -435,15 +440,16 @@ public class SemesterService {
     /**
      * Tìm năm học tương ứng với một ngày cụ thể. Fallback về Active nếu không tìm thấy.
      */
-    public AcademicYear getAcademicYearByDate(School school, java.time.LocalDate date) {
+    public AcademicYear getAcademicYearByDate(School school, LocalDate date) {
         return academicYearRepository.findCurrentBySchoolAndDate(school, date)
                 .orElseGet(() -> getActiveAcademicYear(school));
     }
 
     /**
-     * Tìm học kỳ tương ứng với một ngày cụ thể (có thể null nếu ngày nằm ngoài học kỳ).
+     * Tìm học kỳ tương ứng với một ngày cụ thể (có thể null nếu ngày nằm ngoài học
+     * kỳ).
      */
-    public Semester getSemesterByDate(School school, java.time.LocalDate date) {
+    public Semester getSemesterByDate(School school, LocalDate date) {
         return semesterRepository.findCurrentBySchoolAndDate(school, date).orElse(null);
     }
 
