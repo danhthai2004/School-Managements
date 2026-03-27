@@ -1,6 +1,6 @@
 package com.schoolmanagement.backend.service.chat;
 
-import com.schoolmanagement.backend.dto.ChatContext;
+import com.schoolmanagement.backend.dto.chat.ChatContext;
 
 import java.util.UUID;
 

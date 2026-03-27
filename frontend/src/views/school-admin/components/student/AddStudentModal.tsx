@@ -8,6 +8,7 @@ import {
     type CreateStudentRequest,
     type CombinationDto
 } from "../../../../services/schoolAdminService";
+import { semesterService, type AcademicYearDto } from "../../../../services/semesterService";
 import { XIcon } from "../../SchoolAdminIcons";
 import { formatDateInput, parseDateDDMMYYYY } from "../../../../utils/dateHelpers";
 import CustomDateInput from "../../../../components/common/CustomDateInput";
@@ -18,9 +19,10 @@ interface AddStudentModalProps {
     onSuccess: () => void;
     classes: ClassRoomDto[];
     combinations: CombinationDto[];
+    defaultAcademicYear: string;
 }
 
-function AddStudentModal({ isOpen, onClose, onSuccess, classes, combinations }: AddStudentModalProps) {
+function AddStudentModal({ isOpen, onClose, onSuccess, classes, combinations, defaultAcademicYear }: AddStudentModalProps) {
     const [fullName, setFullName] = useState("");
     const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
     const [dateInputValue, setDateInputValue] = useState("");
@@ -29,6 +31,7 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes, combinations }: 
     const [address, setAddress] = useState("");
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
+    const [academicYear, setAcademicYear] = useState(defaultAcademicYear);
     const [classId, setClassId] = useState("");
     // Assignment state
     const [assignmentMode, setAssignmentMode] = useState<'MANUAL' | 'AUTO'>("MANUAL");
@@ -39,8 +42,41 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes, combinations }: 
     const [guardianPhone, setGuardianPhone] = useState("");
     const [guardianEmail, setGuardianEmail] = useState("");
     const [guardianRelationship, setGuardianRelationship] = useState("");
+    const [academicYears, setAcademicYears] = useState<AcademicYearDto[]>([]);
     const [loading, setLoading] = useState(false);
+    const [loadingYears, setLoadingYears] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    React.useEffect(() => {
+        if (isOpen) {
+            fetchAcademicYears();
+        }
+    }, [isOpen]);
+
+    const fetchAcademicYears = async () => {
+        setLoadingYears(true);
+        try {
+            const years = await semesterService.listAcademicYears();
+            const filtered = years.filter(y => y.status === 'ACTIVE' || y.status === 'UPCOMING');
+            setAcademicYears(filtered);
+
+            // If current academicYear is not in the list, set to active if possible
+            if (filtered.length > 0) {
+                const activeYear = filtered.find(y => y.status === 'ACTIVE');
+                if (activeYear && !academicYear) {
+                    setAcademicYear(activeYear.name);
+                } else if (!academicYear) {
+                    setAcademicYear(filtered[0].name);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to fetch academic years", err);
+        } finally {
+            setLoadingYears(false);
+        }
+    };
+
+    const filteredClasses = classes.filter(c => c.academicYear === academicYear);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -84,6 +120,7 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes, combinations }: 
                 email: email.trim() || undefined,
                 phone: phone.trim() || undefined,
                 classId: assignmentMode === 'MANUAL' ? (classId || undefined) : undefined,
+                academicYear: academicYear,
                 grade: assignmentMode === 'AUTO' ? autoGrade : undefined,
                 combinationId: assignmentMode === 'AUTO' ? (autoCombinationId || undefined) : undefined,
                 guardian: guardianName ? {
@@ -308,47 +345,71 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes, combinations }: 
                                     </div>
                                 </div>
 
-                                {assignmentMode === 'MANUAL' ? (
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-600 mb-1.5">Lớp học</label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-slate-600 mb-1.5">Năm học <span className="text-red-500">*</span></label>
                                         <select
-                                            value={classId}
-                                            onChange={(e) => setClassId(e.target.value)}
-                                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
+                                            value={academicYear}
+                                            onChange={(e) => {
+                                                setAcademicYear(e.target.value);
+                                                setClassId(""); // Reset class selection when year changes
+                                            }}
+                                            required
+                                            disabled={loadingYears}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer disabled:bg-slate-50"
                                         >
-                                            <option value="">-- Chọn lớp --</option>
-                                            {classes.map((c) => <option key={c.id} value={c.id}>{c.name} (Khối {c.grade})</option>)}
+                                            {academicYears.length === 0 && <option value="">Đang tải...</option>}
+                                            {academicYears.map(y => (
+                                                <option key={y.id} value={y.name}>
+                                                    {y.name}
+                                                </option>
+                                            ))}
                                         </select>
                                     </div>
-                                ) : (
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-600 mb-1.5">Khối lớp</label>
+
+                                    {assignmentMode === 'MANUAL' ? (
+                                        <div className="md:col-span-2">
+                                            <label className="block text-sm font-medium text-slate-600 mb-1.5">Lớp học</label>
                                             <select
-                                                value={autoGrade}
-                                                onChange={(e) => setAutoGrade(Number(e.target.value))}
+                                                value={classId}
+                                                onChange={(e) => setClassId(e.target.value)}
                                                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
                                             >
-                                                <option value={10}>Khối 10</option>
-                                                <option value={11}>Khối 11</option>
-                                                <option value={12}>Khối 12</option>
+                                                <option value="">-- Chọn lớp --</option>
+                                                {filteredClasses.map((c) => <option key={c.id} value={c.id}>{c.name} (Khối {c.grade})</option>)}
+                                                {filteredClasses.length === 0 && <option value="" disabled>Không có lớp nào trong năm học này</option>}
                                             </select>
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-600 mb-1.5">Tổ hợp môn</label>
-                                            <select
-                                                value={autoCombinationId}
-                                                onChange={(e) => setAutoCombinationId(e.target.value)}
-                                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
-                                            >
-                                                <option value="">-- Chọn tổ hợp --</option>
-                                                {combinations.map((c) => (
-                                                    <option key={c.id} value={c.id}>{c.name} {c.code ? `(${c.code})` : ''}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </div>
-                                )}
+                                    ) : (
+                                        <>
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-600 mb-1.5">Khối lớp</label>
+                                                <select
+                                                    value={autoGrade}
+                                                    onChange={(e) => setAutoGrade(Number(e.target.value))}
+                                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
+                                                >
+                                                    <option value={10}>Khối 10</option>
+                                                    <option value={11}>Khối 11</option>
+                                                    <option value={12}>Khối 12</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-600 mb-1.5">Tổ hợp môn</label>
+                                                <select
+                                                    value={autoCombinationId}
+                                                    onChange={(e) => setAutoCombinationId(e.target.value)}
+                                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
+                                                >
+                                                    <option value="">-- Chọn tổ hợp --</option>
+                                                    {combinations.map((c) => (
+                                                        <option key={c.id} value={c.id}>{c.name} {c.code ? `(${c.code})` : ''}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </div>
 

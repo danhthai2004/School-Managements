@@ -146,9 +146,9 @@ function EditClassModal({ isOpen, classData, onClose, onSuccess, teachers, combi
                                     <input
                                         type="text"
                                         value={academicYear}
-                                        onChange={(e) => setAcademicYear(e.target.value)}
-                                        required
-                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm"
+                                        readOnly
+                                        disabled
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-500 outline-none transition-all text-sm cursor-not-allowed"
                                     />
                                 </div>
                                 <div className="col-span-2 sm:col-span-1">

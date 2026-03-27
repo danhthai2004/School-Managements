@@ -34,6 +34,7 @@ import RoomManagement from "../views/school-admin/pages/RoomManagement";
 import ExamSessionManagement from "../views/school-admin/pages/ExamSessionManagement";
 import ExamSessionDetailPage from "../views/school-admin/pages/ExamSessionDetailPage";
 import ReportsPage from "../views/school-admin/pages/ReportsPage";
+import SemesterConfigPage from "../views/school-admin/pages/SemesterConfigPage";
 import GuardianLayout from "../components/layout/GuardianLayout";
 import GuardianNotification from "../views/guardian/GuardianNotification";
 import StudentAttendance from "../views/guardian/StudentAttendance";
@@ -126,6 +127,7 @@ export default function AppRouter() {
         <Route path="exam-sessions" element={<ExamSessionManagement />} />
         <Route path="exam-sessions/:id" element={<ExamSessionDetailPage />} />
         <Route path="reports" element={<ReportsPage />} />
+        <Route path="semesters" element={<SemesterConfigPage />} />
       </Route>
 
       <Route path="/guardian" element={

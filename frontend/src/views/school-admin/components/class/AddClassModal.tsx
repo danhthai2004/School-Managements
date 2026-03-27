@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
     schoolAdminService,
@@ -7,6 +7,7 @@ import {
     type CombinationDto,
     type RoomDto
 } from "../../../../services/schoolAdminService";
+import { semesterService, type AcademicYearDto } from "../../../../services/semesterService";
 import { XIcon } from "../../SchoolAdminIcons";
 
 interface AddClassModalProps {
@@ -27,8 +28,38 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, roo
     const [roomId, setRoomId] = useState("");
     const [combinationId, setCombinationId] = useState("");
     const [homeroomTeacherId, setHomeroomTeacherId] = useState("");
+    const [academicYears, setAcademicYears] = useState<AcademicYearDto[]>([]);
     const [loading, setLoading] = useState(false);
+    const [loadingYears, setLoadingYears] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchAcademicYears();
+        }
+    }, [isOpen]);
+
+    const fetchAcademicYears = async () => {
+        setLoadingYears(true);
+        try {
+            const years = await semesterService.listAcademicYears();
+            // Filter: only show ACTIVE or UPCOMING
+            const filtered = years.filter(y => y.status === 'ACTIVE' || y.status === 'UPCOMING');
+            setAcademicYears(filtered);
+
+            // If current academicYear is empty or not in the list, try to find the ACTIVE one
+            const activeYear = filtered.find(y => y.status === 'ACTIVE');
+            if (activeYear && !academicYear) {
+                setAcademicYear(activeYear.name);
+            } else if (!academicYear && filtered.length > 0) {
+                setAcademicYear(filtered[0].name);
+            }
+        } catch (err) {
+            console.error("Failed to fetch academic years", err);
+        } finally {
+            setLoadingYears(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -136,14 +167,20 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, roo
                                 </div>
                                 <div className="col-span-2 sm:col-span-1">
                                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Năm học <span className="text-red-500">*</span></label>
-                                    <input
-                                        type="text"
+                                    <select
                                         value={academicYear}
                                         onChange={(e) => setAcademicYear(e.target.value)}
-                                        placeholder="2024-2025"
                                         required
-                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm"
-                                    />
+                                        disabled={loadingYears}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm bg-white disabled:bg-gray-50"
+                                    >
+                                        {academicYears.length === 0 && <option value="">Đang tải...</option>}
+                                        {academicYears.map(y => (
+                                            <option key={y.id} value={y.name}>
+                                                {y.name}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div className="col-span-2 sm:col-span-1">
                                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Sĩ số tối đa <span className="text-red-500">*</span></label>
