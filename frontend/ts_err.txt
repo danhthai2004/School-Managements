@@ -1,4 +1,0 @@
-src/views/guardian/StudentScore.tsx(24,53): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
-src/views/Student/StudentScoresPage.tsx(25,61): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
-src/views/teacher/pages/GradesPage.tsx(117,96): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
-src/views/teacher/pages/GradesPage.tsx(189,17): error TS2561: Object literal may only specify known properties, but 'semester' does not exist in type 'SaveGradeRequest'. Did you mean to write 'semesterId'?
