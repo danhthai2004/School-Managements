@@ -18,7 +18,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "classrooms", indexes = {
         @Index(name = "idx_classroom_school", columnList = "school_id"),
-        @Index(name = "idx_classroom_name_school_year", columnList = "name, school_id, academic_year", unique = true)
+        @Index(name = "idx_classroom_name_school_year", columnList = "name, school_id, academic_year_id", unique = true)
 })
 public class ClassRoom {
 
@@ -32,8 +32,9 @@ public class ClassRoom {
     @Column(nullable = false)
     private int grade; // 10, 11, 12
 
-    @Column(name = "academic_year", nullable = false, length = 20)
-    private String academicYear; // "2024-2025"
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "academic_year_id", nullable = false)
+    private com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear;
 
     @Column(nullable = false)
     private int maxCapacity; // Sĩ số (1-35)

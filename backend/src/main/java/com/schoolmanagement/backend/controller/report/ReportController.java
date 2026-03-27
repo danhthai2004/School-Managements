@@ -24,6 +24,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 /**
  * Controller cho các API báo cáo của School Admin
  */
@@ -101,18 +103,12 @@ public class ReportController {
     @GetMapping("/students/enrollment-trend")
     public EnrollmentTrendDto getEnrollmentTrend(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(defaultValue = "") String academicYear) {
+            @RequestParam(required = false) UUID academicYearId) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        if (academicYear.isEmpty()) {
-            // Default to current academic year
-            int year = java.time.LocalDate.now().getYear();
-            int month = java.time.LocalDate.now().getMonthValue();
-            academicYear = month >= 9 ? year + "-" + (year + 1) : (year - 1) + "-" + year;
-        }
-        return reportService.getEnrollmentTrend(admin.getSchool(), academicYear);
+        return reportService.getEnrollmentTrend(admin.getSchool(), academicYearId);
     }
 
     // ==================== TEACHER REPORTS ====================
@@ -169,13 +165,13 @@ public class ReportController {
     @GetMapping("/academic")
     public AcademicReportDto getAcademicReport(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(defaultValue = "") String academicYear,
+            @RequestParam(required = false) UUID academicYearId,
             @RequestParam(defaultValue = "0") int semester) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return reportService.getAcademicReport(admin.getSchool(), academicYear, semester);
+        return reportService.getAcademicReport(admin.getSchool(), academicYearId, semester);
     }
 
     // ==================== TIMETABLE REPORTS ====================

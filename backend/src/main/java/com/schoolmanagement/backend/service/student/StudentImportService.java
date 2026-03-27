@@ -21,6 +21,7 @@ import com.schoolmanagement.backend.repo.classes.ClassEnrollmentRepository;
 import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.student.GuardianRepository;
 import com.schoolmanagement.backend.repo.student.StudentRepository;
+import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.http.HttpStatus;
@@ -62,7 +63,7 @@ public class StudentImportService {
      */
     @Transactional
     public ImportStudentResult importStudentsFromExcel(School school, MultipartFile file,
-            String academicYear, int grade, boolean autoAssign) {
+            AcademicYear academicYear, int grade, boolean autoAssign) {
         if (file == null || file.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "File Excel rỗng.");
         }
@@ -309,7 +310,7 @@ public class StudentImportService {
      * Uses round-robin distribution to balance class sizes
      */
     private int autoAssignStudentsToClasses(School school, Map<Student, Combination> studentCombinationMap,
-            String academicYear, int grade) {
+            AcademicYear academicYear, int grade) {
         int assignedCount = 0;
 
         // Get all available classes
@@ -497,11 +498,11 @@ public class StudentImportService {
         String searchVal = value.toLowerCase().trim();
         List<Combination> allCombs = combinations.findAllBySchool(school);
 
-        for (Combination c : allCombs) {
-            String code = c.getCode() != null ? c.getCode().toLowerCase().trim() : "";
-            String name = c.getName() != null ? c.getName().toLowerCase().trim() : "";
+        for (Combination combinationItem : allCombs) {
+            String code = combinationItem.getCode() != null ? combinationItem.getCode().toLowerCase().trim() : "";
+            String name = combinationItem.getName() != null ? combinationItem.getName().toLowerCase().trim() : "";
             if (code.equals(searchVal) || name.equals(searchVal) || name.contains(searchVal)) {
-                return c;
+                return combinationItem;
             }
         }
 

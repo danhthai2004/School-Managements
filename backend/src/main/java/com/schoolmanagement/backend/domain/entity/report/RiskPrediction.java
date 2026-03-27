@@ -28,11 +28,13 @@ public class RiskPrediction {
     @JoinColumn(name = "student_id", nullable = false)
     private Student student;
 
-    @Column(name = "academic_year", nullable = false)
-    private String academicYear;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "academic_year_id", nullable = false)
+    private com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear;
 
-    @Column(nullable = false)
-    private int semester;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "semester_id", nullable = false)
+    private com.schoolmanagement.backend.domain.entity.admin.Semester semester;
 
     @Column(name = "risk_score", precision = 3, scale = 2)
     private BigDecimal riskScore; // 0-1

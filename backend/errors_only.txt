@@ -1,0 +1,18 @@
+[ERROR] COMPILATION ERROR : 
+[ERROR] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/controller/report/ReportController.java:[104,45] cannot find symbol
+[ERROR] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/controller/report/ReportController.java:[166,45] cannot find symbol
+[INFO] 2 errors 
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.1:compile (default-compile) on project backend: Compilation failure: Compilation failure: 
+[ERROR] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/controller/report/ReportController.java:[104,45] cannot find symbol
+[ERROR]   symbol:   class UUID
+[ERROR]   location: class com.schoolmanagement.backend.controller.report.ReportController
+[ERROR] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/controller/report/ReportController.java:[166,45] cannot find symbol
+[ERROR]   symbol:   class UUID
+[ERROR]   location: class com.schoolmanagement.backend.controller.report.ReportController
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

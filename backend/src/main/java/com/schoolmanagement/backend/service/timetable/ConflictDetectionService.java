@@ -56,13 +56,13 @@ public class ConflictDetectionService {
         List<ExamRoom> conflicting = examRoomRepository.findConflictingRooms(
                 roomId, examDate, startTime, endTime);
 
-        for (ExamRoom er : conflicting) {
-            ExamSchedule es = er.getExamSchedule();
+        for (ExamRoom examRoom : conflicting) {
+            ExamSchedule examSchedule = examRoom.getExamSchedule();
             conflicts.add(String.format(
                     "Phòng đã được gán cho môn %s (khối %d) từ %s đến %s ngày %s",
-                    es.getSubject().getName(),
-                    es.getGrade() != null ? es.getGrade() : 0,
-                    es.getStartTime(), es.getEndTime(), es.getExamDate()));
+                    examSchedule.getSubject().getName(),
+                    examSchedule.getGrade() != null ? examSchedule.getGrade() : 0,
+                    examSchedule.getStartTime(), examSchedule.getEndTime(), examSchedule.getExamDate()));
         }
         return conflicts;
     }
@@ -76,14 +76,14 @@ public class ConflictDetectionService {
         List<ExamInvigilator> conflicting = examInvigilatorRepository.findConflictingTeachers(
                 teacherId, examDate, startTime, endTime);
 
-        for (ExamInvigilator ei : conflicting) {
-            ExamRoom er = ei.getExamRoom();
-            ExamSchedule es = er.getExamSchedule();
+        for (ExamInvigilator invigilator : conflicting) {
+            ExamRoom examRoom = invigilator.getExamRoom();
+            ExamSchedule examSchedule = examRoom.getExamSchedule();
             conflicts.add(String.format(
                     "Giáo viên đã gác thi môn %s tại phòng %s từ %s đến %s ngày %s",
-                    es.getSubject().getName(),
-                    er.getRoom().getName(),
-                    es.getStartTime(), es.getEndTime(), es.getExamDate()));
+                    examSchedule.getSubject().getName(),
+                    examRoom.getRoom().getName(),
+                    examSchedule.getStartTime(), examSchedule.getEndTime(), examSchedule.getExamDate()));
         }
         return conflicts;
     }
@@ -93,17 +93,14 @@ public class ConflictDetectionService {
      * So sánh ngày thi → DayOfWeek → tìm các tiết dạy, rồi check overlap giờ.
      */
     public List<String> checkTeacherTimetableConflicts(UUID teacherId, School school,
-            String academicYear, int semester,
+            com.schoolmanagement.backend.domain.entity.admin.Semester semester,
             LocalDate examDate,
             LocalTime startTime, LocalTime endTime) {
         List<String> conflicts = new ArrayList<>();
 
         // Tìm TKB chính khóa (OFFICIAL)
         Timetable official = timetableRepository
-                .findAllBySchoolAndAcademicYearAndSemester(school, academicYear, semester)
-                .stream()
-                .filter(t -> t.getStatus() == TimetableStatus.OFFICIAL)
-                .findFirst()
+                .findFirstBySchoolAndSemesterAndStatusOrderByCreatedAtDesc(school, semester, TimetableStatus.OFFICIAL)
                 .orElse(null);
 
         if (official == null) {
@@ -153,13 +150,13 @@ public class ConflictDetectionService {
      * Phương thức tổng hợp: kiểm tra toàn bộ xung đột cho 1 phòng + giáo viên.
      */
     public List<String> checkAllConflicts(UUID roomId, UUID teacherId, School school,
-            String academicYear, int semester,
+            com.schoolmanagement.backend.domain.entity.admin.Semester semester,
             LocalDate examDate, LocalTime startTime, LocalTime endTime) {
         List<String> all = new ArrayList<>();
         all.addAll(checkRoomConflicts(roomId, examDate, startTime, endTime));
         if (teacherId != null) {
             all.addAll(checkTeacherExamConflicts(teacherId, examDate, startTime, endTime));
-            all.addAll(checkTeacherTimetableConflicts(teacherId, school, academicYear, semester,
+            all.addAll(checkTeacherTimetableConflicts(teacherId, school, semester,
                     examDate, startTime, endTime));
         }
         return all;

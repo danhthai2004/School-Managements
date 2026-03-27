@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import { Plus, Play, Calendar, Eye, Loader2, X, AlertCircle, CheckCircle2, Trash2 } from "lucide-react";
 
-import { schoolAdminService } from "../../../services/schoolAdminService";
 import { useToast } from "../../../context/ToastContext";
 import { useConfirmation } from "../../../hooks/useConfirmation";
 import { formatDate } from "../../../utils/dateHelpers";
@@ -18,41 +17,49 @@ interface Timetable {
     createdAt: string;
 }
 
+import { useSemester } from "../../../context/SemesterContext";
+import SemesterSelector from "../../../components/common/SemesterSelector";
+
 // Modal Component for Creating Timetable
 interface CreateModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
-    defaultAcademicYear: string;
 }
 
-function CreateTimetableModal({ isOpen, onClose, onSuccess, defaultAcademicYear }: CreateModalProps) {
+function CreateTimetableModal({ isOpen, onClose, onSuccess }: CreateModalProps) {
+    const { activeSemester, allSemesters } = useSemester();
     const [name, setName] = useState("");
-    const [academicYear, setAcademicYear] = useState("");
-    const [semester, setSemester] = useState<number>(1);
+    const [semesterId, setSemesterId] = useState<string>("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Auto-fill default academic year
+    // Auto-fill default semester info
     useEffect(() => {
         if (isOpen) {
-            setAcademicYear(defaultAcademicYear);
+            if (activeSemester) {
+                setSemesterId(activeSemester.id);
+            } else if (allSemesters.length > 0) {
+                setSemesterId(allSemesters[0].id);
+            }
             setName("");
-            setSemester(1);
             setError(null);
         }
-    }, [isOpen, defaultAcademicYear]);
+    }, [isOpen, activeSemester, allSemesters]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!semesterId) {
+            setError("Vui lòng chọn học kỳ.");
+            return;
+        }
         setLoading(true);
         setError(null);
 
         try {
             await api.post("/school-admin/timetables", {
                 name,
-                academicYear,
-                semester
+                semesterId
             });
             onSuccess();
             onClose();
@@ -97,29 +104,20 @@ function CreateTimetableModal({ isOpen, onClose, onSuccess, defaultAcademicYear 
                         />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Năm học</label>
-                            <input
-                                type="text"
-                                required
-                                placeholder="VD: 2025-2026"
-                                value={academicYear}
-                                onChange={(e) => setAcademicYear(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:border-blue-500 outline-none text-gray-800"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Học kỳ</label>
-                            <select
-                                value={semester}
-                                onChange={(e) => setSemester(Number(e.target.value))}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:border-blue-500 outline-none text-gray-800 bg-white"
-                            >
-                                <option value={1}>Học kỳ 1</option>
-                                <option value={2}>Học kỳ 2</option>
-                            </select>
-                        </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Học kỳ & Năm học *</label>
+                        <select
+                            value={semesterId}
+                            onChange={(e) => setSemesterId(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:border-blue-500 outline-none text-gray-800 bg-white"
+                        >
+                            <option value="">-- Chọn học kỳ --</option>
+                            {allSemesters.map(s => (
+                                <option key={s.id} value={s.id}>
+                                    Học kỳ {s.semesterNumber} ({s.academicYearName})
+                                </option>
+                            ))}
+                        </select>
                     </div>
 
                     <div className="pt-4 flex gap-3">
@@ -147,7 +145,6 @@ export default function TimetableManagement() {
     const [loading, setLoading] = useState(false);
     const [generating, setGenerating] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [currentAcademicYear, setCurrentAcademicYear] = useState<string>("");
 
     // Global Hooks
     const { showSuccess } = useToast();
@@ -156,18 +153,25 @@ export default function TimetableManagement() {
     // Create Modal state
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
+    const { activeSemester, loading: isContextLoading } = useSemester();
+    const [selectedSemesterId, setSelectedSemesterId] = useState<string>("");
+
+    // Initial load priority: System Active Semester
+    useEffect(() => {
+        if (!selectedSemesterId && activeSemester) {
+            setSelectedSemesterId(activeSemester.id);
+        }
+    }, [activeSemester, selectedSemesterId]);
+
     const fetchTimetables = async () => {
+        if (!selectedSemesterId) return;
         setLoading(true);
         setError(null);
         try {
-            const [timetablesData, statsData] = await Promise.all([
-                api.get("/school-admin/timetables").then(res => res.data),
-                schoolAdminService.getStats()
-            ]);
-            setTimetables(timetablesData);
-            if (statsData?.currentAcademicYear) {
-                setCurrentAcademicYear(statsData.currentAcademicYear);
-            }
+            const data = await api.get("/school-admin/timetables", {
+                params: { semesterId: selectedSemesterId }
+            }).then(res => res.data);
+            setTimetables(data);
         } catch (error) {
             setError("Không thể tải danh sách thời khóa biểu");
         } finally {
@@ -176,8 +180,10 @@ export default function TimetableManagement() {
     };
 
     useEffect(() => {
-        fetchTimetables();
-    }, []);
+        if (!isContextLoading && selectedSemesterId) {
+            fetchTimetables();
+        }
+    }, [selectedSemesterId, isContextLoading]);
 
     const handleGenerateClick = (timetable: Timetable) => {
         confirm({
@@ -253,18 +259,25 @@ export default function TimetableManagement() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Quản lý Thời Khóa Biểu</h1>
                     <p className="text-gray-500 text-sm mt-1">Danh sách các phiên bản thời khóa biểu</p>
                 </div>
-                <button
-                    onClick={() => setIsCreateModalOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
-                >
-                    <Plus size={20} />
-                    <span>Tạo TKB Mới</span>
-                </button>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <SemesterSelector 
+                        value={selectedSemesterId} 
+                        onChange={setSelectedSemesterId}
+                        label="" 
+                        className="h-[42px]"
+                    />
+                    <button onClick={() => setIsCreateModalOpen(true)}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-sm hover:shadow-md font-medium"
+                    >
+                        <Plus size={20} />
+                        Tạo TKB Mới
+                    </button>
+                </div>
             </div>
 
             {/* Error Alerts (Keep error as banner, logical for persistent issues) */}
@@ -371,7 +384,6 @@ export default function TimetableManagement() {
                     fetchTimetables();
                     showSuccess("Tạo thời khóa biểu mới thành công!");
                 }}
-                defaultAcademicYear={currentAcademicYear}
             />
 
             {/* Confirmation Dialog */}

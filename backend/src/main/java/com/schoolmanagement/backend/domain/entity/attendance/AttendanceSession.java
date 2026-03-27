@@ -1,6 +1,8 @@
 package com.schoolmanagement.backend.domain.entity.attendance;
 
 import com.schoolmanagement.backend.domain.entity.admin.School;
+import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
+import com.schoolmanagement.backend.domain.entity.admin.Semester;
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.teacher.Teacher;
 import com.schoolmanagement.backend.domain.entity.classes.Subject;
@@ -49,11 +51,13 @@ public class AttendanceSession {
     @Column(name = "slot_index", nullable = false)
     private Integer slotIndex;
 
-    @Column(name = "academic_year", nullable = false)
-    private String academicYear;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "academic_year_id", nullable = false)
+    private AcademicYear academicYear;
 
-    @Column(nullable = false)
-    private int semester;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "semester_id", nullable = false)
+    private Semester semester;
 
     @Column(name = "lesson_content", columnDefinition = "TEXT")
     private String lessonContent; // Nội dung bài dạy (Sổ đầu bài)

@@ -48,10 +48,17 @@ export const parseDateDDMMYYYY = (dateStr: string): string | undefined => {
     return `${year}-${month}-${day}`;
 };
 
-/** Format an ISO date string, Date object (or null) to DD/MM/YYYY for display, returns '—' on failure. */
-export const formatDate = (input: string | Date | null | undefined): string => {
+export const formatDate = (input: any): string => {
     if (!input) return '—';
     try {
+        // Support Spring Boot LocalDate default serialization [YYYY, MM, DD]
+        if (Array.isArray(input) && input.length >= 3) {
+            const year = input[0];
+            const month = String(input[1]).padStart(2, '0');
+            const day = String(input[2]); // 'd' format
+            return `${day}/${month}/${year}`;
+        }
+
         let date: Date;
         if (input instanceof Date) {
             date = input;
@@ -59,13 +66,20 @@ export const formatDate = (input: string | Date | null | undefined): string => {
             // Check for yyyy-mm-dd format manually to prevent timezone shifts
             if (typeof input === 'string' && input.match(/^\d{4}-\d{2}-\d{2}$/)) {
                 const [year, month, day] = input.split('-');
-                return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+                // user requested d/mm/yyyy format
+                return `${parseInt(day, 10)}/${month.padStart(2, '0')}/${year}`;
             }
+            
+            // Allow bypassing custom parsing if it is already dd/mm/yyyy or d/mm/yyyy
+            if (typeof input === 'string' && input.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+                return input;
+            }
+
             date = new Date(input);
         }
         if (isNaN(date.getTime())) return '—';
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()); // 'd' format
+        const month = String(date.getMonth() + 1).padStart(2, '0'); // 'mm' format
         const year = date.getFullYear();
         return `${day}/${month}/${year}`;
     } catch {

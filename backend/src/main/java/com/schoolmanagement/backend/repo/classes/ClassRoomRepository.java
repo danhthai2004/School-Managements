@@ -28,9 +28,9 @@ public interface ClassRoomRepository extends JpaRepository<ClassRoom, UUID> {
 
         boolean existsBySchoolAndName(School school, String name);
 
-        boolean existsBySchoolAndNameAndAcademicYear(School school, String name, String academicYear);
+        boolean existsBySchoolAndNameAndAcademicYear(School school, String name, com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
-        boolean existsByHomeroomTeacherAndAcademicYear(User homeroomTeacher, String academicYear);
+        boolean existsByHomeroomTeacherAndAcademicYear(User homeroomTeacher, com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
         Optional<ClassRoom> findFirstBySchoolOrderByAcademicYearDesc(School school);
 
@@ -39,14 +39,14 @@ public interface ClassRoomRepository extends JpaRepository<ClassRoom, UUID> {
                         School school,
                         ClassDepartment department,
                         int grade,
-                        String academicYear,
+                        com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear,
                         ClassRoomStatus status);
 
         // Find all active classes for a grade and academic year
         List<ClassRoom> findAllBySchoolAndGradeAndAcademicYearAndStatus(
                         School school,
                         int grade,
-                        String academicYear,
+                        com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear,
                         ClassRoomStatus status);
 
         Optional<ClassRoom> findByHomeroomTeacher(User homeroomTeacher);
@@ -56,11 +56,21 @@ public interface ClassRoomRepository extends JpaRepository<ClassRoom, UUID> {
 
         // --- Methods added for Teacher Portal (fuuko branch) ---
 
-        Optional<ClassRoom> findByHomeroomTeacher_IdAndAcademicYear(UUID teacherId, String academicYear);
+        Optional<ClassRoom> findByHomeroomTeacher_IdAndAcademicYear(UUID teacherId, com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
         Optional<ClassRoom> findTopByHomeroomTeacher_IdOrderByAcademicYearDesc(UUID teacherId);
 
         @Modifying
         @Query("UPDATE ClassRoom c SET c.homeroomTeacher = null WHERE c.homeroomTeacher.id = :userId")
         void nullifyHomeroomTeacher(@Param("userId") UUID userId);
+
+        boolean existsByCombination(com.schoolmanagement.backend.domain.entity.classes.Combination combination);
+
+        boolean existsByRoomAndAcademicYear(com.schoolmanagement.backend.domain.entity.classes.Room room,
+                        com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+
+        Optional<ClassRoom> findByRoomAndAcademicYear(com.schoolmanagement.backend.domain.entity.classes.Room room,
+                        com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+
+        long countByAcademicYear(com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 }

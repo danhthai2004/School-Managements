@@ -17,7 +17,7 @@ import java.util.UUID;
 @Builder
 @Entity
 @Table(name = "attendance_summary", uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "student_id", "class_id", "academic_year", "semester" })
+        @UniqueConstraint(columnNames = { "student_id", "class_id", "academic_year_id", "semester_id" })
 })
 public class AttendanceSummary {
     @Id
@@ -32,11 +32,13 @@ public class AttendanceSummary {
     @JoinColumn(name = "class_id", nullable = false)
     private ClassRoom classRoom;
 
-    @Column(name = "academic_year", nullable = false)
-    private String academicYear;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "academic_year_id", nullable = false)
+    private com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear;
 
-    @Column(nullable = false)
-    private int semester;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "semester_id", nullable = false)
+    private com.schoolmanagement.backend.domain.entity.admin.Semester semester;
 
     @Column(name = "total_sessions")
     @Builder.Default

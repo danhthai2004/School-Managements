@@ -14,7 +14,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,7 +26,6 @@ import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.entity.auth.User;
 import com.schoolmanagement.backend.dto.admin.BulkPromoteResponse;
-import com.schoolmanagement.backend.dto.admin.BulkAccountCreationResponse;
 import com.schoolmanagement.backend.dto.student.StudentDto;
 import com.schoolmanagement.backend.dto.student.StudentGuardianDto;
 import com.schoolmanagement.backend.dto.admin.BulkPromoteRequest;
@@ -38,6 +36,8 @@ import com.schoolmanagement.backend.repo.classes.ClassEnrollmentRepository;
 import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.student.GuardianRepository;
 import com.schoolmanagement.backend.repo.student.StudentRepository;
+import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
+import com.schoolmanagement.backend.service.admin.SemesterService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -59,6 +59,7 @@ public class StudentManagementService {
     private final ClassEnrollmentRepository enrollments;
     private final StudentAccountService studentAccountService;
     private final com.schoolmanagement.backend.repo.auth.UserRepository users;
+    private final SemesterService semesterService;
 
     @org.springframework.beans.factory.annotation.Autowired
     private FileStorageService fileStorageService;
@@ -69,13 +70,15 @@ public class StudentManagementService {
     public StudentManagementService(StudentRepository students, GuardianRepository guardians,
             ClassRoomRepository classRooms, ClassEnrollmentRepository enrollments,
             StudentAccountService studentAccountService,
-            com.schoolmanagement.backend.repo.auth.UserRepository users) {
+            com.schoolmanagement.backend.repo.auth.UserRepository users,
+            SemesterService semesterService) {
         this.students = students;
         this.guardians = guardians;
         this.classRooms = classRooms;
         this.enrollments = enrollments;
         this.studentAccountService = studentAccountService;
         this.users = users;
+        this.semesterService = semesterService;
     }
 
     // ==================== STUDENT MANAGEMENT ====================
@@ -106,9 +109,9 @@ public class StudentManagementService {
                 throw new ApiException(HttpStatus.CONFLICT, "Email học sinh trùng với email của một Phụ huynh.");
             }
             // Check collision with User (Role != STUDENT)
-            Optional<User> u = users.findByEmailIgnoreCase(email);
-            if (u.isPresent() && u.get().getRole() != Role.STUDENT) {
-                throw new ApiException(HttpStatus.CONFLICT, "Email đã được sử dụng bởi tài khoản " + u.get().getRole());
+            Optional<User> userOptional = users.findByEmailIgnoreCase(email);
+            if (userOptional.isPresent() && userOptional.get().getRole() != Role.STUDENT) {
+                throw new ApiException(HttpStatus.CONFLICT, "Email đã được sử dụng bởi tài khoản " + userOptional.get().getRole());
             }
         }
 
@@ -129,13 +132,13 @@ public class StudentManagementService {
 
         // Process Guardian
         if (req.guardian() != null) {
-            CreateStudentRequest.GuardianRequest g = req.guardian();
-            if (g.fullName() != null && !g.fullName().isBlank()) {
+            CreateStudentRequest.GuardianRequest guardianRequest = req.guardian();
+            if (guardianRequest.fullName() != null && !guardianRequest.fullName().isBlank()) {
                 Guardian guardian = null;
 
                 // 1. Find or Create Guardian
-                if (g.email() != null && !g.email().isBlank()) {
-                    String cleanEmail = g.email().trim().toLowerCase();
+                if (guardianRequest.email() != null && !guardianRequest.email().isBlank()) {
+                    String cleanEmail = guardianRequest.email().trim().toLowerCase();
 
                     // Validate Guardian Email vs Student
                     if (students.existsByEmail(cleanEmail)) {
@@ -146,36 +149,36 @@ public class StudentManagementService {
                         throw new ApiException(HttpStatus.CONFLICT,
                                 "Email học sinh và phụ huynh không được trùng nhau.");
                     }
-                    Optional<User> u = users.findByEmailIgnoreCase(cleanEmail);
-                    if (u.isPresent() && u.get().getRole() != Role.GUARDIAN) {
+                    Optional<User> userOptional = users.findByEmailIgnoreCase(cleanEmail);
+                    if (userOptional.isPresent() && userOptional.get().getRole() != Role.GUARDIAN) {
                         throw new ApiException(HttpStatus.CONFLICT,
-                                "Email phụ huynh đã được sử dụng bởi tài khoản " + u.get().getRole());
+                                "Email phụ huynh đã được sử dụng bởi tài khoản " + userOptional.get().getRole());
                     }
 
                     List<Guardian> existing = guardians.findByEmailIgnoreCase(cleanEmail);
                     if (!existing.isEmpty()) {
                         guardian = existing.get(0);
                         // Update relationship if provided
-                        if (g.relationship() != null && !g.relationship().isBlank()) {
-                            guardian.setRelationship(g.relationship().trim());
+                        if (guardianRequest.relationship() != null && !guardianRequest.relationship().isBlank()) {
+                            guardian.setRelationship(guardianRequest.relationship().trim());
                         }
                     } else {
 
                         guardian = Guardian.builder()
-                                .fullName(g.fullName().trim())
-                                .phone(g.phone() != null ? g.phone().trim() : null)
+                                .fullName(guardianRequest.fullName().trim())
+                                .phone(guardianRequest.phone() != null ? guardianRequest.phone().trim() : null)
                                 .email(cleanEmail)
-                                .relationship(g.relationship() != null ? g.relationship().trim() : null)
+                                .relationship(guardianRequest.relationship() != null ? guardianRequest.relationship().trim() : null)
                                 .build();
                         guardian = guardians.save(guardian);
                     }
                 } else {
                     // No email -> Force create with NULL email
                     guardian = Guardian.builder()
-                            .fullName(g.fullName() != null ? g.fullName().trim() : "Người giám hộ")
-                            .phone(g.phone() != null ? g.phone().trim() : null)
+                            .fullName(guardianRequest.fullName() != null ? guardianRequest.fullName().trim() : "Người giám hộ")
+                            .phone(guardianRequest.phone() != null ? guardianRequest.phone().trim() : null)
                             .email(null)
-                            .relationship(g.relationship() != null ? g.relationship().trim() : null)
+                            .relationship(guardianRequest.relationship() != null ? guardianRequest.relationship().trim() : null)
                             .build();
                     guardian = guardians.save(guardian);
                 }
@@ -206,7 +209,17 @@ public class StudentManagementService {
                         "Lớp đã đủ sĩ số (" + classRoom.getMaxCapacity() + " học sinh)");
             }
 
-            String academicYear = req.academicYear() != null ? req.academicYear() : classRoom.getAcademicYear();
+            // Check combination match if provided
+            if (req.combinationId() != null && classRoom.getCombination() != null) {
+                if (!classRoom.getCombination().getId().equals(req.combinationId())) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST,
+                            "Tổ hợp môn của lớp học không khớp với tổ hợp mong muốn của học sinh.");
+                }
+            }
+
+            AcademicYear academicYear = req.academicYear() != null 
+                    ? semesterService.getAcademicYearByName(school, req.academicYear())
+                    : classRoom.getAcademicYear();
 
             ClassEnrollment enrollment = ClassEnrollment.builder()
                     .student(student)
@@ -217,11 +230,11 @@ public class StudentManagementService {
             enrollments.save(enrollment);
         } else if (req.combinationId() != null && req.grade() != null) {
             // Auto-assign to class based on combination
-            String academicYear = req.academicYear() != null ? req.academicYear()
-                    : classRooms.findFirstBySchoolOrderByAcademicYearDesc(school)
-                            .map(ClassRoom::getAcademicYear).orElse("");
+            AcademicYear academicYear = req.academicYear() != null 
+                ? semesterService.getAcademicYearByName(school, req.academicYear())
+                : semesterService.getActiveAcademicYear(school);
 
-            if (!academicYear.isBlank()) {
+            if (academicYear != null) {
                 autoAssignStudentToClass(school, student, req.combinationId(), academicYear, req.grade());
             }
         }
@@ -391,10 +404,10 @@ public class StudentManagementService {
                     throw new ApiException(HttpStatus.CONFLICT, "Email học sinh trùng với email của một Phụ huynh.");
                 }
                 // Check collision with User (Role != STUDENT)
-                Optional<User> u = users.findByEmailIgnoreCase(newEmail);
-                if (u.isPresent() && u.get().getRole() != Role.STUDENT) {
+                Optional<User> userOptional = users.findByEmailIgnoreCase(newEmail);
+                if (userOptional.isPresent() && userOptional.get().getRole() != Role.STUDENT) {
                     throw new ApiException(HttpStatus.CONFLICT,
-                            "Email đã được sử dụng bởi tài khoản " + u.get().getRole());
+                            "Email đã được sử dụng bởi tài khoản " + userOptional.get().getRole());
                 }
                 // Check duplicate student email (other students) - handled by DB constraint
                 // usually, but service check is safer
@@ -419,13 +432,13 @@ public class StudentManagementService {
 
         // Update guardian
         if (req.guardian() != null) {
-            UpdateStudentRequest.GuardianRequest g = req.guardian();
-            if (g.fullName() != null && !g.fullName().isBlank()) {
+            UpdateStudentRequest.GuardianRequest guardianRequest = req.guardian();
+            if (guardianRequest.fullName() != null && !guardianRequest.fullName().isBlank()) {
                 Guardian guardian = null;
 
                 // 1. Find or Create Guardian
-                if (g.email() != null && !g.email().isBlank()) {
-                    String cleanEmail = g.email().trim().toLowerCase();
+                if (guardianRequest.email() != null && !guardianRequest.email().isBlank()) {
+                    String cleanEmail = guardianRequest.email().trim().toLowerCase();
 
                     // Validate Guardian Email vs Student
                     if (students.existsByEmail(cleanEmail)) {
@@ -436,38 +449,38 @@ public class StudentManagementService {
                         throw new ApiException(HttpStatus.CONFLICT,
                                 "Email học sinh và phụ huynh không được trùng nhau.");
                     }
-                    Optional<User> u = users.findByEmailIgnoreCase(cleanEmail);
-                    if (u.isPresent() && u.get().getRole() != Role.GUARDIAN) {
+                    Optional<User> userOptional = users.findByEmailIgnoreCase(cleanEmail);
+                    if (userOptional.isPresent() && userOptional.get().getRole() != Role.GUARDIAN) {
                         throw new ApiException(HttpStatus.CONFLICT,
-                                "Email phụ huynh đã được sử dụng bởi tài khoản " + u.get().getRole());
+                                "Email phụ huynh đã được sử dụng bởi tài khoản " + userOptional.get().getRole());
                     }
 
                     List<Guardian> existing = guardians.findByEmailIgnoreCase(cleanEmail);
                     if (!existing.isEmpty()) {
                         guardian = existing.get(0);
                         // Update existing guardian details
-                        guardian.setFullName(g.fullName().trim());
-                        if (g.phone() != null)
-                            guardian.setPhone(g.phone().trim());
-                        if (g.relationship() != null && !g.relationship().isBlank())
-                            guardian.setRelationship(g.relationship().trim());
+                        guardian.setFullName(guardianRequest.fullName().trim());
+                        if (guardianRequest.phone() != null)
+                            guardian.setPhone(guardianRequest.phone().trim());
+                        if (guardianRequest.relationship() != null && !guardianRequest.relationship().isBlank())
+                            guardian.setRelationship(guardianRequest.relationship().trim());
                         guardian = guardians.save(guardian);
                     } else {
                         guardian = Guardian.builder()
-                                .fullName(g.fullName().trim())
-                                .phone(g.phone() != null ? g.phone().trim() : null)
+                                .fullName(guardianRequest.fullName().trim())
+                                .phone(guardianRequest.phone() != null ? guardianRequest.phone().trim() : null)
                                 .email(cleanEmail)
-                                .relationship(g.relationship() != null ? g.relationship().trim() : null)
+                                .relationship(guardianRequest.relationship() != null ? guardianRequest.relationship().trim() : null)
                                 .build();
                         guardian = guardians.save(guardian);
                     }
                 } else {
                     // No email -> Force create with NULL email
                     guardian = Guardian.builder()
-                            .fullName(g.fullName() != null ? g.fullName().trim() : "Người giám hộ")
-                            .phone(g.phone() != null ? g.phone().trim() : null)
+                            .fullName(guardianRequest.fullName() != null ? guardianRequest.fullName().trim() : "Người giám hộ")
+                            .phone(guardianRequest.phone() != null ? guardianRequest.phone().trim() : null)
                             .email(null)
-                            .relationship(g.relationship() != null ? g.relationship().trim() : null)
+                            .relationship(guardianRequest.relationship() != null ? guardianRequest.relationship().trim() : null)
                             .build();
                     guardian = guardians.save(guardian);
                 }
@@ -480,10 +493,9 @@ public class StudentManagementService {
         // Handle class enrollment change
         if (req.classId() != null) {
             // Get current enrollment for this academic year
-            String academicYear = req.academicYear() != null ? req.academicYear()
-                    : classRooms.findFirstBySchoolOrderByAcademicYearDesc(school)
-                            .map(ClassRoom::getAcademicYear)
-                            .orElse("");
+            AcademicYear academicYear = req.academicYear() != null 
+                ? semesterService.getAcademicYearByName(school, req.academicYear())
+                : semesterService.getActiveAcademicYear(school);
 
             Optional<ClassEnrollment> currentEnrollment = enrollments
                     .findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(student,
@@ -515,6 +527,23 @@ public class StudentManagementService {
                 if (currentCount >= newClass.getMaxCapacity()) {
                     throw new ApiException(HttpStatus.BAD_REQUEST,
                             "Lớp đã đủ sĩ số (" + newClass.getMaxCapacity() + " học sinh)");
+                }
+
+                // Check combination match if provided in request OR if existing
+                if (newClass.getCombination() != null) {
+                    if (req.combinationId() != null) {
+                        if (!newClass.getCombination().getId().equals(req.combinationId())) {
+                            throw new ApiException(HttpStatus.BAD_REQUEST,
+                                    "Tổ hợp của lớp mới không khớp với tổ hợp mong muốn.");
+                        }
+                    } else if (currentEnrollment.isPresent()
+                            && currentEnrollment.get().getClassRoom().getCombination() != null) {
+                        if (!newClass.getCombination().getId()
+                                .equals(currentEnrollment.get().getClassRoom().getCombination().getId())) {
+                            throw new ApiException(HttpStatus.BAD_REQUEST,
+                                    "Tổ hợp của lớp mới không khớp với tổ hợp hiện tại của học sinh.");
+                        }
+                    }
                 }
 
                 // Remove old enrollment if exists
@@ -575,10 +604,14 @@ public class StudentManagementService {
         // Get current class enrollment
         String currentClassName = null;
         UUID currentClassId = null;
-        Optional<ClassEnrollment> currentEnrollment = enrollments.findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(
-                student,
-                classRooms.findFirstBySchoolOrderByAcademicYearDesc(student.getSchool())
-                        .map(ClassRoom::getAcademicYear).orElse(""));
+        AcademicYear currentYear = semesterService.getActiveAcademicYearSafe(student.getSchool());
+        
+        Optional<ClassEnrollment> currentEnrollment = Optional.empty();
+        if (currentYear != null) {
+            currentEnrollment = enrollments.findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(
+                    student,
+                    currentYear);
+        }
         if (currentEnrollment.isPresent()) {
             currentClassName = currentEnrollment.get().getClassRoom().getName();
             currentClassId = currentEnrollment.get().getClassRoom().getId();
@@ -604,7 +637,7 @@ public class StudentManagementService {
     }
 
     private void autoAssignStudentToClass(School school, Student student,
-            UUID combinationId, String academicYear, int grade) {
+            UUID combinationId, AcademicYear academicYear, int grade) {
         // Find all active classes for the grade
         List<ClassRoom> classes = classRooms.findAllBySchoolAndGradeAndAcademicYearAndStatus(
                 school, grade, academicYear, ClassRoomStatus.ACTIVE);
@@ -620,23 +653,23 @@ public class StudentManagementService {
 
         // Filter by connection to combination
         List<ClassRoom> candidates = classes.stream()
-                .filter(c -> c.getCombination() != null && c.getCombination().getId().equals(combinationId))
-                .sorted(java.util.Comparator.comparingLong(c -> counts.get(c.getId())))
+                .filter(classroom -> classroom.getCombination() != null && classroom.getCombination().getId().equals(combinationId))
+                .sorted(java.util.Comparator.comparingLong(classroom -> counts.get(classroom.getId())))
                 .toList();
 
         // Fallback if no matching stream class found: try any class in grade
         if (candidates.isEmpty()) {
             candidates = classes.stream()
-                    .sorted(java.util.Comparator.comparingLong(c -> counts.get(c.getId())))
+                    .sorted(java.util.Comparator.comparingLong(classroom -> counts.get(classroom.getId())))
                     .toList();
         }
 
         // Pick first one with capacity
-        for (ClassRoom c : candidates) {
-            if (counts.get(c.getId()) < c.getMaxCapacity()) {
+        for (ClassRoom classroom : candidates) {
+            if (counts.get(classroom.getId()) < classroom.getMaxCapacity()) {
                 ClassEnrollment enrollment = ClassEnrollment.builder()
                         .student(student)
-                        .classRoom(c)
+                        .classRoom(classroom)
                         .academicYear(academicYear)
                         .enrolledAt(Instant.now())
                         .build();
@@ -675,17 +708,21 @@ public class StudentManagementService {
                         e.getId(),
                         e.getClassRoom().getId(),
                         e.getClassRoom().getName(),
-                        e.getAcademicYear(),
+                        e.getAcademicYear().getName(),
                         e.getEnrolledAt()))
                 .toList();
 
         // Get current class info
         String currentClassName = null;
         UUID currentClassId = null;
-        Optional<ClassEnrollment> currentEnrollment = enrollments.findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(
-                student,
-                classRooms.findFirstBySchoolOrderByAcademicYearDesc(school)
-                        .map(ClassRoom::getAcademicYear).orElse(""));
+        AcademicYear currentYear = semesterService.getActiveAcademicYearSafe(school);
+
+        Optional<ClassEnrollment> currentEnrollment = Optional.empty();
+        if (currentYear != null) {
+            currentEnrollment = enrollments.findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(
+                    student,
+                    currentYear);
+        }
         if (currentEnrollment.isPresent()) {
             currentClassName = currentEnrollment.get().getClassRoom().getName();
             currentClassId = currentEnrollment.get().getClassRoom().getId();
@@ -725,7 +762,7 @@ public class StudentManagementService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Lớp đích không đang hoạt động");
         }
 
-        String academicYear = newClass.getAcademicYear();
+        AcademicYear academicYear = newClass.getAcademicYear();
 
         // Check if already in this class for this academic year
         boolean alreadyEnrolled = enrollments.existsByStudentAndClassRoomAndAcademicYear(student, newClass,
@@ -734,9 +771,27 @@ public class StudentManagementService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Học sinh đã thuộc lớp này trong năm học " + academicYear);
         }
 
-        // Get existing enrollment for logging
+        // Check class capacity
+        long currentCount = enrollments.countByClassRoom(newClass);
+        if (currentCount >= newClass.getMaxCapacity()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Lớp đích đã đạt sĩ số tối đa (" + newClass.getMaxCapacity() + ")");
+        }
+
+        // Check combination match
         Optional<ClassEnrollment> existingEnrollment = enrollments
                 .findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(student, academicYear);
+
+        if (existingEnrollment.isPresent()) {
+            ClassRoom currentClass = existingEnrollment.get().getClassRoom();
+            if (currentClass.getCombination() != null && newClass.getCombination() != null) {
+                if (!currentClass.getCombination().getId().equals(newClass.getCombination().getId())) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST,
+                            "Tổ hợp của lớp mới không khớp với tổ hợp hiện tại của học sinh.");
+                }
+            }
+        }
+
         // Do not delete existing enrollment to preserve history
 
         // Create new enrollment
@@ -769,13 +824,20 @@ public class StudentManagementService {
         int skipped = 0;
         List<String> errors = new ArrayList<>();
 
+        // Find and validate target Academic Year
+        AcademicYear targetYear = semesterService.getAcademicYearByName(school, request.targetAcademicYear());
+        if (targetYear == null) {
+            errors.add("Năm học '" + request.targetAcademicYear() + "' không tồn tại.");
+            return new BulkPromoteResponse(0, request.studentIds().size(), errors);
+        }
+
         // Find all active classes for the target grade + academic year
         List<ClassRoom> targetClasses = classRooms.findAllBySchoolAndGradeAndAcademicYearAndStatus(
-                school, request.targetGrade(), request.targetAcademicYear(), ClassRoomStatus.ACTIVE);
+                school, request.targetGrade(), targetYear, ClassRoomStatus.ACTIVE);
 
         if (targetClasses.isEmpty()) {
             errors.add("Không có lớp ACTIVE nào ở khối " + request.targetGrade()
-                    + " cho năm học " + request.targetAcademicYear());
+                    + " cho năm học " + targetYear.getName());
             return new BulkPromoteResponse(0, request.studentIds().size(), errors);
         }
 
@@ -801,12 +863,12 @@ public class StudentManagementService {
                 // Skip if already has enrollment in target academic year
                 Optional<ClassEnrollment> existing = enrollments
                         .findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(
-                                student, request.targetAcademicYear());
+                                student, targetYear);
                 if (existing.isPresent()) {
                     skipped++;
                     errors.add(student.getFullName() + ": Đã có lớp ("
                             + existing.get().getClassRoom().getName() + ") trong năm học "
-                            + request.targetAcademicYear());
+                            + targetYear.getName());
                     continue;
                 }
 
@@ -821,7 +883,7 @@ public class StudentManagementService {
                         ClassEnrollment enrollment = ClassEnrollment.builder()
                                 .student(student)
                                 .classRoom(c)
-                                .academicYear(request.targetAcademicYear())
+                                .academicYear(targetYear)
                                 .enrolledAt(Instant.now())
                                 .build();
                         enrollments.save(enrollment);

@@ -7,6 +7,7 @@ import {
     type BulkPromoteRequest,
     type BulkPromoteResponse
 } from "../../../../services/schoolAdminService";
+import { semesterService, type AcademicYearDto } from "../../../../services/semesterService";
 import { XIcon } from "../../SchoolAdminIcons";
 
 interface PromotionModalProps {
@@ -21,28 +22,48 @@ function PromotionModal({ isOpen, onClose, onSuccess, classData, allClasses }: P
     const [students, setStudents] = useState<StudentDto[]>([]);
     const [targetAcademicYear, setTargetAcademicYear] = useState("");
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [academicYears, setAcademicYears] = useState<AcademicYearDto[]>([]);
     const [loading, setLoading] = useState(false);
     const [loadingStudents, setLoadingStudents] = useState(false);
+    const [loadingYears, setLoadingYears] = useState(false);
     const [result, setResult] = useState<BulkPromoteResponse | null>(null);
     const [step, setStep] = useState<'select' | 'result'>('select');
 
     const targetGrade = classData ? classData.grade + 1 : 0;
 
-    // Load students when modal opens
+    // Load data when modal opens
     useEffect(() => {
-        if (isOpen && classData) {
-            setLoadingStudents(true);
-            schoolAdminService.listStudents(classData.id).then(data => {
-                setStudents(data.filter(s => s.status === 'ACTIVE'));
-                setLoadingStudents(false);
-            }).catch(() => setLoadingStudents(false));
-            // Compute next academic year
-            const parts = classData.academicYear.split('-');
-            if (parts.length === 2) {
-                setTargetAcademicYear(`${parseInt(parts[0]) + 1}-${parseInt(parts[1]) + 1}`);
+        if (isOpen) {
+            fetchAcademicYears();
+            if (classData) {
+                setLoadingStudents(true);
+                schoolAdminService.listStudents(classData.id).then(data => {
+                    setStudents(data.filter(s => s.status === 'ACTIVE'));
+                    setLoadingStudents(false);
+                }).catch(() => setLoadingStudents(false));
+
+                // Compute default next academic year
+                const parts = classData.academicYear.split('-');
+                if (parts.length === 2 && !targetAcademicYear) {
+                    setTargetAcademicYear(`${parseInt(parts[0]) + 1}-${parseInt(parts[1]) + 1}`);
+                }
             }
         }
     }, [isOpen, classData]);
+
+    const fetchAcademicYears = async () => {
+        setLoadingYears(true);
+        try {
+            const years = await semesterService.listAcademicYears();
+            // Promoting usually goes to UPCOMING, but allow ACTIVE just in case
+            const filtered = years.filter(y => y.status === 'ACTIVE' || y.status === 'UPCOMING');
+            setAcademicYears(filtered);
+        } catch (err) {
+            console.error("Failed to fetch academic years", err);
+        } finally {
+            setLoadingYears(false);
+        }
+    };
 
     // Check if target classes exist
     const targetClassesExist = allClasses.some(c =>
@@ -131,13 +152,23 @@ function PromotionModal({ isOpen, onClose, onSuccess, classData, allClasses }: P
                             <div className="mb-4 flex items-center gap-4">
                                 <div className="flex-1">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Năm học đích</label>
-                                    <input
-                                        type="text"
+                                    <select
                                         value={targetAcademicYear}
                                         onChange={e => setTargetAcademicYear(e.target.value)}
-                                        placeholder="2025-2026"
-                                        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none text-sm"
-                                    />
+                                        disabled={loadingYears}
+                                        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none text-sm bg-white cursor-pointer disabled:bg-slate-50"
+                                    >
+                                        <option value="">-- Chọn năm học --</option>
+                                        {academicYears.map(y => (
+                                            <option key={y.id} value={y.name}>
+                                                {y.name}
+                                            </option>
+                                        ))}
+                                        {/* Fallback if computed year is not in list */}
+                                        {targetAcademicYear && !academicYears.some(y => y.name === targetAcademicYear) && (
+                                            <option value={targetAcademicYear}>{targetAcademicYear}</option>
+                                        )}
+                                    </select>
                                 </div>
                                 <div className="flex-1">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Khối đích</label>

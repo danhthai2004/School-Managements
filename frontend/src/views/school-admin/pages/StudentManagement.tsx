@@ -441,6 +441,7 @@ const StudentManagement = () => {
                 }}
                 classes={classes}
                 combinations={combinations}
+                defaultAcademicYear={currentAcademicYear}
             />
 
             <StudentDetailModal

@@ -124,9 +124,9 @@ public class TimetableHandler implements ChatHandler {
                     "message", "Học sinh chưa được xếp vào lớp nào."));
         }
 
-        // Lấy enrollment mới nhất (theo academic year)
+        // Lấy enrollment mới nhất (theo thời gian tham gia)
         ClassEnrollment latestEnrollment = enrollments.stream()
-                .max(Comparator.comparing(ClassEnrollment::getAcademicYear))
+                .max(Comparator.comparing(ClassEnrollment::getEnrolledAt))
                 .orElse(enrollments.get(0));
 
         ClassRoom classRoom = latestEnrollment.getClassRoom();
@@ -163,8 +163,8 @@ public class TimetableHandler implements ChatHandler {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("studentName", student.getFullName());
         data.put("className", classRoom.getName());
-        data.put("academicYear", officialTimetable.getAcademicYear());
-        data.put("semester", officialTimetable.getSemester());
+        data.put("academicYear", officialTimetable.getSemester() != null && officialTimetable.getSemester().getAcademicYear() != null ? officialTimetable.getSemester().getAcademicYear().getName() : "");
+        data.put("semester", officialTimetable.getSemester() != null ? officialTimetable.getSemester().getSemesterNumber() : 1);
 
         // Nhóm theo ngày
         Map<DayOfWeek, List<TimetableDetail>> byDay = details.stream()

@@ -139,8 +139,8 @@ public class ScoreHandler implements ChatHandler {
         for (Grade g : grades) {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("subject", g.getSubject() != null ? g.getSubject().getName() : "N/A");
-            item.put("semester", g.getSemester());
-            item.put("academicYear", g.getAcademicYear());
+            item.put("semester", g.getSemester() != null ? g.getSemester().getSemesterNumber() : "");
+            item.put("academicYear", g.getSemester() != null && g.getSemester().getAcademicYear() != null ? g.getSemester().getAcademicYear().getName() : "");
             item.put("oralScore", formatScore(g.getOralScore()));
             item.put("test15min", formatScore(g.getTest15minScore()));
             item.put("test45min", formatScore(g.getTest45minScore()));

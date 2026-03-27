@@ -12,6 +12,8 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useToast } from "../../../context/ToastContext";
 import { formatDate } from "../../../utils/dateHelpers";
+import { useSemester } from "../../../context/SemesterContext";
+import SemesterSelector from "../../../components/common/SemesterSelector";
 
 const GRADES = [10, 11, 12];
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
@@ -26,12 +28,25 @@ export default function ExamSessionManagement() {
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
     const navigate = useNavigate();
+    // Global context
+    const { activeSemester, allSemesters, loading: isContextLoading } = useSemester();
+    const [selectedSemesterId, setSelectedSemesterId] = useState<string>("");
+
+    // Initial load priority: System Active Semester
+    useEffect(() => {
+        if (!selectedSemesterId && activeSemester) {
+            setSelectedSemesterId(activeSemester.id);
+        }
+    }, [activeSemester, selectedSemesterId]);
+
+    const selectedSemester = allSemesters.find(s => s.id === selectedSemesterId);
+    const availableYears = allSemesters.map(s => s.academicYearName).filter((value, index, self) => self.indexOf(value) === index);
 
     // ====== Session modal ======
     const [sessionModal, setSessionModal] = useState(false);
     const [editSession, setEditSession] = useState<ExamSessionDto | null>(null);
     const [sessionForm, setSessionForm] = useState<CreateExamSessionRequest>({
-        name: "", academicYear: "2025-2026", semester: 2, startDate: "", endDate: "", status: "DRAFT",
+        name: "", academicYear: "", semester: 2, startDate: "", endDate: "", status: "DRAFT",
     });
     const [saving, setSaving] = useState(false);
 
@@ -62,9 +77,13 @@ export default function ExamSessionManagement() {
 
     // ====== Fetch data ======
     const fetchSessions = async () => {
+        if (!selectedSemesterId || !selectedSemester) return;
         try {
             setLoading(true);
-            const data = await examAdminService.listSessions();
+            const data = await examAdminService.listSessions(
+                selectedSemester.academicYearName,
+                selectedSemester.semesterNumber
+            );
             setSessions(data);
         } catch (e: any) {
             toast.error(e?.response?.data?.message || "Lỗi tải danh sách kỳ thi");
@@ -73,11 +92,15 @@ export default function ExamSessionManagement() {
         }
     };
 
-    useEffect(() => { fetchSessions(); }, []);
+    useEffect(() => { 
+        if (!isContextLoading && selectedSemesterId) {
+            fetchSessions(); 
+        }
+    }, [selectedSemesterId, isContextLoading]);
 
     // ====== Session CRUD ======
     const openCreateSession = () => {
-        setSessionForm({ name: "", academicYear: "2025-2026", semester: 2, startDate: "", endDate: "", status: "DRAFT" });
+        setSessionForm({ name: "", academicYear: availableYears.length > 0 ? availableYears[0] : "", semester: 2, startDate: "", endDate: "", status: "DRAFT" });
         setEditSession(null);
         setSessionModal(true);
     };
@@ -241,10 +264,18 @@ export default function ExamSessionManagement() {
                     <h1 className="text-2xl font-bold text-gray-900">Kỳ thi & Phân bổ phòng thi</h1>
                     <p className="text-sm text-gray-500 mt-1">Tạo kỳ thi, phân bổ học sinh ngẫu nhiên vào phòng thi</p>
                 </div>
-                <button onClick={openCreateSession}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all">
-                    <Plus className="w-4 h-4" /> Tạo kỳ thi
-                </button>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <SemesterSelector 
+                        value={selectedSemesterId} 
+                        onChange={setSelectedSemesterId}
+                        label="" 
+                        className="h-[42px]"
+                    />
+                    <button onClick={openCreateSession}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all">
+                        <Plus className="w-4 h-4" /> Tạo kỳ thi
+                    </button>
+                </div>
             </div>
 
             {/* Session Cards */}
@@ -340,8 +371,16 @@ export default function ExamSessionManagement() {
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Năm học *</label>
-                                    <input value={sessionForm.academicYear} onChange={e => setSessionForm({ ...sessionForm, academicYear: e.target.value })}
-                                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm" />
+                                    <select value={sessionForm.academicYear} onChange={e => setSessionForm({ ...sessionForm, academicYear: e.target.value })}
+                                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm">
+                                        {availableYears.length > 0 ? (
+                                            availableYears.map(year => (
+                                                <option key={year} value={year}>{year}</option>
+                                            ))
+                                        ) : (
+                                            <option value="" disabled>Chưa có Năm học</option>
+                                        )}
+                                    </select>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Học kỳ *</label>

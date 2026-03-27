@@ -35,7 +35,7 @@ public interface ExamStudentRepository extends JpaRepository<ExamStudent, UUID> 
             "ORDER BY esc.examDate, esc.startTime")
     List<ExamStudent> findByStudentAndAcademicYear(
             @Param("studentId") UUID studentId,
-            @Param("academicYear") String academicYear);
+            @Param("academicYear") com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
     @Query("SELECT es FROM ExamStudent es " +
             "JOIN FETCH es.examRoom er " +
@@ -48,6 +48,18 @@ public interface ExamStudentRepository extends JpaRepository<ExamStudent, UUID> 
             "ORDER BY esc.examDate, esc.startTime")
     List<ExamStudent> findByStudentAndAcademicYearAndSemester(
             @Param("studentId") UUID studentId,
-            @Param("academicYear") String academicYear,
-            @Param("semester") Integer semester);
+            @Param("academicYear") com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear,
+            @Param("semester") com.schoolmanagement.backend.domain.entity.admin.Semester semester);
+
+    @Query("SELECT es FROM ExamStudent es " +
+            "JOIN FETCH es.examRoom er " +
+            "JOIN FETCH er.examSchedule esc " +
+            "JOIN FETCH esc.subject " +
+            "WHERE es.student.id = :studentId " +
+            "AND esc.semester = :semester " +
+            "AND esc.examSession.status != 'DRAFT' " +
+            "ORDER BY esc.examDate, esc.startTime")
+    List<ExamStudent> findByStudentAndSemester(
+            @Param("studentId") UUID studentId,
+            @Param("semester") com.schoolmanagement.backend.domain.entity.admin.Semester semester);
 }

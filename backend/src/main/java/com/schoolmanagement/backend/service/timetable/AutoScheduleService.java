@@ -87,8 +87,8 @@ public class AutoScheduleService {
         // Initialize Context
         ScheduleContext context = new ScheduleContext();
 
-        // Step 1: Fixed Activities (Chào cờ, Sinh hoạt lớp)
-        scheduleFixedActivities(timetable, context);
+        // Step 1: Priority Activities (GDTC, GDQP, HDTN)
+        schedulePriorityActivities(timetable, context);
 
         // Step 2: High Frequency Subjects
         scheduleHighFrequencySubjects(timetable, context);
@@ -99,108 +99,113 @@ public class AutoScheduleService {
         // Step 4: Specialized Subjects (Blocks)
         scheduleSpecializedSubjects(timetable, context);
 
-        // Step 5: Handling Deadlocks (Backtracking/Swapping - if needed)
-        // ... implementation pending
+        // Step 5: Handling Deadlocks (Backtracking/Swapping)
+        // Implemented within scheduleSubject via attemptBacktrackingSwap
 
         log.info("Auto-generation completed for Timetable ID: {}", timetableId);
     }
 
     /**
-     * Step 1: Schedule fixed activities for all classes.
-     * NEW LOGIC (no more CC/SHL):
-     * - HDTN: Saturday last period of MAIN session (slot 5 for morning, slot 9 for
-     * afternoon)
-     * - GDTC: 2 consecutive slots in SECONDARY session (random day Mon-Fri)
-     * - HDTN (additional): 2 consecutive slots in SECONDARY session (random day
-     * Mon-Fri, different from GDTC)
+     * Step 1: Schedule priority activities for all classes.
+     * Logic:
+     * - GDTC & GDQP: Prefer slots 6-10 (Afternoon session)
+     * - HDTN: Saturday last period (slot 4/9)
      */
-    private void scheduleFixedActivities(Timetable timetable, ScheduleContext context) {
-        log.info("Step 1: Scheduling fixed activities (HDTN on Saturday, GDTC/HDTN in secondary session)...");
+    private void schedulePriorityActivities(Timetable timetable, ScheduleContext context) {
+        log.info("Step 1: Scheduling priority activities (GDTC, GDQP, HDTN)...");
 
         var allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool());
 
-        // Find HDTN and GDTC subjects
+        // Find priority subjects
         Subject hdtnSubject = subjectRepository.findByCode("HDTN").orElse(null);
         Subject gdtcSubject = subjectRepository.findByCode("GDTC").orElse(null);
-
-        if (hdtnSubject == null) {
-            log.warn("Subject HDTN not found, skipping fixed HDTN scheduling");
-        }
-        if (gdtcSubject == null) {
-            log.warn("Subject GDTC not found, skipping fixed GDTC scheduling");
-        }
-
-        // Days available for secondary session activities (Mon-Fri, not Saturday)
-        DayOfWeek[] availableDays = { DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY,
-                DayOfWeek.FRIDAY };
-        java.util.Random random = new java.util.Random();
+        Subject gdqpSubject = subjectRepository.findByCode("GDQP").orElse(null);
 
         for (var classroom : allClasses) {
-            if (!classroom.getAcademicYear().equals(timetable.getAcademicYear()))
+            if (!classroom.getAcademicYear().equals(timetable.getSemester().getAcademicYear()))
                 continue;
 
-            // Determine session type (morning or afternoon main session)
+            // Determine session type
             com.schoolmanagement.backend.domain.exam.SessionType session = classroom.getSession();
             boolean isMorningMain = (session == null || session == SessionType.SANG);
 
-            // ===== HDTN: Saturday last period of MAIN session =====
-            // Saturday has only 4 periods, HDTN is the last one
-            // Morning main: Saturday slot 4 (last of 4 morning slots)
-            // Afternoon main: Saturday slot 9 (last afternoon slot)
+            // 1. HDTN: Saturday last period (not strictly afternoon, but follows Saturday
+            // logic)
             if (hdtnSubject != null) {
                 int saturdaySlot = isMorningMain ? 4 : 9;
-                createFixedDetail(timetable, classroom, hdtnSubject, DayOfWeek.SATURDAY, saturdaySlot, context);
-                log.debug("Scheduled HDTN for {} on Saturday slot {}", classroom.getName(), saturdaySlot);
+                createPriorityDetail(timetable, classroom, hdtnSubject, DayOfWeek.SATURDAY, saturdaySlot, context);
             }
 
-            // Shuffle days for random selection
-            java.util.List<DayOfWeek> shuffledDays = new java.util.ArrayList<>(java.util.Arrays.asList(availableDays));
-            java.util.Collections.shuffle(shuffledDays, random);
-
-            // ===== GDTC: 2 consecutive slots in SECONDARY session (random day) =====
-            if (gdtcSubject != null) {
-                int gdtcStartSlot = isMorningMain ? 6 : 1;
-                DayOfWeek gdtcDay = shuffledDays.get(0); // First random day
-                // Schedule 2 consecutive GDTC slots
-                createFixedDetail(timetable, classroom, gdtcSubject, gdtcDay, gdtcStartSlot, context);
-                createFixedDetail(timetable, classroom, gdtcSubject, gdtcDay, gdtcStartSlot + 1, context);
-                log.debug("Scheduled GDTC for {} on {} slots {},{}", classroom.getName(), gdtcDay, gdtcStartSlot,
-                        gdtcStartSlot + 1);
-            }
-
-            // ===== HDTN (additional): 2 consecutive slots in SECONDARY session (different
-            // random day) =====
-            if (hdtnSubject != null) {
-                int hdtnStartSlot = isMorningMain ? 6 : 1;
-                DayOfWeek hdtnDay = shuffledDays.get(1); // Second random day (different from GDTC)
-                // Schedule 2 consecutive HDTN slots
-                createFixedDetail(timetable, classroom, hdtnSubject, hdtnDay, hdtnStartSlot, context);
-                createFixedDetail(timetable, classroom, hdtnSubject, hdtnDay, hdtnStartSlot + 1, context);
-                log.debug("Scheduled HDTN for {} on {} slots {},{}", classroom.getName(), hdtnDay, hdtnStartSlot,
-                        hdtnStartSlot + 1);
-            }
+            // 2. GDTC & GDQP: Prefer Afternoon (slots 6-10)
+            scheduleAfternoonPrioritySubject(timetable, classroom, gdtcSubject, context);
+            scheduleAfternoonPrioritySubject(timetable, classroom, gdqpSubject, context);
         }
     }
 
     /**
-     * Create a fixed timetable detail that cannot be moved/swapped.
+     * Tries to schedule a subject primarily in the afternoon (slots 6-10).
+     * Falls back to morning if no afternoon slots are available.
      */
-    private void createFixedDetail(Timetable timetable, ClassRoom classroom,
-            Subject subject, DayOfWeek day, int slotIndex, ScheduleContext context) {
-        var detail = TimetableDetail.builder()
-                .timetable(timetable)
-                .classRoom(classroom)
-                .subject(subject)
-                .teacher(null) // Usually no specific teacher for activities
-                .dayOfWeek(day)
-                .slotIndex(slotIndex)
-                .isFixed(true) // Mark as fixed - cannot be swapped
-                .build();
-        timetableDetailRepository.save(detail);
+    private void scheduleAfternoonPrioritySubject(Timetable timetable, ClassRoom classroom, Subject subject,
+            ScheduleContext context) {
+        if (subject == null)
+            return;
 
-        // Mark context immediately
-        context.markOccupied(classroom.getId(), null, day, slotIndex);
-        log.debug("Fixed activity: {} for class {} on {} period {}",
+        Teacher teacher = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject)
+                .map(TeacherAssignment::getTeacher).orElse(null);
+
+        int lessonsToAssign = subject.getTotalLessons();
+        int assigned = 0;
+
+        // Try Afternoon first (Mon-Fri)
+        DayOfWeek[] weekDays = { DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY,
+                DayOfWeek.FRIDAY };
+
+        // Strategy: 2 consecutive slots in afternoon
+        for (DayOfWeek day : weekDays) {
+            if (assigned >= lessonsToAssign)
+                break;
+
+            for (int slot = 6; slot <= 9; slot++) { // slots 6,7,8,9 (to allow 2 consecutive)
+                if (lessonsToAssign - assigned >= 2) {
+                    if (!context.isClassOccupied(classroom.getId(), day, slot) &&
+                            !context.isClassOccupied(classroom.getId(), day, slot + 1) &&
+                            !context.isTeacherOccupied(teacher != null ? teacher.getId() : null, day, slot) &&
+                            !context.isTeacherOccupied(teacher != null ? teacher.getId() : null, day, slot + 1)) {
+
+                        createAndSaveDetail(timetable, classroom, subject, day, slot, teacher, context);
+                        createAndSaveDetail(timetable, classroom, subject, day, slot + 1, teacher, context);
+                        assigned += 2;
+                        break;
+                    }
+                } else if (lessonsToAssign - assigned == 1) {
+                    if (!context.isClassOccupied(classroom.getId(), day, slot) &&
+                            !context.isTeacherOccupied(teacher != null ? teacher.getId() : null, day, slot)) {
+                        createAndSaveDetail(timetable, classroom, subject, day, slot, teacher, context);
+                        assigned++;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Fallback to any slot if still not fully assigned
+        if (assigned < lessonsToAssign) {
+            scheduleSubject(timetable, classroom, subject, teacher, true, context);
+        }
+    }
+
+    /**
+     * Create a priority timetable detail (NOT FIXED anymore).
+     */
+    private void createPriorityDetail(Timetable timetable, ClassRoom classroom,
+            Subject subject, DayOfWeek day, int slotIndex, ScheduleContext context) {
+
+        Teacher teacher = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject)
+                .map(TeacherAssignment::getTeacher).orElse(null);
+
+        createAndSaveDetail(timetable, classroom, subject, day, slotIndex, teacher, context);
+        log.debug("Priority activity: {} for class {} on {} period {}",
                 subject.getCode(), classroom.getName(), day, slotIndex);
     }
 
@@ -211,7 +216,7 @@ public class AutoScheduleService {
         var allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool());
 
         for (var classroom : allClasses) {
-            if (!classroom.getAcademicYear().equals(timetable.getAcademicYear()))
+            if (!classroom.getAcademicYear().equals(timetable.getSemester().getAcademicYear()))
                 continue;
 
             for (String code : highFreqCodes) {
@@ -265,13 +270,14 @@ public class AutoScheduleService {
                 continue;
 
             // Prioritize contiguous slots
-            // Saturday has only 4 periods (T1-T4), with T4 reserved for HDTN
-            // Other days have 5 periods (T1-T5)
-            java.util.List<Integer> slots;
+            // Saturday has only 4 periods (T1-T4), with T4 reserved for HDTN if not already
+            // assigned
+            // Other days have 10 slots (T1-T10)
+            java.util.List<Integer> slots = new java.util.ArrayList<>();
             if (day == DayOfWeek.SATURDAY) {
-                slots = new java.util.ArrayList<>(java.util.List.of(1, 2, 3)); // T4 reserved for HDTN
+                slots.addAll(java.util.List.of(1, 2, 3));
             } else {
-                slots = new java.util.ArrayList<>(java.util.List.of(1, 2, 3, 4, 5));
+                slots.addAll(java.util.List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
             }
 
             for (int slot : slots) {
@@ -280,7 +286,7 @@ public class AutoScheduleService {
                 if (assignedToday >= limitPerDay)
                     break;
 
-                // 1. Check Context (In-Memory) - CRITICAL FIX
+                // 1. Check Context (In-Memory)
                 if (context.isClassOccupied(classroom.getId(), day, slot))
                     continue;
                 if (context.isTeacherOccupied(teacher != null ? teacher.getId() : null, day, slot))
@@ -319,7 +325,9 @@ public class AutoScheduleService {
             outerLoop: for (DayOfWeek day : days) {
                 if (day == DayOfWeek.SUNDAY)
                     continue;
-                for (int slot = 1; slot <= 5; slot++) {
+
+                // Check all 10 slots
+                for (int slot = 1; slot <= 10; slot++) {
 
                     if (!context.isClassOccupied(classroom.getId(), day, slot)) {
                         continue;
@@ -335,7 +343,7 @@ public class AutoScheduleService {
 
                     var existingDetail = existingDetailOpt.get();
                     if (existingDetail.isFixed())
-                        continue;
+                        continue; // Should be none now but safety check
 
                     if (context.isTeacherOccupied(teacherArg != null ? teacherArg.getId() : null, day, slot)) {
                         continue;
@@ -362,12 +370,14 @@ public class AutoScheduleService {
         for (DayOfWeek day : DayOfWeek.values()) {
             if (day == DayOfWeek.SUNDAY)
                 continue;
-            for (int slot = 1; slot <= 5; slot++) {
-                // Skip the current slot (obviously)
+
+            int maxSlots = (day == DayOfWeek.SATURDAY) ? 4 : 10;
+            for (int slot = 1; slot <= maxSlots; slot++) {
+                // Skip the current slot
                 if (day == detail.getDayOfWeek() && slot == detail.getSlotIndex())
                     continue;
 
-                // Check if new slot is valid for Valid B
+                // Check if new slot is valid
                 if (context.isClassOccupied(classroom.getId(), day, slot))
                     continue;
                 if (context.isTeacherOccupied(teacher != null ? teacher.getId() : null, day, slot))
@@ -380,7 +390,7 @@ public class AutoScheduleService {
                 // 2. Update Detail in DB
                 detail.setDayOfWeek(day);
                 detail.setSlotIndex(slot);
-                timetableDetailRepository.save(detail); // Update assignment
+                timetableDetailRepository.save(detail);
 
                 // 3. Mark new occupancy
                 context.markOccupied(classroom.getId(), teacher != null ? teacher.getId() : null, day, slot);
@@ -401,7 +411,7 @@ public class AutoScheduleService {
                 .teacher(teacher)
                 .dayOfWeek(day)
                 .slotIndex(slotIndex)
-                .isFixed(false) // Not fixed like CC/SHL
+                .isFixed(false) // Never fixed now
                 .build();
         timetableDetailRepository.save(detail);
 
@@ -410,21 +420,18 @@ public class AutoScheduleService {
     }
 
     private void scheduleElectiveSubjects(Timetable timetable, ScheduleContext context) {
-        log.info("Step 3: Scheduling elective subjects (Physical, Chemical, Bio, History, Geo, etc.)...");
+        log.info("Step 3: Scheduling elective subjects...");
 
         var allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool());
-        // Cache compulsory subjects once
         var compulsorySubjects = subjectRepository
                 .findByTypeAndActiveTrue(com.schoolmanagement.backend.domain.classes.SubjectType.COMPULSORY);
 
         for (var classroom : allClasses) {
-            if (!classroom.getAcademicYear().equals(timetable.getAcademicYear()))
+            if (!classroom.getAcademicYear().equals(timetable.getSemester().getAcademicYear()))
                 continue;
 
-            // Gather all subjects to schedule for this class
             java.util.Set<Subject> subjectsToSchedule = new java.util.HashSet<>(compulsorySubjects);
 
-            // Add combination subjects if any
             if (classroom.getCombination() != null) {
                 subjectsToSchedule.addAll(classroom.getCombination().getSubjects());
             }
@@ -433,15 +440,12 @@ public class AutoScheduleService {
                 if (isSkippedSubject(subject.getCode()))
                     continue;
 
-                // SPECIALIZED subjects are handled in next step
                 if (subject.getType() == com.schoolmanagement.backend.domain.classes.SubjectType.SPECIALIZED)
                     continue;
 
-                // Lookup Teacher
                 var assignmentOpt = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject);
                 Teacher teacher = assignmentOpt.map(TeacherAssignment::getTeacher).orElse(null);
 
-                // Use the shared scheduling method with randomization enabled
                 scheduleSubject(timetable, classroom, subject, teacher, true, context);
             }
         }
@@ -449,21 +453,20 @@ public class AutoScheduleService {
 
     private boolean isSkippedSubject(String code) {
         // High Freq handled separately
-        // CC/SHL not scheduled at all
-        // GDTC/HDTN already scheduled as fixed activities
-        return java.util.List.of("TOAN", "VAN", "ANH", "CC", "SHL", "GDTC", "HDTN").contains(code);
+        // GDTC/HDTN/GDQP already handled in step 1
+        // CC/SHL explicitly ignored
+        return java.util.List.of("TOAN", "VAN", "ANH", "CC", "SHL", "GDTC", "HDTN", "GDQP").contains(code);
     }
 
     private void scheduleSpecializedSubjects(Timetable timetable, ScheduleContext context) {
         log.info("Step 4: Scheduling specialized subjects (Chuyen de)...");
 
         var allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool());
-        // Fetch all specialized subjects
         var specializedSubjects = subjectRepository
                 .findByTypeAndActiveTrue(com.schoolmanagement.backend.domain.classes.SubjectType.SPECIALIZED);
 
         for (var classroom : allClasses) {
-            if (!classroom.getAcademicYear().equals(timetable.getAcademicYear()))
+            if (!classroom.getAcademicYear().equals(timetable.getSemester().getAcademicYear()))
                 continue;
 
             if (classroom.getCombination() == null)
@@ -473,8 +476,6 @@ public class AutoScheduleService {
                 continue;
 
             for (Subject subject : specializedSubjects) {
-                // Determine if this specialized subject belongs to the class stream
-                // Assuming specialized subjects have a stream field that matches
                 if (subject.getStream() != stream) {
                     continue;
                 }
@@ -482,23 +483,15 @@ public class AutoScheduleService {
                 Teacher teacher = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject)
                         .map(TeacherAssignment::getTeacher).orElse(null);
 
-                // Smart Fallback: If no teacher assigned to CD_SUBJECT, check usage of base
-                // Subject teacher
                 if (teacher == null && subject.getCode().startsWith("CD_")) {
                     String baseCode = subject.getCode().replace("CD_", "");
-                    // Find base subject teacher for this class
                     var baseSubjectOpt = subjectRepository.findByCode(baseCode);
                     if (baseSubjectOpt.isPresent()) {
                         teacher = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, baseSubjectOpt.get())
                                 .map(TeacherAssignment::getTeacher).orElse(null);
-                        if (teacher != null) {
-                            log.info("Using implicit teacher {} from {} for specialized subject {}",
-                                    teacher.getFullName(), baseCode, subject.getCode());
-                        }
                     }
                 }
 
-                // Use the shared scheduling method
                 scheduleSubject(timetable, classroom, subject, teacher, true, context);
             }
         }

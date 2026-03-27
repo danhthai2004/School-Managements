@@ -3,6 +3,8 @@ import { useAuth } from "../../context/AuthContext";
 import { studentService, type StudentDashboardDto, type TimetableSlotDto, type ExamScheduleDto } from "../../services/studentService";
 import { CalendarIcon } from "../../components/layout/SystemIcons";
 import { Bell, BookOpen, TrendingUp, CheckCircle, ChevronRight, X } from "lucide-react";
+import { useSemester } from "../../context/SemesterContext";
+import SemesterSelector from "../../components/common/SemesterSelector";
 
 const periodTimes: Record<number, string> = {
     1: "07:00 - 07:45",
@@ -21,13 +23,25 @@ const examTypeLabels: Record<string, string> = {
 
 export default function StudentOverviewPage() {
     const { user } = useAuth();
+    const { activeSemester, allSemesters, loading: isContextLoading } = useSemester();
+    const [selectedSemesterId, setSelectedSemesterId] = useState<string>("");
     const [loading, setLoading] = useState(true);
     const [dashboard, setDashboard] = useState<StudentDashboardDto | null>(null);
 
+    // Initial load priority: System Active Semester
+    useEffect(() => {
+        if (!selectedSemesterId && activeSemester) {
+            setSelectedSemesterId(activeSemester.id);
+        }
+    }, [activeSemester, selectedSemesterId]);
+
+    const selectedSemester = allSemesters.find(s => s.id === selectedSemesterId);
+
     useEffect(() => {
         const fetchData = async () => {
+            if (!selectedSemesterId) return;
             try {
-                const data = await studentService.getDashboard();
+                const data = await studentService.getDashboard(selectedSemesterId);
                 setDashboard(data);
             } catch (error) {
                 console.error("Error fetching dashboard:", error);
@@ -35,8 +49,10 @@ export default function StudentOverviewPage() {
                 setLoading(false);
             }
         };
-        fetchData();
-    }, []);
+        if (!isContextLoading) {
+            fetchData();
+        }
+    }, [selectedSemesterId, isContextLoading]);
 
     const getGreeting = () => {
         const hour = new Date().getHours();
@@ -64,9 +80,17 @@ export default function StudentOverviewPage() {
                     <h2 className="text-2xl font-bold mb-1">
                         {getGreeting()}, {user?.fullName || dashboard.profile.fullName}! 👋
                     </h2>
-                    <p className="text-blue-100 text-sm">
-                        Chúc bạn học tốt - {dashboard.semester}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
+                        <p className="text-blue-100 text-sm">
+                            Chúc bạn học tốt - {dashboard.semester}
+                        </p>
+                        <SemesterSelector 
+                            value={selectedSemesterId} 
+                            onChange={setSelectedSemesterId}
+                            label=""
+                            className="text-white !bg-white/10 border-white/20"
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -78,14 +102,14 @@ export default function StudentOverviewPage() {
                     icon={<TrendingUp className="w-5 h-5" />}
                     color="blue"
                     change="+0.2"
-                    subtitle="Học kỳ 1"
+                    subtitle={`Học kỳ ${selectedSemester?.semesterNumber || 1}`}
                 />
                 <StatCard
                     title="Số môn học"
                     value={dashboard.totalSubjects}
                     icon={<BookOpen className="w-5 h-5" />}
                     color="yellow"
-                    subtitle="Học kỳ 1"
+                    subtitle={`Học kỳ ${selectedSemester?.semesterNumber || 1}`}
                 />
                 <StatCard
                     title="Chuyên cần"

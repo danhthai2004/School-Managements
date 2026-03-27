@@ -53,10 +53,13 @@ public class StudentPortalController {
 
     /**
      * Get the timetable for the student's current class.
+     * Supports filtering by semester.
      */
     @GetMapping("/timetable")
-    public ResponseEntity<StudentTimetableDto> getTimetable(@AuthenticationPrincipal UserPrincipal principal) {
-        StudentTimetableDto timetable = studentPortalService.getTimetable(principal.getId());
+    public ResponseEntity<StudentTimetableDto> getTimetable(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String semesterId) {
+        StudentTimetableDto timetable = studentPortalService.getTimetable(principal.getId(), semesterId);
         return ResponseEntity.ok(timetable);
     }
 
@@ -67,22 +70,21 @@ public class StudentPortalController {
     @GetMapping("/exams")
     public ResponseEntity<List<ExamScheduleDto>> getExamSchedule(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(required = false) String academicYear,
-            @RequestParam(required = false) Integer semester) {
-        List<ExamScheduleDto> exams = studentPortalService.getExamSchedule(principal.getId(), academicYear, semester);
+            @RequestParam(required = false) String semesterId) {
+        List<ExamScheduleDto> exams = studentPortalService.getExamSchedule(principal.getId(), semesterId);
         return ResponseEntity.ok(exams);
     }
 
     /**
      * Get scores for the student.
      * 
-     * @param semester Optional semester filter (1 or 2)
+     * @param semesterId Optional semester ID filter
      */
     @GetMapping("/scores")
     public ResponseEntity<List<ScoreDto>> getScores(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(required = false) Integer semester) {
-        List<ScoreDto> scores = studentPortalService.getScores(principal.getId(), semester);
+            @RequestParam(required = false) String semesterId) {
+        List<ScoreDto> scores = studentPortalService.getScores(principal.getId(), semesterId);
         return ResponseEntity.ok(scores);
     }
 

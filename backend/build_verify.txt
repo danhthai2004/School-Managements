@@ -1,0 +1,36 @@
+[INFO] Building ISS 0.0.1-SNAPSHOT
+[WARNING] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/domain/entity/teacher/Teacher.java:[73,36] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/domain/entity/auth/User.java:[46,21] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/domain/entity/auth/User.java:[49,21] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/domain/entity/auth/AuthChallenge.java:[44,17] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[ERROR] COMPILATION ERROR : 
+[ERROR] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/service/timetable/TimetableHandler.java:[166,51] cannot find symbol
+[ERROR] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/service/timetable/TimetableHandler.java:[166,97] cannot find symbol
+[ERROR] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/service/timetable/TeacherTimetableHandler.java:[100,51] cannot find symbol
+[ERROR] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/service/timetable/TeacherTimetableHandler.java:[100,97] cannot find symbol
+[ERROR] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/service/report/ReportService.java:[649,33] cannot find symbol
+[INFO] 5 errors 
+[INFO] BUILD FAILURE
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.1:compile (default-compile) on project backend: Compilation failure: Compilation failure: 
+[ERROR] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/service/timetable/TimetableHandler.java:[166,51] cannot find symbol
+[ERROR]   symbol:   method getAcademicYear()
+[ERROR]   location: variable officialTimetable of type com.schoolmanagement.backend.domain.entity.timetable.Timetable
+[ERROR] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/service/timetable/TimetableHandler.java:[166,97] cannot find symbol
+[ERROR]   symbol:   method getAcademicYear()
+[ERROR]   location: variable officialTimetable of type com.schoolmanagement.backend.domain.entity.timetable.Timetable
+[ERROR] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/service/timetable/TeacherTimetableHandler.java:[100,51] cannot find symbol
+[ERROR]   symbol:   method getAcademicYear()
+[ERROR]   location: variable officialTimetable of type com.schoolmanagement.backend.domain.entity.timetable.Timetable
+[ERROR] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/service/timetable/TeacherTimetableHandler.java:[100,97] cannot find symbol
+[ERROR]   symbol:   method getAcademicYear()
+[ERROR]   location: variable officialTimetable of type com.schoolmanagement.backend.domain.entity.timetable.Timetable
+[ERROR] /D:/Capstone Project/School Management/backend/src/main/java/com/schoolmanagement/backend/service/report/ReportService.java:[649,33] cannot find symbol
+[ERROR]   symbol:   variable academicYear
+[ERROR]   location: class com.schoolmanagement.backend.service.report.ReportService
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

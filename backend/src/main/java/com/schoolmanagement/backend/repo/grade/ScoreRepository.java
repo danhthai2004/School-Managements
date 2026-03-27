@@ -1,7 +1,6 @@
 package com.schoolmanagement.backend.repo.grade;
 
 import com.schoolmanagement.backend.domain.grade.ScoreType;
-import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.grade.Score;
 import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.entity.classes.Subject;
@@ -28,8 +27,8 @@ public interface ScoreRepository extends JpaRepository<Score, UUID> {
            "ORDER BY s.subject.name, s.scoreType")
     List<Score> findByStudentAndAcademicYearAndSemester(
             @Param("student") Student student,
-            @Param("academicYear") String academicYear,
-            @Param("semester") Integer semester);
+            @Param("academicYear") com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear,
+            @Param("semester") com.schoolmanagement.backend.domain.entity.admin.Semester semester);
 
     /**
      * Find all scores for a student in a specific academic year (both semesters).
@@ -38,29 +37,19 @@ public interface ScoreRepository extends JpaRepository<Score, UUID> {
            "JOIN FETCH s.subject " +
            "WHERE s.student = :student " +
            "AND s.academicYear = :academicYear " +
-           "ORDER BY s.semester, s.subject.name, s.scoreType")
+           "ORDER BY s.semester.semesterNumber, s.subject.name, s.scoreType")
     List<Score> findByStudentAndAcademicYear(
             @Param("student") Student student,
-            @Param("academicYear") String academicYear);
+            @Param("academicYear") com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
-    /**
-     * Find all scores for a student, subject, academic year and semester.
-     */
-    List<Score> findByStudentAndSubjectAndAcademicYearAndSemester(
-            Student student, Subject subject, String academicYear, Integer semester);
-
-    /**
-     * Find a specific score by student, subject, score type, academic year and semester.
-     */
-    Optional<Score> findByStudentAndSubjectAndScoreTypeAndAcademicYearAndSemester(
-            Student student, Subject subject, ScoreType scoreType, 
-            String academicYear, Integer semester);
 
     /**
      * Find all scores for a school in a specific academic year and semester.
      */
     List<Score> findBySchoolAndAcademicYearAndSemester(
-            School school, String academicYear, Integer semester);
+            com.schoolmanagement.backend.domain.entity.admin.School school, 
+            com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear, 
+            com.schoolmanagement.backend.domain.entity.admin.Semester semester);
 
     /**
      * Count scores by student.
