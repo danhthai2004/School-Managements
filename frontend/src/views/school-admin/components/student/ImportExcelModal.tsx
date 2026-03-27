@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { schoolAdminService, type ImportStudentResult } from "../../../../services/schoolAdminService";
+import { semesterService, type AcademicYearDto } from "../../../../services/semesterService";
 import { XIcon } from "../../SchoolAdminIcons";
 
 interface ImportExcelModalProps {
@@ -16,8 +17,39 @@ function ImportExcelModal({ isOpen, onClose, onSuccess, onImportComplete, defaul
     const [academicYear, setAcademicYear] = useState(defaultAcademicYear);
     const [grade, setGrade] = useState(10);
     const [autoAssign, setAutoAssign] = useState(true);
+    const [academicYears, setAcademicYears] = useState<AcademicYearDto[]>([]);
     const [loading, setLoading] = useState(false);
+    const [loadingYears, setLoadingYears] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchAcademicYears();
+        }
+    }, [isOpen]);
+
+    const fetchAcademicYears = async () => {
+        setLoadingYears(true);
+        try {
+            const years = await semesterService.listAcademicYears();
+            const filtered = years.filter(y => y.status === 'ACTIVE' || y.status === 'UPCOMING');
+            setAcademicYears(filtered);
+
+            // If current academicYear is not in the list, try to find the ACTIVE one
+            if (filtered.length > 0) {
+                const activeYear = filtered.find(y => y.status === 'ACTIVE');
+                if (activeYear && !academicYear) {
+                    setAcademicYear(activeYear.name);
+                } else if (!academicYear) {
+                    setAcademicYear(filtered[0].name);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to fetch academic years", err);
+        } finally {
+            setLoadingYears(false);
+        }
+    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
@@ -132,13 +164,19 @@ function ImportExcelModal({ isOpen, onClose, onSuccess, onImportComplete, defaul
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Năm học</label>
-                                <input
-                                    type="text"
+                                <select
                                     value={academicYear}
                                     onChange={(e) => setAcademicYear(e.target.value)}
-                                    placeholder="2024-2025"
-                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-emerald-500 outline-none"
-                                />
+                                    disabled={loadingYears}
+                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-emerald-500 outline-none bg-white disabled:bg-slate-50"
+                                >
+                                    {academicYears.length === 0 && <option value="">Đang tải...</option>}
+                                    {academicYears.map(y => (
+                                        <option key={y.id} value={y.name}>
+                                            {y.name}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Khối lớp</label>

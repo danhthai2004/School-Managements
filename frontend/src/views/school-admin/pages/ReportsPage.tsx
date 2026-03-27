@@ -22,12 +22,25 @@ import ClassTab from "../components/reports/ClassTab";
 import AttendanceTab from "../components/reports/AttendanceTab";
 import AcademicTab from "../components/reports/AcademicTab";
 import TimetableTab from "../components/reports/TimetableTab";
+import { useSemester } from "../../../context/SemesterContext";
+import SemesterSelector from "../../../components/common/SemesterSelector";
 
 type TabType = "overview" | "students" | "teachers" | "classes" | "attendance" | "academic" | "timetable";
 
 const ReportsPage = () => {
     const [activeTab, setActiveTab] = useState<TabType>("overview");
     const [loading, setLoading] = useState(false);
+    const { activeSemester, allSemesters } = useSemester();
+    const [selectedSemesterId, setSelectedSemesterId] = useState<string>("");
+
+    // Initial load priority: System Active Semester
+    useEffect(() => {
+        if (!selectedSemesterId && activeSemester) {
+            setSelectedSemesterId(activeSemester.id);
+        }
+    }, [activeSemester, selectedSemesterId]);
+
+    const selectedSemester = allSemesters.find(s => s.id === selectedSemesterId);
 
     // Data states
     const [overview, setOverview] = useState<ReportOverviewDto | null>(null);
@@ -39,8 +52,10 @@ const ReportsPage = () => {
     const [timetableReport, setTimetableReport] = useState<TimetableReportDto | null>(null);
 
     useEffect(() => {
-        fetchData(activeTab);
-    }, [activeTab]);
+        if (selectedSemesterId) {
+            fetchData(activeTab);
+        }
+    }, [activeTab, selectedSemesterId]);
 
     const fetchData = async (tab: TabType) => {
         setLoading(true);
@@ -67,7 +82,10 @@ const ReportsPage = () => {
                     setAttendanceReport(attendanceData);
                     break;
                 case "academic":
-                    const academicData = await schoolReportService.getAcademicReport();
+                    const academicData = await schoolReportService.getAcademicReport(
+                        selectedSemester?.academicYearName,
+                        selectedSemester?.semesterNumber
+                    );
                     setAcademicReport(academicData);
                     break;
                 case "timetable":
@@ -95,9 +113,17 @@ const ReportsPage = () => {
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6 animate-fade-in-up">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900">Báo cáo & Thống kê</h1>
-                <p className="text-sm text-gray-500 mt-1">Xem thống kê chi tiết về trường học</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Báo cáo & Thống kê</h1>
+                    <p className="text-sm text-gray-500 mt-1">Xem thống kê chi tiết về trường học</p>
+                </div>
+                <SemesterSelector 
+                    value={selectedSemesterId} 
+                    onChange={setSelectedSemesterId}
+                    label=""
+                    className="h-[42px]" 
+                />
             </div>
 
             {/* Tabs */}

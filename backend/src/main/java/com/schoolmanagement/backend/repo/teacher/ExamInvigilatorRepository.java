@@ -50,11 +50,11 @@ public interface ExamInvigilatorRepository extends JpaRepository<ExamInvigilator
                         "JOIN ei.examRoom er " +
                         "JOIN er.examSchedule es " +
                         "WHERE ei.teacher.id = :teacherId " +
-                        "AND es.academicYear = :academicYear " +
                         "AND es.semester = :semester " +
                         "ORDER BY es.examDate ASC, es.startTime ASC")
-        List<ExamInvigilator> findByTeacherAndAcademicYearAndSemesterOrderByExamDate(
+        List<ExamInvigilator> findByTeacherAndSemesterOrderByExamDate(
                         @Param("teacherId") UUID teacherId,
-                        @Param("academicYear") String academicYear,
-                        @Param("semester") int semester);
+                        @Param("semester") com.schoolmanagement.backend.domain.entity.admin.Semester semester);
+
+        boolean existsByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
 }

@@ -39,6 +39,8 @@ export default function LoginPage() {
           navigate("/student/overview");
         } else if (role === "TEACHER") {
           navigate("/teacher/dashboard");
+        } else if (role === "GUARDIAN") {
+          navigate("/guardian/overview");
         } else {
           navigate("/dashboard");
         }
@@ -64,7 +66,21 @@ export default function LoginPage() {
     try {
       const res = await loginWithGoogle(idToken);
       if (res.status === "AUTHENTICATED") {
-        navigate("/dashboard");
+        const role = res.user?.role;
+        console.log("Google Login success, role:", role);
+        if (role === "SYSTEM_ADMIN") {
+          navigate("/system/overview");
+        } else if (role === "SCHOOL_ADMIN") {
+          navigate("/school-admin/dashboard");
+        } else if (role === "STUDENT") {
+          navigate("/student/overview");
+        } else if (role === "TEACHER") {
+          navigate("/teacher/dashboard");
+        } else if (role === "GUARDIAN") {
+          navigate("/guardian/overview");
+        } else {
+          navigate("/dashboard");
+        }
         return;
       }
       if (res.status === "OTP_REQUIRED") {

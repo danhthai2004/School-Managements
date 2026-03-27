@@ -1,6 +1,6 @@
 package com.schoolmanagement.backend.controller.timetable;
 
-import com.schoolmanagement.backend.domain.entity.timetable.Timetable;
+import com.schoolmanagement.backend.dto.timetable.TimetableDto;
 import com.schoolmanagement.backend.service.timetable.AutoScheduleService;
 import com.schoolmanagement.backend.service.timetable.TimetableService;
 import lombok.RequiredArgsConstructor;
@@ -24,24 +24,24 @@ public class TimetableController {
     private final UserLookupService userLookup;
 
     @GetMapping
-    public ResponseEntity<List<Timetable>> getTimetables(@AuthenticationPrincipal UserPrincipal principal) {
+    public ResponseEntity<List<TimetableDto>> getTimetables(@AuthenticationPrincipal UserPrincipal principal) {
         var admin = userLookup.requireById(principal.getId());
         var list = timetableService.getTimetables(admin.getSchool());
         return ResponseEntity.ok(list);
     }
 
     @PostMapping
-    public ResponseEntity<Timetable> createTimetable(@AuthenticationPrincipal UserPrincipal principal,
+    public ResponseEntity<TimetableDto> createTimetable(@AuthenticationPrincipal UserPrincipal principal,
             @RequestBody CreateTimetableRequest request) {
         var admin = userLookup.requireById(principal.getId());
-        var t = timetableService.createTimetable(admin.getSchool(), request.name(),
-                request.academicYear(), request.semester());
+        var t = timetableService.createTimetable(admin.getSchool(), request.name(), request.semesterId());
         return ResponseEntity.ok(t);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Timetable> getTimetable(@PathVariable UUID id) {
-        return ResponseEntity.ok(timetableService.getTimetable(id));
+    public ResponseEntity<TimetableDto> getTimetable(@AuthenticationPrincipal UserPrincipal principal, @PathVariable UUID id) {
+        var admin = userLookup.requireById(principal.getId());
+        return ResponseEntity.ok(timetableService.getTimetable(admin.getSchool(), id));
     }
 
     @PostMapping("/{id}/generate")
@@ -90,6 +90,6 @@ public class TimetableController {
         }
     }
 
-    public record CreateTimetableRequest(String name, String academicYear, int semester) {
+    public record CreateTimetableRequest(String name, UUID semesterId) {
     }
 }

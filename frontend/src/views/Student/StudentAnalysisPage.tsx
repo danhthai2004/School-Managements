@@ -1,15 +1,28 @@
 import { useState, useEffect } from "react";
 import { studentService, type ScoreDto } from "../../services/studentService";
 import { TrendingUp, TrendingDown, Target, Lightbulb, BookOpen, Clock, Award, AlertCircle } from "lucide-react";
+import { useSemester } from "../../context/SemesterContext";
+import SemesterSelector from "../../components/common/SemesterSelector";
 
 export default function StudentAnalysisPage() {
+    const { activeSemester, loading: isContextLoading } = useSemester();
+    const [selectedSemesterId, setSelectedSemesterId] = useState<string>("");
     const [loading, setLoading] = useState(true);
     const [scores, setScores] = useState<ScoreDto[]>([]);
 
+    // Initial load priority: System Active Semester
+    useEffect(() => {
+        if (!selectedSemesterId && activeSemester) {
+            setSelectedSemesterId(activeSemester.id);
+        }
+    }, [activeSemester, selectedSemesterId]);
+
     useEffect(() => {
         const fetchData = async () => {
+            if (!selectedSemesterId) return;
+            setLoading(true);
             try {
-                const data = await studentService.getScores();
+                const data = await studentService.getScores(selectedSemesterId);
                 setScores(data);
             } catch (error) {
                 console.error("Error fetching scores:", error);
@@ -17,8 +30,10 @@ export default function StudentAnalysisPage() {
                 setLoading(false);
             }
         };
-        fetchData();
-    }, []);
+        if (!isContextLoading) {
+            fetchData();
+        }
+    }, [selectedSemesterId, isContextLoading]);
 
     if (loading) {
         return (
@@ -121,7 +136,14 @@ export default function StudentAnalysisPage() {
 
     return (
         <div className="animate-fade-in-up space-y-6">
-            <h1 className="text-2xl font-bold text-gray-900">Phân Tích & Gợi Ý Học Tập</h1>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <h1 className="text-2xl font-bold text-gray-900">Phân Tích & Gợi Ý Học Tập</h1>
+                <SemesterSelector 
+                    value={selectedSemesterId} 
+                    onChange={setSelectedSemesterId}
+                    label="" 
+                />
+            </div>
 
             {/* Overview Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -1,6 +1,8 @@
 package com.schoolmanagement.backend.domain.entity.exam;
 
+import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
 import com.schoolmanagement.backend.domain.entity.admin.School;
+import com.schoolmanagement.backend.domain.entity.admin.Semester;
 
 import com.schoolmanagement.backend.domain.exam.ExamSessionStatus;
 import jakarta.persistence.*;
@@ -22,7 +24,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "exam_sessions", indexes = {
         @Index(name = "idx_exam_session_school", columnList = "school_id"),
-        @Index(name = "idx_exam_session_year", columnList = "academic_year, semester")
+        @Index(name = "idx_exam_session_year", columnList = "academic_year_id, semester_id")
 })
 public class ExamSession {
 
@@ -33,11 +35,13 @@ public class ExamSession {
     @Column(nullable = false, length = 150)
     private String name; // "Giữa kỳ 1", "Cuối kỳ 2"
 
-    @Column(name = "academic_year", nullable = false, length = 20)
-    private String academicYear;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "academic_year_id", nullable = false)
+    private AcademicYear academicYear;
 
-    @Column(nullable = false)
-    private Integer semester;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "semester_id", nullable = false)
+    private Semester semester;
 
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;

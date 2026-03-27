@@ -1,11 +1,11 @@
 package com.schoolmanagement.backend.repo.exam;
 
 import com.schoolmanagement.backend.domain.exam.ExamStatus;
-import com.schoolmanagement.backend.domain.exam.ExamType;
+
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.exam.ExamSchedule;
 import com.schoolmanagement.backend.domain.entity.admin.School;
-import com.schoolmanagement.backend.domain.entity.classes.Subject;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -31,8 +31,8 @@ public interface ExamScheduleRepository extends JpaRepository<ExamSchedule, UUID
                         "ORDER BY e.examDate, e.startTime")
         List<ExamSchedule> findByClassRoomAndAcademicYearAndSemester(
                         @Param("classRoom") ClassRoom classRoom,
-                        @Param("academicYear") String academicYear,
-                        @Param("semester") Integer semester);
+                        @Param("academicYear") com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear,
+                        @Param("semester") com.schoolmanagement.backend.domain.entity.admin.Semester semester);
 
         /**
          * Find all exam schedules for a classroom and academic year.
@@ -44,7 +44,7 @@ public interface ExamScheduleRepository extends JpaRepository<ExamSchedule, UUID
                         "ORDER BY e.examDate, e.startTime")
         List<ExamSchedule> findByClassRoomAndAcademicYear(
                         @Param("classRoom") ClassRoom classRoom,
-                        @Param("academicYear") String academicYear);
+                        @Param("academicYear") com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
         /**
          * Find upcoming exams for a classroom (exam date >= today).
@@ -86,19 +86,9 @@ public interface ExamScheduleRepository extends JpaRepository<ExamSchedule, UUID
          * Find exam schedules by school, academic year and semester.
          */
         List<ExamSchedule> findBySchoolAndAcademicYearAndSemester(
-                        School school, String academicYear, Integer semester);
-
-        /**
-         * Find exam schedules by subject.
-         */
-        List<ExamSchedule> findBySubjectAndAcademicYearAndSemester(
-                        Subject subject, String academicYear, Integer semester);
-
-        /**
-         * Find exam schedules by type.
-         */
-        List<ExamSchedule> findByClassRoomAndExamTypeAndAcademicYearAndSemester(
-                        ClassRoom classRoom, ExamType examType, String academicYear, Integer semester);
+                        School school, 
+                        com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear, 
+                        com.schoolmanagement.backend.domain.entity.admin.Semester semester);
 
         /**
          * Count exams by classroom and status.

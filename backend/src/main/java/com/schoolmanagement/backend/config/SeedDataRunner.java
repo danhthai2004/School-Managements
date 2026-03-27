@@ -3,6 +3,8 @@ package com.schoolmanagement.backend.config;
 import com.schoolmanagement.backend.domain.auth.Role;
 import com.schoolmanagement.backend.domain.entity.auth.User;
 import com.schoolmanagement.backend.repo.auth.UserRepository;
+import com.schoolmanagement.backend.service.admin.SchoolRegistryInitService;
+import com.schoolmanagement.backend.service.location.LocationSeederService;
 import com.schoolmanagement.backend.service.timetable.CurriculumSeederService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,6 +19,8 @@ public class SeedDataRunner implements CommandLineRunner {
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final CurriculumSeederService curriculumSeeder;
+    private final LocationSeederService locationSeeder;
+    private final SchoolRegistryInitService schoolRegistryInit;
 
     @Value("${seed.system-admin.email:kazejustworking@gmail.com}")
     private String systemAdminEmail;
@@ -25,16 +29,22 @@ public class SeedDataRunner implements CommandLineRunner {
     private String systemAdminPassword;
 
     public SeedDataRunner(UserRepository users, PasswordEncoder passwordEncoder,
-            CurriculumSeederService curriculumSeeder) {
+            CurriculumSeederService curriculumSeeder, 
+            LocationSeederService locationSeeder, 
+            SchoolRegistryInitService schoolRegistryInit) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.curriculumSeeder = curriculumSeeder;
+        this.locationSeeder = locationSeeder;
+        this.schoolRegistryInit = schoolRegistryInit;
     }
 
     @Override
     public void run(String... args) {
-        // Seed subjects first
+        // Run seeders in correct order to respect foreign keys
         curriculumSeeder.seedSubjects();
+        locationSeeder.seedLocations();
+        schoolRegistryInit.init();
 
         var email = systemAdminEmail == null ? "" : systemAdminEmail.trim();
         if (email.isBlank()) {

@@ -3,6 +3,8 @@ package com.schoolmanagement.backend.domain.entity.exam;
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.classes.Subject;
 import com.schoolmanagement.backend.domain.entity.admin.School;
+import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
+import com.schoolmanagement.backend.domain.entity.admin.Semester;
 
 import com.schoolmanagement.backend.domain.exam.ExamStatus;
 import com.schoolmanagement.backend.domain.exam.ExamType;
@@ -78,11 +80,13 @@ public class ExamSchedule {
     @Column(length = 500)
     private String note;
 
-    @Column(name = "academic_year", nullable = false, length = 20)
-    private String academicYear;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "academic_year_id", nullable = false)
+    private AcademicYear academicYear;
 
-    @Column(nullable = false)
-    private Integer semester;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "semester_id", nullable = false)
+    private Semester semester;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "school_id", nullable = false)

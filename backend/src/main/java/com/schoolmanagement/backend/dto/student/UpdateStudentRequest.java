@@ -28,6 +28,7 @@ public record UpdateStudentRequest(
                 // Class assignment
                 UUID classId,
                 String academicYear,
+                UUID combinationId,
 
                 // Guardian info - will replace existing guardian
                 GuardianRequest guardian) {

@@ -25,7 +25,6 @@ public class SchoolRegistryInitService {
         this.registryRepository = registryRepository;
     }
 
-    @PostConstruct
     public void init() {
         if (!initSchoolRegistry) {
             log.info("School registry initialization disabled");

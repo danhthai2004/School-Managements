@@ -1,1 +1,0 @@
-DROP TABLE IF EXISTS teacher_assignments CASCADE; CREATE TABLE teacher_assignments (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), classroom_id UUID NOT NULL REFERENCES classrooms(id), subject_id UUID NOT NULL REFERENCES subjects(id), teacher_id UUID REFERENCES users(id), lessons_per_week INTEGER NOT NULL DEFAULT 2, school_id UUID NOT NULL REFERENCES schools(id));

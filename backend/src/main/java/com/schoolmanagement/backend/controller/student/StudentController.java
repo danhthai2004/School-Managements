@@ -31,13 +31,16 @@ public class StudentController {
     private final StudentManagementService studentManagementService;
     private final StudentImportService studentImportService;
     private final UserLookupService userLookup;
+    private final com.schoolmanagement.backend.repo.admin.AcademicYearRepository academicYearRepository;
 
     public StudentController(StudentManagementService studentManagementService,
             StudentImportService studentImportService,
-            UserLookupService userLookup) {
+            UserLookupService userLookup,
+            com.schoolmanagement.backend.repo.admin.AcademicYearRepository academicYearRepository) {
         this.studentManagementService = studentManagementService;
         this.studentImportService = studentImportService;
         this.userLookup = userLookup;
+        this.academicYearRepository = academicYearRepository;
     }
 
     @GetMapping("/students")
@@ -138,14 +141,17 @@ public class StudentController {
     public ImportStudentResult importStudentsFromExcel(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam("file") MultipartFile file,
-            @RequestParam("academicYear") String academicYear,
+            @RequestParam("academicYearId") UUID academicYearId,
             @RequestParam("grade") int grade,
             @RequestParam(value = "autoAssign", defaultValue = "true") boolean autoAssign) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return studentImportService.importStudentsFromExcel(admin.getSchool(), file, academicYear, grade, autoAssign);
+        com.schoolmanagement.backend.domain.entity.admin.AcademicYear ay = academicYearRepository
+                .findByIdAndSchool(academicYearId, admin.getSchool())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy năm học"));
+        return studentImportService.importStudentsFromExcel(admin.getSchool(), file, ay, grade, autoAssign);
     }
 
     @Transactional

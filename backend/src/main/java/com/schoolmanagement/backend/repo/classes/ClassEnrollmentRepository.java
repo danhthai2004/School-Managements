@@ -19,12 +19,12 @@ public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment
 
     List<ClassEnrollment> findAllByClassRoom(ClassRoom classRoom);
 
-    List<ClassEnrollment> findAllByClassRoomAndAcademicYear(ClassRoom classRoom, String academicYear);
+    List<ClassEnrollment> findAllByClassRoomAndAcademicYear(ClassRoom classRoom, com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
     Optional<ClassEnrollment> findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(Student student,
-            String academicYear);
+            com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
-    boolean existsByStudentAndClassRoomAndAcademicYear(Student student, ClassRoom classRoom, String academicYear);
+    boolean existsByStudentAndClassRoomAndAcademicYear(Student student, ClassRoom classRoom, com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
     long countByClassRoom(ClassRoom classRoom);
 
@@ -41,5 +41,7 @@ public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment
             """)
     List<UUID> findLatestClassroomId(
             @Param("studentId") UUID studentId,
-            @Param("academicYear") String academicYear);
+            @Param("academicYear") com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+
+    long countByAcademicYear(com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 }

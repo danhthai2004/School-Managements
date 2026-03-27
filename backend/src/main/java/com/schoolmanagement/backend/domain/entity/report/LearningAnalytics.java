@@ -32,11 +32,13 @@ public class LearningAnalytics {
     @JoinColumn(name = "subject_id")
     private Subject subject;
 
-    @Column(name = "academic_year", nullable = false)
-    private String academicYear;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "academic_year_id", nullable = false)
+    private com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear;
 
-    @Column(nullable = false)
-    private int semester;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "semester_id", nullable = false)
+    private com.schoolmanagement.backend.domain.entity.admin.Semester semester;
 
     @Column(name = "grade_trend", length = 20)
     private String gradeTrend; // IMPROVING, STABLE, DECLINING

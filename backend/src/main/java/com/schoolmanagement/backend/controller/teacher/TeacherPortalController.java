@@ -1,17 +1,12 @@
 package com.schoolmanagement.backend.controller.teacher;
 
+import com.schoolmanagement.backend.dto.attendance.*;
+import com.schoolmanagement.backend.dto.common.*;
 import com.schoolmanagement.backend.dto.exam.ExamScheduleDto;
-
-import com.schoolmanagement.backend.dto.teacher.TeacherProfileDto;
-import com.schoolmanagement.backend.dto.teacher.TeacherDashboardStatsDto;
-import com.schoolmanagement.backend.dto.common.TodayScheduleItemDto;
 import com.schoolmanagement.backend.dto.student.HomeroomStudentDto;
 import com.schoolmanagement.backend.dto.student.StudentRiskAnalysisDto;
-import com.schoolmanagement.backend.dto.common.AIRecommendationDto;
-import com.schoolmanagement.backend.dto.attendance.AttendanceDto;
-import com.schoolmanagement.backend.dto.attendance.SaveAttendanceRequest;
-import com.schoolmanagement.backend.dto.attendance.DailyAttendanceSummaryDto;
-import com.schoolmanagement.backend.dto.attendance.StudentAttendanceDetailDto;
+import com.schoolmanagement.backend.dto.teacher.TeacherDashboardStatsDto;
+import com.schoolmanagement.backend.dto.teacher.TeacherProfileDto;
 
 
 import com.schoolmanagement.backend.service.teacher.TeacherPortalService;
@@ -60,17 +55,17 @@ public class TeacherPortalController {
 
     @GetMapping("/schedule/weekly")
     public ResponseEntity<List<com.schoolmanagement.backend.dto.timetable.TimetableDetailDto>> getWeeklySchedule(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(teacherPortalService.getWeeklySchedule(userDetails.getUsername()));
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false) String semesterId) {
+        return ResponseEntity.ok(teacherPortalService.getWeeklySchedule(userDetails.getUsername(), semesterId));
     }
 
     @GetMapping("/schedule/exam")
     public ResponseEntity<List<ExamScheduleDto>> getExamSchedule(
             @AuthenticationPrincipal UserDetails userDetails,
-            @RequestParam(required = false) String academicYear,
-            @RequestParam(required = false) Integer semester) {
+            @RequestParam(required = false) String semesterId) {
         return ResponseEntity
-                .ok(teacherPortalService.getExamSchedule(userDetails.getUsername(), academicYear, semester));
+                .ok(teacherPortalService.getExamSchedule(userDetails.getUsername(), semesterId));
     }
 
     @GetMapping("/students")

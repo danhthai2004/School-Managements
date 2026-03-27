@@ -15,11 +15,7 @@ public interface AttendanceSessionRepository extends JpaRepository<AttendanceSes
 
     List<AttendanceSession> findAllBySchool(School school);
 
-    List<AttendanceSession> findAllBySchoolAndAcademicYear(School school, String academicYear);
-
     List<AttendanceSession> findAllByClassRoom(ClassRoom classRoom);
-
-    List<AttendanceSession> findAllByClassRoomAndAcademicYear(ClassRoom classRoom, String academicYear);
 
     List<AttendanceSession> findAllBySchoolAndSessionDateBetween(School school, LocalDate startDate, LocalDate endDate);
 
@@ -34,4 +30,6 @@ public interface AttendanceSessionRepository extends JpaRepository<AttendanceSes
     @org.springframework.data.jpa.repository.Query("DELETE FROM AttendanceSession e WHERE e.teacher = :teacher")
     void deleteAllByTeacher(
             @org.springframework.data.repository.query.Param("teacher") com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
+
+    long countByAcademicYear(com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 }

@@ -30,10 +30,10 @@ export const guardianService = {
     return res.data;
   },
 
-  getExamSchedule: async (studentId: string, academicYear?: string, semester?: number): Promise<ExamScheduleDto[]> => {
+  getExamSchedule: async (studentId: string, semesterId?: string): Promise<ExamScheduleDto[]> => {
     try {
       const res = await api.get("/guardian/exams", {
-        params: {studentId, academicYear, semester}
+        params: {studentId, semesterId}
       });
       return res.data;
     } catch (err) {

@@ -11,11 +11,12 @@ import java.util.UUID;
 
 @Repository
 public interface ExamSessionRepository extends JpaRepository<ExamSession, UUID> {
-    List<ExamSession> findBySchoolIdAndAcademicYearAndSemester(UUID schoolId, String academicYear, Integer semester);
 
     List<ExamSession> findBySchoolIdOrderByStartDateDesc(UUID schoolId);
 
     Optional<ExamSession> findByIdAndSchoolId(UUID id, UUID schoolId);
 
     List<ExamSession> findBySchoolIdAndStatus(UUID schoolId, ExamSessionStatus status);
+
+    long countByAcademicYear(com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 }

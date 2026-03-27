@@ -19,6 +19,7 @@ import com.schoolmanagement.backend.repo.teacher.TeacherRepository;
 import com.schoolmanagement.backend.repo.admin.SchoolRepository;
 import com.schoolmanagement.backend.repo.student.ExamStudentRepository;
 import com.schoolmanagement.backend.service.timetable.ConflictDetectionService;
+import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
 import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.exam.ExamSession;
 
@@ -59,6 +60,8 @@ public class ExamSessionService {
         private final ExamStudentRepository examStudentRepo;
         private final ExamAllocationService allocationService;
         private final ConflictDetectionService conflictService;
+        private final com.schoolmanagement.backend.repo.admin.SemesterRepository semesterRepo;
+        private final com.schoolmanagement.backend.repo.admin.AcademicYearRepository academicYearRepo;
 
         // ==================== ExamSession CRUD ====================
 
@@ -79,10 +82,19 @@ public class ExamSessionService {
                 School school = schoolRepo.findById(schoolId)
                                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy trường"));
 
+                AcademicYear academicYear = academicYearRepo.findBySchoolAndName(school, dto.getAcademicYear())
+                                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy năm học"));
+
+                // Resolve Semester entity from academicYear + semesterNumber
+                com.schoolmanagement.backend.domain.entity.admin.Semester semesterEntity = semesterRepo
+                                .findByAcademicYearOrderBySemesterNumber(academicYear).stream()
+                                .filter(s -> s.getSemesterNumber() == dto.getSemester())
+                                .findFirst().orElse(null);
+
                 ExamSession session = ExamSession.builder()
                                 .name(dto.getName())
-                                .academicYear(dto.getAcademicYear())
-                                .semester(dto.getSemester())
+                                .academicYear(academicYear)
+                                .semester(semesterEntity)
                                 .startDate(dto.getStartDate())
                                 .endDate(dto.getEndDate())
                                 .status(dto.getStatus() != null ? dto.getStatus() : ExamSessionStatus.DRAFT)
@@ -97,9 +109,18 @@ public class ExamSessionService {
                 ExamSession session = examSessionRepo.findByIdAndSchoolId(id, schoolId)
                                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy kỳ thi"));
 
+                AcademicYear academicYear = academicYearRepo.findBySchoolAndName(session.getSchool(), dto.getAcademicYear())
+                                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy năm học"));
+
+                // Resolve Semester entity
+                com.schoolmanagement.backend.domain.entity.admin.Semester semesterEntity = semesterRepo
+                                .findByAcademicYearOrderBySemesterNumber(academicYear).stream()
+                                .filter(s -> s.getSemesterNumber() == dto.getSemester())
+                                .findFirst().orElse(null);
+
                 session.setName(dto.getName());
-                session.setAcademicYear(dto.getAcademicYear());
-                session.setSemester(dto.getSemester());
+                session.setAcademicYear(academicYear);
+                session.setSemester(semesterEntity);
                 session.setStartDate(dto.getStartDate());
                 session.setEndDate(dto.getEndDate());
                 if (dto.getStatus() != null) {
@@ -190,9 +211,12 @@ public class ExamSessionService {
                                         allConflicts.addAll(conflictService.checkTeacherExamConflicts(
                                                         teacherId, req.getExamDate(), req.getStartTime(),
                                                         req.getEndTime()));
+                                        
+                                        // Resolve Semester Entity
+                                        com.schoolmanagement.backend.domain.entity.admin.Semester sem = session.getSemester();
+                                                
                                         allConflicts.addAll(conflictService.checkTeacherTimetableConflicts(
-                                                        teacherId, school, session.getAcademicYear(),
-                                                        session.getSemester(),
+                                                        teacherId, school, sem,
                                                         req.getExamDate(), req.getStartTime(), req.getEndTime()));
                                 }
                         }
@@ -317,15 +341,15 @@ public class ExamSessionService {
 
         // ==================== Helpers ====================
 
-        private ExamSessionDto toDto(ExamSession s) {
+        private ExamSessionDto toDto(ExamSession examSession) {
                 return ExamSessionDto.builder()
-                                .id(s.getId())
-                                .name(s.getName())
-                                .academicYear(s.getAcademicYear())
-                                .semester(s.getSemester())
-                                .startDate(s.getStartDate())
-                                .endDate(s.getEndDate())
-                                .status(s.getStatus())
+                                .id(examSession.getId())
+                                .name(examSession.getName())
+                                .academicYear(examSession.getAcademicYear() != null ? examSession.getAcademicYear().getName() : "")
+                                .semester(examSession.getSemester() != null ? examSession.getSemester().getSemesterNumber() : 1)
+                                .startDate(examSession.getStartDate())
+                                .endDate(examSession.getEndDate())
+                                .status(examSession.getStatus())
                                 .build();
         }
 }

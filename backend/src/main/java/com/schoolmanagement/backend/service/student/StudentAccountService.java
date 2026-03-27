@@ -1,13 +1,14 @@
 package com.schoolmanagement.backend.service.student;
 
 import com.schoolmanagement.backend.domain.entity.student.Guardian;
-import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.classes.ClassEnrollment;
 
 import com.schoolmanagement.backend.service.notification.MailService;
 import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.auth.User;
 import com.schoolmanagement.backend.domain.entity.student.Student;
+import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
+import com.schoolmanagement.backend.service.admin.SemesterService;
 
 import com.schoolmanagement.backend.domain.auth.Role;
 import com.schoolmanagement.backend.domain.student.StudentStatus;
@@ -19,7 +20,6 @@ import com.schoolmanagement.backend.dto.student.StudentGuardianDto;
 import com.schoolmanagement.backend.dto.auth.UserDto;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.repo.classes.ClassEnrollmentRepository;
-import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.student.GuardianRepository;
 import com.schoolmanagement.backend.repo.student.StudentRepository;
 import com.schoolmanagement.backend.repo.auth.UserRepository;
@@ -46,29 +46,29 @@ public class StudentAccountService {
 
     private final StudentRepository students;
     private final GuardianRepository guardians;
-    private final ClassRoomRepository classRooms;
     private final ClassEnrollmentRepository enrollments;
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
     private final AuthChallengeRepository authChallenges;
+    private final SemesterService semesterService;
 
     @org.springframework.beans.factory.annotation.Autowired
     @org.springframework.context.annotation.Lazy
     private StudentAccountService self;
 
     public StudentAccountService(StudentRepository students, GuardianRepository guardians,
-            ClassRoomRepository classRooms, ClassEnrollmentRepository enrollments,
+            ClassEnrollmentRepository enrollments,
             UserRepository users, PasswordEncoder passwordEncoder, MailService mailService,
-            AuthChallengeRepository authChallenges) {
+            AuthChallengeRepository authChallenges, SemesterService semesterService) {
         this.students = students;
         this.guardians = guardians;
-        this.classRooms = classRooms;
         this.enrollments = enrollments;
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
         this.authChallenges = authChallenges;
+        this.semesterService = semesterService;
     }
 
     // ==================== STUDENT ACCOUNT MANAGEMENT ====================
@@ -208,8 +208,7 @@ public class StudentAccountService {
 
     @Transactional(readOnly = true)
     public List<GuardianDto> getGuardiansEligibleForAccount(School school) {
-        String currentAcademicYear = classRooms.findFirstBySchoolOrderByAcademicYearDesc(school)
-                .map(ClassRoom::getAcademicYear).orElse("");
+        AcademicYear currentAcademicYear = semesterService.getActiveAcademicYear(school);
 
         return guardians.findGuardiansWithoutAccount(school).stream()
                 .map(g -> {
@@ -355,10 +354,11 @@ public class StudentAccountService {
         // Get current class enrollment
         String currentClassName = null;
         UUID currentClassId = null;
+        AcademicYear currentYear = semesterService.getActiveAcademicYear(student.getSchool());
+
         Optional<ClassEnrollment> currentEnrollment = enrollments.findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(
                 student,
-                classRooms.findFirstBySchoolOrderByAcademicYearDesc(student.getSchool())
-                        .map(ClassRoom::getAcademicYear).orElse(""));
+                currentYear);
         if (currentEnrollment.isPresent()) {
             currentClassName = currentEnrollment.get().getClassRoom().getName();
             currentClassId = currentEnrollment.get().getClassRoom().getId();

@@ -30,28 +30,32 @@ export default function ConfirmationModal({
     // Configuration based on variant
     const variants = {
         primary: {
-            iconBg: "bg-blue-100",
+            circleBg: "bg-blue-100",
             iconColor: "text-blue-600",
             icon: Play,
-            confirmBtn: "bg-blue-600 hover:bg-blue-700",
+            confirmBtn: "bg-blue-600 hover:bg-blue-700 shadow-blue-600/20",
+            box: "bg-blue-50 border-blue-100 text-blue-900"
         },
         danger: {
-            iconBg: "bg-red-100",
+            circleBg: "bg-red-100",
             iconColor: "text-red-600",
             icon: Trash2,
-            confirmBtn: "bg-red-600 hover:bg-red-700",
+            confirmBtn: "bg-red-600 hover:bg-red-700 shadow-red-600/20",
+            box: "bg-red-50 border-red-100 text-red-900"
         },
         success: {
-            iconBg: "bg-green-100",
-            iconColor: "text-green-600",
+            circleBg: "bg-emerald-100",
+            iconColor: "text-emerald-600",
             icon: CheckCircle2,
-            confirmBtn: "bg-green-600 hover:bg-green-700",
+            confirmBtn: "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20",
+            box: "bg-emerald-50 border-emerald-100 text-emerald-900"
         },
         warning: {
-            iconBg: "bg-amber-100",
+            circleBg: "bg-amber-100",
             iconColor: "text-amber-600",
             icon: AlertCircle,
-            confirmBtn: "bg-amber-600 hover:bg-amber-700",
+            confirmBtn: "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20",
+            box: "bg-amber-50 border-amber-100 text-amber-900"
         }
     };
 
@@ -59,46 +63,45 @@ export default function ConfirmationModal({
     const Icon = config.icon;
 
     return createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center">
-            <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-                onClick={onClose}
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <div 
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" 
+                onClick={onClose} 
             />
-            <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 transform transition-all animate-in fade-in zoom-in-95 duration-200">
-                <div className="text-center">
-                    <div className={`w-16 h-16 ${config.iconBg} rounded-full flex items-center justify-center mx-auto mb-4`}>
-                        <Icon className={`w-8 h-8 ${config.iconColor}`} />
-                    </div>
-
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
-
-                    <div className="text-gray-600 mb-6 text-sm">
+            
+            {/* Modal Content */}
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300 p-6 text-center">
+                <div className={`w-16 h-16 ${config.circleBg} rounded-full flex items-center justify-center mx-auto mb-4`}>
+                    <Icon className={`w-8 h-8 ${config.iconColor}`} />
+                </div>
+                
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">{title}</h3>
+                
+                <div className={`p-4 ${config.box} rounded-xl border flex gap-3 text-left mb-6`}>
+                    <Icon className="w-5 h-5 flex-shrink-0 mt-0.5 opacity-80" />
+                    <div className="text-sm leading-relaxed">
                         {message}
                     </div>
+                </div>
 
-                    <div className="flex gap-3">
-                        <button
-                            onClick={onClose}
-                            disabled={isLoading}
-                            className="flex-1 px-4 py-2 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
-                        >
-                            {cancelText}
-                        </button>
-                        <button
-                            onClick={onConfirm}
-                            disabled={isLoading}
-                            className={`flex-1 px-4 py-2 rounded-xl text-white font-medium shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${config.confirmBtn}`}
-                        >
-                            {isLoading ? (
-                                <>
-                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    <span>Đang xử lý...</span>
-                                </>
-                            ) : (
-                                confirmText
-                            )}
-                        </button>
-                    </div>
+                <div className="flex gap-3">
+                    <button
+                        onClick={onClose}
+                        disabled={isLoading}
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-all text-sm disabled:opacity-50"
+                    >
+                        {cancelText}
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        disabled={isLoading}
+                        className={`flex-1 px-4 py-2.5 rounded-xl ${config.confirmBtn} text-white font-semibold transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50`}
+                    >
+                        {isLoading ? (
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : confirmText}
+                    </button>
                 </div>
             </div>
         </div>,

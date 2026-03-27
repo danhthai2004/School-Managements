@@ -58,7 +58,8 @@ public class AttendanceService {
         private final TimetableDetailRepository timetableDetailRepository;
         private final ClassEnrollmentRepository classEnrollmentRepository;
         private final ClassRoomRepository classRoomRepository;
-        private final SchoolTimetableSettingsService timetableSettingsService;
+        private final com.schoolmanagement.backend.service.admin.SemesterService semesterService;
+        private final SchoolTimetableSettingsService settingsService;
         private final StudentRepository studentRepository;
 
         /**
@@ -92,9 +93,11 @@ public class AttendanceService {
                 }
 
                 // Else return default list (all PRESENT)
+                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentYear = semesterService
+                                .getAcademicYearByDate(teacher.getUser().getSchool(), date);
                 List<ClassEnrollment> enrollments = classEnrollmentRepository.findAllByClassRoomAndAcademicYear(
                                 classRoom,
-                                getCurrentAcademicYear());
+                                currentYear);
                 return enrollments.stream()
                                 .map(e -> AttendanceDto.builder()
                                                 .studentId(e.getStudent().getId().toString())
@@ -127,10 +130,18 @@ public class AttendanceService {
                                         "Điểm danh ngày này đã bị khóa tự động. Không thể chỉnh sửa.");
                 }
 
+                com.schoolmanagement.backend.domain.entity.admin.Semester currentSemester = semesterService
+                                .getSemesterByDate(teacher.getUser().getSchool(), request.getDate());
+                if (currentSemester != null && currentSemester
+                                .getStatus() == com.schoolmanagement.backend.domain.admin.SemesterStatus.CLOSED) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                        "Học kỳ chứa ngày điểm danh này đã chốt sổ. Chỉ có Giám thị hoặc Admin mới được phép chỉnh sửa.");
+                }
+
                 // Check if slot has started
                 if (request.getDate().isEqual(today)) {
                         try {
-                                TimetableScheduleSummaryDto.SlotTimeDto slotTime = timetableSettingsService
+                                TimetableScheduleSummaryDto.SlotTimeDto slotTime = settingsService
                                                 .calculateSlotTime(
                                                                 teacher.getUser().getSchool(), request.getSlotIndex());
                                 LocalTime slotStartTime = LocalTime.parse(slotTime.getStartTime());
@@ -185,8 +196,10 @@ public class AttendanceService {
                 User user = findUserByEmail(email);
 
                 // 1. Find Homeroom Class
+                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentYear = semesterService
+                                .getAcademicYearByDate(user.getSchool(), date);
                 ClassRoom homeroomClass = classRoomRepository
-                                .findByHomeroomTeacher_IdAndAcademicYear(user.getId(), getCurrentAcademicYear())
+                                .findByHomeroomTeacher_IdAndAcademicYear(user.getId(), currentYear)
                                 .orElseGet(() -> classRoomRepository
                                                 .findTopByHomeroomTeacher_IdOrderByAcademicYearDesc(user.getId())
                                                 .orElseThrow(
@@ -196,7 +209,7 @@ public class AttendanceService {
                 // 2. Process Students
                 List<ClassEnrollment> enrollments = classEnrollmentRepository.findAllByClassRoomAndAcademicYear(
                                 homeroomClass,
-                                getCurrentAcademicYear());
+                                currentYear);
 
                 // 3. Get all attendance records for this class on this date
                 List<Attendance> allAttendance = attendanceRepository.findAllByClassRoomAndDate(homeroomClass, date);
@@ -207,8 +220,9 @@ public class AttendanceService {
 
                 List<DailyAttendanceSummaryDto.StudentDailyAttendance> studentSummaries = enrollments.stream()
                                 .map(enrollment -> {
-                                        Student s = enrollment.getStudent();
-                                        List<Attendance> studentRecords = attendanceByStudent.getOrDefault(s.getId(),
+                                        Student student = enrollment.getStudent();
+                                        List<Attendance> studentRecords = attendanceByStudent.getOrDefault(
+                                                        student.getId(),
                                                         Collections.emptyList());
 
                                         Map<Integer, AttendanceStatus> slotStatusMap = studentRecords.stream()
@@ -217,8 +231,8 @@ public class AttendanceService {
                                                                         Attendance::getStatus));
 
                                         return DailyAttendanceSummaryDto.StudentDailyAttendance.builder()
-                                                        .studentId(s.getId().toString())
-                                                        .studentName(s.getFullName())
+                                                        .studentId(student.getId().toString())
+                                                        .studentName(student.getFullName())
                                                         .slotTheStatus(slotStatusMap)
                                                         .build();
                                 })
@@ -243,8 +257,10 @@ public class AttendanceService {
                 User user = findUserByEmail(email);
 
                 // 1. Find Homeroom Class
+                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentYear = semesterService
+                                .getAcademicYearByDate(user.getSchool(), endDate);
                 ClassRoom homeroomClass = classRoomRepository
-                                .findByHomeroomTeacher_IdAndAcademicYear(user.getId(), getCurrentAcademicYear())
+                                .findByHomeroomTeacher_IdAndAcademicYear(user.getId(), currentYear)
                                 .orElseGet(() -> classRoomRepository
                                                 .findTopByHomeroomTeacher_IdOrderByAcademicYearDesc(user.getId())
                                                 .orElseThrow(
@@ -253,7 +269,7 @@ public class AttendanceService {
 
                 // 2. Get enrollments
                 List<ClassEnrollment> enrollments = classEnrollmentRepository.findAllByClassRoomAndAcademicYear(
-                                homeroomClass, getCurrentAcademicYear());
+                                homeroomClass, currentYear);
 
                 // 3. Get all attendance records in date range
                 List<Attendance> allAttendance = attendanceRepository.findAllByClassRoomAndDateBetween(
@@ -276,8 +292,9 @@ public class AttendanceService {
                 List<AttendanceReportSummaryDto.StudentAttendanceSummary> studentSummaries = new ArrayList<>();
 
                 for (ClassEnrollment enrollment : enrollments) {
-                        Student s = enrollment.getStudent();
-                        List<Attendance> records = attendanceByStudent.getOrDefault(s.getId(), Collections.emptyList());
+                        Student student = enrollment.getStudent();
+                        List<Attendance> records = attendanceByStudent.getOrDefault(student.getId(),
+                                        Collections.emptyList());
 
                         int present = 0, absentExcused = 0, absentUnexcused = 0, late = 0;
                         for (Attendance a : records) {
@@ -286,6 +303,7 @@ public class AttendanceService {
                                         case ABSENT_EXCUSED -> absentExcused++;
                                         case ABSENT_UNEXCUSED -> absentUnexcused++;
                                         case LATE -> late++;
+                                        case ABSENT -> absentUnexcused++; // Fallback for legacy
                                 }
                         }
 
@@ -298,8 +316,8 @@ public class AttendanceService {
                         totalSessionsAll += totalSessions;
 
                         studentSummaries.add(AttendanceReportSummaryDto.StudentAttendanceSummary.builder()
-                                        .studentId(s.getId().toString())
-                                        .studentName(s.getFullName())
+                                        .studentId(student.getId().toString())
+                                        .studentName(student.getFullName())
                                         .totalPresent(present)
                                         .totalAbsentExcused(absentExcused)
                                         .totalAbsentUnexcused(absentUnexcused)
@@ -397,9 +415,7 @@ public class AttendanceService {
                                                 "Teacher is not assigned to slot " + slotIndex + " on " + date));
         }
 
-        private String getCurrentAcademicYear() {
-                int year = LocalDate.now(VIETNAM_ZONE).getYear();
-                int month = LocalDate.now(VIETNAM_ZONE).getMonthValue();
-                return month >= 9 ? year + "-" + (year + 1) : (year - 1) + "-" + year;
+        private String getCurrentAcademicYear(com.schoolmanagement.backend.domain.entity.admin.School school) {
+                return semesterService.getActiveAcademicYearName(school);
         }
 }

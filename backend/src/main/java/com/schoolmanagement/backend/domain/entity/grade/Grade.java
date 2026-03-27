@@ -3,6 +3,7 @@ package com.schoolmanagement.backend.domain.entity.grade;
 import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.entity.classes.Subject;
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
+import com.schoolmanagement.backend.domain.entity.admin.Semester;
 import com.schoolmanagement.backend.domain.entity.teacher.Teacher;
 import com.schoolmanagement.backend.domain.entity.auth.User;
 
@@ -24,7 +25,7 @@ import java.util.UUID;
                 @Index(name = "idx_grade_subject", columnList = "subject_id"),
                 @Index(name = "idx_grade_class", columnList = "class_id")
 }, uniqueConstraints = {
-                @UniqueConstraint(columnNames = { "student_id", "subject_id", "class_id", "semester" })
+                @UniqueConstraint(columnNames = { "student_id", "subject_id", "class_id", "semester_id" })
 })
 public class Grade {
         @Id
@@ -47,11 +48,9 @@ public class Grade {
         @JoinColumn(name = "teacher_id", nullable = false)
         private Teacher teacher;
 
-        @Column(name = "academic_year", nullable = false)
-        private String academicYear;
-
-        @Column(nullable = false)
-        private int semester;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "semester_id", nullable = false)
+        private Semester semester;
 
         // Dynamic regular assessment scores (replaces fixed oralScore, test15min,
         // test45min)

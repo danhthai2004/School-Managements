@@ -6,6 +6,11 @@ import com.schoolmanagement.backend.domain.entity.teacher.Teacher;
 import com.schoolmanagement.backend.dto.teacher.ImportTeacherResult;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.repo.teacher.TeacherRepository;
+import com.schoolmanagement.backend.repo.auth.UserRepository;
+import com.schoolmanagement.backend.repo.student.StudentRepository;
+import com.schoolmanagement.backend.repo.student.GuardianRepository;
+import com.schoolmanagement.backend.domain.entity.auth.User;
+import com.schoolmanagement.backend.domain.auth.Role;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.http.HttpStatus;
@@ -22,11 +27,20 @@ public class TeacherImportService {
 
     private final TeacherRepository teachers;
     private final com.schoolmanagement.backend.repo.classes.SubjectRepository subjects;
+    private final UserRepository users;
+    private final StudentRepository students;
+    private final GuardianRepository guardians;
 
     public TeacherImportService(TeacherRepository teachers,
-            com.schoolmanagement.backend.repo.classes.SubjectRepository subjects) {
+            com.schoolmanagement.backend.repo.classes.SubjectRepository subjects,
+            UserRepository users,
+            StudentRepository students,
+            GuardianRepository guardians) {
         this.teachers = teachers;
         this.subjects = subjects;
+        this.users = users;
+        this.students = students;
+        this.guardians = guardians;
     }
 
     /**
@@ -124,9 +138,29 @@ public class TeacherImportService {
 
                     // Validate email uniqueness if provided
                     if (email != null && !email.isBlank()) {
-                        if (teachers.existsByEmailIgnoreCase(email)) {
+                        String emailLower = email.trim().toLowerCase();
+                        if (teachers.existsByEmailIgnoreCase(emailLower)) {
                             errors.add(new ImportTeacherResult.ImportError(rowNum + 1, teacherName,
-                                    "Email đã tồn tại trong hệ thống: " + email));
+                                    "Email đã tồn tại trong hệ thống (Giáo viên): " + email));
+                            failedCount++;
+                            continue;
+                        }
+                        if (students.existsByEmail(emailLower)) {
+                            errors.add(new ImportTeacherResult.ImportError(rowNum + 1, teacherName,
+                                    "Email trùng với Học sinh: " + email));
+                            failedCount++;
+                            continue;
+                        }
+                        if (!guardians.findByEmailIgnoreCase(emailLower).isEmpty()) {
+                            errors.add(new ImportTeacherResult.ImportError(rowNum + 1, teacherName,
+                                    "Email trùng với Phụ huynh: " + email));
+                            failedCount++;
+                            continue;
+                        }
+                        Optional<User> u = users.findByEmailIgnoreCase(emailLower);
+                        if (u.isPresent() && u.get().getRole() != Role.TEACHER) {
+                            errors.add(new ImportTeacherResult.ImportError(rowNum + 1, teacherName,
+                                    "Email đã được sử dụng bởi tài khoản: " + u.get().getRole()));
                             failedCount++;
                             continue;
                         }
