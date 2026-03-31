@@ -1,12 +1,12 @@
 package com.schoolmanagement.backend.domain.entity.notification;
 
-import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.auth.User;
-
-import com.schoolmanagement.backend.domain.notification.NotificationScope;
-import com.schoolmanagement.backend.domain.auth.Role;
+import com.schoolmanagement.backend.domain.notification.NotificationStatus;
+import com.schoolmanagement.backend.domain.notification.NotificationType;
+import com.schoolmanagement.backend.domain.notification.TargetGroup;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -29,70 +29,33 @@ public class Notification {
     private String title;
 
     @Column(nullable = false, columnDefinition = "TEXT")
-    private String message;
+    private String content;
 
-    /**
-     * Notification scope: ALL, SCHOOL, or ROLE.
-     */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private NotificationScope scope;
+    private NotificationType type;
 
-    /**
-     * Target school (only for SCHOOL scope).
-     */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "target_school_id")
-    private School targetSchool;
-
-    /**
-     * Target role (only for ROLE scope).
-     */
     @Enumerated(EnumType.STRING)
-    @Column(length = 30)
-    private Role targetRole;
+    @Column(nullable = false, length = 20)
+    private TargetGroup targetGroup;
 
-    /**
-     * Admin who created this notification.
-     */
+    @Column(name = "reference_id")
+    private String referenceId;
+
+    @Column(name = "action_url")
+    private String actionUrl;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by", nullable = false)
+    @JoinColumn(name = "created_by")
     private User createdBy;
 
-    /**
-     * When the notification was created.
-     */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private NotificationStatus status = NotificationStatus.ACTIVE;
+
     @Column(nullable = false)
     private Instant createdAt;
-
-    @Column(name = "notification_type", length = 50)
-    private String notificationType; // GRADE_UPDATE, ATTENDANCE_ALERT, etc.
-
-    @Column(length = 20)
-    @Builder.Default
-    private String priority = "NORMAL"; // LOW, NORMAL, HIGH, URGENT
-
-    @Column(name = "scheduled_at")
-    private Instant scheduledAt;
-
-    @Column(name = "sent_at")
-    private Instant sentAt;
-
-    @Column(name = "send_in_app")
-    @Builder.Default
-    private Boolean sendInApp = true;
-
-    @Column(name = "send_email")
-    @Builder.Default
-    private Boolean sendEmail = false;
-
-    @Column(name = "send_sms")
-    @Builder.Default
-    private Boolean sendSMS = false;
-
-    @Column(length = 20)
-    @Builder.Default
-    private String status = "PENDING"; // PENDING, SENT, FAILED, CANCELLED
 
     @PrePersist
     public void prePersist() {

@@ -48,6 +48,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/teacher/**").hasRole("TEACHER")
                         .requestMatchers("/api/student/**").hasRole("STUDENT")
                         .requestMatchers("/api/guardian/**").hasRole("GUARDIAN")
+                        // Notification v1 APIs
+                        .requestMatchers("/api/v1/admin/notifications/**").hasRole("SCHOOL_ADMIN")
+                        .requestMatchers("/api/v1/teacher/notifications/**").hasRole("TEACHER")
+                        .requestMatchers("/api/v1/notifications/**").hasAnyRole("SCHOOL_ADMIN", "TEACHER", "STUDENT", "GUARDIAN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 

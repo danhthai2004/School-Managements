@@ -206,10 +206,7 @@ export default function SchoolAdminLayout() {
 
                         {/* Right side */}
                         <div className="flex items-center gap-4">
-                            <NotificationBell
-                                apiEndpoint="/school/notifications/visible"
-                                countEndpoint="/school/notifications/count"
-                            />
+                            <NotificationBell />
 
                             <div className="relative">
                                 <button

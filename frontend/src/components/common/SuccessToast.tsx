@@ -28,7 +28,7 @@ function SuccessToast({ isOpen, onClose, message, subtitle, autoCloseMs = 3000, 
     const isError = type === 'error';
 
     return createPortal(
-        <div className="fixed inset-0 z-[110] flex items-center justify-center">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
             <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
                 {/* Header */}
