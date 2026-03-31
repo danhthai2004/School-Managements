@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { authService } from "../services/authService";
 import type { AuthResponse, UserDto } from "../types/auth.types";
+import { useFirebaseMessaging } from "../hooks/useFirebaseMessaging";
 
 type PendingChallenge = {
   challengeId: string;
@@ -30,6 +31,9 @@ const RESET_KEY = "resetToken";
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserDto | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Firebase Cloud Messaging — auto-register token when logged in
+  const { removeToken: removeFcmToken } = useFirebaseMessaging();
 
   const refreshMe = async () => {
     const token = localStorage.getItem("accessToken");
@@ -130,6 +134,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    try {
+      // Remove FCM token from backend before logout
+      await removeFcmToken();
+    } catch {
+      // ignore FCM cleanup errors
+    }
     try {
       await authService.logout();
     } catch {

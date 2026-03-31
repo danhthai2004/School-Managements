@@ -145,10 +145,7 @@ export default function StudentLayout() {
 
                         {/* Right side */}
                         <div className="flex items-center gap-4">
-                            <NotificationBell
-                                apiEndpoint="/student/notifications"
-                                countEndpoint="/student/notifications/count"
-                            />
+                            <NotificationBell />
 
                             <div className="relative">
                                 <button

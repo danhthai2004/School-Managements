@@ -145,10 +145,7 @@ export default function SystemLayout() {
 
             {/* Right side */}
             <div className="flex items-center gap-4">
-              <NotificationBell
-                apiEndpoint="/system/notifications"
-                countEndpoint="/system/notifications/count"
-              />
+              <NotificationBell />
 
               <div className="relative">
                 <button

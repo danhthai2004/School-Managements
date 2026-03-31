@@ -42,3 +42,6 @@ build.log
 build_log.txt
 errors.txt
 compile_try*.txt
+
+### Firebase Credentials ###
+src/main/resources/firebase-service-account.json
