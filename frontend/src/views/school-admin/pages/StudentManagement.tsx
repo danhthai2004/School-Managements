@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
     schoolAdminService,
@@ -60,37 +60,96 @@ const StudentManagement = () => {
     const [classFilter, setClassFilter] = useState<string>("");
     const [statusFilter, setStatusFilter] = useState<string>("");
 
+    // Sort state
+    const [sortConfig, setSortConfig] = useState<{ key: keyof StudentDto | 'currentClassName'; direction: 'asc' | 'desc' } | null>(null);
+
 
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 20;
 
-    // Computed filtered students
-    const filteredStudents = students.filter(stu => {
-        // Search by name or student code
-        if (searchTerm) {
-            const term = searchTerm.toLowerCase();
-            if (!stu.fullName?.toLowerCase().includes(term) && !stu.studentCode?.toLowerCase().includes(term)) {
-                return false;
+    // Computed filtered + sorted students
+    const filteredStudents = useMemo(() => {
+        let result = students.filter(stu => {
+            // Search by name or student code
+            if (searchTerm) {
+                const term = searchTerm.toLowerCase();
+                if (!stu.fullName?.toLowerCase().includes(term) && !stu.studentCode?.toLowerCase().includes(term)) {
+                    return false;
+                }
             }
-        }
-        // Filter by grade (extract from class name, e.g., "10A1" -> grade 10)
-        if (gradeFilter) {
-            const classGrade = stu.currentClassName?.match(/^(\d+)/)?.[1];
-            if (classGrade !== gradeFilter) return false;
-        }
-        // Filter by class
-        if (classFilter && stu.currentClassId !== classFilter) return false;
-        // Filter by status
-        if (statusFilter && stu.status !== statusFilter) return false;
+            // Filter by grade (extract from class name, e.g., "10A1" -> grade 10)
+            if (gradeFilter) {
+                const classGrade = stu.currentClassName?.match(/^(\d+)/)?.[1];
+                if (classGrade !== gradeFilter) return false;
+            }
+            // Filter by class
+            if (classFilter && stu.currentClassId !== classFilter) return false;
+            // Filter by status
+            if (statusFilter && stu.status !== statusFilter) return false;
 
-        return true;
-    });
+            return true;
+        });
+
+        // Sort
+        if (sortConfig) {
+            result.sort((a, b) => {
+                let aValue: any = a[sortConfig.key as keyof StudentDto];
+                let bValue: any = b[sortConfig.key as keyof StudentDto];
+
+                // Handle null/undefined
+                if (!aValue) aValue = "";
+                if (!bValue) bValue = "";
+
+                if (typeof aValue === 'string') {
+                    return sortConfig.direction === 'asc'
+                        ? aValue.localeCompare(bValue as string)
+                        : (bValue as string).localeCompare(aValue);
+                }
+
+                // Fallback for non-string
+                if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        return result;
+    }, [students, searchTerm, gradeFilter, classFilter, statusFilter, sortConfig]);
 
     // Reset to page 1 when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, gradeFilter, classFilter, statusFilter]);
+    }, [searchTerm, gradeFilter, classFilter, statusFilter, sortConfig]);
+
+    const handleSort = (key: keyof StudentDto | 'currentClassName') => {
+        setSortConfig(current => {
+            if (current?.key === key) {
+                if (current.direction === 'asc') return { key, direction: 'desc' };
+                return null; // Reset sort
+            }
+            return { key, direction: 'asc' };
+        });
+    };
+
+    // Helper to render sort icon
+    const SortHeader = ({ label, sortKey, className = "" }: { label: string, sortKey: keyof StudentDto | 'currentClassName', className?: string }) => (
+        <th
+            className={`px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:bg-gray-100 hover:text-blue-600 transition-colors select-none ${className}`}
+            onClick={() => handleSort(sortKey)}
+        >
+            <div className="flex items-center gap-1">
+                {label}
+                <span className="text-gray-400">
+                    {sortConfig?.key === sortKey ? (
+                        sortConfig.direction === 'asc' ? '↑' : '↓'
+                    ) : (
+                        <span className="opacity-0 group-hover:opacity-50">⇅</span>
+                    )}
+                </span>
+            </div>
+        </th>
+    );
 
     // Pagination computed values
     const totalPages = Math.ceil(filteredStudents.length / pageSize);
@@ -325,12 +384,12 @@ const StudentManagement = () => {
                                     onChange={handleSelectAll}
                                 />
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Mã HS</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Họ tên</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Giới tính</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Ngày sinh</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Lớp</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Trạng thái</th>
+                            <SortHeader label="Mã HS" sortKey="studentCode" />
+                            <SortHeader label="Họ tên" sortKey="fullName" />
+                            <SortHeader label="Giới tính" sortKey="gender" />
+                            <SortHeader label="Ngày sinh" sortKey="dateOfBirth" />
+                            <SortHeader label="Lớp" sortKey="currentClassName" />
+                            <SortHeader label="Trạng thái" sortKey="status" />
 
                         </tr>
                     </thead>

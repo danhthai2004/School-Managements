@@ -246,9 +246,10 @@ function UpcomingExamsCard({ exams }: { exams: ExamScheduleDto[] }) {
 interface NotificationItem {
     id: string;
     title: string;
-    message: string;
+    content: string;
     createdAt: string;
-    createdByEmail: string;
+    createdByName: string;
+    isRead: boolean;
 }
 
 function NotificationsCard() {
@@ -263,13 +264,14 @@ function NotificationsCard() {
             try {
                 const token = localStorage.getItem("accessToken");
                 const API_BASE = import.meta.env.VITE_API_URL || "";
-                const res = await fetch(`${API_BASE}/student/notifications`, {
+                const res = await fetch(`${API_BASE}/v1/notifications?page=0&size=10`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    setAllNotifications(data);
-                    setNotifications(data.slice(0, 3)); // Take first 3 only for preview
+                    const items = data.notifications || [];
+                    setAllNotifications(items);
+                    setNotifications(items.slice(0, 3));
                 }
             } catch (error) {
                 console.error("Error fetching notifications:", error);
@@ -330,7 +332,7 @@ function NotificationsCard() {
                                         <Bell className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm text-gray-900 font-medium">{notif.title}</p>
-                                            <p className="text-xs text-gray-500 mt-1">{formatTimeAgo(notif.createdAt)} • {notif.createdByEmail?.split('@')[0] || 'Admin'}</p>
+                                            <p className="text-xs text-gray-500 mt-1">{formatTimeAgo(notif.createdAt)} • {notif.createdByName || 'Admin'}</p>
                                         </div>
                                         <ChevronRight className="w-4 h-4 text-gray-400" />
                                     </div>
@@ -360,10 +362,10 @@ function NotificationsCard() {
                         </div>
                         <div className="p-5">
                             <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
-                                <span className="bg-gray-100 px-2 py-1 rounded">Từ: {selectedNotif.createdByEmail || 'Admin'}</span>
+                                <span className="bg-gray-100 px-2 py-1 rounded">Từ: {selectedNotif.createdByName || 'Admin'}</span>
                             </div>
                             <div className="prose prose-sm text-gray-700 whitespace-pre-wrap">
-                                {selectedNotif.message || 'Không có nội dung chi tiết.'}
+                                {selectedNotif.content || 'Không có nội dung chi tiết.'}
                             </div>
                         </div>
                         <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-end">
@@ -398,7 +400,7 @@ function NotificationsCard() {
                                 <Bell className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm text-gray-900 font-medium truncate">{notif.title}</p>
-                                    <p className="text-xs text-gray-500">{formatTimeAgo(notif.createdAt)} • {notif.createdByEmail?.split('@')[0] || 'Admin'}</p>
+                                    <p className="text-xs text-gray-500">{formatTimeAgo(notif.createdAt)} • {notif.createdByName || 'Admin'}</p>
                                 </div>
                             </div>
                         ))

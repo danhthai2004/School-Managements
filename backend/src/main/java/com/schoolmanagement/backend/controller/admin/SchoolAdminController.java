@@ -170,83 +170,59 @@ public class SchoolAdminController {
     // ==================== NOTIFICATION MANAGEMENT ====================
 
     /**
-     * Get all notifications created for this school.
+     * Lấy danh sách thông báo cá nhân cho School Admin (phân trang, kèm unreadCount).
      */
     @GetMapping("/notifications")
-    public java.util.List<com.schoolmanagement.backend.dto.notification.NotificationDto> getSchoolNotifications(
-            @AuthenticationPrincipal UserPrincipal principal) {
+    public com.schoolmanagement.backend.dto.notification.NotificationPageResponse getNotifications(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
         log.info("[Notification] GET /notifications - User: {}, Role: {}", principal.getEmail(), principal.getRole());
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        return notificationService.getForSchool(admin.getSchool());
+        return notificationService.getUserNotifications(principal.getId(), page, size);
     }
 
     /**
-     * Get all visible notifications for the school admin (includes system-wide
-     * notifications).
+     * Xem lịch sử tất cả thông báo đã phát (Admin view).
      */
-    @GetMapping("/notifications/visible")
-    public java.util.List<com.schoolmanagement.backend.dto.notification.NotificationDto> getVisibleNotifications(
-            @AuthenticationPrincipal UserPrincipal principal) {
-        log.info("[Notification] GET /notifications/visible - User: {}", principal.getEmail());
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        return notificationService.getVisibleForUser(admin.getSchool().getId(), Role.SCHOOL_ADMIN);
+    @GetMapping("/notifications/history")
+    public org.springframework.data.domain.Page<com.schoolmanagement.backend.dto.notification.NotificationDto> getNotificationHistory(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        log.info("[Notification] GET /notifications/history - User: {}", principal.getEmail());
+        return notificationService.getAdminNotificationHistory(page, size);
     }
 
     /**
-     * Get count of recent notifications (for badge on bell icon).
-     */
-    @GetMapping("/notifications/count")
-    public NotificationCountResponse getNotificationCount(@AuthenticationPrincipal UserPrincipal principal) {
-        log.info("[Notification] GET /notifications/count - User: {}", principal.getEmail());
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        long count = notificationService.countRecentForSchool(admin.getSchool().getId());
-        return new NotificationCountResponse(count);
-    }
-
-    /**
-     * Create a new notification for the school.
+     * Tạo thông báo thủ công và phát cho nhóm đối tượng.
      */
     @Transactional
     @PostMapping("/notifications")
     public com.schoolmanagement.backend.dto.notification.NotificationDto createNotification(
-            @Valid @RequestBody CreateSchoolNotificationRequest request,
+            @Valid @RequestBody com.schoolmanagement.backend.dto.notification.CreateNotificationRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         log.info("[Notification] POST /notifications - User: {}, Title: {}", principal.getEmail(), request.title());
         var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        return notificationService.createForSchool(
-                request.title(),
-                request.message(),
-                admin.getSchool(),
-                admin);
+        return notificationService.createNotification(request, admin);
     }
 
     /**
-     * Delete a notification.
+     * Thu hồi thông báo (Soft delete → RECALLED).
      */
     @Transactional
-    @DeleteMapping("/notifications/{id}")
-    public void deleteNotification(@PathVariable UUID id, @AuthenticationPrincipal UserPrincipal principal) {
+    @PatchMapping("/notifications/{id}/recall")
+    public void recallNotification(@PathVariable UUID id, @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("[Notification] PATCH /notifications/{}/recall - User: {}", id, principal.getEmail());
         var admin = userLookup.requireById(principal.getId());
-        notificationService.delete(id, admin);
+        notificationService.recallNotification(id, admin);
     }
 
-    public record CreateSchoolNotificationRequest(
-            @jakarta.validation.constraints.NotBlank String title,
-            @jakarta.validation.constraints.NotBlank String message) {
-    }
-
-    public record NotificationCountResponse(long count) {
+    /**
+     * Đánh dấu tất cả đã đọc cho Admin.
+     */
+    @Transactional
+    @PatchMapping("/notifications/read-all")
+    public void markAllAsRead(@AuthenticationPrincipal UserPrincipal principal) {
+        notificationService.markAllAsRead(principal.getId());
     }
 }

@@ -113,4 +113,12 @@ public interface ExamScheduleRepository extends JpaRepository<ExamSchedule, UUID
                         "WHERE es.examSession.id = :sessionId " +
                         "ORDER BY es.examDate, es.startTime")
         List<ExamSchedule> findByExamSessionIdOrderByExamDate(@Param("sessionId") UUID sessionId);
+
+        /**
+         * Find all exam schedules occurring on a specific date.
+         */
+        @Query("SELECT e FROM ExamSchedule e " +
+                        "JOIN FETCH e.subject " +
+                        "WHERE e.examDate = :targetDate AND e.status = :status")
+        List<ExamSchedule> findByExamDateAndStatus(@Param("targetDate") LocalDate targetDate, @Param("status") ExamStatus status);
 }
