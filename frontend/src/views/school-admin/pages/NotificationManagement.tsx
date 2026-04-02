@@ -63,9 +63,10 @@ export default function NotificationManagement() {
     const [classOptions, setClassOptions] = useState<ClassRoomOption[]>([]);
 
     const fetchNotifications = useCallback(async (p = 0) => {
+        // Prevent concurrent fetches if already loading
+        const token = getToken();
         setLoading(true);
         try {
-            const token = getToken();
             const res = await fetch(`${API_BASE}/v1/admin/notifications?page=${p}&size=15`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -74,9 +75,13 @@ export default function NotificationManagement() {
                 setNotifications(data.content || []);
                 setTotalPages(data.totalPages || 0);
                 setPage(data.number || 0);
+            } else {
+                const errorText = await res.text();
+                console.error(`Fetch failed with status ${res.status}:`, errorText);
+                toast.error("Lỗi khi tải danh sách thông báo");
             }
         } catch (error) {
-            console.error("Error fetching notifications:", error);
+            console.error("Network error fetching notifications:", error);
             toast.error("Lỗi khi tải danh sách thông báo");
         } finally {
             setLoading(false);

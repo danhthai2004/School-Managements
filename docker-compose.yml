@@ -70,7 +70,10 @@ services:
       - school_net
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:8081/api}
     container_name: school_frontend
     ports:
       - "3000:80"
