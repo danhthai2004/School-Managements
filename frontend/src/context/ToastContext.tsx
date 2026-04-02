@@ -57,11 +57,16 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setIsOpen(false);
     }, []);
 
+    const toast = React.useMemo(() => ({
+        success: showSuccess,
+        error: showError
+    }), [showSuccess, showError]);
+
     return (
         <ToastContext.Provider value={{
             showSuccess,
             hideToast,
-            toast: { success: showSuccess, error: showError }
+            toast
         }}>
             {children}
             <SuccessToast
