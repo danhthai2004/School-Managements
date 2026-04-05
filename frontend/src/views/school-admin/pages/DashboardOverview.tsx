@@ -166,7 +166,7 @@ const DashboardOverview = () => {
 
                 <div className="relative">
                     <h2 className="text-2xl font-bold mb-1">
-                        {getGreeting()}, {user?.fullName || 'Admin'}! 👋
+                        {getGreeting()}, {user?.fullName || 'Admin'}!
                     </h2>
                     <p className="text-blue-100 text-sm">
                         Chào mừng bạn quay trở lại với SchoolIMS

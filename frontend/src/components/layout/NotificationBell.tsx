@@ -26,6 +26,17 @@ interface NotificationPageResponse {
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
+const renderFormattedContent = (content: string) => {
+    if (!content) return null;
+    const parts = content.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, index) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={index} className="font-semibold text-gray-900">{part.slice(2, -2)}</strong>;
+        }
+        return <span key={index}>{part}</span>;
+    });
+};
+
 export default function NotificationBell() {
     const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(false);
@@ -265,9 +276,9 @@ export default function NotificationBell() {
                                 </div>
 
                                 <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                                    <p className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">
-                                        {selectedNotification.content}
-                                    </p>
+                                    <div className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed space-y-1">
+                                        {renderFormattedContent(selectedNotification.content)}
+                                    </div>
                                 </div>
 
                                 {selectedNotification.createdByName && (
@@ -321,9 +332,9 @@ export default function NotificationBell() {
                                                 }`}>
                                                     {notification.title}
                                                 </h4>
-                                                <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
-                                                    {notification.content}
-                                                </p>
+                                                <div className="text-xs text-gray-500 mt-0.5 whitespace-pre-wrap line-clamp-2">
+                                                    {renderFormattedContent(notification.content)}
+                                                </div>
                                                 <div className="flex items-center gap-1 mt-2 text-xs text-gray-400">
                                                     <Clock className="w-3 h-3" />
                                                     <span>{formatTimeAgo(notification.createdAt)}</span>

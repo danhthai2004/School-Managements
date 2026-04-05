@@ -4,7 +4,6 @@ import { studentService, type StudentDashboardDto, type TimetableSlotDto, type E
 import { CalendarIcon } from "../../components/layout/SystemIcons";
 import { Bell, BookOpen, TrendingUp, CheckCircle, ChevronRight, X } from "lucide-react";
 import { useSemester } from "../../context/SemesterContext";
-import SemesterSelector from "../../components/common/SemesterSelector";
 
 const periodTimes: Record<number, string> = {
     1: "07:00 - 07:45",
@@ -78,18 +77,12 @@ export default function StudentOverviewPage() {
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
                 <div className="relative">
                     <h2 className="text-2xl font-bold mb-1">
-                        {getGreeting()}, {user?.fullName || dashboard.profile.fullName}! 👋
+                        {getGreeting()}, {user?.fullName || dashboard.profile.fullName}!
                     </h2>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
                         <p className="text-blue-100 text-sm">
-                            Chúc bạn học tốt - {dashboard.semester}
+                            Chào mừng bạn quay trở lại với SchoolIMS. Chúc bạn học tốt!
                         </p>
-                        <SemesterSelector 
-                            value={selectedSemesterId} 
-                            onChange={setSelectedSemesterId}
-                            label=""
-                            className="text-white !bg-white/10 border-white/20"
-                        />
                     </div>
                 </div>
             </div>

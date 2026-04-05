@@ -67,4 +67,6 @@ public interface TimetableDetailRepository extends JpaRepository<TimetableDetail
         @Modifying
         @Query("UPDATE TimetableDetail t SET t.teacher = null WHERE t.teacher.id = :teacherId")
         void nullifyTeacherId(@Param("teacherId") UUID teacherId);
+
+        List<TimetableDetail> findAllByTimetableAndDayOfWeek(Timetable timetable, DayOfWeek dayOfWeek);
 }

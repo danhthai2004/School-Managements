@@ -12,12 +12,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-com
 // Initialize Firebase in the service worker
 // These values will be replaced with actual config from your Firebase project
 firebase.initializeApp({
-    apiKey: self.__FIREBASE_CONFIG__?.apiKey || '',
-    authDomain: self.__FIREBASE_CONFIG__?.authDomain || '',
-    projectId: self.__FIREBASE_CONFIG__?.projectId || '',
-    storageBucket: self.__FIREBASE_CONFIG__?.storageBucket || '',
-    messagingSenderId: self.__FIREBASE_CONFIG__?.messagingSenderId || '',
-    appId: self.__FIREBASE_CONFIG__?.appId || '',
+    apiKey: "AIzaSyDZnuRWWXNgRsWYkIs1YLKRP2wjxP8m818",
+    authDomain: "iss-project-149f1.firebaseapp.com",
+    projectId: "iss-project-149f1",
+    storageBucket: "iss-project-149f1.firebasestorage.app",
+    messagingSenderId: "448784288780",
+    appId: "1:448784288780:web:cd80cb82fa93cf0d84b229",
 });
 
 const messaging = firebase.messaging();
