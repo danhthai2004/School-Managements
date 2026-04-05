@@ -5,5 +5,6 @@ public enum TargetGroup {
     TEACHER,
     STUDENT,
     GUARDIAN,
-    CLASS
+    CLASS,
+    GRADE
 }

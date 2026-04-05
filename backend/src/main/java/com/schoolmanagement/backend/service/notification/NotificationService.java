@@ -1,13 +1,17 @@
 package com.schoolmanagement.backend.service.notification;
-
+ 
 import com.schoolmanagement.backend.domain.auth.Role;
 import com.schoolmanagement.backend.domain.entity.auth.User;
 import com.schoolmanagement.backend.domain.entity.classes.ClassEnrollment;
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
+import com.schoolmanagement.backend.domain.entity.exam.ExamSchedule;
 import com.schoolmanagement.backend.domain.entity.notification.DeviceToken;
 import com.schoolmanagement.backend.domain.entity.notification.Notification;
 import com.schoolmanagement.backend.domain.entity.notification.NotificationRecipient;
 import com.schoolmanagement.backend.domain.entity.teacher.Teacher;
+import com.schoolmanagement.backend.domain.entity.timetable.Timetable;
+import com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail;
+import com.schoolmanagement.backend.domain.timetable.TimetableStatus;
 import com.schoolmanagement.backend.domain.entity.teacher.TeacherAssignment;
 import com.schoolmanagement.backend.domain.notification.NotificationStatus;
 import com.schoolmanagement.backend.domain.notification.NotificationType;
@@ -25,18 +29,26 @@ import com.schoolmanagement.backend.repo.notification.NotificationRecipientRepos
 import com.schoolmanagement.backend.repo.notification.NotificationRepository;
 import com.schoolmanagement.backend.repo.teacher.TeacherAssignmentRepository;
 import com.schoolmanagement.backend.repo.teacher.TeacherRepository;
+import com.schoolmanagement.backend.repo.timetable.TimetableDetailRepository;
+import com.schoolmanagement.backend.repo.timetable.TimetableRepository;
 import com.schoolmanagement.backend.service.report.ActivityLogService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+ 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
+@Slf4j
 @Service
 public class NotificationService {
 
@@ -48,6 +60,8 @@ public class NotificationService {
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final TeacherRepository teacherRepository;
     private final TeacherAssignmentRepository teacherAssignmentRepository;
+    private final TimetableRepository timetableRepository;
+    private final TimetableDetailRepository timetableDetailRepository;
     private final ActivityLogService activityLog;
     private final FirebaseMessagingService firebaseMessagingService;
 
@@ -59,6 +73,8 @@ public class NotificationService {
                                ClassEnrollmentRepository classEnrollmentRepository,
                                TeacherRepository teacherRepository,
                                TeacherAssignmentRepository teacherAssignmentRepository,
+                               TimetableRepository timetableRepository,
+                               TimetableDetailRepository timetableDetailRepository,
                                ActivityLogService activityLog,
                                FirebaseMessagingService firebaseMessagingService) {
         this.notificationRepository = notificationRepository;
@@ -69,6 +85,8 @@ public class NotificationService {
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.teacherRepository = teacherRepository;
         this.teacherAssignmentRepository = teacherAssignmentRepository;
+        this.timetableRepository = timetableRepository;
+        this.timetableDetailRepository = timetableDetailRepository;
         this.activityLog = activityLog;
         this.firebaseMessagingService = firebaseMessagingService;
     }
@@ -150,9 +168,10 @@ public class NotificationService {
      */
     @Transactional
     public NotificationDto createNotification(CreateNotificationRequest request, User createdBy) {
-        // Validate: CLASS phải có referenceId
-        if (request.targetGroup() == TargetGroup.CLASS && (request.referenceId() == null || request.referenceId().isBlank())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Cần chỉ định lớp (referenceId) khi gửi cho CLASS.");
+        // Validate: CLASS/GRADE phải có referenceId
+        if ((request.targetGroup() == TargetGroup.CLASS || request.targetGroup() == TargetGroup.GRADE)
+                && (request.referenceId() == null || request.referenceId().isBlank())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Cần chỉ định lớp/khối (referenceId) khi gửi cho CLASS/GRADE.");
         }
 
         Notification notification = Notification.builder()
@@ -175,6 +194,115 @@ public class NotificationService {
                 "Notification: " + notification.getTitle() + ", Target: " + request.targetGroup());
 
         return toDto(notification, false);
+    }
+
+    /**
+     * Gửi thông báo cho lịch thi (hỗ trợ tự động phân giải lớp/khối/môn).
+     */
+    @Transactional
+    public void sendExamNotification(ExamSchedule exam) {
+        List<User> targetUsers = resolveExamTargetUsers(exam);
+        if (targetUsers.isEmpty()) {
+            log.info("🔔 Không tìm thấy học sinh liên quan cho lịch thi môn: {}", exam.getSubject().getName());
+            return;
+        }
+
+        String title = "Nhắc nhở lịch thi ngày mai";
+        String content = String.format("Môn **%s** sẽ thi vào lúc **%s**. Các em học sinh chuẩn bị tốt nhé!",
+                exam.getSubject().getName(),
+                exam.getStartTime().toString());
+
+        // Thông báo tự động: createdBy = null → hiển thị "Hệ thống"
+        Notification notification = Notification.builder()
+                .title(title)
+                .content(content)
+                .type(NotificationType.EXAM)
+                .targetGroup(exam.getClassRoom() != null ? TargetGroup.CLASS : TargetGroup.GRADE)
+                .referenceId(exam.getClassRoom() != null ? exam.getClassRoom().getId().toString() : String.valueOf(exam.getGrade()))
+                .build();
+
+        notification = notificationRepository.save(notification);
+        batchCreateRecipients(notification, targetUsers);
+        log.info("Đã gửi thông báo lịch thi tới {} tài khoản.", targetUsers.size());
+    }
+
+    /**
+     * Gửi thông báo thời khóa biểu ngày mai cho học sinh & phụ huynh theo từng lớp.
+     */
+    @Transactional
+    public void sendScheduleNotificationForClass(ClassRoom classRoom, List<TimetableDetail> details) {
+        List<User> targetUsers = resolveClassUsers(classRoom.getId().toString());
+        if (targetUsers.isEmpty()) return;
+
+        String subjectList = details.stream()
+                .sorted(Comparator.comparing(TimetableDetail::getSlotIndex))
+                .map(d -> "**Tiết " + d.getSlotIndex() + ":** " + d.getSubject().getName())
+                .collect(Collectors.joining("\n"));
+
+        String title = "Lịch học ngày mai - Lớp " + classRoom.getName();
+        String content = String.format("Ngày mai lớp **%s** có **%d tiết**:\n%s\nCác em chuẩn bị bài nhé!",
+                classRoom.getName(), details.size(), subjectList);
+
+        Notification notification = Notification.builder()
+                .title(title)
+                .content(content)
+                .type(NotificationType.SCHEDULE)
+                .targetGroup(TargetGroup.CLASS)
+                .referenceId(classRoom.getId().toString())
+                .build();
+
+        notification = notificationRepository.save(notification);
+        batchCreateRecipients(notification, targetUsers);
+        log.info("Đã gửi thông báo TKB lớp {} tới {} tài khoản.", classRoom.getName(), targetUsers.size());
+    }
+
+    /**
+     * Gửi thông báo lịch dạy ngày mai cho giáo viên.
+     */
+    @Transactional
+    public void sendTeacherScheduleNotification(Teacher teacher, List<TimetableDetail> details) {
+        if (teacher.getUser() == null) return;
+
+        List<User> targetUsers = List.of(teacher.getUser());
+
+        String classesList = details.stream()
+                .sorted(Comparator.comparing(TimetableDetail::getSlotIndex))
+                .map(d -> "**Tiết " + d.getSlotIndex() + ":** Lớp " + d.getClassRoom().getName() + " (" + d.getSubject().getName() + ")")
+                .collect(Collectors.joining("\n"));
+
+        String title = "Lịch dạy ngày mai";
+        String content = String.format("Ngày mai thầy/cô có **%d tiết dạy**:\n%s",
+                details.size(), classesList);
+
+        Notification notification = Notification.builder()
+                .title(title)
+                .content(content)
+                .type(NotificationType.SCHEDULE)
+                .targetGroup(TargetGroup.TEACHER)
+                .referenceId(teacher.getId().toString())
+                .build();
+
+        notification = notificationRepository.save(notification);
+        batchCreateRecipients(notification, targetUsers);
+        log.info("Đã gửi thông báo lịch dạy cho GV {}.", teacher.getFullName());
+    }
+
+    /**
+     * Lấy danh sách TimetableDetail theo ngày mai từ TKB OFFICIAL.
+     */
+    public List<TimetableDetail> getTomorrowDetails() {
+        DayOfWeek tomorrowDow = LocalDate.now().plusDays(1).getDayOfWeek();
+
+        // Lấy tất cả TKB có status OFFICIAL
+        List<Timetable> officialTimetables = timetableRepository.findAll().stream()
+                .filter(t -> t.getStatus() == TimetableStatus.OFFICIAL)
+                .toList();
+
+        List<TimetableDetail> allDetails = new ArrayList<>();
+        for (Timetable tt : officialTimetables) {
+            allDetails.addAll(timetableDetailRepository.findAllByTimetableAndDayOfWeek(tt, tomorrowDow));
+        }
+        return allDetails;
     }
 
     /**
@@ -294,7 +422,58 @@ public class NotificationService {
             case STUDENT -> userRepository.findByRole(Role.STUDENT);
             case GUARDIAN -> userRepository.findByRole(Role.GUARDIAN);
             case CLASS -> resolveClassUsers(referenceId);
+            case GRADE -> resolveGradeUsers(referenceId);
         };
+    }
+ 
+    /**
+     * Phân giải người nhận dựa trên thực thể ExamSchedule.
+     * Tự động lọc theo Lớp hoặc (Khối + Môn học).
+     */
+    public List<User> resolveExamTargetUsers(ExamSchedule exam) {
+        if (exam.getClassRoom() != null) {
+            return resolveClassUsers(exam.getClassRoom().getId().toString());
+        }
+ 
+        if (exam.getGrade() != null) {
+            return resolveGradeBySubjectUsers(exam.getGrade(), exam.getSubject().getId());
+        }
+ 
+        return new ArrayList<>();
+    }
+ 
+    /**
+     * Lấy danh sách User thuộc một Khối cụ thể.
+     */
+    private List<User> resolveGradeUsers(String gradeStr) {
+        int gradeNum = Integer.parseInt(gradeStr);
+        List<ClassRoom> rooms = classRoomRepository.findAll().stream()
+                .filter(r -> r.getGrade() == gradeNum)
+                .toList();
+ 
+        List<User> users = new ArrayList<>();
+        for (ClassRoom r : rooms) {
+            users.addAll(resolveClassUsers(r.getId().toString()));
+        }
+        return users;
+    }
+ 
+    /**
+     * Lấy danh sách học sinh thuộc Khối G và có học môn S (thông qua Combination).
+     */
+    private List<User> resolveGradeBySubjectUsers(int grade, UUID subjectId) {
+        List<ClassRoom> matchingRooms = classRoomRepository.findAll().stream()
+                .filter(r -> r.getGrade() == grade)
+                .filter(r -> r.getCombination() != null &&
+                        r.getCombination().getSubjects().stream().anyMatch(s -> s.getId().equals(subjectId)))
+                .toList();
+ 
+        List<User> users = new ArrayList<>();
+        for (ClassRoom r : matchingRooms) {
+            log.debug("Found matching class for subject notification: {}", r.getName());
+            users.addAll(resolveClassUsers(r.getId().toString()));
+        }
+        return users;
     }
 
     /**
@@ -361,9 +540,9 @@ public class NotificationService {
      * Chuyển Entity → DTO.
      */
     private NotificationDto toDto(Notification n, boolean isRead) {
-        String createdByName = null;
-        if (n.getCreatedBy() != null) {
-            createdByName = n.getCreatedBy().getEmail();
+        String createdByName = "Hệ thống";
+        if (n.getType() == NotificationType.MANUAL && n.getCreatedBy() != null) {
+            createdByName = n.getCreatedBy().getFullName();
         }
 
         return new NotificationDto(
