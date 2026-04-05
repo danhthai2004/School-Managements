@@ -541,8 +541,8 @@ public class NotificationService {
      */
     private NotificationDto toDto(Notification n, boolean isRead) {
         String createdByName = "Hệ thống";
-        if (n.getCreatedBy() != null) {
-            createdByName = n.getCreatedBy().getEmail();
+        if (n.getType() == NotificationType.MANUAL && n.getCreatedBy() != null) {
+            createdByName = n.getCreatedBy().getFullName();
         }
 
         return new NotificationDto(

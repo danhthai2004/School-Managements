@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "../../context/AuthContext";
 import { studentService, type StudentDashboardDto, type TimetableSlotDto, type ExamScheduleDto } from "../../services/studentService";
 import { CalendarIcon } from "../../components/layout/SystemIcons";
-import { Bell, BookOpen, TrendingUp, CheckCircle, ChevronRight, X } from "lucide-react";
+import { Bell, BookOpen, TrendingUp, CheckCircle, ChevronRight, X, Clock } from "lucide-react";
 import { useSemester } from "../../context/SemesterContext";
 
 const periodTimes: Record<number, string> = {
@@ -18,6 +19,17 @@ const examTypeLabels: Record<string, string> = {
     FINAL: "Cuối kỳ",
     REGULAR: "1 tiết",
     QUIZ: "15 phút",
+};
+
+const renderFormattedContent = (content: string) => {
+    if (!content) return null;
+    const parts = content.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, index) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={index} className="font-bold text-gray-900">{part.slice(2, -2)}</strong>;
+        }
+        return <span key={index}>{part}</span>;
+    });
 };
 
 export default function StudentOverviewPage() {
@@ -304,108 +316,155 @@ function NotificationsCard() {
 
     return (
         <>
-            {/* All Notifications Modal */}
-            {showAllModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden">
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                            <h3 className="font-semibold text-gray-900">Tất cả thông báo ({allNotifications.length})</h3>
-                            <button onClick={() => setShowAllModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
-                                <X className="w-5 h-5 text-gray-500" />
+            {/* All Notifications Modal - Using Portal to cover everything */}
+            {showAllModal && createPortal(
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-xl flex items-center justify-center z-[9999] p-4 transition-all duration-300">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-blue-600 text-white">
+                            <h3 className="font-semibold">Tất cả thông báo</h3>
+                            <button onClick={() => setShowAllModal(false)} className="p-1 hover:bg-white/20 rounded-lg">
+                                <X className="w-5 h-5 text-white" />
                             </button>
                         </div>
-                        <div className="overflow-y-auto max-h-[60vh] p-4 space-y-2">
+                        <div className="overflow-y-auto p-4 space-y-2">
                             {allNotifications.length > 0 ? (
                                 allNotifications.map((notif) => (
                                     <div
                                         key={notif.id}
                                         onClick={() => { setSelectedNotif(notif); setShowAllModal(false); }}
-                                        className="flex items-start gap-3 p-3 hover:bg-blue-50 rounded-xl transition-colors cursor-pointer border border-gray-100"
+                                        className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-xl transition-colors cursor-pointer border border-gray-50"
                                     >
-                                        <Bell className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                                        <Bell className="w-5 h-5 text-blue-500 mt-1 flex-shrink-0" />
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-sm text-gray-900 font-medium">{notif.title}</p>
-                                            <p className="text-xs text-gray-500 mt-1">{formatTimeAgo(notif.createdAt)} • {notif.createdByName || 'Admin'}</p>
+                                            <p className="text-sm text-gray-900 font-medium truncate">{notif.title}</p>
+                                            <p className="text-xs text-gray-500 mt-1 line-clamp-1">{renderFormattedContent(notif.content)}</p>
+                                            <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-gray-400">
+                                                <Clock className="w-3 h-3" />
+                                                <span>{formatTimeAgo(notif.createdAt)} • {notif.createdByName || 'Hệ thống'}</span>
+                                            </div>
                                         </div>
-                                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                                        <ChevronRight className="w-4 h-4 text-gray-300" />
                                     </div>
                                 ))
                             ) : (
-                                <div className="text-center py-8 text-gray-500">Chưa có thông báo</div>
+                                <div className="text-center py-12 text-gray-400">Không có thông báo</div>
                             )}
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
-            {/* Detail Modal */}
-            {selectedNotif && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden">
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-4">
-                            <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                    <h3 className="font-semibold text-lg leading-tight">{selectedNotif.title}</h3>
-                                    <p className="text-blue-100 text-sm mt-1">{formatFullDate(selectedNotif.createdAt)}</p>
+            {/* Detail Modal - Using Portal and z-9999 to cover header/sidebar */}
+            {selectedNotif && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-hidden">
+                    {/* Background Overlay with strong blur */}
+                    <div 
+                        className="absolute inset-0 bg-black/30 backdrop-blur-xl animate-in fade-in duration-300" 
+                        onClick={() => setSelectedNotif(null)} 
+                    />
+                    
+                    {/* Modal Container */}
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+                        {/* Header - Matching sample image style */}
+                        <div className="bg-blue-600 px-6 py-4 flex items-center justify-between">
+                            <h3 className="text-white font-bold text-lg">Thông tin chi tiết thông báo</h3>
+                            <button 
+                                onClick={() => setSelectedNotif(null)}
+                                className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        
+                        {/* Body */}
+                        <div className="flex-1 overflow-y-auto p-8 space-y-6">
+                            <div className="flex items-center gap-4 border-b border-gray-100 pb-6">
+                                <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-xl font-bold uppercase">
+                                    {(selectedNotif.createdByName || 'HT')[0]}
                                 </div>
-                                <button onClick={() => setSelectedNotif(null)} className="p-1 hover:bg-white/20 rounded-lg ml-2">
-                                    <X className="w-5 h-5" />
-                                </button>
+                                <div>
+                                    <h4 className="font-bold text-gray-900 text-xl">{selectedNotif.title}</h4>
+                                    <div className="flex items-center gap-2 mt-1 text-gray-500 font-medium text-sm">
+                                        <Clock className="w-4 h-4" />
+                                        <span>{formatFullDate(selectedNotif.createdAt)}</span>
+                                        <span>•</span>
+                                        <span className="text-blue-600 px-2 py-0.5 bg-blue-50 rounded-full text-xs">
+                                            {selectedNotif.createdByName || 'Hệ thống'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                <div className="text-gray-400 text-xs font-bold uppercase tracking-wider">Nội dung chi tiết</div>
+                                <div className="text-gray-800 text-base leading-relaxed whitespace-pre-wrap bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
+                                    {renderFormattedContent(selectedNotif.content)}
+                                </div>
                             </div>
                         </div>
-                        <div className="p-5">
-                            <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
-                                <span className="bg-gray-100 px-2 py-1 rounded">Từ: {selectedNotif.createdByName || 'Admin'}</span>
-                            </div>
-                            <div className="prose prose-sm text-gray-700 whitespace-pre-wrap">
-                                {selectedNotif.content || 'Không có nội dung chi tiết.'}
-                            </div>
-                        </div>
-                        <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-end">
+                        
+                        {/* Footer - Optional but nice */}
+                        <div className="px-6 py-4 border-t border-gray-100 flex justify-end bg-gray-50/30">
                             <button
                                 onClick={() => setSelectedNotif(null)}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                                className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-bold shadow-md shadow-blue-100"
                             >
                                 Đóng
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
-            {/* Card */}
+            {/* Dashboard Card - Keeping the original list style requested */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                     <h3 className="font-semibold text-gray-900">Thông báo mới</h3>
+                    {allNotifications.length > 0 && (
+                        <span className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
+                    )}
                 </div>
                 <div className="p-4 space-y-3">
                     {loading ? (
-                        <div className="flex items-center justify-center py-4">
+                        <div className="flex flex-col items-center justify-center py-6 space-y-2">
                             <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                            <p className="text-[10px] text-gray-400 italic">Đang tải...</p>
                         </div>
                     ) : notifications.length > 0 ? (
                         notifications.map((notif) => (
                             <div
                                 key={notif.id}
                                 onClick={() => setSelectedNotif(notif)}
-                                className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
+                                className="flex items-start gap-3 p-2.5 hover:bg-gray-50 rounded-xl transition-all cursor-pointer border border-transparent hover:border-gray-100 group"
                             >
-                                <Bell className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                                <div className="w-9 h-9 bg-blue-50 text-blue-500 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                                    <Bell className="w-4 h-4" />
+                                </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm text-gray-900 font-medium truncate">{notif.title}</p>
-                                    <p className="text-xs text-gray-500">{formatTimeAgo(notif.createdAt)} • {notif.createdByName || 'Admin'}</p>
+                                    <p className="text-sm text-gray-900 font-bold truncate group-hover:text-blue-600 transition-colors">{notif.title}</p>
+                                    <div className="text-[11px] text-gray-500 mt-0.5 line-clamp-1 italic">
+                                        {renderFormattedContent(notif.content)}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-1 text-[10px] text-gray-400">
+                                        <Clock className="w-3 h-3" />
+                                        <span>{formatTimeAgo(notif.createdAt)}</span>
+                                        <span>•</span>
+                                        <span>{notif.createdByName || 'Hệ thống'}</span>
+                                    </div>
                                 </div>
                             </div>
                         ))
                     ) : (
-                        <div className="text-center py-4 text-gray-500 text-sm">
+                        <div className="text-center py-8 text-gray-400 italic text-sm">
                             Chưa có thông báo mới
                         </div>
                     )}
                     {allNotifications.length > 3 && (
                         <button
                             onClick={() => setShowAllModal(true)}
-                            className="w-full text-center text-sm text-blue-600 hover:text-blue-700 py-2 flex items-center justify-center gap-1"
+                            className="w-full text-center text-[11px] font-bold text-blue-600 hover:bg-blue-50 py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 border border-blue-50"
                         >
                             Xem tất cả ({allNotifications.length}) <ChevronRight className="w-4 h-4" />
                         </button>
