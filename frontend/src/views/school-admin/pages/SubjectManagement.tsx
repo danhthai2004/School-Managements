@@ -110,7 +110,7 @@ export default function SubjectManagement() {
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-bold text-gray-900">Quản lý Môn học & Tổ hợp</h1>
-                <p className="text-gray-500 mt-1">Chương trình Giáo dục Phổ thông 2018 </p>
+                <p className="text-sm text-gray-500 mt-1">Chương trình Giáo dục Phổ thông 2018 </p>
             </div>
 
             {/* Tabs */}

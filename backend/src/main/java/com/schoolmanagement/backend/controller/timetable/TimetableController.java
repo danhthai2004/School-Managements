@@ -24,9 +24,11 @@ public class TimetableController {
     private final UserLookupService userLookup;
 
     @GetMapping
-    public ResponseEntity<List<TimetableDto>> getTimetables(@AuthenticationPrincipal UserPrincipal principal) {
+    public ResponseEntity<List<TimetableDto>> getTimetables(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) UUID semesterId) {
         var admin = userLookup.requireById(principal.getId());
-        var list = timetableService.getTimetables(admin.getSchool());
+        var list = timetableService.getTimetables(admin.getSchool(), semesterId);
         return ResponseEntity.ok(list);
     }
 

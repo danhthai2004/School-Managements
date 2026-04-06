@@ -2,19 +2,24 @@ import { useState } from "react";
 import { Link, Outlet, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
-    HomeIcon,
-    ClassIcon,
-    StudentIcon,
-    UsersIcon,
-    CalendarIcon,
-    MenuIcon,
-    LogoutIcon,
-    SearchIcon,
-    UserIcon,
-    LockIcon,
-    TeacherIcon
-} from "./SchoolAdminIcons";
-import { BookOpen, Bell, Building2 } from "lucide-react";
+    LayoutDashboard,
+    Users,
+    LayoutGrid,
+    BookOpen,
+    Calendar,
+    Building2,
+    CalendarClock,
+    Bell,
+    BarChart3,
+    Settings2,
+    SquareActivity,
+    GraduationCap,
+    Search,
+    Menu,
+    LogOut,
+    UserCircle,
+    Lock
+} from "lucide-react";
 import NotificationBell from "../../components/layout/NotificationBell";
 
 export default function SchoolAdminLayout() {
@@ -24,25 +29,26 @@ export default function SchoolAdminLayout() {
     const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
     const menuItems = [
-        { path: "/school-admin/dashboard", label: "Tổng quan", icon: <HomeIcon /> },
-        { path: "/school-admin/classes", label: "Quản lý lớp học", icon: <ClassIcon /> },
-        { path: "/school-admin/students", label: "Quản lý học sinh", icon: <StudentIcon /> },
+        { path: "/school-admin/dashboard", label: "Tổng quan", icon: <LayoutDashboard size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/students", label: "Quản lý học sinh", icon: <Users size={20} strokeWidth={1.5} /> },
         {
             label: "Quản lý giáo viên",
-            icon: <TeacherIcon />,
+            icon: <GraduationCap size={20} strokeWidth={1.5} />,
             children: [
                 { path: "/school-admin/teachers", label: "Danh sách giáo viên" },
                 { path: "/school-admin/assignments", label: "Phân công chuyên môn" }
             ]
         },
-        { path: "/school-admin/accounts", label: "Quản lý tài khoản", icon: <UsersIcon /> },
-        { path: "/school-admin/subjects", label: "Quản lý Môn học & Tổ hợp", icon: <BookOpen className="w-5 h-5" /> },
-        { path: "/school-admin/schedule", label: "Thời khóa biểu", icon: <CalendarIcon /> },
-        { path: "/school-admin/rooms", label: "Quản lý phòng", icon: <Building2 className="w-5 h-5" /> },
-        { path: "/school-admin/exam-sessions", label: "Kỳ thi & Phân bổ", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg> },
-        { path: "/school-admin/notifications", label: "Thông báo", icon: <Bell className="w-5 h-5" /> },
-        { path: "/school-admin/reports", label: "Báo cáo & Thống kê", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> },
-        { path: "/school-admin/semesters", label: "Cấu hình Năm học & Học kỳ", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg> },
+        { path: "/school-admin/classes", label: "Quản lý lớp học", icon: <LayoutGrid size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/subjects", label: "Quản lý Môn học & Tổ hợp", icon: <BookOpen size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/rooms", label: "Quản lý phòng", icon: <Building2 size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/schedule", label: "Thời khóa biểu", icon: <Calendar size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/exam-sessions", label: "Kỳ thi & Phân bổ", icon: <CalendarClock size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/notifications", label: "Thông báo", icon: <Bell size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/reports", label: "Báo cáo & Thống kê", icon: <BarChart3 size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/risk-analytics", label: "AI Phân Tích Rủi Ro", icon: <SquareActivity size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/accounts", label: "Quản lý tài khoản", icon: <UserCircle size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/semesters", label: "Cấu hình Năm học & Học kỳ", icon: <Settings2 size={20} strokeWidth={1.5} /> },
     ];
 
     // State for expanded menus (using labels as keys)
@@ -73,7 +79,7 @@ export default function SchoolAdminLayout() {
                                 className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
                                 title="Mở rộng"
                             >
-                                <MenuIcon />
+                                <Menu size={20} strokeWidth={1.5} />
                             </button>
                         </div>
                     ) : (
@@ -96,7 +102,7 @@ export default function SchoolAdminLayout() {
                                 className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
                                 title="Thu gọn"
                             >
-                                <MenuIcon />
+                                <Menu size={20} strokeWidth={1.5} />
                             </button>
                         </div>
                     )}
@@ -113,7 +119,7 @@ export default function SchoolAdminLayout() {
                                 <div key={index} className="space-y-1">
                                     <button
                                         onClick={() => toggleMenu(item.label || "")}
-                                        className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all text-sm group
+                                        className={`flex items-center justify-between px-3 py-3 rounded-lg transition-all text-sm group
                                             ${isActiveParent ? 'text-blue-700 bg-blue-50 font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}
                                             ${sidebarCollapsed ? 'justify-center' : ''}
                                         `}
@@ -158,7 +164,7 @@ export default function SchoolAdminLayout() {
                                 key={item.path}
                                 to={item.path}
                                 className={({ isActive }) => `
-                                    w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm
+                                    flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm
                                     ${isActive
                                         ? "bg-blue-50 text-blue-700 font-medium"
                                         : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
@@ -179,9 +185,9 @@ export default function SchoolAdminLayout() {
                     <button
                         onClick={logout}
                         title={sidebarCollapsed ? 'Đăng xuất' : undefined}
-                        className={`w-full flex items-center gap-3 px-3 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm ${sidebarCollapsed ? 'justify-center' : ''}`}
+                        className={`flex items-center gap-3 px-3 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm ${sidebarCollapsed ? 'justify-center' : ''}`}
                     >
-                        <LogoutIcon />
+                        <LogOut size={20} strokeWidth={1.5} />
                         {!sidebarCollapsed && <span className="font-medium">Đăng xuất</span>}
                     </button>
                 </div>
@@ -200,7 +206,7 @@ export default function SchoolAdminLayout() {
                                 className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-lg border-0 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all text-sm"
                             />
                             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                <SearchIcon />
+                                <Search size={20} strokeWidth={1.5} />
                             </div>
                         </div>
 
@@ -233,14 +239,14 @@ export default function SchoolAdminLayout() {
                                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                                 onClick={() => setProfileDropdownOpen(false)}
                                             >
-                                                <UserIcon />
+                                                <UserCircle size={20} strokeWidth={1.5} />
                                                 <span>Thông tin cá nhân</span>
                                             </button>
                                             <button
                                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                                 onClick={() => setProfileDropdownOpen(false)}
                                             >
-                                                <LockIcon />
+                                                <Lock size={20} strokeWidth={1.5} />
                                                 <span>Đổi mật khẩu</span>
                                             </button>
                                             <div className="border-t border-gray-100 my-1" />
@@ -251,7 +257,7 @@ export default function SchoolAdminLayout() {
                                                     logout();
                                                 }}
                                             >
-                                                <LogoutIcon />
+                                                <LogOut size={20} strokeWidth={1.5} />
                                                 <span>Đăng xuất</span>
                                             </button>
                                         </div>

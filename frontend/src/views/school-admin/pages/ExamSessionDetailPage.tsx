@@ -119,7 +119,7 @@ export default function ExamSessionDetailPage() {
                 </button>
                 <div className="flex-1">
                     <div className="flex items-center gap-3">
-                        <h1 className="text-xl font-bold text-gray-900">{session.name}</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">{session.name}</h1>
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_MAP[session.status]?.cls || "bg-gray-100"}`}>
                             {STATUS_MAP[session.status]?.label || session.status}
                         </span>

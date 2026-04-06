@@ -215,7 +215,7 @@ export default function NotificationManagement() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Quản lý thông báo</h1>
-                    <p className="text-gray-500 mt-1">Tạo và quản lý thông báo cho toàn trường</p>
+                    <p className="text-sm text-gray-500 mt-1">Tạo và quản lý thông báo cho toàn trường</p>
                 </div>
                 <button
                     onClick={() => setShowModal(true)}

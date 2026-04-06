@@ -65,8 +65,10 @@ public class ExamSessionService {
 
         // ==================== ExamSession CRUD ====================
 
-        public List<ExamSessionDto> listSessions(UUID schoolId) {
+        public List<ExamSessionDto> listSessions(UUID schoolId, String academicYear, Integer semester) {
                 return examSessionRepo.findBySchoolIdOrderByStartDateDesc(schoolId).stream()
+                                .filter(s -> (academicYear == null || (s.getAcademicYear() != null && s.getAcademicYear().getName().equals(academicYear))))
+                                .filter(s -> (semester == null || (s.getSemester() != null && s.getSemester().getSemesterNumber() == semester)))
                                 .map(this::toDto)
                                 .collect(Collectors.toList());
         }

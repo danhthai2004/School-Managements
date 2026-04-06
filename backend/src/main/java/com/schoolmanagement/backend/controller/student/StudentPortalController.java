@@ -102,8 +102,10 @@ public class StudentPortalController {
      * Includes profile, today's schedule, upcoming exams, and summary statistics.
      */
     @GetMapping("/dashboard")
-    public ResponseEntity<StudentDashboardDto> getDashboard(@AuthenticationPrincipal UserPrincipal principal) {
-        StudentDashboardDto dashboard = studentPortalService.getDashboard(principal.getId());
+    public ResponseEntity<StudentDashboardDto> getDashboard(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String semesterId) {
+        StudentDashboardDto dashboard = studentPortalService.getDashboard(principal.getId(), semesterId);
         return ResponseEntity.ok(dashboard);
     }
 
@@ -111,8 +113,10 @@ public class StudentPortalController {
      * Get today's class schedule for the student.
      */
     @GetMapping("/today-schedule")
-    public ResponseEntity<List<TimetableSlotDto>> getTodaySchedule(@AuthenticationPrincipal UserPrincipal principal) {
-        List<TimetableSlotDto> schedule = studentPortalService.getTodaySchedule(principal.getId());
+    public ResponseEntity<List<TimetableSlotDto>> getTodaySchedule(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String semesterId) {
+        List<TimetableSlotDto> schedule = studentPortalService.getTodaySchedule(principal.getId(), semesterId);
         return ResponseEntity.ok(schedule);
     }
 

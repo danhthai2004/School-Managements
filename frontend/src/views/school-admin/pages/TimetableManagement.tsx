@@ -262,7 +262,7 @@ export default function TimetableManagement() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Quản lý Thời Khóa Biểu</h1>
-                    <p className="text-gray-500 text-sm mt-1">Danh sách các phiên bản thời khóa biểu</p>
+                    <p className="text-sm text-gray-500 mt-1">Danh sách các phiên bản thời khóa biểu</p>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                     <SemesterSelector 

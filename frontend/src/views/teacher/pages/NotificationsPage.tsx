@@ -154,7 +154,7 @@ export default function NotificationsPage() {
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-bold text-gray-900">Gửi thông báo</h1>
-                <p className="text-gray-500 mt-1">
+                <p className="text-sm text-gray-500 mt-1">
                     Gửi thông báo đến lớp bạn dạy hoặc lớp chủ nhiệm
                 </p>
             </div>

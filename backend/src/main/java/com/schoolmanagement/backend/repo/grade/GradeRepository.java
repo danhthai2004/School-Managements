@@ -19,6 +19,8 @@ public interface GradeRepository extends JpaRepository<Grade, UUID> {
 
         List<Grade> findAllByStudent(Student student);
 
+        List<Grade> findAllByStudentAndSemester(Student student, com.schoolmanagement.backend.domain.entity.admin.Semester semester);
+
         boolean existsByStudent(Student student);
 
         @Modifying

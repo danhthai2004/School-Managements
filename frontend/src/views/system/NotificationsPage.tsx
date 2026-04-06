@@ -100,7 +100,7 @@ export default function NotificationsPage() {
     <div className="max-w-6xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Quản lý thông báo</h1>
-        <p className="text-gray-500 mt-1">Tạo và quản lý thông báo hệ thống</p>
+        <p className="text-sm text-gray-500 mt-1">Tạo và quản lý thông báo hệ thống</p>
       </div>
 
       {/* Messages */}

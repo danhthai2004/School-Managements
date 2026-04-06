@@ -131,7 +131,7 @@ export default function TeacherExamSchedulePage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Lịch coi thi</h1>
-                    <p className="text-gray-500 text-sm mt-0.5">Theo dõi lịch phân công coi thi</p>
+                    <p className="text-sm text-gray-500 mt-1">Theo dõi lịch phân công coi thi</p>
                 </div>
                 <button
                     onClick={fetchData}
