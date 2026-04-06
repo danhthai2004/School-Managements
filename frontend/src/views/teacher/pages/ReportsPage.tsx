@@ -23,7 +23,7 @@ export default function ReportsPage() {
         <div className="animate-fade-in-up">
             <div className="mb-6">
                 <h1 className="text-2xl font-bold text-gray-900">Báo cáo</h1>
-                <p className="text-gray-500 mt-1">
+                <p className="text-sm text-gray-500 mt-1">
                     {teacherProfile?.isHomeroomTeacher 
                         ? "Xem báo cáo lớp chủ nhiệm và các lớp bạn dạy"
                         : "Xem báo cáo các lớp bạn dạy"

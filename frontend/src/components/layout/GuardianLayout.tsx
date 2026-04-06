@@ -2,20 +2,18 @@ import {Link, NavLink, Outlet, useNavigate} from "react-router-dom";
 import {useAuth} from "../../context/AuthContext";
 import {useEffect, useState} from "react";
 import {
-  LockIcon,
-  LogoutIcon,
-  MenuIcon,
-  SearchIcon,
-  UserIcon,
-} from "./SystemIcons";
+  LayoutDashboard,
+  Calendar,
+  CalendarClock,
+  GraduationCap,
+  UserCheck,
+  Menu,
+  Search,
+  LogOut,
+  UserCircle,
+  Lock
+} from "lucide-react";
 import NotificationBell from "./NotificationBell";
-import {
-  AttendanceIcon,
-  OverviewIcon,
-  ScoreIcon,
-  TimetableIcon,
-} from "../../views/guardian/GuardianIcons";
-import {CircleUserRound} from "lucide-react";
 import {guardianService} from "../../services/guardianService.ts";
 import type {StudentDto} from "../../services/schoolAdminService.ts";
 import type {TimetableDto} from "../../services/guardianService.ts";
@@ -83,26 +81,26 @@ export default function GuardianLayout() {
 
 
   const navItems = [
-    {to: "/guardian/overview", label: "Tổng quan", icon: <OverviewIcon/>},
+    {to: "/guardian/overview", label: "Tổng quan", icon: <LayoutDashboard size={20} strokeWidth={1.5} />},
     {
       to: "/guardian/timetable",
       label: "Thời khóa biểu",
-      icon: <TimetableIcon/>,
+      icon: <Calendar size={20} strokeWidth={1.5} />,
     },
     {
       to: "/guardian/examschedule",
       label: "Lịch kiểm tra",
-      icon: <TimetableIcon/>,
+      icon: <CalendarClock size={20} strokeWidth={1.5} />,
     },
     {
       to: "/guardian/grading",
       label: "Điểm số",
-      icon: <ScoreIcon/>
+      icon: <GraduationCap size={20} strokeWidth={1.5} />
     },
     {
       to: "/guardian/attendance",
       label: "Chuyên cần",
-      icon: <AttendanceIcon/>,
+      icon: <UserCheck size={20} strokeWidth={1.5} />,
     },
   ];
 
@@ -147,7 +145,7 @@ export default function GuardianLayout() {
                 className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
                 title="Mở rộng"
               >
-                <MenuIcon/>
+                <Menu size={20} strokeWidth={1.5} />
               </button>
             </div>
           ) : (
@@ -170,7 +168,7 @@ export default function GuardianLayout() {
                 className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
                 title="Thu gọn"
               >
-                <MenuIcon/>
+                <Menu size={20} strokeWidth={1.5} />
               </button>
             </div>
           )}
@@ -179,7 +177,7 @@ export default function GuardianLayout() {
         {!sidebarCollapsed && (
           <div className="p-4 text-sm text-gray-500 transition-opacity duration-200 opacity-100">
             <div className="p-4 bg-[#fffbeb] flex rounded-xl shadow-sm items-center">
-              <CircleUserRound/>
+              <UserCircle size={20} strokeWidth={1.5} />
               <div className="ml-4">
                 <p className="font text-black">{student?.fullName}</p>
                 <p className="text-sm">{student?.currentClassName}</p>
@@ -221,7 +219,7 @@ export default function GuardianLayout() {
               sidebarCollapsed ? "justify-center" : ""
             }`}
           >
-            <LogoutIcon/>
+            <LogOut size={20} strokeWidth={1.5} />
             {!sidebarCollapsed && (
               <span className="font-medium">Đăng xuất</span>
             )}
@@ -246,7 +244,7 @@ export default function GuardianLayout() {
                 className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-lg border-0 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all text-sm"
               />
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                <SearchIcon/>
+                <Search size={20} strokeWidth={1.5} />
               </div>
             </div>
 
@@ -285,7 +283,7 @@ export default function GuardianLayout() {
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => setProfileDropdownOpen(false)}
                       >
-                        <UserIcon/>
+                        <UserCircle size={20} strokeWidth={1.5} />
                         <Link to="/guardian/profile">
                           <span>Thông tin cá nhân</span>
                         </Link>
@@ -294,7 +292,7 @@ export default function GuardianLayout() {
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => setProfileDropdownOpen(false)}
                       >
-                        <LockIcon/>
+                        <Lock size={20} strokeWidth={1.5} />
                         <span>Đổi mật khẩu</span>
                       </button>
                       <div className="border-t border-gray-100 my-1"/>
@@ -305,7 +303,7 @@ export default function GuardianLayout() {
                           handleLogout();
                         }}
                       >
-                        <LogoutIcon/>
+                        <LogOut size={20} strokeWidth={1.5} />
                         <span>Đăng xuất</span>
                       </button>
                     </div>

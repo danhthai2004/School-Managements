@@ -35,6 +35,7 @@ import ExamSessionManagement from "../views/school-admin/pages/ExamSessionManage
 import ExamSessionDetailPage from "../views/school-admin/pages/ExamSessionDetailPage";
 import ReportsPage from "../views/school-admin/pages/ReportsPage";
 import SemesterConfigPage from "../views/school-admin/pages/SemesterConfigPage";
+import RiskDashboardPage from "../views/school-admin/pages/RiskDashboardPage";
 import GuardianLayout from "../components/layout/GuardianLayout";
 import GuardianNotification from "../views/guardian/GuardianNotification";
 import StudentAttendance from "../views/guardian/StudentAttendance";
@@ -50,6 +51,7 @@ import StudentExamSchedulePage from "../views/Student/StudentExamSchedulePage.ts
 import StudentScoresPage from "../views/Student/StudentScoresPage";
 import StudentAttendancePage from "../views/Student/StudentAttendancePage";
 import StudentAnalysisPage from "../views/Student/StudentAnalysisPage";
+import MyRiskAnalyticsPage from "../views/Student/MyRiskAnalyticsPage";
 import GuardianStudentExamSchedulePage from "../views/guardian/GuardianStudentExamSchedulePage.tsx";
 import GuardianProfile from "../views/guardian/GuardianProfile.tsx";
 
@@ -65,6 +67,7 @@ import TeacherNotificationsPage from "../views/teacher/pages/NotificationsPage";
 import StudentListPage from "../views/teacher/pages/StudentListPage";
 import SettingsPage from "../views/teacher/pages/SettingsPage";
 import TeacherExamSchedulePage from "../views/teacher/pages/TeacherExamSchedulePage";
+import ClassRiskManagementPage from "../views/teacher/pages/ClassRiskManagementPage";
 
 
 export default function AppRouter() {
@@ -128,6 +131,7 @@ export default function AppRouter() {
         <Route path="exam-sessions/:id" element={<ExamSessionDetailPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="semesters" element={<SemesterConfigPage />} />
+        <Route path="risk-analytics" element={<RiskDashboardPage />} />
       </Route>
 
       <Route path="/guardian" element={
@@ -157,6 +161,7 @@ export default function AppRouter() {
         <Route path="scores" element={<StudentScoresPage />} />
         <Route path="attendance" element={<StudentAttendancePage />} />
         <Route path="analysis" element={<StudentAnalysisPage />} />
+        <Route path="risk-analytics" element={<MyRiskAnalyticsPage />} />
       </Route>
 
       {/* Teacher Portal Routes */}
@@ -176,6 +181,7 @@ export default function AppRouter() {
         <Route path="students" element={<StudentListPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="exam-schedule" element={<TeacherExamSchedulePage />} />
+        <Route path="risk-analytics" element={<ClassRiskManagementPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />

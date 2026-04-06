@@ -268,7 +268,7 @@ const AccountManagement = () => {
             {/* Header */}
             <div className="mb-6">
                 <h1 className="text-2xl font-bold text-gray-900">Quản lý tài khoản</h1>
-                <p className="text-gray-500 text-sm mt-1">Quản lý tài khoản người dùng trong trường</p>
+                <p className="text-sm text-gray-500 mt-1">Quản lý tài khoản người dùng trong trường</p>
             </div>
 
             {/* Tabs */}

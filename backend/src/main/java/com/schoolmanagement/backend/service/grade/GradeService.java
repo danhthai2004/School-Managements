@@ -210,6 +210,11 @@ public class GradeService {
                                         "Học kỳ đã chốt sổ, không thể sửa đổi điểm.");
                 }
 
+                if (semesterEntity.getStatus() == com.schoolmanagement.backend.domain.admin.SemesterStatus.UPCOMING) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                        "Học kỳ chưa bắt đầu, không thể nhập điểm.");
+                }
+
                 // Get existing grades using Semester entity FK
                 List<Grade> existingGrades = gradeRepository.findAllByClassRoomAndSubjectAndSemester(classRoom, subject,
                                 semesterEntity);

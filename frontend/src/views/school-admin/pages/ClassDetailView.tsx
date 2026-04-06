@@ -81,7 +81,7 @@ const ClassDetailView = () => {
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-8 text-white">
                     <div className="flex justify-between items-start">
                         <div>
-                            <h1 className="text-3xl font-bold mb-2">{classData.name}</h1>
+                            <h1 className="text-2xl font-bold text-gray-900 mb-2">{classData.name}</h1>
                             <div className="flex items-center text-blue-100 space-x-6">
                                 <span className="flex items-center bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
                                     <GraduationCap className="w-4 h-4 mr-2" />

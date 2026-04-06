@@ -54,8 +54,11 @@ public class ExamAdminController {
     // ==================== ExamSession CRUD ====================
 
     @GetMapping("/sessions")
-    public List<ExamSessionDto> listSessions(@AuthenticationPrincipal UserPrincipal principal) {
-        return examSessionService.listSessions(getSchool(principal).getId());
+    public List<ExamSessionDto> listSessions(
+            @RequestParam(required = false) String academicYear,
+            @RequestParam(required = false) Integer semester,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return examSessionService.listSessions(getSchool(principal).getId(), academicYear, semester);
     }
 
     @GetMapping("/sessions/{id}")
