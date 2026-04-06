@@ -5,6 +5,7 @@ import { schoolAdminService } from '../../../services/schoolAdminService';
 import type { StudentProfileDto, ClassRoomDto } from '../../../services/schoolAdminService';
 import { XIcon } from '../SchoolAdminIcons';
 import { useToast } from '../../../context/ToastContext';
+import StudentRiskProfileCard from '../components/StudentRiskProfileCard';
 
 // Format date for display
 const formatDate = (dateStr: string | null): string => {
@@ -492,6 +493,11 @@ export default function StudentProfilePage() {
                         <p className="text-gray-400 text-sm">Tính năng đang phát triển...</p>
                     </div>
                 </div>
+            </div>
+
+            {/* Risk Analytics Card */}
+            <div className="mt-6">
+                <StudentRiskProfileCard studentId={id!} />
             </div>
 
             {/* Transfer Modal */}

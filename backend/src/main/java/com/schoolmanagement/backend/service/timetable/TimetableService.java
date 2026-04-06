@@ -31,7 +31,14 @@ public class TimetableService {
   private final com.schoolmanagement.backend.service.admin.SemesterService semesterService;
 
   @Transactional(readOnly = true)
-  public List<TimetableDto> getTimetables(School school) {
+  public List<TimetableDto> getTimetables(School school, UUID semesterId) {
+    if (semesterId != null) {
+      com.schoolmanagement.backend.domain.entity.admin.Semester semester = semesterService.getSemester(semesterId);
+      return timetables.findAllBySchoolAndSemester(school, semester)
+          .stream()
+          .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
+          .map(this::toDto).toList();
+    }
     return timetables.findAllBySchoolOrderByCreatedAtDesc(school)
         .stream().map(this::toDto).toList();
   }

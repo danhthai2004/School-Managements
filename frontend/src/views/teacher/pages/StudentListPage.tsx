@@ -268,7 +268,7 @@ export default function StudentListPage() {
                     <h1 className="text-2xl font-bold text-gray-900">
                         Danh sách học sinh
                     </h1>
-                    <p className="text-gray-500 mt-1">
+                    <p className="text-sm text-gray-500 mt-1">
                         Lớp {teacherProfile.homeroomClassName}
                     </p>
                 </div>

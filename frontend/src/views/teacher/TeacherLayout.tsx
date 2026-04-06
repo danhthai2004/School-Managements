@@ -4,22 +4,23 @@ import { useAuth } from "../../context/AuthContext";
 import { teacherService } from "../../services/teacherService";
 import type { TeacherProfile } from "../../services/teacherService";
 import {
-    HomeIcon,
-    StudentIcon,
-    ClassMapIcon,
-    CalendarIcon,
-    GradeIcon,
-    AttendanceIcon,
-    BellIcon,
-    ReportIcon,
-    SettingsIcon,
-    SearchIcon,
-    MenuIcon,
-    LogoutIcon,
-    UserIcon,
-    LockIcon,
-} from "./TeacherIcons";
-import { ClipboardList } from "lucide-react";
+    LayoutDashboard,
+    Users,
+    LayoutGrid,
+    Calendar,
+    CalendarClock,
+    UserCheck,
+    GraduationCap,
+    BarChart3,
+    Bell,
+    SquareActivity,
+    Settings2,
+    Search,
+    Menu,
+    LogOut,
+    UserCircle,
+    Lock
+} from "lucide-react";
 import NotificationBell from "../../components/layout/NotificationBell";
 
 export default function TeacherLayout() {
@@ -52,20 +53,21 @@ export default function TeacherLayout() {
 
     // Common menu items for all teachers
     const commonMenuItems = [
-        { path: "/teacher/dashboard", label: "Tổng quan", icon: <HomeIcon /> },
-        { path: "/teacher/schedule", label: "Thời khóa biểu", icon: <CalendarIcon /> },
-        { path: "/teacher/exam-schedule", label: "Lịch thi", icon: <ClipboardList className="w-5 h-5" /> },
-        { path: "/teacher/attendance", label: "Điểm danh", icon: <AttendanceIcon /> },
-        { path: "/teacher/grades", label: "Nhập điểm", icon: <GradeIcon /> },
-        { path: "/teacher/class-map", label: "Sơ đồ lớp", icon: <ClassMapIcon /> },
-        { path: "/teacher/reports", label: "Báo cáo", icon: <ReportIcon /> },
-        { path: "/teacher/notifications", label: "Thông báo", icon: <BellIcon /> },
+        { path: "/teacher/dashboard", label: "Tổng quan", icon: <LayoutDashboard size={20} strokeWidth={1.5} /> },
+        { path: "/teacher/schedule", label: "Thời khóa biểu", icon: <Calendar size={20} strokeWidth={1.5} /> },
+        { path: "/teacher/exam-schedule", label: "Lịch thi", icon: <CalendarClock size={20} strokeWidth={1.5} /> },
+        { path: "/teacher/attendance", label: "Điểm danh", icon: <UserCheck size={20} strokeWidth={1.5} /> },
+        { path: "/teacher/grades", label: "Nhập điểm", icon: <GraduationCap size={20} strokeWidth={1.5} /> },
+        { path: "/teacher/class-map", label: "Sơ đồ lớp", icon: <LayoutGrid size={20} strokeWidth={1.5} /> },
+        { path: "/teacher/reports", label: "Báo cáo", icon: <BarChart3 size={20} strokeWidth={1.5} /> },
+        { path: "/teacher/notifications", label: "Thông báo", icon: <Bell size={20} strokeWidth={1.5} /> },
     ];
 
     // Additional menu items for homeroom teachers only
     const homeroomOnlyMenuItems = [
-        { path: "/teacher/students", label: "Học sinh", icon: <StudentIcon /> },
-        { path: "/teacher/settings", label: "Cài đặt lớp", icon: <SettingsIcon /> },
+        { path: "/teacher/students", label: "Học sinh", icon: <Users size={20} strokeWidth={1.5} /> },
+        { path: "/teacher/risk-analytics", label: "Cảnh báo rủi ro", icon: <SquareActivity size={20} strokeWidth={1.5} /> },
+        { path: "/teacher/settings", label: "Cài đặt lớp", icon: <Settings2 size={20} strokeWidth={1.5} /> },
     ];
 
     // Build menu based on teacher type
@@ -73,8 +75,9 @@ export default function TeacherLayout() {
         ? [
             commonMenuItems[0], // Tổng quan
             homeroomOnlyMenuItems[0], // Học sinh (homeroom only)
+            homeroomOnlyMenuItems[1], // Cảnh báo rủi ro (homeroom only)
             ...commonMenuItems.slice(1), // Rest of common items
-            homeroomOnlyMenuItems[1], // Cài đặt lớp (homeroom only)
+            homeroomOnlyMenuItems[2], // Cài đặt lớp (homeroom only)
         ]
         : commonMenuItems;
 
@@ -104,7 +107,7 @@ export default function TeacherLayout() {
                                 className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
                                 title="Mở rộng"
                             >
-                                <MenuIcon />
+                                <Menu size={20} strokeWidth={1.5} />
                             </button>
                         </div>
                     ) : (
@@ -127,7 +130,7 @@ export default function TeacherLayout() {
                                 className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
                                 title="Thu gọn"
                             >
-                                <MenuIcon />
+                                <Menu size={20} strokeWidth={1.5} />
                             </button>
                         </div>
                     )}
@@ -148,7 +151,7 @@ export default function TeacherLayout() {
                             key={item.path}
                             to={item.path}
                             className={({ isActive }) => `
-                                w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm
+                                flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm
                                 ${isActive
                                     ? "bg-blue-50 text-blue-700 font-medium"
                                     : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
@@ -168,9 +171,9 @@ export default function TeacherLayout() {
                     <button
                         onClick={handleLogout}
                         title={sidebarCollapsed ? 'Đăng xuất' : undefined}
-                        className={`w-full flex items-center gap-3 px-3 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm ${sidebarCollapsed ? 'justify-center' : ''}`}
+                        className={`flex items-center gap-3 px-3 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm ${sidebarCollapsed ? 'justify-center' : ''}`}
                     >
-                        <LogoutIcon />
+                        <LogOut size={20} strokeWidth={1.5} />
                         {!sidebarCollapsed && <span className="font-medium">Đăng xuất</span>}
                     </button>
                 </div>
@@ -194,7 +197,7 @@ export default function TeacherLayout() {
                                 className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-lg border-0 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all text-sm"
                             />
                             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                <SearchIcon />
+                                <Search size={20} strokeWidth={1.5} />
                             </div>
                         </div>
 
@@ -229,14 +232,14 @@ export default function TeacherLayout() {
                                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                                 onClick={() => setProfileDropdownOpen(false)}
                                             >
-                                                <UserIcon />
+                                                <UserCircle size={20} strokeWidth={1.5} />
                                                 <span>Thông tin cá nhân</span>
                                             </button>
                                             <button
                                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                                 onClick={() => setProfileDropdownOpen(false)}
                                             >
-                                                <LockIcon />
+                                                <Lock size={20} strokeWidth={1.5} />
                                                 <span>Đổi mật khẩu</span>
                                             </button>
                                             <div className="border-t border-gray-100 my-1" />
@@ -247,7 +250,7 @@ export default function TeacherLayout() {
                                                     handleLogout();
                                                 }}
                                             >
-                                                <LogoutIcon />
+                                                <LogOut size={20} strokeWidth={1.5} />
                                                 <span>Đăng xuất</span>
                                             </button>
                                         </div>

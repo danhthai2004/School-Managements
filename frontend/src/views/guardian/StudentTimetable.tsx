@@ -78,10 +78,10 @@ export default function StudentTimetable() {
   return (
     <div className="animate-fade-in-up">
       <div>
-        <h1 className="text-2xl text-gray-700 font-semibold">
+        <h1 className="text-2xl font-bold text-gray-900">
           Thời khóa biểu lớp {student?.currentClassName}
         </h1>
-        <p className="text-gray-700 mt-4 text-md">
+        <p className="text-sm text-gray-500 mt-1">
           Ngày {currentDay.getDate()}/{currentDay.getMonth() + 1}/{currentDay.getFullYear()}
         </p>
       </div>

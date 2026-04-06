@@ -55,6 +55,10 @@ public interface TimetableDetailRepository extends JpaRepository<TimetableDetail
         @Query("UPDATE TimetableDetail t SET t.teacher = null WHERE t.teacher = :teacher")
         void unlinkTeacherFromTimetable(@Param("teacher") Teacher teacher);
 
+        @Modifying
+        @Query("UPDATE TimetableDetail t SET t.teacher = :teacher WHERE t.classRoom = :classRoom AND t.subject = :subject")
+        void updateTeacherForClassAndSubject(@Param("classRoom") ClassRoom classRoom, @Param("subject") com.schoolmanagement.backend.domain.entity.classes.Subject subject, @Param("teacher") Teacher teacher);
+
         boolean existsByTeacher(Teacher teacher);
 
         List<TimetableDetail> findByClassRoom(ClassRoom classRoom);

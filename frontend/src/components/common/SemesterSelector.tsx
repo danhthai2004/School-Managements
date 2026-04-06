@@ -62,7 +62,7 @@ const SemesterSelector: React.FC<SemesterSelectorProps> = ({
             {groupedByYear.map((group) => (
                 group.semesters.map(s => (
                     <option key={s.id} value={s.id}>
-                        {cleanText(s.name)} (NH {group.year})
+                        {cleanText(s.name)} ({group.year})
                     </option>
                 ))
             ))}

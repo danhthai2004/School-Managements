@@ -62,7 +62,7 @@ export default function StudentScoresPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Bảng điểm</h1>
-                    <p className="text-gray-500 mt-1">
+                    <p className="text-sm text-gray-500 mt-1">
                         Học kỳ {selectedSemester?.semesterNumber || 1} - Năm học {selectedSemester?.academicYearName || "Hiện tại"}
                     </p>
                 </div>

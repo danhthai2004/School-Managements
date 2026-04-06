@@ -52,6 +52,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/admin/notifications/**").hasRole("SCHOOL_ADMIN")
                         .requestMatchers("/api/v1/teacher/notifications/**").hasRole("TEACHER")
                         .requestMatchers("/api/v1/notifications/**").hasAnyRole("SCHOOL_ADMIN", "TEACHER", "STUDENT", "GUARDIAN")
+                        // Risk Analytics APIs
+                        .requestMatchers("/api/risk/trigger").hasRole("SCHOOL_ADMIN")
+                        .requestMatchers("/api/risk/feedback").hasAnyRole("SCHOOL_ADMIN", "TEACHER")
+                        .requestMatchers("/api/risk/**").hasAnyRole("SCHOOL_ADMIN", "TEACHER", "STUDENT")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 

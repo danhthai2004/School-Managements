@@ -66,7 +66,7 @@ public class StudentPortalService {
         private final ClassEnrollmentRepository classEnrollmentRepository;
         private final TimetableRepository timetableRepository;
         private final TimetableDetailRepository timetableDetailRepository;
-        private final ScoreRepository scoreRepository;
+        private final com.schoolmanagement.backend.repo.grade.GradeRepository gradeRepository;
         private final AttendanceRepository attendanceRepository;
         private final ExamStudentRepository examStudentRepository;
         private final SemesterService semesterService;
@@ -169,8 +169,8 @@ public class StudentPortalService {
          * Get today's schedule for the student.
          */
         @Transactional(readOnly = true)
-        public List<TimetableSlotDto> getTodaySchedule(UUID userId) {
-                StudentTimetableDto timetable = getTimetable(userId, null);
+        public List<TimetableSlotDto> getTodaySchedule(UUID userId, String semesterId) {
+                StudentTimetableDto timetable = getTimetable(userId, semesterId);
                 int todayDayOfWeek = getTodayDayOfWeek();
 
                 return timetable.getSlots().stream()
@@ -189,7 +189,7 @@ public class StudentPortalService {
                 List<ExamStudent> examStudents = examStudentRepository.findByStudentAndSemester(
                                 student.getId(), targetSemester);
 
-                LocalDate today = LocalDate.now();
+                LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
                 return examStudents.stream()
                                 .map(es -> toExamScheduleDto(es.getExamRoom().getExamSchedule(),
                                                 es.getExamRoom().getRoom().getName(), today))
@@ -211,7 +211,7 @@ public class StudentPortalService {
                 List<ExamStudent> examStudents = examStudentRepository.findByStudentAndSemester(
                                 student.getId(), targetSemester);
 
-                LocalDate today = LocalDate.now();
+                LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
                 return examStudents.stream()
                                 .map(es -> toExamScheduleDto(es.getExamRoom().getExamSchedule(),
                                                 es.getExamRoom().getRoom().getName(), today))
@@ -256,22 +256,20 @@ public class StudentPortalService {
                 }
 
                 // Get actual scores from DB
-
-                List<Score> scores = scoreRepository
-                                .findByStudentAndAcademicYearAndSemester(student, currentAcademicYearEntity, targetSemesterEntity);
+                List<com.schoolmanagement.backend.domain.entity.grade.Grade> grades = gradeRepository.findAllByStudentAndSemester(student, targetSemesterEntity);
 
                 // Group scores by subject
-                Map<UUID, List<Score>> scoresBySubject = scores.stream()
-                                .collect(Collectors.groupingBy(s -> s.getSubject().getId()));
+                Map<UUID, com.schoolmanagement.backend.domain.entity.grade.Grade> gradeBySubject = grades.stream()
+                                .collect(Collectors.toMap(g -> g.getSubject().getId(), g -> g));
 
                 // Build result: all subjects from curriculum + any extra scored subjects
                 List<ScoreDto> result = new ArrayList<>();
 
                 // 1. Add all curriculum subjects (with or without scores)
                 for (Subject subject : allSubjects) {
-                        List<Score> subjectScores = scoresBySubject.remove(subject.getId());
-                        if (subjectScores != null && !subjectScores.isEmpty()) {
-                                ScoreDto dto = calculateSubjectScores(subject.getId(), subjectScores);
+                        com.schoolmanagement.backend.domain.entity.grade.Grade grade = gradeBySubject.remove(subject.getId());
+                        if (grade != null) {
+                                ScoreDto dto = calculateSubjectScoresFromGrade(subject.getId(), grade);
                                 if (dto != null)
                                         result.add(dto);
                         } else {
@@ -290,8 +288,8 @@ public class StudentPortalService {
                 }
 
                 // 2. Add any extra subjects with scores not in the combination
-                for (Map.Entry<UUID, List<Score>> entry : scoresBySubject.entrySet()) {
-                        ScoreDto dto = calculateSubjectScores(entry.getKey(), entry.getValue());
+                for (Map.Entry<UUID, com.schoolmanagement.backend.domain.entity.grade.Grade> entry : gradeBySubject.entrySet()) {
+                        ScoreDto dto = calculateSubjectScoresFromGrade(entry.getKey(), entry.getValue());
                         if (dto != null)
                                 result.add(dto);
                 }
@@ -307,7 +305,7 @@ public class StudentPortalService {
         public AttendanceSummaryDto getAttendance(UUID userId, Integer month, Integer year) {
                 Student student = getStudentForUser(userId);
 
-                LocalDate now = LocalDate.now();
+                LocalDate now = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
                 int targetMonth = month != null ? month : now.getMonthValue();
                 int targetYear = year != null ? year : now.getYear();
 
@@ -355,15 +353,15 @@ public class StudentPortalService {
          * Get dashboard data for the student overview page.
          */
         @Transactional(readOnly = true)
-        public StudentDashboardDto getDashboard(UUID userId) {
+        public StudentDashboardDto getDashboard(UUID userId, String semesterId) {
                 Student dashboardStudent = getStudentForUser(userId);
                 StudentProfileDto profile = getProfile(userId);
-                List<TimetableSlotDto> todaySchedule = getTodaySchedule(userId);
-                List<ExamScheduleDto> upcomingExams = getExamSchedule(userId).stream()
+                List<TimetableSlotDto> todaySchedule = getTodaySchedule(userId, semesterId);
+                List<ExamScheduleDto> upcomingExams = getExamSchedule(userId, semesterId).stream()
                                 .filter(e -> "UPCOMING".equals(e.getStatus()))
                                 .limit(3)
                                 .collect(Collectors.toList());
-                List<ScoreDto> scores = getScores(userId, null);
+                List<ScoreDto> scores = getScores(userId, semesterId);
 
                 // Calculate average score safely (avoid NaN)
                 Double avgScore = scores.stream()
@@ -374,8 +372,12 @@ public class StudentPortalService {
 
                 AttendanceSummaryDto attendance = getAttendance(userId, null, null);
 
-                String semesterLabel = "Học kỳ " + semesterService.getActiveSemesterNumber(dashboardStudent.getSchool())
-                                + " - " + semesterService.getActiveAcademicYearName(dashboardStudent.getSchool());
+                com.schoolmanagement.backend.domain.entity.admin.Semester targetSemester = semesterId != null 
+                        ? semesterService.getSemester(UUID.fromString(semesterId)) 
+                        : semesterService.getActiveSemesterEntity(dashboardStudent.getSchool());
+
+                String semesterLabel = "Học kỳ " + targetSemester.getSemesterNumber()
+                                + " - " + (targetSemester.getAcademicYear() != null ? targetSemester.getAcademicYear().getName() : "");
 
                 return StudentDashboardDto.builder()
                                 .profile(profile)
@@ -542,7 +544,7 @@ public class StudentPortalService {
         // getCurrentAcademicYear() and getCurrentSemester() removed — now using SemesterService
 
         private int getTodayDayOfWeek() {
-                DayOfWeek dow = LocalDate.now().getDayOfWeek();
+                DayOfWeek dow = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).getDayOfWeek();
                 return dow.getValue() + 1;
         }
 
@@ -569,47 +571,28 @@ public class StudentPortalService {
                                 .build();
         }
 
-        private ScoreDto calculateSubjectScores(UUID subjectId, List<Score> scores) {
-                if (scores.isEmpty()) {
-                        return null;
+        private ScoreDto calculateSubjectScoresFromGrade(UUID subjectId, com.schoolmanagement.backend.domain.entity.grade.Grade grade) {
+                if (grade == null) return null;
+
+                String subjectName = grade.getSubject().getName();
+
+                Double oralScore = null;
+                Double test15Score = null;
+                Double test45Score = null;
+
+                if (grade.getRegularScores() != null) {
+                    for (com.schoolmanagement.backend.domain.entity.grade.RegularScore regularScore : grade.getRegularScores()) {
+                        if (regularScore.getScoreValue() != null) {
+                            if (regularScore.getScoreIndex() == 1) oralScore = regularScore.getScoreValue().doubleValue();
+                            else if (regularScore.getScoreIndex() == 2) test15Score = regularScore.getScoreValue().doubleValue();
+                            else if (regularScore.getScoreIndex() == 3) test45Score = regularScore.getScoreValue().doubleValue();
+                        }
+                    }
                 }
 
-                String subjectName = scores.get(0).getSubject().getName();
-
-                Double oralScore = getScoreByType(scores, ScoreType.ORAL);
-                Double test15Score = getScoreByType(scores, ScoreType.TEST_15);
-                Double test45Score = getScoreByType(scores, ScoreType.TEST_45);
-                Double midtermScore = getScoreByType(scores, ScoreType.MIDTERM);
-                Double finalScore = getScoreByType(scores, ScoreType.FINAL);
-
-                // Calculate weighted average: Oral=1, Test15=1, Test45=2, Midterm=2, Final=3
-                double totalWeight = 0;
-                double weightedSum = 0;
-
-                if (oralScore != null) {
-                        weightedSum += oralScore * 1;
-                        totalWeight += 1;
-                }
-                if (test15Score != null) {
-                        weightedSum += test15Score * 1;
-                        totalWeight += 1;
-                }
-                if (test45Score != null) {
-                        weightedSum += test45Score * 2;
-                        totalWeight += 2;
-                }
-                if (midtermScore != null) {
-                        weightedSum += midtermScore * 2;
-                        totalWeight += 2;
-                }
-                if (finalScore != null) {
-                        weightedSum += finalScore * 3;
-                        totalWeight += 3;
-                }
-
-                Double averageScore = totalWeight > 0
-                                ? Math.round(weightedSum / totalWeight * 10.0) / 10.0
-                                : null;
+                Double midtermScore = grade.getMidtermScore() != null ? grade.getMidtermScore().doubleValue() : null;
+                Double finalScore = grade.getFinalScore() != null ? grade.getFinalScore().doubleValue() : null;
+                Double averageScore = grade.getAverageScore() != null ? grade.getAverageScore().doubleValue() : null;
 
                 return ScoreDto.builder()
                                 .subjectId(subjectId.toString())
@@ -621,14 +604,6 @@ public class StudentPortalService {
                                 .finalScore(finalScore)
                                 .averageScore(averageScore)
                                 .build();
-        }
-
-        private Double getScoreByType(List<Score> scores, ScoreType type) {
-                return scores.stream()
-                                .filter(s -> s.getScoreType() == type)
-                                .findFirst()
-                                .map(Score::getValue)
-                                .orElse(null);
         }
 
         private AttendanceRecordDto toAttendanceRecordDto(Attendance attendance) {

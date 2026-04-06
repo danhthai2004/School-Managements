@@ -136,7 +136,7 @@ const GradesPage = () => {
         const updatedStudents = gradeBook.students.map((s: StudentGrade) => {
             if (s.studentId !== studentId) return s;
 
-            const existingGradeIndex = s.grades.findIndex((g: any) => g.type === type && g.index === index);
+            const existingGradeIndex = s.grades.findIndex((g: any) => g.type === type && g.index == index);
             const newGrades = [...s.grades];
 
             if (existingGradeIndex >= 0) {
@@ -200,7 +200,7 @@ const GradesPage = () => {
     };
 
     const getGradeValue = (student: StudentGrade, type: string, index?: number) => {
-        const found = student.grades.find(g => g.type === type && g.index === index);
+        const found = student.grades.find(g => g.type === type && g.index == index);
         return found ? found.value : null;
     };
 
@@ -255,7 +255,7 @@ const GradesPage = () => {
                     <h1 className="text-2xl font-bold text-gray-900">
                         Quản lý điểm số
                     </h1>
-                    <p className="text-gray-500 mt-1">
+                    <p className="text-sm text-gray-500 mt-1">
                         Nhập và theo dõi kết quả học tập của học sinh
                     </p>
                 </div>
