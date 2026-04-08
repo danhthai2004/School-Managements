@@ -126,7 +126,7 @@ export type GradeBook = {
 export type SaveGradeRequest = {
     classId: string;
     subjectId: string;
-    semester: number;
+    semesterId: string;
     students: StudentGrade[];
 };
 
@@ -152,8 +152,10 @@ export const teacherService = {
     },
 
     // Get weekly schedule
-    getWeeklySchedule: async (): Promise<TimetableDetail[]> => {
-        const res = await api.get<TimetableDetail[]>("/teacher/schedule/weekly");
+    getWeeklySchedule: async (semesterId?: string): Promise<TimetableDetail[]> => {
+        const res = await api.get<TimetableDetail[]>("/teacher/schedule/weekly", {
+            params: { semesterId }
+        });
         return res.data;
     },
 
@@ -176,17 +178,17 @@ export const teacherService = {
     },
 
     // Get grade book
-    getGradeBook: async (classId: string, subjectId: string, semester: number = 1): Promise<GradeBook> => {
+    getGradeBook: async (classId: string, subjectId: string, semesterId: string): Promise<GradeBook> => {
         const res = await api.get<GradeBook>("/teacher/grades", {
-            params: { classId, subjectId, semester }
+            params: { classId, subjectId, semesterId }
         });
         return res.data;
     },
 
     // Get teacher exam schedule (invigilation)
-    getExamSchedule: async (academicYear?: string, semester?: number): Promise<import("../services/studentService").ExamScheduleDto[]> => {
+    getExamSchedule: async (semesterId?: string): Promise<import("../services/studentService").ExamScheduleDto[]> => {
         const res = await api.get<import("../services/studentService").ExamScheduleDto[]>("/teacher/schedule/exam", {
-            params: { academicYear, semester }
+            params: { semesterId }
         });
         return res.data;
     },

@@ -22,9 +22,9 @@ public class GradeController {
             Authentication authentication,
             @RequestParam UUID classId,
             @RequestParam UUID subjectId,
-            @RequestParam(defaultValue = "1") Integer semester) {
+            @RequestParam String semesterId) {
         return ResponseEntity.ok(gradeService.getGradeBook(
-                authentication.getName(), classId, subjectId, semester));
+                authentication.getName(), classId, subjectId, semesterId));
     }
 
     @PostMapping
@@ -35,7 +35,7 @@ public class GradeController {
                 authentication.getName(),
                 request.classId(),
                 request.subjectId(),
-                request.semester(),
+                request.semesterId(),
                 request.students());
         return ResponseEntity.ok().build();
     }
@@ -43,7 +43,7 @@ public class GradeController {
     public record SaveGradeRequest(
             UUID classId,
             UUID subjectId,
-            Integer semester,
+            String semesterId,
             List<GradeBookDto.StudentGradeDto> students) {
     }
 }

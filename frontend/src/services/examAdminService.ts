@@ -73,8 +73,10 @@ export type ExamStudentDetailDto = {
 
 export const examAdminService = {
     // ExamSession CRUD
-    listSessions: async (): Promise<ExamSessionDto[]> => {
-        const res = await api.get<ExamSessionDto[]>("/school/exam-admin/sessions");
+    listSessions: async (academicYear?: string, semester?: number): Promise<ExamSessionDto[]> => {
+        const res = await api.get<ExamSessionDto[]>("/school/exam-admin/sessions", {
+            params: { academicYear, semester }
+        });
         return res.data;
     },
 

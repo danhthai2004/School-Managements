@@ -34,6 +34,6 @@ public class FallbackHandler implements ChatHandler {
     public ChatContext handleOutOfScope() {
         return ChatContext.denied(ChatIntent.OUT_OF_SCOPE,
                 "Xin lỗi, câu hỏi này nằm ngoài phạm vi hỗ trợ của tôi. " +
-                        "Tôi không quản lý thông tin về học phí, tài chính, hoặc đánh giá giáo viên.");
+                        "Tôi chỉ quản lý thông tin về điểm số, thời khóa biểu, điểm danh, và thông báo của nhà trường.");
     }
 }

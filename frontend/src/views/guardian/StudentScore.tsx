@@ -2,6 +2,8 @@ import {useEffect, useState} from "react";
 import type {ScoreDto} from "../../services/studentService.ts";
 import {studentService} from "../../services/studentService.ts";
 import {Download, Filter} from "lucide-react";
+import { useSemester } from "../../context/SemesterContext";
+import SemesterSelector from "../../components/common/SemesterSelector";
 
 const getScoreColor = (score: number | null) => {
   if (!score && score !== 0) return "text-gray-400";
@@ -14,14 +16,25 @@ const getScoreColor = (score: number | null) => {
 export default function StudentScore() {
   const [loading, setLoading] = useState(true);
   const [scores, setScores] = useState<ScoreDto[]>([]);
-  const [semester, setSemester] = useState("1");
+  const { activeSemester, allSemesters, loading: isContextLoading } = useSemester();
+  const [selectedSemesterId, setSelectedSemesterId] = useState<string>("");
   const [showFilter, setShowFilter] = useState(false);
+
+  // Initial load priority: System Active Semester
+  useEffect(() => {
+    if (!selectedSemesterId && activeSemester) {
+        setSelectedSemesterId(activeSemester.id);
+    }
+  }, [activeSemester, selectedSemesterId]);
+
+  const selectedSemester = allSemesters.find(s => s.id === selectedSemesterId);
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!selectedSemesterId) return;
       setLoading(true);
       try {
-        const data = await studentService.getScores(parseInt(semester));
+        const data = await studentService.getScores(selectedSemesterId);
         setScores(data);
       } catch (error) {
         console.error("Error fetching scores:", error);
@@ -29,14 +42,17 @@ export default function StudentScore() {
         setLoading(false);
       }
     };
-    fetchData();
-  }, [semester]);
+    if (!isContextLoading) {
+        fetchData();
+    }
+  }, [selectedSemesterId, isContextLoading]);
 
-  const overallAverage = scores.length > 0
-    ? scores.reduce((sum, s) => sum + (s.averageScore || 0), 0) / scores.filter(s => s.averageScore).length
+  const validScores = scores.filter(s => s.averageScore !== null && s.averageScore !== undefined);
+  const overallAverage = validScores.length > 0
+    ? validScores.reduce((sum, s) => sum + (s.averageScore || 0), 0) / validScores.length
     : null;
 
-  if (loading) {
+  if (loading || isContextLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -50,9 +66,16 @@ export default function StudentScore() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Bảng điểm</h1>
-          <p className="text-gray-500 mt-1">Học kỳ {semester} - Năm học 2024-2025</p>
+          <p className="text-sm text-gray-500 mt-1">
+             Học kỳ {selectedSemester?.semesterNumber || "-"} - Năm học {selectedSemester?.academicYearName || "hiện tại"}
+          </p>
         </div>
         <div className="flex items-center gap-3">
+          <SemesterSelector 
+            value={selectedSemesterId} 
+            onChange={setSelectedSemesterId}
+            label="" 
+          />
           <div className="relative">
             <button
               onClick={() => setShowFilter(!showFilter)}
@@ -63,18 +86,7 @@ export default function StudentScore() {
             </button>
             {showFilter && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 p-2 z-10">
-                <button
-                  onClick={() => { setSemester("1"); setShowFilter(false); }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm ${semester === "1" ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'}`}
-                >
-                  Học kỳ 1
-                </button>
-                <button
-                  onClick={() => { setSemester("2"); setShowFilter(false); }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm ${semester === "2" ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'}`}
-                >
-                  Học kỳ 2
-                </button>
+                 <div className="px-3 py-2 text-sm text-gray-500">Bộ lọc theo lịch học đã chuyển liên kết với header.</div>
               </div>
             )}
           </div>

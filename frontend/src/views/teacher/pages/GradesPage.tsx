@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
-    Save, FileText, Download, Upload, AlertCircle, CheckCircle, Users, Hash, Award, Plus, Minus
+    Save, FileText, Download, Upload, AlertCircle, CheckCircle, Users, Award, Plus, Minus
 } from "lucide-react";
 import { teacherService } from "../../../services/teacherService";
 import type { GradeBook, StudentGrade, AssignedClass } from "../../../services/teacherService";
+import { useSemester } from "../../../context/SemesterContext";
+import SemesterSelector from "../../../components/common/SemesterSelector";
 
 const GradeInput: React.FC<{
     value: number | null;
@@ -76,7 +78,15 @@ const GradesPage = () => {
     // Selection state
     const [selectedClassId, setSelectedClassId] = useState<string>("");
     const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
-    const [selectedSemester, setSelectedSemester] = useState<number>(1);
+    const { activeSemester } = useSemester();
+    const [selectedSemesterId, setSelectedSemesterId] = useState<string>("");
+
+    // Priority: Default to system ACTIVE semester on first load
+    useEffect(() => {
+        if (!selectedSemesterId && activeSemester) {
+            setSelectedSemesterId(activeSemester.id);
+        }
+    }, [activeSemester, selectedSemesterId]);
 
     const [gradeBook, setGradeBook] = useState<GradeBook | null>(null);
     const [localRegularCount, setLocalRegularCount] = useState<number>(1);
@@ -100,12 +110,12 @@ const GradesPage = () => {
     }, []);
 
     const fetchGrades = useCallback(async () => {
-        if (!selectedClassId || !selectedSubjectId) return;
+        if (!selectedClassId || !selectedSubjectId || !selectedSemesterId) return;
 
         setLoading(true);
         setMsg(null);
         try {
-            const data = await teacherService.getGradeBook(selectedClassId, selectedSubjectId, selectedSemester);
+            const data = await teacherService.getGradeBook(selectedClassId, selectedSubjectId, selectedSemesterId);
             setGradeBook(data);
             setLocalRegularCount(data.regularAssessmentCount || 1);
         } catch (err: any) {
@@ -114,7 +124,7 @@ const GradesPage = () => {
         } finally {
             setLoading(false);
         }
-    }, [selectedClassId, selectedSubjectId, selectedSemester]);
+    }, [selectedClassId, selectedSubjectId, selectedSemesterId]);
 
     useEffect(() => {
         fetchGrades();
@@ -123,10 +133,10 @@ const GradesPage = () => {
     const handleGradeChange = (studentId: string, type: 'REGULAR' | 'MID_TERM' | 'FINAL_TERM', index: number | undefined, newValue: number | null) => {
         if (!gradeBook) return;
 
-        const updatedStudents = gradeBook.students.map(s => {
+        const updatedStudents = gradeBook.students.map((s: StudentGrade) => {
             if (s.studentId !== studentId) return s;
 
-            const existingGradeIndex = s.grades.findIndex(g => g.type === type && g.index === index);
+            const existingGradeIndex = s.grades.findIndex((g: any) => g.type === type && g.index == index);
             const newGrades = [...s.grades];
 
             if (existingGradeIndex >= 0) {
@@ -144,7 +154,7 @@ const GradesPage = () => {
     const handleAddColumn = () => {
         if (!gradeBook?.canEdit) return;
         if (localRegularCount < 10) {
-            setLocalRegularCount(prev => prev + 1);
+            setLocalRegularCount((prev: number) => prev + 1);
         } else {
             setMsg({ type: 'error', text: "Tối đa 10 cột điểm thường xuyên." });
             setTimeout(() => setMsg(null), 3000);
@@ -156,8 +166,8 @@ const GradesPage = () => {
         if (localRegularCount <= 1) return;
 
         // Check if removing this column would hide existing data
-        const hasDataInLastColumn = gradeBook.students.some(s => {
-            const found = s.grades.find(g => g.type === 'REGULAR' && g.index === localRegularCount);
+        const hasDataInLastColumn = gradeBook.students.some((s: StudentGrade) => {
+            const found = s.grades.find((g: any) => g.type === 'REGULAR' && g.index === localRegularCount);
             return found && found.value !== null && found.value !== undefined;
         });
 
@@ -167,17 +177,17 @@ const GradesPage = () => {
             return;
         }
 
-        setLocalRegularCount(prev => prev - 1);
+        setLocalRegularCount((prev: number) => prev - 1);
     };
 
     const handleSave = async () => {
-        if (!gradeBook) return;
+        if (!gradeBook || !selectedSemesterId) return;
         setSaving(true);
         try {
             await teacherService.saveGrades({
                 classId: selectedClassId,
                 subjectId: selectedSubjectId,
-                semester: selectedSemester,
+                semesterId: selectedSemesterId,
                 students: gradeBook.students
             });
             setMsg({ type: 'success', text: "Lưu điểm thành công!" });
@@ -190,7 +200,7 @@ const GradesPage = () => {
     };
 
     const getGradeValue = (student: StudentGrade, type: string, index?: number) => {
-        const found = student.grades.find(g => g.type === type && g.index === index);
+        const found = student.grades.find(g => g.type === type && g.index == index);
         return found ? found.value : null;
     };
 
@@ -235,7 +245,7 @@ const GradesPage = () => {
     };
 
     // Get selected class info for display
-    const selectedAssignment = assignedClasses.find(ac => ac.classId === selectedClassId && ac.subjectId === selectedSubjectId);
+    const selectedAssignment = assignedClasses.find((ac: AssignedClass) => ac.classId === selectedClassId && ac.subjectId === selectedSubjectId);
 
     return (
         <div className="space-y-5">
@@ -245,7 +255,7 @@ const GradesPage = () => {
                     <h1 className="text-2xl font-bold text-gray-900">
                         Quản lý điểm số
                     </h1>
-                    <p className="text-gray-500 mt-1">
+                    <p className="text-sm text-gray-500 mt-1">
                         Nhập và theo dõi kết quả học tập của học sinh
                     </p>
                 </div>
@@ -286,7 +296,7 @@ const GradesPage = () => {
             {/* Main Data Container */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
                 {/* Filter Bar */}
-                <div className="px-6 py-4 bg-white border-b border-gray-100 flex flex-wrap gap-4 items-center justify-between text-sm">
+                <div className="px-6 py-4 bg-white border-b border-gray-100 flex flex-wrap gap-4 items-end justify-between text-sm">
                     <div className="flex flex-wrap gap-5 items-end">
                         <div className="flex-1 min-w-[280px]">
                             <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
@@ -303,7 +313,7 @@ const GradesPage = () => {
                                 }}
                             >
                                 <option value="">Chọn lớp học phần...</option>
-                                {assignedClasses.map((ac, idx) => (
+                                {assignedClasses.map((ac: AssignedClass, idx: number) => (
                                     <option key={`${ac.classId}-${ac.subjectId}-${idx}`} value={`${ac.classId}|${ac.subjectId}`}>
                                         {ac.className} — {ac.subjectName}
                                     </option>
@@ -311,32 +321,11 @@ const GradesPage = () => {
                             </select>
                         </div>
 
-                        <div>
-                            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                                <Hash className="w-3.5 h-3.5" />
-                                Học kỳ
-                            </label>
-                            <div className="flex bg-white border border-slate-200 rounded-lg p-1">
-                                <button
-                                    onClick={() => setSelectedSemester(1)}
-                                    className={`px-5 py-2 text-sm rounded-lg transition-all font-medium ${selectedSemester === 1
-                                        ? 'bg-blue-600 text-white shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-                                        }`}
-                                >
-                                    Học kỳ I
-                                </button>
-                                <button
-                                    onClick={() => setSelectedSemester(2)}
-                                    className={`px-5 py-2 text-sm rounded-lg transition-all font-medium ${selectedSemester === 2
-                                        ? 'bg-blue-600 text-white shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-                                        }`}
-                                >
-                                    Học kỳ II
-                                </button>
-                            </div>
-                        </div>
+                        <SemesterSelector 
+                            value={selectedSemesterId} 
+                            onChange={setSelectedSemesterId}
+                            label="Học kỳ" 
+                        />
 
                         {/* Info badges */}
                         {selectedAssignment && gradeBook && (

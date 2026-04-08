@@ -92,6 +92,7 @@ public class HomeroomHandler implements ChatHandler {
                 }
                 case LATE -> lateToday++;
                 case ABSENT_EXCUSED -> excusedToday++;
+                case ABSENT -> absentToday++; // Handle legacy ABSENT
                 case PRESENT -> {
                 }
             }

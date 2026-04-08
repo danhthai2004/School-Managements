@@ -21,10 +21,10 @@ export default function SettingsPage() {
     return (
         <div className="animate-fade-in-up">
             <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                <h1 className="text-2xl font-bold text-gray-900">
                     Cài đặt lớp {teacherProfile.homeroomClassName}
                 </h1>
-                <p className="text-gray-500">Quản lý cài đặt cho lớp chủ nhiệm của bạn</p>
+                <p className="text-sm text-gray-500 mt-1">Quản lý cài đặt cho lớp chủ nhiệm của bạn</p>
             </div>
 
             <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">

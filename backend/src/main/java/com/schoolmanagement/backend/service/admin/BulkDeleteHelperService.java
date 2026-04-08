@@ -9,6 +9,7 @@ import com.schoolmanagement.backend.repo.attendance.AttendanceRepository;
 import com.schoolmanagement.backend.repo.student.GuardianRepository;
 import com.schoolmanagement.backend.repo.auth.UserRepository;
 import com.schoolmanagement.backend.repo.teacher.TeacherAssignmentRepository;
+import com.schoolmanagement.backend.repo.teacher.ExamInvigilatorRepository;
 import com.schoolmanagement.backend.repo.timetable.TimetableDetailRepository;
 
 import com.schoolmanagement.backend.domain.entity.classes.ClassEnrollment;
@@ -37,8 +38,8 @@ public class BulkDeleteHelperService {
     private final GradeRepository gradeRepo;
     private final AttendanceRepository attendanceRepo;
     private final GuardianRepository guardianRepo;
-
     private final UserRepository userRepo;
+    private final ExamInvigilatorRepository examInvigilatorRepo;
 
     // Additional Repos for cleanup if not covered by main repo methods
     // In this plan, we put JPQL in main repos, so we trigger them here.
@@ -132,47 +133,78 @@ public class BulkDeleteHelperService {
                 .orElseThrow(() -> new com.schoolmanagement.backend.exception.ApiException(
                         org.springframework.http.HttpStatus.NOT_FOUND, "Giáo viên không tồn tại: " + teacherId));
 
-        // 1. Check Homeroom Logic
-        // Find if teacher is homeroom for any class
+        // Validation steps
+        validateNoHomeroom(teacher);
+        validateNoAssignments(teacher);
+        validateNoTimetable(teacher);
+        validateNoGrades(teacher);
+        validateNoAttendance(teacher);
+        validateNoExamInvigilation(teacher);
+
+        // Cleanup and Delete
+        com.schoolmanagement.backend.domain.entity.auth.User user = teacher.getUser();
+        teacherRepo.delete(teacher);
+
+        if (user != null) {
+            log.info("Deleting associated user account for teacher: {}", user.getEmail());
+            userRepo.delete(user);
+        }
+    }
+
+    private void validateNoHomeroom(Teacher teacher) {
         if (teacher.getUser() != null) {
             var classRoomOpt = classRepo.findByHomeroomTeacher(teacher.getUser());
             if (classRoomOpt.isPresent()) {
-                ClassRoom classRoom = classRoomOpt.get();
                 throw new com.schoolmanagement.backend.exception.ApiException(
                         org.springframework.http.HttpStatus.BAD_REQUEST,
-                        "Giáo viên " + teacher.getFullName() + " đang chủ nhiệm lớp " + classRoom.getName()
+                        "Giáo viên " + teacher.getFullName() + " đang chủ nhiệm lớp " + classRoomOpt.get().getName()
                                 + ". Vui lòng gỡ bỏ quyền chủ nhiệm trước khi xóa.");
             }
         }
+    }
 
-        // 2. Check Assignments
+    private void validateNoAssignments(Teacher teacher) {
         if (assignmentRepo.existsByTeacher(teacher)) {
             throw new com.schoolmanagement.backend.exception.ApiException(
                     org.springframework.http.HttpStatus.BAD_REQUEST,
                     "Giáo viên " + teacher.getFullName()
                             + " đang được phân công giảng dạy các môn học. Vui lòng gỡ bỏ phân công trước khi xóa.");
         }
+    }
 
-        // 3. Check Timetable
+    private void validateNoTimetable(Teacher teacher) {
         if (timetableRepo.existsByTeacher(teacher)) {
             throw new com.schoolmanagement.backend.exception.ApiException(
                     org.springframework.http.HttpStatus.BAD_REQUEST,
                     "Giáo viên " + teacher.getFullName()
                             + " đang có lịch giảng dạy trong thời khóa biểu. Vui lòng cập nhật thời khóa biểu trước khi xóa.");
         }
+    }
 
-        // 4. Cleanup and Delete (If passed all checks)
+    private void validateNoGrades(Teacher teacher) {
+        if (gradeRepo.existsByTeacher(teacher)) {
+            throw new com.schoolmanagement.backend.exception.ApiException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Giáo viên " + teacher.getFullName()
+                            + " đã ghi nhận điểm cho học sinh. Không thể xóa dữ liệu này để đảm bảo tính toàn vẹn hồ sơ.");
+        }
+    }
 
-        // Capture user before deleting teacher
-        com.schoolmanagement.backend.domain.entity.auth.User user = teacher.getUser();
+    private void validateNoAttendance(Teacher teacher) {
+        if (attendanceRepo.existsByTeacher(teacher)) {
+            throw new com.schoolmanagement.backend.exception.ApiException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Giáo viên " + teacher.getFullName()
+                            + " đã ghi nhận thông tin điểm danh. Không thể xóa dữ liệu này.");
+        }
+    }
 
-        // Delete Teacher
-        teacherRepo.delete(teacher);
-
-        // 5. Delete associated User account
-        if (user != null) {
-            log.info("Deleting associated user account for teacher: {}", user.getEmail());
-            userRepo.delete(user);
+    private void validateNoExamInvigilation(Teacher teacher) {
+        if (examInvigilatorRepo.existsByTeacher(teacher)) {
+            throw new com.schoolmanagement.backend.exception.ApiException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Giáo viên " + teacher.getFullName()
+                            + " đang được phân công giám thị trong các kỳ thi. Vui lòng gỡ bỏ phân công trước khi xóa.");
         }
     }
 }

@@ -7,6 +7,8 @@ type OutletContextType = {
     teacherProfile: TeacherProfile | null;
 };
 
+import { createPortal } from "react-dom";
+
 // Helper to get conduct badge color
 const getConductBadgeClass = (grade?: string) => {
     switch (grade) {
@@ -60,91 +62,90 @@ const StatCard = ({ icon, label, value, subValue, colorClass, delay = 0 }: {
 const StudentDetailModal = ({ student, onClose }: { student: HomeroomStudent | null; onClose: () => void }) => {
     if (!student) return null;
 
-    return (
-        <>
-            <div className="fixed inset-0 bg-black/50 z-50" onClick={onClose} />
-            <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                    <div className="p-6 border-b border-gray-100">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-gray-900">Thông tin học sinh</h2>
-                            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
+    return createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/50 transition-opacity" onClick={onClose} />
+            <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto relative z-[101]" onClick={e => e.stopPropagation()}>
+                <div className="p-6 border-b border-gray-100">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-bold text-gray-900">Thông tin học sinh</h2>
+                        <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div className="p-6 space-y-4">
+                    {/* Avatar and name */}
+                    <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
+                            {student.fullName.charAt(0)}
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900">{student.fullName}</h3>
+                            <p className="text-sm text-gray-500">MSHS: {student.studentCode}</p>
                         </div>
                     </div>
-                    <div className="p-6 space-y-4">
-                        {/* Avatar and name */}
-                        <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
-                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
-                                {student.fullName.charAt(0)}
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-900">{student.fullName}</h3>
-                                <p className="text-sm text-gray-500">MSHS: {student.studentCode}</p>
-                            </div>
-                        </div>
 
-                        {/* Info grid */}
+                    {/* Info grid */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-xs text-gray-500 mb-1">Giới tính</p>
+                            <p className="text-sm font-medium text-gray-900">
+                                {student.gender === 'MALE' ? 'Nam' : student.gender === 'FEMALE' ? 'Nữ' : 'Khác'}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 mb-1">Trạng thái</p>
+                            <StatusBadge status={student.status} />
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 mb-1">Điện thoại</p>
+                            <p className="text-sm font-medium text-gray-900">{student.phone || '—'}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 mb-1">Email</p>
+                            <p className="text-sm font-medium text-gray-900 truncate">{student.email || '—'}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 mb-1">GPA trung bình</p>
+                            <p className="text-sm font-medium text-gray-900">
+                                {student.averageGpa ? student.averageGpa.toFixed(1) : '—'}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 mb-1">Tỷ lệ chuyên cần</p>
+                            <p className="text-sm font-medium text-gray-900">
+                                {student.attendanceRate ? `${student.attendanceRate.toFixed(0)}%` : '—'}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 mb-1">Hạnh kiểm</p>
+                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getConductBadgeClass(student.conductGrade)}`}>
+                                {student.conductGrade || '—'}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Parent contact */}
+                    <div className="pt-4 border-t border-gray-100">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-3">Liên hệ phụ huynh</h4>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <p className="text-xs text-gray-500 mb-1">Giới tính</p>
-                                <p className="text-sm font-medium text-gray-900">
-                                    {student.gender === 'MALE' ? 'Nam' : student.gender === 'FEMALE' ? 'Nữ' : 'Khác'}
-                                </p>
+                                <p className="text-xs text-gray-500 mb-1">Điện thoại PH</p>
+                                <p className="text-sm font-medium text-gray-900">{student.parentPhone || '—'}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-gray-500 mb-1">Trạng thái</p>
-                                <StatusBadge status={student.status} />
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500 mb-1">Điện thoại</p>
-                                <p className="text-sm font-medium text-gray-900">{student.phone || '—'}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500 mb-1">Email</p>
-                                <p className="text-sm font-medium text-gray-900 truncate">{student.email || '—'}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500 mb-1">GPA trung bình</p>
-                                <p className="text-sm font-medium text-gray-900">
-                                    {student.averageGpa ? student.averageGpa.toFixed(1) : '—'}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500 mb-1">Tỷ lệ chuyên cần</p>
-                                <p className="text-sm font-medium text-gray-900">
-                                    {student.attendanceRate ? `${student.attendanceRate.toFixed(0)}%` : '—'}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500 mb-1">Hạnh kiểm</p>
-                                <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getConductBadgeClass(student.conductGrade)}`}>
-                                    {student.conductGrade || '—'}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Parent contact */}
-                        <div className="pt-4 border-t border-gray-100">
-                            <h4 className="text-sm font-semibold text-gray-900 mb-3">Liên hệ phụ huynh</h4>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <p className="text-xs text-gray-500 mb-1">Điện thoại PH</p>
-                                    <p className="text-sm font-medium text-gray-900">{student.parentPhone || '—'}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500 mb-1">Email PH</p>
-                                    <p className="text-sm font-medium text-gray-900 truncate">{student.parentEmail || '—'}</p>
-                                </div>
+                                <p className="text-xs text-gray-500 mb-1">Email PH</p>
+                                <p className="text-sm font-medium text-gray-900 truncate">{student.parentEmail || '—'}</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </>
+        </div>,
+        document.body
     );
 };
 
@@ -267,7 +268,7 @@ export default function StudentListPage() {
                     <h1 className="text-2xl font-bold text-gray-900">
                         Danh sách học sinh
                     </h1>
-                    <p className="text-gray-500 mt-1">
+                    <p className="text-sm text-gray-500 mt-1">
                         Lớp {teacherProfile.homeroomClassName}
                     </p>
                 </div>

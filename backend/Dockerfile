@@ -1,5 +1,5 @@
 # Build stage
-FROM maven:3.9-eclipse-temurin-21-alpine AS build
+FROM maven:3.9-eclipse-temurin-21-jammy AS build
 WORKDIR /app
 COPY pom.xml .
 COPY src ./src
@@ -16,7 +16,7 @@ ENTRYPOINT ["java", "-jar", "-agentlib:jdwp=transport=dt_socket,server=y,suspend
 # ======================
 # Dev stage (HOT RELOAD)
 # ======================
-FROM maven:3.9-eclipse-temurin-21-alpine AS dev
+FROM maven:3.9-eclipse-temurin-21-jammy AS dev
 WORKDIR /app
 
 COPY pom.xml .

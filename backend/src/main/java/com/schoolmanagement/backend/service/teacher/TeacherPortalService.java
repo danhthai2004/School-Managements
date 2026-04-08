@@ -42,6 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import com.schoolmanagement.backend.service.admin.SemesterService;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -67,25 +68,22 @@ public class TeacherPortalService {
         private final TimetableRepository timetableRepository;
         private final SchoolTimetableSettingsService settingsService;
         private final com.schoolmanagement.backend.repo.teacher.ExamInvigilatorRepository examInvigilatorRepository;
+        private final SemesterService semesterService;
 
         private static final String[] CONDUCT_GRADES = { "Xuất sắc", "Tốt", "Khá", "Trung bình", "Yếu" };
 
-        public List<ExamScheduleDto> getExamSchedule(String email,
-                        String academicYear, Integer semester) {
+        public List<ExamScheduleDto> getExamSchedule(String email, String semesterId) {
                 User user = findTeacherByEmail(email);
                 com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher = teacherRepository.findByUser(user)
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                                                 "Teacher not found"));
+                
+                com.schoolmanagement.backend.domain.entity.admin.Semester targetSemester = semesterId != null 
+                        ? semesterService.getSemester(java.util.UUID.fromString(semesterId))
+                        : semesterService.getActiveSemesterEntity(user.getSchool());
 
                 List<com.schoolmanagement.backend.domain.entity.teacher.ExamInvigilator> invigilations;
-
-                if (academicYear != null && semester != null) {
-                        invigilations = examInvigilatorRepository
-                                        .findByTeacherAndAcademicYearAndSemesterOrderByExamDate(
-                                                        teacher.getId(), academicYear, semester);
-                } else {
-                        invigilations = examInvigilatorRepository.findByTeacherOrderByExamDate(teacher.getId());
-                }
+                invigilations = examInvigilatorRepository.findByTeacherAndSemesterOrderByExamDate(teacher.getId(), targetSemester);
 
                 LocalDate today = LocalDate.now();
 
@@ -128,11 +126,11 @@ public class TeacherPortalService {
          */
         public TeacherProfileDto getTeacherProfile(String email) {
                 User teacher = findTeacherByEmail(email);
-                String currentAcademicYear = getCurrentAcademicYear();
+                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = semesterService.getActiveAcademicYear(teacher.getSchool());
 
                 log.info("=== Teacher Profile Debug ===");
                 log.info("Teacher email: {}, User ID: {}", email, teacher.getId());
-                log.info("Current academic year: {}", currentAcademicYear);
+                log.info("Current academic year: {}", currentAcademicYear != null ? currentAcademicYear.getName() : "null");
 
                 // First try with current academic year
                 Optional<ClassRoom> homeroomClass = classRoomRepository
@@ -225,9 +223,9 @@ public class TeacherPortalService {
                 LocalDate today = LocalDate.now();
                 DayOfWeek dayOfWeek = today.getDayOfWeek();
 
-                // Get official timetable
+                com.schoolmanagement.backend.domain.entity.admin.Semester activeSemester = semesterService.getActiveSemesterEntity(user.getSchool());
                 Optional<com.schoolmanagement.backend.domain.entity.timetable.Timetable> timetableOpt = timetableRepository
-                                .findFirstBySchoolAndStatusOrderByCreatedAtDesc(user.getSchool(),
+                                .findFirstBySchoolAndSemesterAndStatusOrderByCreatedAtDesc(user.getSchool(), activeSemester,
                                                 TimetableStatus.OFFICIAL);
 
                 if (timetableOpt.isEmpty()) {
@@ -249,15 +247,19 @@ public class TeacherPortalService {
         /**
          * Get weekly schedule
          */
-        public List<com.schoolmanagement.backend.dto.timetable.TimetableDetailDto> getWeeklySchedule(String email) {
+        public List<com.schoolmanagement.backend.dto.timetable.TimetableDetailDto> getWeeklySchedule(String email, String semesterId) {
                 User user = findTeacherByEmail(email);
                 com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher = teacherRepository.findByUser(user)
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                                                 "Teacher profile not found"));
 
                 // Get official timetable
+                com.schoolmanagement.backend.domain.entity.admin.Semester targetSemester = semesterId != null 
+                        ? semesterService.getSemester(java.util.UUID.fromString(semesterId))
+                        : semesterService.getActiveSemesterEntity(user.getSchool());
+                        
                 Optional<com.schoolmanagement.backend.domain.entity.timetable.Timetable> timetableOpt = timetableRepository
-                                .findFirstBySchoolAndStatusOrderByCreatedAtDesc(user.getSchool(),
+                                .findFirstBySchoolAndSemesterAndStatusOrderByCreatedAtDesc(user.getSchool(), targetSemester,
                                                 TimetableStatus.OFFICIAL);
 
                 if (timetableOpt.isEmpty()) {
@@ -305,7 +307,7 @@ public class TeacherPortalService {
                 }
 
                 ClassRoom homeroom = homeroomClass.get();
-                String currentAcademicYear = getCurrentAcademicYear();
+                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = homeroom.getAcademicYear();
 
                 // Fetch enrollments for this classroom in current academic year
                 List<ClassEnrollment> enrollments = classEnrollmentRepository
@@ -384,17 +386,13 @@ public class TeacherPortalService {
         }
 
         private int getStudentCount(ClassRoom classRoom) {
-                String currentAcademicYear = getCurrentAcademicYear();
+                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = classRoom.getAcademicYear();
                 List<ClassEnrollment> enrollments = classEnrollmentRepository
                                 .findAllByClassRoomAndAcademicYear(classRoom, currentAcademicYear);
                 return enrollments.size();
         }
 
-        private String getCurrentAcademicYear() {
-                int year = LocalDate.now().getYear();
-                int month = LocalDate.now().getMonthValue();
-                return month >= 9 ? year + "-" + (year + 1) : (year - 1) + "-" + year;
-        }
+        // getCurrentAcademicYear() removed — now using semesterService.getActiveAcademicYearName()
 
         private HomeroomStudentDto mapToHomeroomStudentDto(Student student) {
                 Random random = new Random(student.getId().hashCode());

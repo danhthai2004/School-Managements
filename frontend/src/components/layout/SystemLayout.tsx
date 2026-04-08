@@ -114,7 +114,7 @@ export default function SystemLayout() {
           <button
             onClick={handleLogout}
             title={sidebarCollapsed ? "Đăng xuất" : undefined}
-            className={`w-full flex items-center gap-3 px-3 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm ${sidebarCollapsed ? "justify-center" : ""
+            className={`flex items-center gap-3 px-3 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm ${sidebarCollapsed ? "justify-center" : ""
               }`}
           >
             <LogoutIcon />
@@ -145,10 +145,7 @@ export default function SystemLayout() {
 
             {/* Right side */}
             <div className="flex items-center gap-4">
-              <NotificationBell
-                apiEndpoint="/system/notifications"
-                countEndpoint="/system/notifications/count"
-              />
+              <NotificationBell />
 
               <div className="relative">
                 <button

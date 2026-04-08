@@ -1,14 +1,8 @@
 import { useState, useEffect } from "react";
 import { studentService, type ScoreDto } from "../../services/studentService";
-import { Filter, Download, BookOpen } from "lucide-react";
-
-const getCurrentAcademicYear = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-    if (month >= 9) return `${year}-${year + 1}`;
-    return `${year - 1}-${year}`;
-};
+import { Download, BookOpen } from "lucide-react";
+import { useSemester } from "../../context/SemesterContext";
+import SemesterSelector from "../../components/common/SemesterSelector";
 
 const getScoreColor = (score: number | null) => {
     if (!score && score !== 0) return "text-gray-400";
@@ -21,14 +15,24 @@ const getScoreColor = (score: number | null) => {
 export default function StudentScoresPage() {
     const [loading, setLoading] = useState(true);
     const [scores, setScores] = useState<ScoreDto[]>([]);
-    const [semester, setSemester] = useState("1");
-    const [showFilter, setShowFilter] = useState(false);
+    const { activeSemester, allSemesters } = useSemester();
+    const [selectedSemesterId, setSelectedSemesterId] = useState<string>("");
+
+    // Initial load priority: System Active Semester
+    useEffect(() => {
+        if (!selectedSemesterId && activeSemester) {
+            setSelectedSemesterId(activeSemester.id);
+        }
+    }, [activeSemester, selectedSemesterId]);
+
+    const selectedSemester = allSemesters.find(s => s.id === selectedSemesterId);
 
     useEffect(() => {
         const fetchData = async () => {
+            if (!selectedSemesterId) return;
             setLoading(true);
             try {
-                const data = await studentService.getScores(parseInt(semester));
+                const data = await studentService.getScores(selectedSemesterId);
                 setScores(data);
             } catch (error) {
                 console.error("Error fetching scores:", error);
@@ -37,7 +41,7 @@ export default function StudentScoresPage() {
             }
         };
         fetchData();
-    }, [semester]);
+    }, [selectedSemesterId]);
 
     const validScores = scores.filter(s => s.averageScore !== null && s.averageScore !== undefined);
     const overallAverage = validScores.length > 0
@@ -58,34 +62,17 @@ export default function StudentScoresPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Bảng điểm</h1>
-                    <p className="text-gray-500 mt-1">Học kỳ {semester} - Năm học {getCurrentAcademicYear()}</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                        Học kỳ {selectedSemester?.semesterNumber || 1} - Năm học {selectedSemester?.academicYearName || "Hiện tại"}
+                    </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <button
-                            onClick={() => setShowFilter(!showFilter)}
-                            className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-                        >
-                            <Filter className="w-4 h-4" />
-                            Lọc môn
-                        </button>
-                        {showFilter && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 p-2 z-10">
-                                <button
-                                    onClick={() => { setSemester("1"); setShowFilter(false); }}
-                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm ${semester === "1" ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'}`}
-                                >
-                                    Học kỳ 1
-                                </button>
-                                <button
-                                    onClick={() => { setSemester("2"); setShowFilter(false); }}
-                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm ${semester === "2" ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'}`}
-                                >
-                                    Học kỳ 2
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                    <SemesterSelector 
+                        value={selectedSemesterId} 
+                        onChange={setSelectedSemesterId}
+                        label=""
+                        className="h-[42px]"
+                    />
                     <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
                         <Download className="w-4 h-4" />
                         Xuất bảng điểm

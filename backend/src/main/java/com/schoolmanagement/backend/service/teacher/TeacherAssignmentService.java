@@ -31,6 +31,7 @@ public class TeacherAssignmentService {
     // private final UserRepository users; // No longer needed directly for
     // assignment
     private final com.schoolmanagement.backend.repo.teacher.TeacherRepository teachers;
+    private final com.schoolmanagement.backend.repo.timetable.TimetableDetailRepository timetableDetailRepository;
 
     /**
      * Initialize empty assignments for all classes based on their combinations.
@@ -137,6 +138,10 @@ public class TeacherAssignmentService {
 
         assignment.setTeacher(teacher);
         assignment = assignments.save(assignment);
+        
+        // Sync with timetables matching the class and subject
+        timetableDetailRepository.updateTeacherForClassAndSubject(assignment.getClassRoom(), assignment.getSubject(), teacher);
+        
         return toDto(assignment);
     }
 

@@ -143,23 +143,25 @@ export const studentService = {
     },
 
     // Lấy thời khóa biểu theo lớp của học sinh
-    getTimetable: async (): Promise<StudentTimetableDto> => {
-        const res = await api.get<StudentTimetableDto>("/student/timetable");
+    getTimetable: async (semesterId?: string): Promise<StudentTimetableDto> => {
+        const res = await api.get<StudentTimetableDto>("/student/timetable", {
+            params: { semesterId }
+        });
         return res.data;
     },
 
     // Lấy lịch kiểm tra
-    getExamSchedule: async (academicYear?: string, semester?: number): Promise<ExamScheduleDto[]> => {
+    getExamSchedule: async (semesterId?: string): Promise<ExamScheduleDto[]> => {
         const res = await api.get<ExamScheduleDto[]>("/student/exams", {
-            params: { academicYear, semester }
+            params: { semesterId }
         });
         return res.data;
     },
 
     // Lấy điểm số
-    getScores: async (semester?: number): Promise<ScoreDto[]> => {
+    getScores: async (semesterId?: string): Promise<ScoreDto[]> => {
         const res = await api.get<ScoreDto[]>("/student/scores", {
-            params: { semester }
+            params: { semesterId }
         });
         return res.data;
     },
@@ -173,8 +175,10 @@ export const studentService = {
     },
 
     // Lấy dữ liệu dashboard tổng quan
-    getDashboard: async (): Promise<StudentDashboardDto> => {
-        const res = await api.get<StudentDashboardDto>("/student/dashboard");
+    getDashboard: async (semesterId?: string): Promise<StudentDashboardDto> => {
+        const res = await api.get<StudentDashboardDto>("/student/dashboard", {
+            params: { semesterId }
+        });
         return res.data;
     },
 
@@ -185,8 +189,10 @@ export const studentService = {
     },
 
     // Lấy phân tích học tập chi tiết
-    getAnalysis: async (): Promise<StudentAnalysisDto> => {
-        const res = await api.get<StudentAnalysisDto>("/student/analysis");
+    getAnalysis: async (semesterId?: string): Promise<StudentAnalysisDto> => {
+        const res = await api.get<StudentAnalysisDto>("/student/analysis", {
+            params: { semesterId }
+        });
         return res.data;
     },
 };

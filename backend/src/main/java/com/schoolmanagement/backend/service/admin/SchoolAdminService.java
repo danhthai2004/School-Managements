@@ -36,6 +36,7 @@ public class SchoolAdminService {
     private final StudentRepository students;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
+    private final SemesterService semesterService;
 
     private final com.schoolmanagement.backend.repo.teacher.TeacherRepository teachers;
     private final com.schoolmanagement.backend.repo.student.GuardianRepository guardians;
@@ -44,6 +45,7 @@ public class SchoolAdminService {
     public SchoolAdminService(UserRepository users, ClassRoomRepository classRooms,
             StudentRepository students,
             PasswordEncoder passwordEncoder, MailService mailService,
+            SemesterService semesterService,
             com.schoolmanagement.backend.repo.teacher.TeacherRepository teachers,
             com.schoolmanagement.backend.repo.student.GuardianRepository guardians,
             com.schoolmanagement.backend.repo.auth.AuthChallengeRepository authChallenges) {
@@ -52,6 +54,7 @@ public class SchoolAdminService {
         this.students = students;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
+        this.semesterService = semesterService;
         this.teachers = teachers;
         this.guardians = guardians;
         this.authChallenges = authChallenges;
@@ -64,13 +67,16 @@ public class SchoolAdminService {
         long totalTeachers = teachers.countBySchool(school);
         long totalStudents = students.countBySchool(school);
 
-        int year = java.time.LocalDate.now().getYear();
-        int month = java.time.LocalDate.now().getMonthValue();
-        String currentAcademicYear;
-        if (month >= 9) {
-            currentAcademicYear = year + "-" + (year + 1);
-        } else {
-            currentAcademicYear = (year - 1) + "-" + year;
+        // Lấy năm học đang ACTIVE từ DB, fallback tính theo ngày hiện tại
+        String currentAcademicYear = semesterService.getActiveAcademicYearName(school);
+        if (currentAcademicYear == null || currentAcademicYear.isBlank()) {
+            int year = java.time.LocalDate.now().getYear();
+            int month = java.time.LocalDate.now().getMonthValue();
+            if (month >= 9) {
+                currentAcademicYear = year + "-" + (year + 1);
+            } else {
+                currentAcademicYear = (year - 1) + "-" + year;
+            }
         }
 
         return new SchoolStatsDto(totalClasses, totalTeachers, totalStudents, currentAcademicYear);
@@ -120,6 +126,7 @@ public class SchoolAdminService {
                 school.getCode(), user.isEnabled());
     }
 
+    @Transactional(readOnly = true)
     public List<UserDto> listUsersInSchool(School school) {
         return users.findBySchoolId(school.getId()).stream()
                 .filter(u -> u.getRole() != Role.SYSTEM_ADMIN)
@@ -128,6 +135,7 @@ public class SchoolAdminService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<UserDto> listTeachersInSchool(School school) {
         return users.findAll().stream()
                 .filter(u -> u.getSchool() != null && u.getSchool().getId().equals(school.getId())

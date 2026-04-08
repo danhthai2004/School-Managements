@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { studentService, type ExamScheduleDto } from "../../services/studentService";
 import { Calendar, Filter, RefreshCw } from "lucide-react";
+import { useSemester } from "../../context/SemesterContext";
+import SemesterSelector from "../../components/common/SemesterSelector";
 
 const examTypeLabels: Record<string, string> = {
     MIDTERM: "Giữa kỳ",
@@ -9,56 +11,44 @@ const examTypeLabels: Record<string, string> = {
     QUIZ: "15 phút",
 };
 
-// Get current academic year
-const getCurrentAcademicYear = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-    if (month >= 9) {
-        return `${year}-${year + 1}`;
-    }
-    return `${year - 1}-${year}`;
-};
-
-// Get current semester
-const getCurrentSemester = () => {
-    const month = new Date().getMonth() + 1;
-    if (month >= 9 || month <= 1) return 1;
-    return 2;
-};
-
 export default function StudentExamSchedulePage() {
     const [loading, setLoading] = useState(true);
     const [exams, setExams] = useState<ExamScheduleDto[]>([]);
 
+    // Global context
+    const { activeSemester, allSemesters, loading: isContextLoading } = useSemester();
+    const [selectedSemesterId, setSelectedSemesterId] = useState<string>("");
+
+    const selectedSemester = allSemesters.find(s => s.id === selectedSemesterId);
+
+    // Priority: Default to system ACTIVE semester on first load
+    useEffect(() => {
+        if (!selectedSemesterId && activeSemester) {
+            setSelectedSemesterId(activeSemester.id);
+        }
+    }, [activeSemester, selectedSemesterId]);
+
     // Filters
-    const [selectedYear, setSelectedYear] = useState(getCurrentAcademicYear());
-    const [selectedSemester, setSelectedSemester] = useState<number | undefined>(getCurrentSemester());
     const [selectedType, setSelectedType] = useState<string | "all">("all");
 
-    // Generate academic year options
-    const currentYear = new Date().getFullYear();
-    const academicYears = [
-        `${currentYear - 1}-${currentYear}`,
-        `${currentYear}-${currentYear + 1}`,
-        `${currentYear + 1}-${currentYear + 2}`,
-    ];
-
     const fetchData = useCallback(async () => {
+        if (!selectedSemesterId) return;
         setLoading(true);
         try {
-            const data = await studentService.getExamSchedule(selectedYear, selectedSemester);
+            const data = await studentService.getExamSchedule(selectedSemesterId);
             setExams(data);
         } catch (error) {
             console.error("Error fetching exams:", error);
         } finally {
             setLoading(false);
         }
-    }, [selectedYear, selectedSemester]);
+    }, [selectedSemesterId]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        if (!isContextLoading && selectedSemesterId) {
+            fetchData();
+        }
+    }, [fetchData, isContextLoading, selectedSemesterId]);
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
@@ -128,7 +118,7 @@ export default function StudentExamSchedulePage() {
         completed: sortedExams.filter(e => isExamCompleted(e)).length,
     };
 
-    if (loading) {
+    if (loading || isContextLoading) {
         return (
             <div className="flex items-center justify-center h-64">
                 <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -142,7 +132,7 @@ export default function StudentExamSchedulePage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Lịch kiểm tra</h1>
-                    <p className="text-gray-500 text-sm mt-0.5">Theo dõi lịch thi và kiểm tra sắp tới</p>
+                    <p className="text-sm text-gray-500 mt-1">Theo dõi lịch thi và kiểm tra sắp tới</p>
                 </div>
                 <button
                     onClick={fetchData}
@@ -164,32 +154,19 @@ export default function StudentExamSchedulePage() {
 
                     {/* Filters in one row */}
                     <div className="flex flex-wrap items-center gap-2">
-                        <select
-                            value={selectedYear}
-                            onChange={(e) => setSelectedYear(e.target.value)}
-                            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                        >
-                            {academicYears.map((year) => (
-                                <option key={year} value={year}>{year}</option>
-                            ))}
-                        </select>
-
-                        <select
-                            value={selectedSemester ?? "all"}
-                            onChange={(e) => setSelectedSemester(e.target.value === "all" ? undefined : Number(e.target.value))}
-                            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                        >
-                            <option value="all">Cả năm</option>
-                            <option value={1}>HK1</option>
-                            <option value={2}>HK2</option>
-                        </select>
+                        <SemesterSelector 
+                            value={selectedSemesterId} 
+                            onChange={setSelectedSemesterId}
+                            label="" 
+                            className="h-[42px]"
+                        />
 
                         <select
                             value={selectedType}
                             onChange={(e) => setSelectedType(e.target.value)}
-                            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-600 outline-none h-[42px]"
                         >
-                            <option value="all">Tất cả</option>
+                            <option value="all">Tất cả bài thi</option>
                             <option value="MIDTERM">Giữa kỳ</option>
                             <option value="FINAL">Cuối kỳ</option>
                             <option value="REGULAR">1 tiết</option>
@@ -266,8 +243,8 @@ export default function StudentExamSchedulePage() {
                         <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                         <p className="text-gray-600 font-medium">Chưa có lịch kiểm tra</p>
                         <p className="text-sm text-gray-400 mt-1">
-                            Năm học {selectedYear}
-                            {selectedSemester && ` - Học kỳ ${selectedSemester}`}
+                            Năm học {selectedSemester?.academicYearName || "hiện tại"} 
+                            {selectedSemester?.semesterNumber ? ` - Học kỳ ${selectedSemester.semesterNumber}` : ""}
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">
                             Lịch kiểm tra chưa được nhà trường tạo

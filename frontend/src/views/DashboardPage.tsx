@@ -16,6 +16,8 @@ export default function DashboardPage() {
       navigate("/guardian/overview", {replace: true})
     } else if (user?.role === "STUDENT"){
       navigate("/student/overview",{ replace: true});
+    } else if (user?.role === "TEACHER") {
+      navigate("/teacher/dashboard", { replace: true });
     }
   }, [user?.role, navigate]);
 
@@ -32,7 +34,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-slate-950 text-white p-6">
       <div className="max-w-3xl mx-auto">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <h1 className="text-2xl font-semibold">Hello {user?.email}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Hello {user?.email}</h1>
           <p className="text-white/70 mt-2">
             Role: <span className="font-medium text-white">{user?.role}</span>
             {user?.schoolCode ? (

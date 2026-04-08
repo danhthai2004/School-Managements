@@ -74,7 +74,7 @@ public class TeacherTimetableHandler implements ChatHandler {
                 .findAllBySchoolOrderByCreatedAtDesc(school);
 
         Timetable officialTimetable = timetables.stream()
-                .filter(t -> t.getStatus() == TimetableStatus.OFFICIAL)
+                .filter(timetable -> timetable.getStatus() == TimetableStatus.OFFICIAL)
                 .findFirst()
                 .orElse(null);
 
@@ -97,8 +97,8 @@ public class TeacherTimetableHandler implements ChatHandler {
         // Đóng gói dữ liệu
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("teacherName", teacher.getFullName());
-        data.put("academicYear", officialTimetable.getAcademicYear());
-        data.put("semester", officialTimetable.getSemester());
+        data.put("academicYear", officialTimetable.getSemester() != null && officialTimetable.getSemester().getAcademicYear() != null ? officialTimetable.getSemester().getAcademicYear().getName() : "");
+        data.put("semester", officialTimetable.getSemester() != null ? officialTimetable.getSemester().getSemesterNumber() : "");
         data.put("totalSlots", details.size());
 
         // Nhóm theo ngày
@@ -113,11 +113,11 @@ public class TeacherTimetableHandler implements ChatHandler {
             dayData.put("day", translateDayOfWeek(entry.getKey()));
 
             List<Map<String, Object>> slots = new ArrayList<>();
-            for (TimetableDetail d : entry.getValue()) {
+            for (TimetableDetail detail : entry.getValue()) {
                 Map<String, Object> slot = new LinkedHashMap<>();
-                slot.put("slot", d.getSlotIndex());
-                slot.put("subject", d.getSubject() != null ? d.getSubject().getName() : "Trống");
-                slot.put("class", d.getClassRoom() != null ? d.getClassRoom().getName() : "");
+                slot.put("slot", detail.getSlotIndex());
+                slot.put("subject", detail.getSubject() != null ? detail.getSubject().getName() : "Trống");
+                slot.put("class", detail.getClassRoom() != null ? detail.getClassRoom().getName() : "");
                 slots.add(slot);
             }
             dayData.put("slots", slots);

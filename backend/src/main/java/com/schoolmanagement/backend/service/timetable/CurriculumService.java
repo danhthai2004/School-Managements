@@ -8,6 +8,7 @@ import com.schoolmanagement.backend.dto.classes.CombinationDto;
 import com.schoolmanagement.backend.dto.classes.SubjectDto;
 import com.schoolmanagement.backend.dto.classes.CreateCombinationRequest;
 import com.schoolmanagement.backend.exception.ApiException;
+import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.classes.CombinationRepository;
 import com.schoolmanagement.backend.repo.classes.SubjectRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,12 +28,14 @@ public class CurriculumService {
 
     private final SubjectRepository subjects;
     private final CombinationRepository combinations;
+    private final ClassRoomRepository classRooms;
 
     @Transactional(readOnly = true)
     public List<SubjectDto> listAllSubjects() {
         return subjects.findAll().stream()
-                // Filter out CC and SHL (Chào cờ, Sinh hoạt lớp) - they're auto-scheduled in timetable
-                .filter(s -> !"CC".equals(s.getCode()) && !"SHL".equals(s.getCode()))
+                // Filter out CC and SHL (Chào cờ, Sinh hoạt lớp) - they're auto-scheduled in
+                // timetable
+                .filter(subject -> !"CC".equals(subject.getCode()) && !"SHL".equals(subject.getCode()))
                 .sorted(Comparator.comparing(Subject::getType).thenComparing(Subject::getName))
                 .map(this::toSubjectDto)
                 .toList();
@@ -63,13 +66,13 @@ public class CurriculumService {
         if (electives.size() != 4) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Không tìm thấy đủ 4 môn lựa chọn hợp lệ.");
         }
-        for (Subject s : electives) {
-            if (s.getType() != SubjectType.ELECTIVE) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Môn " + s.getName() + " không phải là môn lựa chọn.");
+        for (Subject subject : electives) {
+            if (subject.getType() != SubjectType.ELECTIVE) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Môn " + subject.getName() + " không phải là môn lựa chọn.");
             }
-            if (s.getStream() != req.stream()) {
+            if (subject.getStream() != req.stream()) {
                 throw new ApiException(HttpStatus.BAD_REQUEST,
-                        "Môn " + s.getName() + " thuộc ban " + s.getStream() + " không phù hợp với ban "
+                        "Môn " + subject.getName() + " thuộc ban " + subject.getStream() + " không phù hợp với ban "
                                 + req.stream());
             }
         }
@@ -79,9 +82,9 @@ public class CurriculumService {
         if (specialized.size() != 3) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Không tìm thấy đủ 3 chuyên đề hợp lệ.");
         }
-        for (Subject s : specialized) {
-            if (s.getType() != SubjectType.SPECIALIZED) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Môn " + s.getName() + " không phải là chuyên đề.");
+        for (Subject subject : specialized) {
+            if (subject.getType() != SubjectType.SPECIALIZED) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Môn " + subject.getName() + " không phải là chuyên đề.");
             }
             // Relaxed validation: Allow any specialized subject regardless of stream
         }
@@ -126,13 +129,13 @@ public class CurriculumService {
         if (electives.size() != 4) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Không tìm thấy đủ 4 môn lựa chọn hợp lệ.");
         }
-        for (Subject s : electives) {
-            if (s.getType() != SubjectType.ELECTIVE) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Môn " + s.getName() + " không phải là môn lựa chọn.");
+        for (Subject subject : electives) {
+            if (subject.getType() != SubjectType.ELECTIVE) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Môn " + subject.getName() + " không phải là môn lựa chọn.");
             }
-            if (s.getStream() != req.stream()) {
+            if (subject.getStream() != req.stream()) {
                 throw new ApiException(HttpStatus.BAD_REQUEST,
-                        "Môn " + s.getName() + " thuộc ban " + s.getStream() + " không phù hợp với ban "
+                        "Môn " + subject.getName() + " thuộc ban " + subject.getStream() + " không phù hợp với ban "
                                 + req.stream());
             }
         }
@@ -142,9 +145,9 @@ public class CurriculumService {
         if (specialized.size() != 3) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Không tìm thấy đủ 3 chuyên đề hợp lệ.");
         }
-        for (Subject s : specialized) {
-            if (s.getType() != SubjectType.SPECIALIZED) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Môn " + s.getName() + " không phải là chuyên đề.");
+        for (Subject subject : specialized) {
+            if (subject.getType() != SubjectType.SPECIALIZED) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Môn " + subject.getName() + " không phải là chuyên đề.");
             }
         }
 
@@ -173,35 +176,38 @@ public class CurriculumService {
             throw new ApiException(HttpStatus.FORBIDDEN, "Không có quyền xóa tổ hợp này");
         }
 
-        // Check for ClassRoom constraints is handled by DB FK or can be checked here.
-        // Assuming DB throws integrity violation if used.
+        // Check if any classroom is using this combination
+        if (classRooms.existsByCombination(combination)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Không thể xóa tổ hợp '" + combination.getName() + "' vì đang có lớp học sử dụng tổ hợp này.");
+        }
 
         combinations.delete(combination);
     }
 
-    private SubjectDto toSubjectDto(Subject s) {
+    private SubjectDto toSubjectDto(Subject subject) {
         return new SubjectDto(
-                s.getId(),
-                s.getName(),
-                s.getCode(),
-                s.getType(),
-                s.getStream(),
-                s.getTotalLessons(),
-                s.isActive(),
-                s.getDescription());
+                subject.getId(),
+                subject.getName(),
+                subject.getCode(),
+                subject.getType(),
+                subject.getStream(),
+                subject.getTotalLessons(),
+                subject.isActive(),
+                subject.getDescription());
     }
 
-    private CombinationDto toCombinationDto(Combination c) {
-        List<SubjectDto> subjectDtos = c.getSubjects().stream()
+    private CombinationDto toCombinationDto(Combination combination) {
+        List<SubjectDto> subjectDtos = combination.getSubjects().stream()
                 .sorted(Comparator.comparing(Subject::getType).thenComparing(Subject::getName))
                 .map(this::toSubjectDto)
                 .toList();
 
         return new CombinationDto(
-                c.getId(),
-                c.getName(),
-                c.getCode(),
-                c.getStream(),
+                combination.getId(),
+                combination.getName(),
+                combination.getCode(),
+                combination.getStream(),
                 subjectDtos);
     }
 }

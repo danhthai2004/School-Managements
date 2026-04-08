@@ -2,6 +2,8 @@ package com.schoolmanagement.backend.domain.entity.grade;
 
 import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.entity.classes.Subject;
+import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
+import com.schoolmanagement.backend.domain.entity.admin.Semester;
 import com.schoolmanagement.backend.domain.entity.admin.School;
 
 import com.schoolmanagement.backend.domain.grade.ScoreType;
@@ -24,7 +26,7 @@ import java.util.UUID;
 @Table(name = "scores", indexes = {
         @Index(name = "idx_score_student", columnList = "student_id"),
         @Index(name = "idx_score_subject", columnList = "subject_id"),
-        @Index(name = "idx_score_semester", columnList = "academic_year, semester")
+        @Index(name = "idx_score_semester", columnList = "academic_year_id, semester_id")
 })
 public class Score {
 
@@ -47,11 +49,13 @@ public class Score {
     @Column(nullable = false)
     private Double value;
 
-    @Column(name = "academic_year", nullable = false, length = 20)
-    private String academicYear;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "academic_year_id", nullable = false)
+    private AcademicYear academicYear;
 
-    @Column(nullable = false)
-    private Integer semester;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "semester_id", nullable = false)
+    private Semester semester;
 
     @Column(name = "score_date")
     private LocalDate scoreDate;

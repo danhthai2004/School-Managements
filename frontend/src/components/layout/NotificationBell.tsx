@@ -1,97 +1,89 @@
-import { useState, useEffect, useRef } from "react";
-import { Bell, X, Clock, ArrowLeft } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Bell, X, Clock, ArrowLeft, CheckCheck } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-interface Notification {
+interface NotificationDto {
     id: string;
     title: string;
-    message: string;
-    scope: string;
+    content: string;
+    type: string;
+    targetGroup: string;
+    referenceId?: string;
+    actionUrl?: string;
+    status: string;
+    createdByName?: string;
     createdAt: string;
-    createdByEmail?: string;
-    targetSchoolName?: string;
+    isRead: boolean;
 }
 
-interface NotificationBellProps {
-    apiEndpoint: string;
-    countEndpoint?: string;
+interface NotificationPageResponse {
+    notifications: NotificationDto[];
+    unreadCount: number;
+    totalPages: number;
+    totalElements: number;
+    currentPage: number;
 }
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-export default function NotificationBell({ apiEndpoint, countEndpoint }: NotificationBellProps) {
+const renderFormattedContent = (content: string) => {
+    if (!content) return null;
+    const parts = content.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, index) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={index} className="font-semibold text-gray-900">{part.slice(2, -2)}</strong>;
+        }
+        return <span key={index}>{part}</span>;
+    });
+};
+
+export default function NotificationBell() {
+    const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(false);
-    const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [unreadCount, setUnreadCount] = useState(0);
+    const [data, setData] = useState<NotificationPageResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+    const [selectedNotification, setSelectedNotification] = useState<NotificationDto | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // Fetch notification count
-    const fetchCount = async () => {
-        if (!countEndpoint) return;
-        try {
-            const token = localStorage.getItem("accessToken");
-            console.log("[NotificationBell] Fetching count from:", `${API_BASE}${countEndpoint}`);
-            const res = await fetch(`${API_BASE}${countEndpoint}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) {
-                const data = await res.json();
-                console.log("[NotificationBell] Count response:", data);
-                setUnreadCount(data.count || 0);
-            } else {
-                console.error("[NotificationBell] Count error:", res.status, res.statusText);
-            }
-        } catch (err) {
-            console.error("[NotificationBell] Error fetching count:", err);
-        }
-    };
+    const getToken = () => localStorage.getItem("accessToken");
 
-    // Fetch notifications
-    const fetchNotifications = async () => {
+    const fetchNotifications = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const token = localStorage.getItem("accessToken");
-            console.log("[NotificationBell] Fetching notifications from:", `${API_BASE}${apiEndpoint}`);
-            const res = await fetch(`${API_BASE}${apiEndpoint}`, {
+            const token = getToken();
+            const res = await fetch(`${API_BASE}/v1/notifications?page=0&size=15`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            console.log("[NotificationBell] Response status:", res.status);
             if (res.ok) {
-                const data = await res.json();
-                console.log("[NotificationBell] Notifications:", data);
-                setNotifications(Array.isArray(data) ? data : []);
+                const json: NotificationPageResponse = await res.json();
+                setData(json);
             } else {
-                const text = await res.text();
-                console.error("[NotificationBell] Error:", res.status, text);
                 setError(`Lỗi ${res.status}`);
             }
-        } catch (err) {
-            console.error("[NotificationBell] Exception:", err);
+        } catch {
             setError("Không thể tải thông báo");
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    // Initial load
+    // Fetch unread count periodically
     useEffect(() => {
-        fetchCount();
-        // Refresh count every 60 seconds
-        const interval = setInterval(fetchCount, 60000);
+        fetchNotifications();
+        const interval = setInterval(fetchNotifications, 60000);
         return () => clearInterval(interval);
-    }, [countEndpoint]);
+    }, [fetchNotifications]);
 
-    // Load notifications when dropdown opens
+    // Reload when dropdown opens
     useEffect(() => {
         if (isOpen) {
             fetchNotifications();
         } else {
             setSelectedNotification(null);
         }
-    }, [isOpen]);
+    }, [isOpen, fetchNotifications]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -105,6 +97,49 @@ export default function NotificationBell({ apiEndpoint, countEndpoint }: Notific
             return () => document.removeEventListener("mousedown", handleClickOutside);
         }
     }, [isOpen]);
+
+    const markAsRead = async (notificationId: string) => {
+        try {
+            const token = getToken();
+            await fetch(`${API_BASE}/v1/notifications/${notificationId}/read`, {
+                method: "PATCH",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            // Update local state
+            setData(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    unreadCount: Math.max(0, prev.unreadCount - 1),
+                    notifications: prev.notifications.map(n =>
+                        n.id === notificationId ? { ...n, isRead: true } : n
+                    ),
+                };
+            });
+        } catch (err) {
+            console.error("Error marking as read:", err);
+        }
+    };
+
+    const markAllAsRead = async () => {
+        try {
+            const token = getToken();
+            await fetch(`${API_BASE}/v1/notifications/read-all`, {
+                method: "PATCH",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setData(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    unreadCount: 0,
+                    notifications: prev.notifications.map(n => ({ ...n, isRead: true })),
+                };
+            });
+        } catch (err) {
+            console.error("Error marking all as read:", err);
+        }
+    };
 
     const formatTimeAgo = (dateString: string) => {
         const date = new Date(dateString);
@@ -134,29 +169,34 @@ export default function NotificationBell({ apiEndpoint, countEndpoint }: Notific
         return `${hours}:${mins} ${day}/${month}/${year}`;
     };
 
-    const handleBellClick = () => {
-        console.log("[NotificationBell] Bell clicked, isOpen:", !isOpen);
-        setIsOpen(!isOpen);
-    };
-
-    const handleNotificationClick = (notification: Notification) => {
+    const handleNotificationClick = (notification: NotificationDto) => {
+        if (!notification.isRead) {
+            markAsRead(notification.id);
+        }
         setSelectedNotification(notification);
     };
 
-    const handleBackToList = () => {
-        setSelectedNotification(null);
+    const handleActionClick = (notification: NotificationDto) => {
+        if (notification.actionUrl) {
+            setIsOpen(false);
+            navigate(notification.actionUrl);
+        }
     };
+
+    const unreadCount = data?.unreadCount ?? 0;
+    const notifications = data?.notifications ?? [];
 
     return (
         <div className="relative" ref={dropdownRef}>
             {/* Bell Button */}
             <button
-                onClick={handleBellClick}
+                onClick={() => setIsOpen(!isOpen)}
                 className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Thông báo"
             >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1">
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1 animate-pulse">
                         {unreadCount > 99 ? "99+" : unreadCount}
                     </span>
                 )}
@@ -172,21 +212,39 @@ export default function NotificationBell({ apiEndpoint, countEndpoint }: Notific
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
                         {selectedNotification ? (
                             <button
-                                onClick={handleBackToList}
+                                onClick={() => setSelectedNotification(null)}
                                 className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm"
                             >
                                 <ArrowLeft className="w-4 h-4" />
                                 Quay lại
                             </button>
                         ) : (
-                            <h3 className="font-semibold text-gray-900">Thông báo</h3>
+                            <div className="flex items-center gap-2">
+                                <h3 className="font-semibold text-gray-900">Thông báo</h3>
+                                {unreadCount > 0 && (
+                                    <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
+                                        {unreadCount} mới
+                                    </span>
+                                )}
+                            </div>
                         )}
-                        <button
-                            onClick={() => setIsOpen(false)}
-                            className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded transition-colors"
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                            {!selectedNotification && unreadCount > 0 && (
+                                <button
+                                    onClick={markAllAsRead}
+                                    className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+                                    title="Đánh dấu tất cả đã đọc"
+                                >
+                                    <CheckCheck className="w-4 h-4" />
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setIsOpen(false)}
+                                className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded transition-colors"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Content */}
@@ -218,21 +276,24 @@ export default function NotificationBell({ apiEndpoint, countEndpoint }: Notific
                                 </div>
 
                                 <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                                    <p className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">
-                                        {selectedNotification.message}
-                                    </p>
+                                    <div className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed space-y-1">
+                                        {renderFormattedContent(selectedNotification.content)}
+                                    </div>
                                 </div>
 
-                                {selectedNotification.createdByEmail && (
+                                {selectedNotification.createdByName && (
                                     <div className="text-xs text-gray-500">
-                                        <span className="font-medium">Người gửi:</span> {selectedNotification.createdByEmail}
+                                        <span className="font-medium">Người gửi:</span> {selectedNotification.createdByName}
                                     </div>
                                 )}
 
-                                {selectedNotification.targetSchoolName && (
-                                    <div className="text-xs text-gray-500 mt-1">
-                                        <span className="font-medium">Trường:</span> {selectedNotification.targetSchoolName}
-                                    </div>
+                                {selectedNotification.actionUrl && (
+                                    <button
+                                        onClick={() => handleActionClick(selectedNotification)}
+                                        className="mt-3 w-full text-center text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 py-2 rounded-lg transition-colors font-medium"
+                                    >
+                                        Xem chi tiết →
+                                    </button>
                                 )}
                             </div>
                         ) : notifications.length === 0 ? (
@@ -246,22 +307,43 @@ export default function NotificationBell({ apiEndpoint, countEndpoint }: Notific
                                     <div
                                         key={notification.id}
                                         onClick={() => handleNotificationClick(notification)}
-                                        className="p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                                        className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
+                                            !notification.isRead ? 'bg-blue-50/40' : ''
+                                        }`}
                                     >
                                         <div className="flex gap-3">
-                                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                                <Bell className="w-5 h-5 text-blue-600" />
+                                            <div className="relative flex-shrink-0">
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                                                    !notification.isRead ? 'bg-blue-100' : 'bg-gray-100'
+                                                }`}>
+                                                    <Bell className={`w-5 h-5 ${
+                                                        !notification.isRead ? 'text-blue-600' : 'text-gray-400'
+                                                    }`} />
+                                                </div>
+                                                {!notification.isRead && (
+                                                    <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500 rounded-full border-2 border-white" />
+                                                )}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h4 className="font-medium text-gray-900 text-sm">
+                                                <h4 className={`text-sm ${
+                                                    !notification.isRead
+                                                        ? 'font-semibold text-gray-900'
+                                                        : 'font-medium text-gray-700'
+                                                }`}>
                                                     {notification.title}
                                                 </h4>
-                                                <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
-                                                    {notification.message}
-                                                </p>
+                                                <div className="text-xs text-gray-500 mt-0.5 whitespace-pre-wrap line-clamp-2">
+                                                    {renderFormattedContent(notification.content)}
+                                                </div>
                                                 <div className="flex items-center gap-1 mt-2 text-xs text-gray-400">
                                                     <Clock className="w-3 h-3" />
                                                     <span>{formatTimeAgo(notification.createdAt)}</span>
+                                                    {notification.createdByName && (
+                                                        <>
+                                                            <span>•</span>
+                                                            <span>{notification.createdByName}</span>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>

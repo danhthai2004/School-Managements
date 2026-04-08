@@ -262,6 +262,12 @@ public class TeacherManagementService {
         if (req.email() != null && !req.email().isBlank()) {
             String email = req.email().trim().toLowerCase();
             if (!email.equalsIgnoreCase(teacher.getEmail())) {
+                // If teacher already has an account, do not allowed changing email
+                if (teacher.getUser() != null) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST,
+                            "Không thể thay đổi email vì giáo viên đã được cấp tài khoản hệ thống.");
+                }
+
                 if (teachers.existsByEmailIgnoreCase(email)) {
                     throw new ApiException(HttpStatus.CONFLICT, "Email giáo viên đã tồn tại trong hệ thống");
                 }

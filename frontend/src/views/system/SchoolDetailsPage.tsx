@@ -111,7 +111,7 @@ export default function SchoolDetailsPage() {
       {/* School Info */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-slate-900">{school.name}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{school.name}</h1>
           <button
             onClick={() => setEditing(!editing)}
             className="px-3 py-1.5 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200"

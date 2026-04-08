@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { studentService, type StudentTimetableDto, type TimetableSlotDto } from "../../services/studentService";
 import { CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { useSemester } from "../../context/SemesterContext";
+import SemesterSelector from "../../components/common/SemesterSelector";
 
 const days = [
     { value: 2, label: "Thứ 2" },
@@ -41,18 +43,28 @@ function formatDate(date: Date) {
 }
 
 export default function StudentTimetablePage() {
+    const { activeSemester, loading: isContextLoading } = useSemester();
+    const [selectedSemesterId, setSelectedSemesterId] = useState<string>("");
     const [loading, setLoading] = useState(true);
     const [timetable, setTimetable] = useState<StudentTimetableDto | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [weekOffset, setWeekOffset] = useState(0);
+
+    // Initial load priority: System Active Semester
+    useEffect(() => {
+        if (!selectedSemesterId && activeSemester) {
+            setSelectedSemesterId(activeSemester.id);
+        }
+    }, [activeSemester, selectedSemesterId]);
 
     const { monday, sunday } = getWeekDates(weekOffset);
     const weekNumber = getWeekNumber(monday);
 
     useEffect(() => {
         const fetchData = async () => {
+            if (!selectedSemesterId) return;
             try {
-                const data = await studentService.getTimetable();
+                const data = await studentService.getTimetable(selectedSemesterId);
                 setTimetable(data);
                 setError(null);
             } catch (err: unknown) {
@@ -62,8 +74,10 @@ export default function StudentTimetablePage() {
                 setLoading(false);
             }
         };
-        fetchData();
-    }, []);
+        if (!isContextLoading) {
+            fetchData();
+        }
+    }, [selectedSemesterId, isContextLoading]);
 
     const getSlotForDayAndPeriod = (dayOfWeek: number, period: number): TimetableSlotDto | null => {
         if (!timetable) return null;
@@ -97,13 +111,19 @@ export default function StudentTimetablePage() {
 
     return (
         <div className="animate-fade-in-up space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Thời khóa biểu</h1>
-                    <p className="text-gray-500 mt-1">
-                        Tuần {weekNumber} ({formatDate(monday)} - {formatDate(sunday)})
-                    </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Thời khóa biểu</h1>
+                        <p className="text-sm text-gray-500 mt-1">
+                            Tuần {weekNumber} ({formatDate(monday)} - {formatDate(sunday)})
+                        </p>
+                    </div>
+                    <SemesterSelector 
+                        value={selectedSemesterId} 
+                        onChange={setSelectedSemesterId}
+                        label="" 
+                    />
                 </div>
                 <div className="flex items-center gap-2">
                     <button

@@ -73,7 +73,7 @@ export default function AttendancePage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Quản lý điểm danh</h1>
-                    <p className="text-gray-500">
+                    <p className="text-sm text-gray-500 mt-1">
                         {format(selectedDate, "'Ngày' dd 'tháng' MM 'năm' yyyy", { locale: vi })}
                     </p>
                 </div>

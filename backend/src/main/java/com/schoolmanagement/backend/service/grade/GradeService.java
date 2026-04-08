@@ -17,8 +17,11 @@ import com.schoolmanagement.backend.repo.teacher.TeacherAssignmentRepository;
 import com.schoolmanagement.backend.repo.teacher.TeacherRepository;
 import com.schoolmanagement.backend.repo.auth.UserRepository;
 import com.schoolmanagement.backend.repo.student.StudentRepository;
+import com.schoolmanagement.backend.service.admin.SemesterService;
 import com.schoolmanagement.backend.domain.entity.grade.Grade;
-
+import com.schoolmanagement.backend.domain.entity.admin.Semester;
+import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
+import com.schoolmanagement.backend.repo.admin.SemesterRepository;
 
 import com.schoolmanagement.backend.dto.grade.GradeBookDto;
 
@@ -31,8 +34,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -40,8 +42,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class GradeService {
-
-        private static final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
         private final GradeRepository gradeRepository;
         private final SubjectRepository subjectRepository;
@@ -51,8 +51,10 @@ public class GradeService {
         private final TeacherRepository teacherRepository;
         private final UserRepository userRepository;
         private final StudentRepository studentRepository;
+        private final SemesterService semesterService;
+        private final SemesterRepository semesterRepository;
 
-        public GradeBookDto getGradeBook(String email, UUID classId, UUID subjectId, Integer semester) {
+        public GradeBookDto getGradeBook(String email, UUID classId, UUID subjectId, String semesterId) {
                 User user = userRepository.findByEmailIgnoreCase(email)
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
@@ -64,7 +66,14 @@ public class GradeService {
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                                                 "Subject not found"));
 
-                String academicYear = getCurrentAcademicYear();
+                AcademicYear academicYear = classRoom.getAcademicYear();
+
+                // Use target semester ID or fallback to active semester
+                Semester semesterEntity = semesterId != null
+                                ? semesterService.getSemester(UUID.fromString(semesterId))
+                                : semesterService.getActiveSemesterEntity(user.getSchool());
+
+                int activeSemesterNum = semesterEntity.getSemesterNumber();
 
                 // Check if the current teacher is the one assigned to teach this class-subject
                 Teacher teacher = teacherRepository.findByUser(user).orElse(null);
@@ -80,15 +89,17 @@ public class GradeService {
                 List<ClassEnrollment> enrollments = classEnrollmentRepository
                                 .findAllByClassRoomAndAcademicYear(classRoom, academicYear);
 
-                // Get existing grades (with regularScores eagerly via query)
-                List<Grade> grades = gradeRepository
-                                .findAllByClassRoomAndSubjectAndSemester(classRoom, subject, semester);
+                // Get existing grades using Semester entity FK
+                List<Grade> grades = gradeRepository.findAllByClassRoomAndSubjectAndSemester(classRoom, subject,
+                                semesterEntity);
                 Map<UUID, Grade> gradeByStudent = grades.stream()
-                                .collect(Collectors.toMap(g -> g.getStudent().getId(), g -> g, (a, b) -> a));
+                                .collect(Collectors.toMap(grade -> grade.getStudent().getId(), grade -> grade,
+                                                (gradeA, gradeB) -> gradeA));
 
                 // Determine the maximum number of regular assessment columns
                 int maxRegularCount = grades.stream()
-                                .mapToInt(g -> g.getRegularScores() != null ? g.getRegularScores().size() : 0)
+                                .mapToInt(grade -> grade.getRegularScores() != null ? grade.getRegularScores().size()
+                                                : 0)
                                 .max().orElse(0);
                 // Minimum 1 column when there's no data yet
                 if (maxRegularCount < 1)
@@ -107,8 +118,9 @@ public class GradeService {
                                         // Dynamic REGULAR scores
                                         Map<Integer, BigDecimal> regularMap = new HashMap<>();
                                         if (grade != null && grade.getRegularScores() != null) {
-                                                for (RegularScore rs : grade.getRegularScores()) {
-                                                        regularMap.put(rs.getScoreIndex(), rs.getScoreValue());
+                                                for (RegularScore regularScore : grade.getRegularScores()) {
+                                                        regularMap.put(regularScore.getScoreIndex(),
+                                                                        regularScore.getScoreValue());
                                                 }
                                         }
                                         for (int i = 1; i <= regularCount; i++) {
@@ -149,8 +161,8 @@ public class GradeService {
                                 .subjectId(subjectId.toString())
                                 .subjectName(subject.getName())
                                 .className(classRoom.getName())
-                                .academicYear(academicYear)
-                                .semester(semester)
+                                .academicYear(academicYear != null ? academicYear.getName() : "")
+                                .semester(activeSemesterNum)
                                 .regularAssessmentCount(regularCount)
                                 .canEdit(canEdit)
                                 .students(studentDtos)
@@ -158,7 +170,7 @@ public class GradeService {
         }
 
         @Transactional
-        public void saveGrades(String email, UUID classId, UUID subjectId, Integer semester,
+        public void saveGrades(String email, UUID classId, UUID subjectId, String semesterId,
                         List<GradeBookDto.StudentGradeDto> gradeData) {
                 User user = userRepository.findByEmailIgnoreCase(email)
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
@@ -184,13 +196,31 @@ public class GradeService {
                                         "Bạn không được phân công dạy lớp này.");
                 }
 
-                String academicYear = getCurrentAcademicYear();
+                AcademicYear academicYear = classRoom.getAcademicYear();
 
-                // Get existing grades for update
-                List<Grade> existingGrades = gradeRepository
-                                .findAllByClassRoomAndSubjectAndSemester(classRoom, subject, semester);
+                // Use target semester ID or fallback to active semester
+                Semester semesterEntity = semesterId != null
+                                ? semesterService.getSemester(UUID.fromString(semesterId))
+                                : semesterService.getActiveSemesterEntity(user.getSchool());
+
+                int activeSemesterNum = semesterEntity.getSemesterNumber();
+
+                if (semesterEntity.getStatus() == com.schoolmanagement.backend.domain.admin.SemesterStatus.CLOSED) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                        "Học kỳ đã chốt sổ, không thể sửa đổi điểm.");
+                }
+
+                if (semesterEntity.getStatus() == com.schoolmanagement.backend.domain.admin.SemesterStatus.UPCOMING) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                        "Học kỳ chưa bắt đầu, không thể nhập điểm.");
+                }
+
+                // Get existing grades using Semester entity FK
+                List<Grade> existingGrades = gradeRepository.findAllByClassRoomAndSubjectAndSemester(classRoom, subject,
+                                semesterEntity);
                 Map<UUID, Grade> gradeByStudent = existingGrades.stream()
-                                .collect(Collectors.toMap(g -> g.getStudent().getId(), g -> g, (a, b) -> a));
+                                .collect(Collectors.toMap(grade -> grade.getStudent().getId(), grade -> grade,
+                                                (gradeA, gradeB) -> gradeA));
 
                 for (GradeBookDto.StudentGradeDto dto : gradeData) {
                         Student student = studentRepository.findById(UUID.fromString(dto.getStudentId()))
@@ -207,8 +237,7 @@ public class GradeService {
                                                 .subject(subject)
                                                 .classRoom(classRoom)
                                                 .teacher(teacher)
-                                                .academicYear(academicYear)
-                                                .semester(semester)
+                                                .semester(semesterEntity)
                                                 .recordedBy(user)
                                                 .recordedAt(Instant.now())
                                                 .build();
@@ -216,56 +245,60 @@ public class GradeService {
                         }
 
                         // Clear existing regular scores and rebuild
-                        grade.getRegularScores().clear();
+                        if (grade != null) {
+                                grade.getRegularScores().clear();
 
-                        for (GradeBookDto.GradeValueDto gv : dto.getGrades()) {
-                                BigDecimal val = gv.getValue() != null ? BigDecimal.valueOf(gv.getValue()) : null;
-                                switch (gv.getType()) {
-                                        case "REGULAR" -> {
-                                                if (gv.getIndex() != null && val != null) {
-                                                        grade.getRegularScores().add(RegularScore.builder()
-                                                                        .grade(grade)
-                                                                        .scoreIndex(gv.getIndex())
-                                                                        .scoreValue(val)
-                                                                        .build());
+                                for (GradeBookDto.GradeValueDto gradeValue : dto.getGrades()) {
+                                        BigDecimal val = gradeValue.getValue() != null
+                                                        ? BigDecimal.valueOf(gradeValue.getValue())
+                                                        : null;
+                                        switch (gradeValue.getType()) {
+                                                case "REGULAR" -> {
+                                                        if (gradeValue.getIndex() != null && val != null) {
+                                                                grade.getRegularScores().add(RegularScore.builder()
+                                                                                .grade(grade)
+                                                                                .scoreIndex(gradeValue.getIndex())
+                                                                                .scoreValue(val)
+                                                                                .build());
+                                                        }
                                                 }
+                                                case "MID_TERM" -> grade.setMidtermScore(val);
+                                                case "FINAL_TERM" -> grade.setFinalScore(val);
                                         }
-                                        case "MID_TERM" -> grade.setMidtermScore(val);
-                                        case "FINAL_TERM" -> grade.setFinalScore(val);
                                 }
+
+                                // Calculate average
+                                grade.setAverageScore(calculateAverage(grade));
+                                grade.setUpdatedAt(Instant.now());
+                                grade.setUpdatedBy(user);
+
+                                gradeRepository.save(grade);
                         }
-
-                        // Calculate average
-                        grade.setAverageScore(calculateAverage(grade));
-                        grade.setUpdatedAt(Instant.now());
-                        grade.setUpdatedBy(user);
-
-                        gradeRepository.save(grade);
                 }
         }
 
-        private BigDecimal calculateAverage(Grade g) {
+        private BigDecimal calculateAverage(Grade grade) {
                 double total = 0;
                 int weight = 0;
 
                 // Regular scores (coefficient 1 each)
-                if (g.getRegularScores() != null) {
-                        for (RegularScore rs : g.getRegularScores()) {
-                                if (rs.getScoreValue() != null) {
-                                        total += rs.getScoreValue().doubleValue();
+                if (grade.getRegularScores() != null) {
+                        for (RegularScore regularScore : grade.getRegularScores()) {
+                                if (regularScore.getScoreValue() != null) {
+                                        total += regularScore.getScoreValue().doubleValue();
                                         weight += 1;
                                 }
                         }
                 }
 
                 // Mid-term (coefficient 2)
-                if (g.getMidtermScore() != null) {
-                        total += g.getMidtermScore().doubleValue() * 2;
+                if (grade.getMidtermScore() != null) {
+                        total += grade.getMidtermScore().doubleValue() * 2;
                         weight += 2;
                 }
                 // Final (coefficient 3)
-                if (g.getFinalScore() != null) {
-                        total += g.getFinalScore().doubleValue() * 3;
+                if (grade.getFinalScore() != null) {
+                        total += grade.getFinalScore().doubleValue() * 3;
                         weight += 3;
                 }
 
@@ -274,9 +307,6 @@ public class GradeService {
                 return BigDecimal.valueOf(Math.round((total / weight) * 10.0) / 10.0);
         }
 
-        private String getCurrentAcademicYear() {
-                int year = LocalDate.now(VIETNAM_ZONE).getYear();
-                int month = LocalDate.now(VIETNAM_ZONE).getMonthValue();
-                return month >= 9 ? year + "-" + (year + 1) : (year - 1) + "-" + year;
-        }
+        // getCurrentAcademicYear() removed — now using
+        // SemesterService.getActiveAcademicYearName()
 }

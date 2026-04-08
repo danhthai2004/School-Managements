@@ -1,6 +1,7 @@
 package com.schoolmanagement.backend.domain.entity.timetable;
 
 import com.schoolmanagement.backend.domain.entity.admin.School;
+import com.schoolmanagement.backend.domain.entity.admin.Semester;
 
 import com.schoolmanagement.backend.domain.timetable.TimetableStatus;
 import jakarta.persistence.*;
@@ -24,11 +25,9 @@ public class Timetable {
     @Column(nullable = false)
     private String name; // e.g., "TKB Học kỳ 1 - Năm học 2025-2026 - Bản 1"
 
-    @Column(name = "academic_year", nullable = false)
-    private String academicYear;
-
-    @Column(nullable = false)
-    private int semester; // 1 or 2
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "semester_id", nullable = false)
+    private Semester semester;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

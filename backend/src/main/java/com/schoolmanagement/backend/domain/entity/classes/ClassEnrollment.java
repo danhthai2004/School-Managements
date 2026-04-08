@@ -16,7 +16,7 @@ import java.util.UUID;
 @Table(name = "class_enrollments", indexes = {
         @Index(name = "idx_enrollment_student", columnList = "student_id"),
         @Index(name = "idx_enrollment_class", columnList = "classroom_id"),
-        @Index(name = "idx_enrollment_unique", columnList = "student_id, classroom_id, academic_year", unique = true)
+        @Index(name = "idx_enrollment_unique", columnList = "student_id, classroom_id, academic_year_id", unique = true)
 })
 public class ClassEnrollment {
 
@@ -33,8 +33,9 @@ public class ClassEnrollment {
     @JoinColumn(name = "classroom_id", nullable = false)
     private ClassRoom classRoom;
 
-    @Column(name = "academic_year", nullable = false, length = 20)
-    private String academicYear;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "academic_year_id", nullable = false)
+    private com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear;
 
     @Column(name = "enrolled_at", nullable = false)
     @Builder.Default

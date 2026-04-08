@@ -1,11 +1,9 @@
 package com.schoolmanagement.backend.domain.entity.notification;
 
 import com.schoolmanagement.backend.domain.entity.auth.User;
-
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.Instant;
 import java.util.UUID;
 
 @Getter
@@ -30,20 +28,7 @@ public class NotificationRecipient {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "is_read")
+    @Column(name = "is_read", nullable = false)
     @Builder.Default
     private boolean isRead = false;
-
-    @Column(name = "read_at")
-    private Instant readAt;
-
-    @Column(name = "delivered_at")
-    private Instant deliveredAt;
-
-    @Column(name = "delivery_status", length = 20)
-    private String deliveryStatus; // PENDING, DELIVERED, FAILED
-
-    @Column(name = "created_at", nullable = false)
-    @Builder.Default
-    private Instant createdAt = Instant.now();
 }

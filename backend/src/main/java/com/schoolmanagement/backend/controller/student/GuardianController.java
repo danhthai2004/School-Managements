@@ -20,7 +20,7 @@ import com.schoolmanagement.backend.dto.timetable.SimpleTimetableDetailDto;
 import com.schoolmanagement.backend.dto.student.StudentDto;
 import com.schoolmanagement.backend.repo.student.GuardianRepository;
 
-import com.schoolmanagement.backend.util.TimeUtils;
+import com.schoolmanagement.backend.service.admin.SemesterService;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,6 +50,7 @@ public class GuardianController {
   private final StudentPortalService studentPortalService;
   private final GuardianService guardianService;
   private final GuardianRepository guardianRepository;
+  private final SemesterService semesterService;
 
   @GetMapping("/student")
   public StudentDto getStudentData(@AuthenticationPrincipal UserPrincipal principal) {
@@ -65,8 +66,8 @@ public class GuardianController {
       @PathVariable("studentId") String studentId) {
     log.info("Timetable data hit!");
     Student student = studentManagementService.getSingleStudent(UUID.fromString(studentId));
-    String academicYear = TimeUtils.getCurrentAcademicYear();
-    ClassRoom classRoom = classManagementService.getClassRoom(UUID.fromString(studentId), academicYear);
+    String academicYearName = semesterService.getActiveAcademicYearName(student.getSchool());
+    ClassRoom classRoom = classManagementService.getClassRoomLegacy(UUID.fromString(studentId), academicYearName, student.getSchool());
 
     return timetableService.getTimetableDetailsOfStudent(student, classRoom);
   }
@@ -78,11 +79,10 @@ public class GuardianController {
   @GetMapping("/exams")
   public ResponseEntity<List<ExamScheduleDto>> getExamSchedule(
       @RequestParam String studentId,
-      @RequestParam(required = false) String academicYear,
-      @RequestParam(required = false) Integer semester) {
+      @RequestParam(required = false) String semesterId) {
     log.info("Exams data hit!");
-    List<ExamScheduleDto> exams = studentPortalService.getExamScheduleStudent(UUID.fromString(studentId), academicYear,
-        semester);
+    List<ExamScheduleDto> exams = studentPortalService.getExamScheduleStudent(UUID.fromString(studentId), 
+        semesterId != null ? UUID.fromString(semesterId) : null);
     return ResponseEntity.ok(exams);
   }
 

@@ -1,6 +1,10 @@
 package com.schoolmanagement.backend.util;
 
 public class TimeUtils {
+  /**
+   * @deprecated Dùng SemesterService.getActiveAcademicYearName(school) thay thế.
+   */
+  @Deprecated(forRemoval = true)
   public static String getCurrentAcademicYear() {
     int year = java.time.LocalDate.now().getYear();
     int month = java.time.LocalDate.now().getMonthValue();

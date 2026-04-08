@@ -10,10 +10,10 @@ export default function GuardianProfile() {
   return (
     <div>
       <div>
-        <h1 className="text-2xl text-gray-700 font-semibold">
+        <h1 className="text-2xl font-bold text-gray-900">
           Chi tiết thông tin cá nhân
         </h1>
-        <p className="text-gray-700 mt-4">
+        <p className="text-sm text-gray-500 mt-1">
           Xem chi tiết thông tin tài khoản người dùng
         </p>
       </div>

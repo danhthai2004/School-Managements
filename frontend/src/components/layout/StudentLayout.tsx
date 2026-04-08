@@ -2,16 +2,19 @@ import { useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
-    HomeIcon,
-    ActivityIcon,
-    LogoutIcon,
-    MenuIcon,
-    SearchIcon,
-    UserIcon,
-    LockIcon,
-    CalendarIcon,
-} from "./SystemIcons";
-import { BookCheckIcon, CheckIcon } from "lucide-react";
+    LayoutDashboard,
+    Calendar,
+    CalendarClock,
+    GraduationCap,
+    UserCheck,
+    Activity,
+    SquareActivity,
+    Menu,
+    Search,
+    LogOut,
+    UserCircle,
+    Lock
+} from "lucide-react";
 import NotificationBell from "./NotificationBell";
 
 export default function StudentLayout() {
@@ -21,12 +24,13 @@ export default function StudentLayout() {
     const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
     const navItems = [
-        { to: "/student/overview", label: "Tổng quan", icon: <HomeIcon /> },
-        { to: "/student/timetable", label: "Thời Khóa Biểu", icon: <CalendarIcon /> },
-        { to: "/student/exam-schedule", label: "Lịch Kiểm Tra", icon: <CalendarIcon /> },
-        { to: "/student/scores", label: "Điểm Số", icon: <CheckIcon /> },
-        { to: "/student/attendance", label: "Điểm Danh", icon: <BookCheckIcon /> },
-        { to: "/student/analysis", label: "Phân tích và gợi ý học tập", icon: <ActivityIcon /> },
+        { to: "/student/overview", label: "Tổng quan", icon: <LayoutDashboard size={20} strokeWidth={1.5} /> },
+        { to: "/student/timetable", label: "Thời Khóa Biểu", icon: <Calendar size={20} strokeWidth={1.5} /> },
+        { to: "/student/exam-schedule", label: "Lịch Kiểm Tra", icon: <CalendarClock size={20} strokeWidth={1.5} /> },
+        { to: "/student/scores", label: "Điểm Số", icon: <GraduationCap size={20} strokeWidth={1.5} /> },
+        { to: "/student/attendance", label: "Điểm Danh", icon: <UserCheck size={20} strokeWidth={1.5} /> },
+        { to: "/student/analysis", label: "Phân tích học tập", icon: <Activity size={20} strokeWidth={1.5} /> },
+        { to: "/student/risk-analytics", label: "AI Phân Tích Rủi Ro", icon: <SquareActivity size={20} strokeWidth={1.5} /> },
     ];
 
     const handleLogout = () => {
@@ -58,7 +62,7 @@ export default function StudentLayout() {
                                 className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
                                 title="Mở rộng"
                             >
-                                <MenuIcon />
+                                <Menu size={20} strokeWidth={1.5} />
                             </button>
                         </div>
                     ) : (
@@ -81,7 +85,7 @@ export default function StudentLayout() {
                                 className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
                                 title="Thu gọn"
                             >
-                                <MenuIcon />
+                                <Menu size={20} strokeWidth={1.5} />
                             </button>
                         </div>
                     )}
@@ -117,7 +121,7 @@ export default function StudentLayout() {
                         className={`w-full flex items-center gap-3 px-3 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm ${sidebarCollapsed ? "justify-center" : ""
                             }`}
                     >
-                        <LogoutIcon />
+                        <LogOut size={20} strokeWidth={1.5} />
                         {!sidebarCollapsed && <span className="font-medium">Đăng xuất</span>}
                     </button>
                 </div>
@@ -139,16 +143,13 @@ export default function StudentLayout() {
                                 className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-lg border-0 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all text-sm"
                             />
                             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                <SearchIcon />
+                                <Search size={20} strokeWidth={1.5} />
                             </div>
                         </div>
 
                         {/* Right side */}
                         <div className="flex items-center gap-4">
-                            <NotificationBell
-                                apiEndpoint="/student/notifications"
-                                countEndpoint="/student/notifications/count"
-                            />
+                            <NotificationBell />
 
                             <div className="relative">
                                 <button
@@ -177,14 +178,14 @@ export default function StudentLayout() {
                                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                                 onClick={() => setProfileDropdownOpen(false)}
                                             >
-                                                <UserIcon />
+                                                <UserCircle size={20} strokeWidth={1.5} />
                                                 <span>Thông tin cá nhân</span>
                                             </button>
                                             <button
                                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                                 onClick={() => setProfileDropdownOpen(false)}
                                             >
-                                                <LockIcon />
+                                                <Lock size={20} strokeWidth={1.5} />
                                                 <span>Đổi mật khẩu</span>
                                             </button>
                                             <div className="border-t border-gray-100 my-1" />
@@ -195,7 +196,7 @@ export default function StudentLayout() {
                                                     handleLogout();
                                                 }}
                                             >
-                                                <LogoutIcon />
+                                                <LogOut size={20} strokeWidth={1.5} />
                                                 <span>Đăng xuất</span>
                                             </button>
                                         </div>
