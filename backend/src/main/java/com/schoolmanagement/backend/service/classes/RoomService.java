@@ -17,6 +17,8 @@ public interface RoomService {
 
     RoomDto createRoom(RoomDto roomDto, UUID schoolId);
 
+    List<RoomDto> createBulkRooms(List<RoomDto> roomDtos, UUID schoolId);
+
     RoomDto updateRoom(UUID id, RoomDto roomDto, UUID schoolId);
 
     void deleteRoom(UUID id, UUID schoolId);

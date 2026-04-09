@@ -461,6 +461,11 @@ export const schoolAdminService = {
         return res.data;
     },
 
+    createBulkRooms: async (rooms: CreateRoomRequest[]): Promise<RoomDto[]> => {
+        const res = await api.post<RoomDto[]>("/school/rooms/bulk", rooms);
+        return res.data;
+    },
+
     updateReportSetting(id: string, req: object): Promise<void> {
         return api.put(`/api/school/report-settings/${id}`, req);
     },

@@ -5,6 +5,7 @@ import { studentService, type StudentDashboardDto, type TimetableSlotDto, type E
 import { CalendarIcon } from "../../components/layout/SystemIcons";
 import { Bell, BookOpen, TrendingUp, CheckCircle, ChevronRight, X, Clock } from "lucide-react";
 import { useSemester } from "../../context/SemesterContext";
+import { formatDate } from "../../utils/dateHelpers";
 
 const periodTimes: Record<number, string> = {
     1: "07:00 - 07:45",
@@ -201,13 +202,7 @@ function UpcomingExamsCard({ exams }: { exams: ExamScheduleDto[] }) {
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     };
 
-    const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
-    };
+
 
     const upcomingExams = exams.filter(e => getDaysUntil(e.examDate) >= 0).slice(0, 3);
 

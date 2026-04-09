@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Edit, Trash2, CheckCircle, XCircle, Settings, Calendar, BookOpen } from 'lucide-react';
 import { PlusIcon, XIcon } from '../SchoolAdminIcons';
@@ -9,6 +9,36 @@ import { useToast } from '../../../context/ToastContext';
 import { formatDate } from '../../../utils/dateHelpers';
 import CloseSemesterConfirmModal from '../components/semester/CloseSemesterConfirmModal';
 import DeleteYearConfirmModal from '../components/semester/DeleteYearConfirmModal';
+
+/** Wrapper that displays DD/MM/YYYY while keeping the native date picker */
+const FormattedDateInput: React.FC<{
+    id?: string;
+    value: string;
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}> = ({ id, value, onChange }) => {
+    const inputRef = useRef<HTMLInputElement>(null);
+    return (
+        <div className="relative">
+            <input
+                ref={inputRef}
+                id={id}
+                type="date"
+                value={value}
+                onChange={onChange}
+                onKeyDown={e => e.preventDefault()}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                style={{ color: 'transparent', caretColor: 'transparent' }}
+                tabIndex={-1}
+            />
+            <span
+                className="absolute inset-0 flex items-center px-4 text-gray-900 cursor-pointer rounded-xl"
+                onClick={() => inputRef.current?.showPicker()}
+            >
+                {value ? formatDate(value) : ''}
+            </span>
+        </div>
+    );
+};
 
 const SemesterConfigPage: React.FC = () => {
     const { refreshSemesters } = useSemester();
@@ -110,7 +140,7 @@ const SemesterConfigPage: React.FC = () => {
             await semesterService.deleteAcademicYear(yearToDelete.id);
             toast.success('Xóa năm học thành công!');
             setShowDeleteYearModal(false);
-            
+
             let nextSelectedId = selectedYearId;
             if (selectedYearId === yearToDelete.id) {
                 setSelectedYearId(null);
@@ -262,16 +292,15 @@ const SemesterConfigPage: React.FC = () => {
                     </h2>
                     <p className="text-xs text-gray-500 mt-1">Học kỳ 1 và Học kỳ 2 sẽ được tự động tạo khi thêm năm học mới.</p>
                 </div>
-                
+
                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {academicYears.map(year => (
                         <div
                             key={year.id}
-                            className={`border rounded-xl p-5 cursor-pointer transition-all duration-200 ${
-                                selectedYearId === year.id
+                            className={`border rounded-xl p-5 cursor-pointer transition-all duration-200 ${selectedYearId === year.id
                                     ? 'border-blue-500 shadow-md ring-1 ring-blue-500 bg-blue-50/20'
                                     : 'border-gray-200 hover:border-blue-300 hover:shadow-sm bg-white'
-                            }`}
+                                }`}
                             onClick={() => setSelectedYearId(year.id)}
                         >
                             <div className="flex justify-between items-start mb-4">
@@ -296,14 +325,14 @@ const SemesterConfigPage: React.FC = () => {
                                     </button>
                                 </div>
                             </div>
-                            
+
                             <div className="space-y-2 text-sm text-gray-600 mb-5">
                                 <div className="flex items-center gap-2">
-                                    <span className="font-medium min-w-[70px]">Bắt đầu:</span> 
+                                    <span className="font-medium min-w-[70px]">Bắt đầu:</span>
                                     <span>{formatDate(year.startDate)}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="font-medium min-w-[70px]">Kết thúc:</span> 
+                                    <span className="font-medium min-w-[70px]">Kết thúc:</span>
                                     <span>{formatDate(year.endDate)}</span>
                                 </div>
                             </div>
@@ -319,7 +348,7 @@ const SemesterConfigPage: React.FC = () => {
                             )}
                         </div>
                     ))}
-                    
+
                     {academicYears.length === 0 && (
                         <div className="col-span-full py-8 text-center text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
                             Chưa có năm học nào. Vui lòng thêm năm học mới.
@@ -337,7 +366,7 @@ const SemesterConfigPage: React.FC = () => {
                             <span>Học kỳ thuộc <span className="text-blue-600">{academicYears.find(y => y.id === selectedYearId)?.name}</span></span>
                         </h2>
                     </div>
-                    
+
                     {semesters.length === 0 ? (
                         <div className="p-8 text-center text-gray-500">
                             Chưa có học kỳ nào. Hãy tạo năm học mới để tự động sinh Học kỳ 1 và Học kỳ 2.
@@ -373,7 +402,7 @@ const SemesterConfigPage: React.FC = () => {
                                                 >
                                                     <Edit className="w-4 h-4" />
                                                 </button>
-                                                
+
                                                 {sem.status === 'UPCOMING' && (
                                                     <button
                                                         onClick={() => handleActivateSemester(sem.id)}
@@ -383,7 +412,7 @@ const SemesterConfigPage: React.FC = () => {
                                                         <CheckCircle className="w-4 h-4" />
                                                     </button>
                                                 )}
-                                                
+
                                                 {sem.status === 'ACTIVE' && (
                                                     <button
                                                         onClick={() => handleCloseSemester(sem)}
@@ -422,12 +451,12 @@ const SemesterConfigPage: React.FC = () => {
                                         )}
                                     </div>
                                 </div>
-                                <button onClick={() => setShowYearModal(false)} className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
+                                <button onClick={() => setShowYearModal(false)} className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all" aria-label="Đóng">
                                     <XIcon />
                                 </button>
                             </div>
                         </div>
-                        
+
                         {/* Form Content */}
                         <div className="p-6 space-y-5">
                             <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-2xl p-5 border border-slate-200/60">
@@ -444,21 +473,19 @@ const SemesterConfigPage: React.FC = () => {
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-600 mb-1.5">Ngày bắt đầu <span className="text-red-500">*</span></label>
-                                            <input
-                                                type="date"
+                                            <label htmlFor="year-start-date" className="block text-sm font-medium text-slate-600 mb-1.5">Ngày bắt đầu <span className="text-red-500">*</span></label>
+                                            <FormattedDateInput
+                                                id="year-start-date"
                                                 value={yearForm.startDate}
                                                 onChange={e => setYearForm({ ...yearForm, startDate: e.target.value })}
-                                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-600 mb-1.5">Ngày kết thúc <span className="text-red-500">*</span></label>
-                                            <input
-                                                type="date"
+                                            <label htmlFor="year-end-date" className="block text-sm font-medium text-slate-600 mb-1.5">Ngày kết thúc <span className="text-red-500">*</span></label>
+                                            <FormattedDateInput
+                                                id="year-end-date"
                                                 value={yearForm.endDate}
                                                 onChange={e => setYearForm({ ...yearForm, endDate: e.target.value })}
-                                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                                             />
                                         </div>
                                     </div>
@@ -506,12 +533,12 @@ const SemesterConfigPage: React.FC = () => {
                                         <p className="text-blue-100 text-sm">{editingSemester.name}</p>
                                     </div>
                                 </div>
-                                <button onClick={() => setShowSemesterModal(false)} className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
+                                <button onClick={() => setShowSemesterModal(false)} className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all" aria-label="Đóng">
                                     <XIcon />
                                 </button>
                             </div>
                         </div>
-                        
+
                         {/* Form Content */}
                         <div className="p-6 space-y-5">
                             <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-2xl p-5 border border-slate-200/60">
@@ -528,31 +555,28 @@ const SemesterConfigPage: React.FC = () => {
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-600 mb-1.5">Ngày bắt đầu</label>
-                                            <input
-                                                type="date"
+                                            <label htmlFor="semester-start-date" className="block text-sm font-medium text-slate-600 mb-1.5">Ngày bắt đầu</label>
+                                            <FormattedDateInput
+                                                id="semester-start-date"
                                                 value={semesterForm.startDate}
                                                 onChange={e => setSemesterForm({ ...semesterForm, startDate: e.target.value })}
-                                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-600 mb-1.5">Ngày kết thúc</label>
-                                            <input
-                                                type="date"
+                                            <label htmlFor="semester-end-date" className="block text-sm font-medium text-slate-600 mb-1.5">Ngày kết thúc</label>
+                                            <FormattedDateInput
+                                                id="semester-end-date"
                                                 value={semesterForm.endDate}
                                                 onChange={e => setSemesterForm({ ...semesterForm, endDate: e.target.value })}
-                                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                                             />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-600 mb-1.5">Hạn cuối nhập điểm</label>
-                                        <input
-                                            type="date"
+                                        <label htmlFor="semester-grade-deadline" className="block text-sm font-medium text-slate-600 mb-1.5">Hạn cuối nhập điểm</label>
+                                        <FormattedDateInput
+                                            id="semester-grade-deadline"
                                             value={semesterForm.gradeDeadline || ''}
                                             onChange={e => setSemesterForm({ ...semesterForm, gradeDeadline: e.target.value })}
-                                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                                         />
                                     </div>
                                 </div>

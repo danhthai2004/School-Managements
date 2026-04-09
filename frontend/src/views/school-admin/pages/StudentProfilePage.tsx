@@ -5,18 +5,10 @@ import { schoolAdminService } from '../../../services/schoolAdminService';
 import type { StudentProfileDto, ClassRoomDto } from '../../../services/schoolAdminService';
 import { XIcon } from '../SchoolAdminIcons';
 import { useToast } from '../../../context/ToastContext';
+import { formatDate } from '../../../utils/dateHelpers';
 import StudentRiskProfileCard from '../components/StudentRiskProfileCard';
 
-// Format date for display
-const formatDate = (dateStr: string | null): string => {
-    if (!dateStr) return '—';
-    try {
-        const [year, month, day] = dateStr.split('-');
-        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
-    } catch {
-        return dateStr;
-    }
-};
+
 
 // Format instant for display
 const formatInstant = (instantStr: string): string => {

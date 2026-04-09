@@ -30,7 +30,7 @@ export default function LoginPage() {
       const res = await login(email.trim(), password);
       if (res.status === "AUTHENTICATED") {
         const role = res.user?.role;
-        console.log("Login success, role:", role);
+
         if (role === "SYSTEM_ADMIN") {
           navigate("/system/overview");
         } else if (role === "SCHOOL_ADMIN") {
@@ -67,7 +67,7 @@ export default function LoginPage() {
       const res = await loginWithGoogle(idToken);
       if (res.status === "AUTHENTICATED") {
         const role = res.user?.role;
-        console.log("Google Login success, role:", role);
+
         if (role === "SYSTEM_ADMIN") {
           navigate("/system/overview");
         } else if (role === "SCHOOL_ADMIN") {

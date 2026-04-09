@@ -30,6 +30,10 @@ export default function SchoolAdminLayout() {
 
     const menuItems = [
         { path: "/school-admin/dashboard", label: "Tổng quan", icon: <LayoutDashboard size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/semesters", label: "Cấu hình Năm học & Học kỳ", icon: <Settings2 size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/subjects", label: "Quản lý Môn học & Tổ hợp", icon: <BookOpen size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/schedule", label: "Thời khóa biểu", icon: <Calendar size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/accounts", label: "Quản lý tài khoản", icon: <UserCircle size={20} strokeWidth={1.5} /> },
         { path: "/school-admin/students", label: "Quản lý học sinh", icon: <Users size={20} strokeWidth={1.5} /> },
         {
             label: "Quản lý giáo viên",
@@ -40,15 +44,15 @@ export default function SchoolAdminLayout() {
             ]
         },
         { path: "/school-admin/classes", label: "Quản lý lớp học", icon: <LayoutGrid size={20} strokeWidth={1.5} /> },
-        { path: "/school-admin/subjects", label: "Quản lý Môn học & Tổ hợp", icon: <BookOpen size={20} strokeWidth={1.5} /> },
+        // { path: "/school-admin/subjects", label: "Quản lý Môn học & Tổ hợp", icon: <BookOpen size={20} strokeWidth={1.5} /> },
         { path: "/school-admin/rooms", label: "Quản lý phòng", icon: <Building2 size={20} strokeWidth={1.5} /> },
-        { path: "/school-admin/schedule", label: "Thời khóa biểu", icon: <Calendar size={20} strokeWidth={1.5} /> },
+        // { path: "/school-admin/schedule", label: "Thời khóa biểu", icon: <Calendar size={20} strokeWidth={1.5} /> },
         { path: "/school-admin/exam-sessions", label: "Kỳ thi & Phân bổ", icon: <CalendarClock size={20} strokeWidth={1.5} /> },
         { path: "/school-admin/notifications", label: "Thông báo", icon: <Bell size={20} strokeWidth={1.5} /> },
         { path: "/school-admin/reports", label: "Báo cáo & Thống kê", icon: <BarChart3 size={20} strokeWidth={1.5} /> },
         { path: "/school-admin/risk-analytics", label: "AI Phân Tích Rủi Ro", icon: <SquareActivity size={20} strokeWidth={1.5} /> },
-        { path: "/school-admin/accounts", label: "Quản lý tài khoản", icon: <UserCircle size={20} strokeWidth={1.5} /> },
-        { path: "/school-admin/semesters", label: "Cấu hình Năm học & Học kỳ", icon: <Settings2 size={20} strokeWidth={1.5} /> },
+        // { path: "/school-admin/accounts", label: "Quản lý tài khoản", icon: <UserCircle size={20} strokeWidth={1.5} /> },
+        // { path: "/school-admin/semesters", label: "Cấu hình Năm học & Học kỳ", icon: <Settings2 size={20} strokeWidth={1.5} /> },
     ];
 
     // State for expanded menus (using labels as keys)

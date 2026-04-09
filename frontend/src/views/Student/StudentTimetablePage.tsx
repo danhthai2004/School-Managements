@@ -3,6 +3,7 @@ import { studentService, type StudentTimetableDto, type TimetableSlotDto } from 
 import { CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { useSemester } from "../../context/SemesterContext";
 import SemesterSelector from "../../components/common/SemesterSelector";
+import { formatDate } from "../../utils/dateHelpers";
 
 const days = [
     { value: 2, label: "Thứ 2" },
@@ -35,12 +36,7 @@ function getWeekNumber(date: Date) {
     return Math.ceil((daysVal + startDate.getDay() + 1) / 7);
 }
 
-function formatDate(date: Date) {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-}
+
 
 export default function StudentTimetablePage() {
     const { activeSemester, loading: isContextLoading } = useSemester();

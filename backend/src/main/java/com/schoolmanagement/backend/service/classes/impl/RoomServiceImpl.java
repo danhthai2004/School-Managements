@@ -69,6 +69,57 @@ public class RoomServiceImpl implements RoomService {
 
     @Override
     @Transactional
+    public List<RoomDto> createBulkRooms(List<RoomDto> roomDtos, UUID schoolId) {
+        if (roomDtos == null || roomDtos.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Danh sách phòng không được để trống");
+        }
+
+        School school = schoolRepository.findById(schoolId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy trường học"));
+
+        List<String> errors = new java.util.ArrayList<>();
+        List<Room> roomsToSave = new java.util.ArrayList<>();
+
+        for (int i = 0; i < roomDtos.size(); i++) {
+            RoomDto dto = roomDtos.get(i);
+            String name = dto.getName() != null ? dto.getName().trim() : "";
+            if (name.isEmpty()) {
+                errors.add("Phòng #" + (i + 1) + ": Tên phòng không được để trống");
+                continue;
+            }
+            if (roomRepository.existsByNameIgnoreCaseAndSchoolId(name, schoolId)) {
+                errors.add("Phòng \"" + name + "\": Tên phòng đã tồn tại trong trường");
+                continue;
+            }
+            // Check duplicates within the batch itself
+            boolean duplicateInBatch = roomsToSave.stream()
+                    .anyMatch(r -> r.getName().equalsIgnoreCase(name));
+            if (duplicateInBatch) {
+                errors.add("Phòng \"" + name + "\": Trùng tên trong danh sách nhập");
+                continue;
+            }
+
+            Room room = Room.builder()
+                    .name(name)
+                    .capacity(dto.getCapacity() != null ? dto.getCapacity() : 40)
+                    .building(dto.getBuilding())
+                    .status(dto.getStatus() != null ? dto.getStatus() : RoomStatus.ACTIVE)
+                    .school(school)
+                    .build();
+            roomsToSave.add(room);
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, String.join("; ", errors));
+        }
+
+        return roomRepository.saveAll(roomsToSave).stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
     public RoomDto updateRoom(UUID id, RoomDto roomDto, UUID schoolId) {
         Room room = roomRepository.findByIdAndSchoolId(id, schoolId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy phòng học"));

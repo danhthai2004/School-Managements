@@ -392,3 +392,8 @@
     color: #1d4ed8;
   }
 }
+
+/* ==================== REACT-DATEPICKER PORTAL FIX ==================== */
+.react-datepicker-popper {
+  z-index: 200 !important;
+}

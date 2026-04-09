@@ -9,6 +9,7 @@ import {
 import { schoolAdminService, type RoomDto, type SubjectDto, type TeacherDto } from "../../../services/schoolAdminService";
 import { Loader2, Calendar, Edit2, Trash2, Plus, Users, ChevronRight, ChevronLeft, Building2, CheckCircle, X, Eye, BookOpen, Clock } from "lucide-react";
 import DatePicker from "react-datepicker";
+import { vi } from "date-fns/locale";
 import "react-datepicker/dist/react-datepicker.css";
 import { useToast } from "../../../context/ToastContext";
 import { formatDate } from "../../../utils/dateHelpers";
@@ -407,6 +408,7 @@ export default function ExamSessionManagement() {
                                             }
                                         }}
                                         dateFormat="dd/MM/yyyy"
+                                        locale={vi}
                                         className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm"
                                         placeholderText="DD/MM/YYYY"
                                         wrapperClassName="w-full"
@@ -427,6 +429,7 @@ export default function ExamSessionManagement() {
                                             }
                                         }}
                                         dateFormat="dd/MM/yyyy"
+                                        locale={vi}
                                         className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm"
                                         placeholderText="DD/MM/YYYY"
                                         wrapperClassName="w-full"
@@ -515,6 +518,7 @@ export default function ExamSessionManagement() {
                                             minDate={wizardSession?.startDate ? new Date(wizardSession.startDate) : undefined}
                                             maxDate={wizardSession?.endDate ? new Date(wizardSession.endDate) : undefined}
                                             dateFormat="dd/MM/yyyy"
+                                            locale={vi}
                                             className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm"
                                             placeholderText="DD/MM/YYYY"
                                             wrapperClassName="w-full"
