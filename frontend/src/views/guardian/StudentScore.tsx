@@ -1,9 +1,10 @@
 import {useEffect, useState} from "react";
 import type {ScoreDto} from "../../services/studentService.ts";
-import {studentService} from "../../services/studentService.ts";
-import {Download, Filter} from "lucide-react";
+import {guardianService} from "../../services/guardianService.ts";
 import { useSemester } from "../../context/SemesterContext";
 import SemesterSelector from "../../components/common/SemesterSelector";
+import { useOutletContext } from "react-router-dom";
+import type { StudentDataProp } from "../../components/layout/GuardianLayout.tsx";
 
 const getScoreColor = (score: number | null) => {
   if (!score && score !== 0) return "text-gray-400";
@@ -14,11 +15,11 @@ const getScoreColor = (score: number | null) => {
 };
 
 export default function StudentScore() {
+  const { student } = useOutletContext<StudentDataProp>();
   const [loading, setLoading] = useState(true);
   const [scores, setScores] = useState<ScoreDto[]>([]);
   const { activeSemester, allSemesters, loading: isContextLoading } = useSemester();
   const [selectedSemesterId, setSelectedSemesterId] = useState<string>("");
-  const [showFilter, setShowFilter] = useState(false);
 
   // Initial load priority: System Active Semester
   useEffect(() => {
@@ -31,10 +32,10 @@ export default function StudentScore() {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!selectedSemesterId) return;
+      if (!selectedSemesterId || !student) return;
       setLoading(true);
       try {
-        const data = await studentService.getScores(selectedSemesterId);
+        const data = await guardianService.getScores(student.id, selectedSemesterId);
         setScores(data);
       } catch (error) {
         console.error("Error fetching scores:", error);
@@ -45,7 +46,7 @@ export default function StudentScore() {
     if (!isContextLoading) {
         fetchData();
     }
-  }, [selectedSemesterId, isContextLoading]);
+  }, [selectedSemesterId, isContextLoading, student]);
 
   const validScores = scores.filter(s => s.averageScore !== null && s.averageScore !== undefined);
   const overallAverage = validScores.length > 0
@@ -76,24 +77,6 @@ export default function StudentScore() {
             onChange={setSelectedSemesterId}
             label="" 
           />
-          <div className="relative">
-            <button
-              onClick={() => setShowFilter(!showFilter)}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-            >
-              <Filter className="w-4 h-4" />
-              Lọc môn
-            </button>
-            {showFilter && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 p-2 z-10">
-                 <div className="px-3 py-2 text-sm text-gray-500">Bộ lọc theo lịch học đã chuyển liên kết với header.</div>
-              </div>
-            )}
-          </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
-            <Download className="w-4 h-4" />
-            Xuất bảng điểm
-          </button>
         </div>
       </div>
 

@@ -104,7 +104,8 @@ public class TimetableService {
             d.getClassRoom().getName(),
             d.getSlotIndex(),
             d.getDayOfWeek().name(),
-            d.getSubject().getName()))
+            d.getSubject().getName(),
+            d.getTeacher() != null ? d.getTeacher().getFullName() : null))
         .toList();
   }
 

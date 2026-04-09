@@ -73,7 +73,7 @@ public class ScoreHandler implements ChatHandler {
                     "message", "Chưa có dữ liệu điểm số."));
         }
 
-        return ChatContext.ok(ChatIntent.ASK_SCORE, buildScoreData(student, grades));
+        return ChatContext.ok(ChatIntent.ASK_SCORE, buildScoreData(student, grades, message));
     }
 
     private ChatContext handleGuardian(User user, String message) {
@@ -99,7 +99,7 @@ public class ScoreHandler implements ChatHandler {
                         "studentName", student.getFullName(),
                         "message", "Chưa có dữ liệu điểm số."));
             }
-            return ChatContext.ok(ChatIntent.ASK_SCORE, buildScoreData(student, grades));
+            return ChatContext.ok(ChatIntent.ASK_SCORE, buildScoreData(student, grades, message));
         }
 
         // Nếu có nhiều con → kiểm tra tên trong message
@@ -112,7 +112,7 @@ public class ScoreHandler implements ChatHandler {
                             "studentName", s.getFullName(),
                             "message", "Chưa có dữ liệu điểm số."));
                 }
-                return ChatContext.ok(ChatIntent.ASK_SCORE, buildScoreData(s, grades));
+                return ChatContext.ok(ChatIntent.ASK_SCORE, buildScoreData(s, grades, message));
             }
         }
 
@@ -129,26 +129,47 @@ public class ScoreHandler implements ChatHandler {
 
     /**
      * Đóng gói dữ liệu điểm thành Map cho NLG xử lý.
+     * Hỗ trợ lọc theo môn học nếu người dùng yêu cầu cụ thể.
      */
-    private Map<String, Object> buildScoreData(Student student, List<Grade> grades) {
+    private Map<String, Object> buildScoreData(Student student, List<Grade> grades, String message) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("studentName", student.getFullName());
         data.put("studentCode", student.getStudentCode());
 
+        // Lọc theo môn học nếu message có nhắc đến tên môn cụ thể
+        String lowerMsg = message.toLowerCase();
         List<Map<String, Object>> gradeList = new ArrayList<>();
+        
         for (Grade g : grades) {
-            Map<String, Object> item = new LinkedHashMap<>();
-            item.put("subject", g.getSubject() != null ? g.getSubject().getName() : "N/A");
-            item.put("semester", g.getSemester() != null ? g.getSemester().getSemesterNumber() : "");
-            item.put("academicYear", g.getSemester() != null && g.getSemester().getAcademicYear() != null ? g.getSemester().getAcademicYear().getName() : "");
+            String subjectName = g.getSubject() != null ? g.getSubject().getName() : "N/A";
+            
+            // Nếu người dùng hỏi môn cụ thể (văn, toán, lý...) thì chỉ lấy điểm môn đó
+            // Hoặc nếu không hỏi môn cụ thể thì lấy bế cả (message không chứa "môn" hoặc tên môn nào)
+            boolean shouldInclude = true;
+            
+            // Danh sách các môn phổ biến để nhận diện (có thể mở rộng)
+            List<String> commonSubjects = List.of("toán", "văn", "anh", "vật lý", "hóa học", "sinh học", "lịch sử", "địa lý", "gdcd", "công nghệ", "tin học", "thể dục");
+            
+            boolean userAskedSpecificSubject = commonSubjects.stream().anyMatch(lowerMsg::contains);
+            
+            if (userAskedSpecificSubject) {
+                shouldInclude = lowerMsg.contains(subjectName.toLowerCase());
+            }
+
+            if (shouldInclude) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("subject", subjectName);
+                item.put("semester", g.getSemester() != null ? g.getSemester().getSemesterNumber() : "");
+                item.put("academicYear", g.getSemester() != null && g.getSemester().getAcademicYear() != null ? g.getSemester().getAcademicYear().getName() : "");
             item.put("oralScore", formatScore(g.getOralScore()));
             item.put("test15min", formatScore(g.getTest15minScore()));
             item.put("test45min", formatScore(g.getTest45minScore()));
-            item.put("midterm", formatScore(g.getMidtermScore()));
-            item.put("final", formatScore(g.getFinalScore()));
-            item.put("average", formatScore(g.getAverageScore()));
-            item.put("rank", g.getPerformanceCategory() != null ? g.getPerformanceCategory() : "");
-            gradeList.add(item);
+                item.put("midterm", formatScore(g.getMidtermScore()));
+                item.put("final", formatScore(g.getFinalScore()));
+                item.put("average", formatScore(g.getAverageScore()));
+                item.put("rank", g.getPerformanceCategory() != null ? g.getPerformanceCategory() : "");
+                gradeList.add(item);
+            }
         }
         data.put("grades", gradeList);
         return data;

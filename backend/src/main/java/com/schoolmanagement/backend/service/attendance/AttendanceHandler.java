@@ -120,8 +120,8 @@ public class AttendanceHandler implements ChatHandler {
         data.put("late", late);
         data.put("excused", excused);
 
-        // Tính tỷ lệ đi học
-        double attendanceRate = total > 0 ? (double) present / total * 100 : 0;
+        // Tính tỷ lệ đi học (Đi muộn vẫn tính là có mặt trong tỷ lệ đi học)
+        double attendanceRate = total > 0 ? (double) (present + late) / total * 100 : 0;
         data.put("attendanceRate", String.format("%.1f%%", attendanceRate));
 
         // Lấy 5 lần vắng gần nhất (nếu có)

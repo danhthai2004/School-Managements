@@ -17,10 +17,10 @@ import com.schoolmanagement.backend.dto.chat.ChatContext;
 import com.schoolmanagement.backend.dto.chat.ChatResponse;
 import com.schoolmanagement.backend.repo.chat.ChatMessageRepository;
 import com.schoolmanagement.backend.repo.auth.UserRepository;
-import com.schoolmanagement.backend.service.chat.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -101,7 +101,8 @@ public class ChatService {
         // ──── Bước 3: Sinh ngôn ngữ tự nhiên (NLG) ────
         String answer;
         if (isAiEnabled()) {
-            answer = nlgService.generate(context, message);
+            boolean isFirstMessage = checkIsFirstMessage(userId);
+            answer = nlgService.generate(context, message, isFirstMessage, role);
         } else {
             answer = fallbackGenerateResponse(context, message);
         }
@@ -130,6 +131,20 @@ public class ChatService {
             case OUT_OF_SCOPE -> fallbackHandler.handleOutOfScope();
             case UNKNOWN -> fallbackHandler.handle(userId, message);
         };
+    }
+
+    private boolean checkIsFirstMessage(UUID userId) {
+        try {
+            User user = userRepository.findById(userId).orElse(null);
+            if (user == null) return true;
+            List<ChatMessage> lastMessages = chatMessageRepository.findTop20ByUserOrderByCreatedAtDesc(user);
+            if (lastMessages.isEmpty()) return true;
+            ChatMessage latest = lastMessages.get(0);
+            java.time.Instant fiveMinsAgo = java.time.Instant.now().minus(5, java.time.temporal.ChronoUnit.MINUTES);
+            return latest.getCreatedAt().isBefore(fiveMinsAgo);
+        } catch (Exception e) {
+            return true;
+        }
     }
 
     // ═══════════════════════════════════════════════════
@@ -214,13 +229,13 @@ public class ChatService {
         StringBuilder sb = new StringBuilder();
 
         if (context.data().containsKey("studentName")) {
-            sb.append("📋 Học sinh: ").append(context.data().get("studentName")).append("\n");
+            sb.append("Học sinh: ").append(context.data().get("studentName")).append("\n");
         }
 
         if (context.intent() == ChatIntent.ASK_SCORE && context.data().containsKey("grades")) {
             @SuppressWarnings("unchecked")
             var grades = (java.util.List<java.util.Map<String, Object>>) context.data().get("grades");
-            sb.append("📊 Bảng điểm:\n");
+            sb.append("Bảng điểm:\n");
             for (var g : grades) {
                 sb.append(String.format("  - %s (HK%s): TB = %s (%s)\n",
                         g.get("subject"), g.get("semester"),
@@ -235,11 +250,11 @@ public class ChatService {
                     context.data().getOrDefault("absent", "—"),
                     context.data().getOrDefault("late", "—"),
                     context.data().getOrDefault("excused", "—")));
-            sb.append("📈 Tỷ lệ đi học: ").append(context.data().getOrDefault("attendanceRate", "—")).append("\n");
+            sb.append("Tỷ lệ đi học: ").append(context.data().getOrDefault("attendanceRate", "—")).append("\n");
         }
 
         if (context.intent() == ChatIntent.ASK_TIMETABLE && context.data().containsKey("schedule")) {
-            sb.append("📅 Lớp: ").append(context.data().getOrDefault("className", "")).append("\n");
+            sb.append("Lớp: ").append(context.data().getOrDefault("className", "")).append("\n");
             @SuppressWarnings("unchecked")
             var schedule = (java.util.List<java.util.Map<String, Object>>) context.data().get("schedule");
             for (var day : schedule) {
@@ -255,7 +270,7 @@ public class ChatService {
         if (context.intent() == ChatIntent.ASK_ANNOUNCEMENT && context.data().containsKey("notifications")) {
             @SuppressWarnings("unchecked")
             var notifications = (java.util.List<java.util.Map<String, Object>>) context.data().get("notifications");
-            sb.append("📢 Thông báo:\n");
+            sb.append("Thông báo:\n");
             for (var n : notifications) {
                 sb.append(String.format("  [%s] %s\n  %s\n",
                         n.get("date"), n.get("title"), n.get("content")));
@@ -263,7 +278,7 @@ public class ChatService {
         }
 
         if (context.intent() == ChatIntent.ASK_TEACHER_TIMETABLE && context.data().containsKey("schedule")) {
-            sb.append("👨‍🏫 GV: ").append(context.data().getOrDefault("teacherName", "")).append("\n");
+            sb.append("GV: ").append(context.data().getOrDefault("teacherName", "")).append("\n");
             sb.append(String.format("Tổng: %s tiết\n", context.data().getOrDefault("totalSlots", "—")));
             @SuppressWarnings("unchecked")
             var schedule = (java.util.List<java.util.Map<String, Object>>) context.data().get("schedule");
@@ -279,10 +294,10 @@ public class ChatService {
         }
 
         if (context.intent() == ChatIntent.ASK_HOMEROOM_CLASS) {
-            sb.append(String.format("🏫 Lớp: %s | Sĩ số: %s\n",
+            sb.append(String.format("Lớp: %s | Sĩ số: %s\n",
                     context.data().getOrDefault("className", "—"),
                     context.data().getOrDefault("totalStudents", "—")));
-            sb.append(String.format("📅 Hôm nay (%s): Vắng %s | Trễ %s | Phép %s\n",
+            sb.append(String.format("Hôm nay (%s): Vắng %s | Trễ %s | Phép %s\n",
                     context.data().getOrDefault("date", "—"),
                     context.data().getOrDefault("absentToday", "0"),
                     context.data().getOrDefault("lateToday", "0"),
@@ -293,20 +308,20 @@ public class ChatService {
         }
 
         if (context.intent() == ChatIntent.ASK_QUICK_STATS) {
-            sb.append(String.format("🏫 %s — %s\n",
+            sb.append(String.format("%s — %s\n",
                     context.data().getOrDefault("schoolName", ""),
                     context.data().getOrDefault("date", "")));
-            sb.append(String.format("📊 Tổng: %s HS | %s GV | %s lớp\n",
+            sb.append(String.format("Tổng: %s HS | %s GV | %s lớp\n",
                     context.data().getOrDefault("totalStudents", "—"),
                     context.data().getOrDefault("totalTeachers", "—"),
                     context.data().getOrDefault("totalClasses", "—")));
             if (Boolean.TRUE.equals(context.data().get("hasAttendanceToday"))) {
-                sb.append(String.format("📅 Điểm danh hôm nay: Có mặt %s | Vắng %s | Trễ %s | Phép %s\n",
+                sb.append(String.format("Điểm danh hôm nay: Có mặt %s | Vắng %s | Trễ %s | Phép %s\n",
                         context.data().getOrDefault("presentToday", "0"),
                         context.data().getOrDefault("absentToday", "0"),
                         context.data().getOrDefault("lateToday", "0"),
                         context.data().getOrDefault("excusedToday", "0")));
-                sb.append("📈 Tỷ lệ đi học: ").append(context.data().getOrDefault("attendanceRate", "—")).append("\n");
+                sb.append("Tỷ lệ đi học: ").append(context.data().getOrDefault("attendanceRate", "—")).append("\n");
             } else {
                 sb.append("Chưa có dữ liệu điểm danh hôm nay.\n");
             }

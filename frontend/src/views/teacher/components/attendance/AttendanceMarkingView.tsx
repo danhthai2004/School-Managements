@@ -4,6 +4,8 @@ import { vi } from "date-fns/locale";
 import { attendanceService, AttendanceStatus } from "../../../../services/attendanceService";
 import type { AttendanceDto } from "../../../../services/attendanceService";
 
+import { useToast } from "../../../../context/ToastContext";
+
 type Props = {
     date: Date;
     slotIndex: number;
@@ -14,6 +16,7 @@ type Props = {
 };
 
 export default function AttendanceMarkingView({ date, slotIndex, subjectName, className, slotStartTime, onClose }: Props) {
+    const { toast } = useToast();
     const [students, setStudents] = useState<AttendanceDto[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -47,7 +50,7 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
             const now = new Date();
             const slotStart = new Date();
             slotStart.setHours(hours, minutes, 0, 0);
-
+            
             if (now >= slotStart) {
                 setIsSlotStarted(true);
                 setCountdown("");
@@ -90,11 +93,11 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
             setStudents(data);
         } catch (error) {
             console.error("Failed to load attendance:", error);
-            alert("Không thể tải danh sách điểm danh");
+            toast.error("Không thể tải danh sách điểm danh");
         } finally {
             setLoading(false);
         }
-    }, [date, slotIndex]);
+    }, [date, slotIndex, toast]);
 
     useEffect(() => {
         loadData();
@@ -125,12 +128,24 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
                     remarks: s.remarks
                 }))
             });
-            alert("Lưu điểm danh thành công!");
+            toast.success("Lưu điểm danh thành công!");
             onClose();
-        } catch (error: unknown) {
-            console.error("Failed to save:", error);
-            const err = error as { response?: { data?: { message?: string } } };
-            alert(err.response?.data?.message || "Lỗi khi lưu điểm danh");
+        } catch (error: any) {
+            console.error("Failed to save attendance:", error);
+            
+            // Extract the most meaningful message
+            const status = error.response?.status;
+            const data = error.response?.data;
+            let errorMessage = "Đã xảy ra lỗi khi lưu điểm danh";
+
+            if (status === 400 || status === 403 || status === 404 || status === 409) {
+                // Use backend reason if available, otherwise generic
+                errorMessage = data?.message || data?.error || errorMessage;
+            } else if (status === 500) {
+                errorMessage = "Lỗi hệ thống (Server Error). Vui lòng liên hệ Admin.";
+            }
+
+            toast.error(errorMessage);
         } finally {
             setSaving(false);
         }

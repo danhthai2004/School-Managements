@@ -21,6 +21,7 @@ import com.schoolmanagement.backend.dto.student.StudentDto;
 import com.schoolmanagement.backend.repo.student.GuardianRepository;
 
 import com.schoolmanagement.backend.service.admin.SemesterService;
+import com.schoolmanagement.backend.dto.attendance.AttendanceSummaryDto;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,18 +88,47 @@ public class GuardianController {
   }
 
   /**
+   * Get scores for the student.
+   * @param studentId Student ID
+   * @param semesterId Optional semester ID filter
+   */
+  @GetMapping("/scores")
+  public ResponseEntity<List<com.schoolmanagement.backend.dto.grade.ScoreDto>> getScores(
+      @RequestParam String studentId,
+      @RequestParam(required = false) String semesterId) {
+    log.info("Scores data hit for guardian!");
+    List<com.schoolmanagement.backend.dto.grade.ScoreDto> scores = studentPortalService.getScores(
+        UUID.fromString(studentId), semesterId);
+    return ResponseEntity.ok(scores);
+  }
+
+  /**
    * Get profile data for the guardian user
    * Including user's phone number, email, full name, etc...
    */
-  @GetMapping("/profile")
-  public ResponseEntity<GuardianDto> getProfileData(@AuthenticationPrincipal UserPrincipal principal) {
-    User user = userLookupService.requireById(principal.getId());
-    if (user.getRole() != Role.GUARDIAN) {
-      throw new ResponseStatusException(
-          HttpStatus.FORBIDDEN,
-          "Only guardian role is able to proceed");
+    @GetMapping("/profile")
+    public ResponseEntity<GuardianDto> getProfileData(@AuthenticationPrincipal UserPrincipal principal) {
+        User user = userLookupService.requireById(principal.getId());
+        if (user.getRole() != Role.GUARDIAN) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only guardian role is able to proceed");
+        }
+        GuardianDto guardianDto = guardianService.findGuardianByUser(user);
+        return ResponseEntity.ok(guardianDto);
     }
-    GuardianDto guardianDto = guardianService.findGuardianByUser(user);
-    return ResponseEntity.ok(guardianDto);
-  }
+
+    /**
+     * Get attendance summary for the student.
+     */
+    @GetMapping("/attendance")
+    public ResponseEntity<AttendanceSummaryDto> getAttendance(
+            @RequestParam String studentId,
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Integer year) {
+        log.info("Attendance data hit for guardian!");
+        AttendanceSummaryDto attendance = studentPortalService.getAttendance(
+                UUID.fromString(studentId), month, year);
+        return ResponseEntity.ok(attendance);
+    }
 }
