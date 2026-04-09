@@ -227,13 +227,27 @@ public class StudentPortalService {
         }
 
         /**
+         * Get scores for any student by studentId (used by guardians).
+         */
+        @Transactional(readOnly = true)
+        public List<ScoreDto> getScores(UUID studentId, String semesterId) {
+            Student student = studentRepository.findById(studentId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Học sinh không tồn tại"));
+            return getScoresInternal(student, semesterId);
+        }
+
+        /**
          * Get scores for the student.
          * Returns ALL subjects from the student's class curriculum,
          * with null scores for subjects not yet graded.
          */
         @Transactional(readOnly = true)
-        public List<ScoreDto> getScores(UUID userId, String semesterId) {
+        public List<ScoreDto> getScoresForUser(UUID userId, String semesterId) {
                 Student student = getStudentForUser(userId);
+                return getScoresInternal(student, semesterId);
+        }
+
+        private List<ScoreDto> getScoresInternal(Student student, String semesterId) {
                 
                 com.schoolmanagement.backend.domain.entity.admin.Semester targetSemesterEntity = semesterId != null 
                         ? semesterService.getSemester(UUID.fromString(semesterId)) 
@@ -298,16 +312,30 @@ public class StudentPortalService {
                 return result;
         }
 
-        /**
-         * Get attendance summary for the student.
-         */
-        @Transactional(readOnly = true)
-        public AttendanceSummaryDto getAttendance(UUID userId, Integer month, Integer year) {
-                Student student = getStudentForUser(userId);
+    /**
+     * Get attendance summary for any student by studentId (used by guardians).
+     */
+    @Transactional(readOnly = true)
+    public AttendanceSummaryDto getAttendance(UUID studentId, Integer month, Integer year) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Học sinh không tồn tại"));
 
-                LocalDate now = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
-                int targetMonth = month != null ? month : now.getMonthValue();
-                int targetYear = year != null ? year : now.getYear();
+        return getAttendanceInternal(student, month, year);
+    }
+
+    /**
+     * Get attendance summary for the logged-in student.
+     */
+    @Transactional(readOnly = true)
+    public AttendanceSummaryDto getAttendanceForUser(UUID userId, Integer month, Integer year) {
+        Student student = getStudentForUser(userId);
+        return getAttendanceInternal(student, month, year);
+    }
+
+    private AttendanceSummaryDto getAttendanceInternal(Student student, Integer month, Integer year) {
+        LocalDate now = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+        int targetMonth = month != null ? month : now.getMonthValue();
+        int targetYear = year != null ? year : now.getYear();
 
                 List<Attendance> attendances = attendanceRepository
                                 .findByStudentAndMonthAndYear(student, targetMonth, targetYear);
@@ -361,7 +389,7 @@ public class StudentPortalService {
                                 .filter(e -> "UPCOMING".equals(e.getStatus()))
                                 .limit(3)
                                 .collect(Collectors.toList());
-                List<ScoreDto> scores = getScores(userId, semesterId);
+                List<ScoreDto> scores = getScoresForUser(userId, semesterId);
 
                 // Calculate average score safely (avoid NaN)
                 Double avgScore = scores.stream()
@@ -370,7 +398,7 @@ public class StudentPortalService {
                                 .average()
                                 .orElse(0.0);
 
-                AttendanceSummaryDto attendance = getAttendance(userId, null, null);
+                AttendanceSummaryDto attendance = getAttendanceForUser(userId, null, null);
 
                 com.schoolmanagement.backend.domain.entity.admin.Semester targetSemester = semesterId != null 
                         ? semesterService.getSemester(UUID.fromString(semesterId)) 
@@ -401,7 +429,7 @@ public class StudentPortalService {
                 int currentSemester = semesterService.getActiveSemesterNumber(student.getSchool());
 
                 StudentProfileDto profile = getProfile(userId);
-                List<ScoreDto> scores = getScores(userId, null); // Default to active semester
+                List<ScoreDto> scores = getScoresForUser(userId, null); // Default to active semester
 
                 // Score statistics
                 Double overallAverage = 0.0;
@@ -466,7 +494,7 @@ public class StudentPortalService {
                         }
                 }
 
-                AttendanceSummaryDto attendance = getAttendance(userId, null, null);
+                AttendanceSummaryDto attendance = getAttendanceForUser(userId, null, null);
 
                 return StudentAnalysisDto.builder()
                                 .studentId(student.getId().toString())

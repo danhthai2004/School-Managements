@@ -82,9 +82,13 @@ export default function DailySummaryView({ date }: Props) {
                     <tbody className="divide-y divide-gray-200">
                         {summary.students.map((student) => {
                             const stats = Object.values(student.slotTheStatus).reduce((acc, status) => {
-                                if (status !== AttendanceStatus.PRESENT) acc.absent++;
+                                if (status === AttendanceStatus.ABSENT_EXCUSED || status === AttendanceStatus.ABSENT_UNEXCUSED) {
+                                    acc.absent++;
+                                } else if (status === AttendanceStatus.LATE) {
+                                    acc.late++;
+                                }
                                 return acc;
-                            }, { absent: 0 });
+                            }, { absent: 0, late: 0 });
 
                             return (
                                 <tr key={student.studentId} className="hover:bg-gray-50">
@@ -106,11 +110,17 @@ export default function DailySummaryView({ date }: Props) {
                                         );
                                     })}
                                     <td className="px-4 py-3 text-center text-sm text-gray-600">
-                                        {stats.absent > 0 ? (
-                                            <span className="text-red-600 font-medium">Vắng {stats.absent} tiết</span>
-                                        ) : (
-                                            <span className="text-green-600">Đủ</span>
-                                        )}
+                                        <div className="flex flex-col items-center gap-0.5">
+                                            {stats.absent > 0 && (
+                                                <span className="text-red-600 font-bold whitespace-nowrap">Vắng {stats.absent} tiết</span>
+                                            )}
+                                            {stats.late > 0 && (
+                                                <span className="text-orange-600 font-bold whitespace-nowrap">Muộn {stats.late} tiết</span>
+                                            )}
+                                            {stats.absent === 0 && stats.late === 0 && (
+                                                <span className="text-green-600">Đủ</span>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             );

@@ -29,7 +29,7 @@ import java.util.UUID;
         @Index(name = "idx_attendance_student", columnList = "student_id"),
         @Index(name = "idx_attendance_date", columnList = "attendance_date"),
         @Index(name = "idx_attendance_class", columnList = "classroom_id"),
-        @Index(name = "idx_attendance_unique", columnList = "student_id, attendance_date", unique = true)
+        @Index(name = "idx_attendance_unique", columnList = "student_id, attendance_date, slot_index", unique = true)
 })
 public class Attendance {
 

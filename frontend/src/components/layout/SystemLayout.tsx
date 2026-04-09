@@ -94,7 +94,7 @@ export default function SystemLayout() {
               key={item.to}
               to={item.to}
               className={({ isActive }) => `
-                flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm
+                w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm
                 ${isActive
                   ? "bg-blue-50 text-blue-700 font-medium"
                   : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
@@ -114,7 +114,7 @@ export default function SystemLayout() {
           <button
             onClick={handleLogout}
             title={sidebarCollapsed ? "Đăng xuất" : undefined}
-            className={`flex items-center gap-3 px-3 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm ${sidebarCollapsed ? "justify-center" : ""
+            className={`w-full flex items-center gap-3 px-3 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm ${sidebarCollapsed ? "justify-center" : ""
               }`}
           >
             <LogoutIcon />

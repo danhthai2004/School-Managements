@@ -40,7 +40,7 @@ import GuardianLayout from "../components/layout/GuardianLayout";
 import GuardianNotification from "../views/guardian/GuardianNotification";
 import StudentAttendance from "../views/guardian/StudentAttendance";
 import StudentScore from "../views/guardian/StudentScore";
-import StudentTimetable from "../views/guardian/StudentTimetable";
+import GuardianTimetablePage from "../views/guardian/GuardianTimetablePage";
 import GuardianDashboardPage from "../views/guardian/GuardianDashboardPage";
 
 // Student
@@ -144,7 +144,7 @@ export default function AppRouter() {
         <Route path="grading" element={<StudentScore />} />
         <Route path="attendance" element={<StudentAttendance />} />
         <Route path="notification" element={<GuardianNotification />} />
-        <Route path="timetable" element={<StudentTimetable />} />
+        <Route path="timetable" element={<GuardianTimetablePage />} />
         <Route path="examschedule" element={<GuardianStudentExamSchedulePage />} />
         <Route path="profile" element={<GuardianProfile />} />
       </Route>
