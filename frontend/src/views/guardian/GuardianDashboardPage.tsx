@@ -11,11 +11,11 @@ const periodTimes: Record<number, string> = {
     3: "08:40 - 09:25",
     4: "09:35 - 10:20",
     5: "10:35 - 11:20",
-    6: "13:00 - 13:45",
-    7: "13:50 - 14:35",
-    8: "14:40 - 15:25",
-    9: "15:35 - 16:20",
-    10: "16:25 - 17:10",
+    6: "13:30 - 14:15",
+    7: "14:20 - 15:05",
+    8: "15:10 - 15:55",
+    9: "16:05 - 16:50",
+    10: "16:55 - 17:40",
 };
 
 interface NotificationDto {
@@ -227,8 +227,8 @@ export default function GuardianDashboardPage() {
                                     </div>
                                     <div className="text-right">
                                         <span className={`text-xs px-2 py-1 rounded-full font-bold ${formatDaysRemaining(exam.examDate).includes("Còn 1") || formatDaysRemaining(exam.examDate).includes("Hôm nay")
-                                                ? "bg-red-100 text-red-600"
-                                                : "bg-blue-100 text-blue-600"
+                                            ? "bg-red-100 text-red-600"
+                                            : "bg-blue-100 text-blue-600"
                                             }`}>
                                             {formatDaysRemaining(exam.examDate)}
                                         </span>

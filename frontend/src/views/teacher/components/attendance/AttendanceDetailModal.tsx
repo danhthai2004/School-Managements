@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { attendanceService, AttendanceStatus } from "../../../../services/attendanceService";
 import type { StudentAttendanceDetailDto } from "../../../../services/attendanceService";
+import { formatDate } from "../../../../utils/dateHelpers";
 
 type Props = {
     studentId: string;
@@ -37,10 +38,7 @@ const getStatusBadge = (status: AttendanceStatus) => {
     }
 };
 
-const formatDate = (dateStr: string) => {
-    const [y, m, d] = dateStr.split("-");
-    return `${d}/${m}/${y}`;
-};
+
 
 const getDayOfWeek = (dateStr: string) => {
     const date = new Date(dateStr);

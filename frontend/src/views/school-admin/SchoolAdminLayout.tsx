@@ -32,6 +32,7 @@ export default function SchoolAdminLayout() {
                 { path: "/school-admin/teachers", label: "Danh sách giáo viên" },
                 { path: "/school-admin/assignments", label: "Phân công chuyên môn" },
                 { path: "/school-admin/classes", label: "Quản lý lớp học" },
+                { path: "/school-admin/rooms", label: "Quản lý phòng" },
                 { path: "/school-admin/accounts", label: "Quản lý tài khoản" }
             ]
         },
@@ -40,7 +41,6 @@ export default function SchoolAdminLayout() {
             icon: <BookOpen size={20} strokeWidth={1.5} />,
             children: [
                 { path: "/school-admin/subjects", label: "Môn học & Tổ hợp" },
-                { path: "/school-admin/rooms", label: "Quản lý phòng" },
                 { path: "/school-admin/schedule", label: "Thời khóa biểu" },
                 { path: "/school-admin/exam-sessions", label: "Kỳ thi & Phân bổ" }
             ]

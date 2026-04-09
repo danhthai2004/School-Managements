@@ -69,21 +69,23 @@ export default function NotificationBell() {
         }
     }, []);
 
-    // Fetch unread count periodically
+    // Fetch unread count periodically (and on mount)
     useEffect(() => {
         fetchNotifications();
         const interval = setInterval(fetchNotifications, 60000);
         return () => clearInterval(interval);
     }, [fetchNotifications]);
 
-    // Reload when dropdown opens
+    // Reload when dropdown opens, reset detail view when it closes
     useEffect(() => {
         if (isOpen) {
             fetchNotifications();
-        } else {
+        }
+        if (!isOpen) {
             setSelectedNotification(null);
         }
-    }, [isOpen, fetchNotifications]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
