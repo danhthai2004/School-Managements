@@ -130,6 +130,12 @@ public class AttendanceService {
                                         "Điểm danh ngày này đã bị khóa tự động. Không thể chỉnh sửa.");
                 }
 
+                // Block future dates
+                if (request.getDate().isAfter(today)) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                        "Không thể thực hiện điểm danh cho tương lai. Vui lòng quay lại vào ngày " + request.getDate());
+                }
+
                 com.schoolmanagement.backend.domain.entity.admin.Semester currentSemester = semesterService
                                 .getSemesterByDate(teacher.getUser().getSchool(), request.getDate());
                 if (currentSemester != null && currentSemester
@@ -138,7 +144,7 @@ public class AttendanceService {
                                         "Học kỳ chứa ngày điểm danh này đã chốt sổ. Chỉ có Giám thị hoặc Admin mới được phép chỉnh sửa.");
                 }
 
-                // Check if slot has started
+                // Check if slot has started (with 10-minute grace period)
                 if (request.getDate().isEqual(today)) {
                         try {
                                 TimetableScheduleSummaryDto.SlotTimeDto slotTime = settingsService

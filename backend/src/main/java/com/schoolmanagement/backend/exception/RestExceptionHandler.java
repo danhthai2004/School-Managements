@@ -12,6 +12,12 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.server.ResponseStatusException;
+
 import java.time.Instant;
 import java.util.stream.Collectors;
 
@@ -19,6 +25,68 @@ import java.util.stream.Collectors;
 public class RestExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(RestExceptionHandler.class);
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiError> handleResponseStatus(ResponseStatusException ex, HttpServletRequest req) {
+        var status = (HttpStatus) ex.getStatusCode();
+        var body = new ApiError(
+                Instant.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                ex.getReason(),
+                req.getRequestURI());
+        return ResponseEntity.status(status).body(body);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex, HttpServletRequest req) {
+        var status = HttpStatus.FORBIDDEN;
+        var body = new ApiError(
+                Instant.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                "Bạn không có quyền thực hiện hành động này.",
+                req.getRequestURI());
+        return ResponseEntity.status(status).body(body);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleMessageNotReadable(HttpMessageNotReadableException ex, HttpServletRequest req) {
+        var status = HttpStatus.BAD_REQUEST;
+        var body = new ApiError(
+                Instant.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                "Dữ liệu gửi lên không đúng định dạng JSON.",
+                req.getRequestURI());
+        return ResponseEntity.status(status).body(body);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest req) {
+        var status = HttpStatus.BAD_REQUEST;
+        String message = String.format("Tham số '%s' có giá trị không hợp lệ.", ex.getName());
+        var body = new ApiError(
+                Instant.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                message,
+                req.getRequestURI());
+        return ResponseEntity.status(status).body(body);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiError> handleMissingParam(MissingServletRequestParameterException ex, HttpServletRequest req) {
+        var status = HttpStatus.BAD_REQUEST;
+        String message = String.format("Thiếu tham số bắt buộc: %s", ex.getParameterName());
+        var body = new ApiError(
+                Instant.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                message,
+                req.getRequestURI());
+        return ResponseEntity.status(status).body(body);
+    }
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiError> handleApi(ApiException ex, HttpServletRequest req) {
@@ -64,7 +132,7 @@ public class RestExceptionHandler {
                 Instant.now(),
                 status.value(),
                 status.getReasonPhrase(),
-                "Đã có lỗi xảy ra. Vui lòng thử lại. Message: " + ex.getMessage(), // Include exception message
+                ex.getMessage(), // Just the message
                 req.getRequestURI());
         return ResponseEntity.status(status).body(body);
     }

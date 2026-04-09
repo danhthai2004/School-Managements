@@ -98,7 +98,7 @@ export default function StudentLayout() {
                             key={item.to}
                             to={item.to}
                             className={({ isActive }) => `
-                flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm
+                w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm
                 ${isActive
                                     ? "bg-blue-50 text-blue-700 font-medium"
                                     : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"

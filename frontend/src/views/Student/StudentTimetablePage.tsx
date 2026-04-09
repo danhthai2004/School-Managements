@@ -155,22 +155,30 @@ export default function StudentTimetablePage() {
                         <table className="w-full min-w-[800px] border-collapse bg-white">
                             <thead>
                                 <tr>
-                                    <th className="p-4 text-center text-sm font-semibold text-slate-700 w-16 border-b border-r border-gray-100 bg-white sticky left-0 z-20">Tiết</th>
-                                    {days.map((day) => (
-                                        <th
-                                            key={day.value}
-                                            className="p-4 text-center text-sm font-medium text-blue-600 bg-white border-b border-r border-gray-100"
-                                        >
-                                            {day.label}
-                                        </th>
-                                    ))}
+                                    <th className="p-4 text-center text-sm font-semibold text-slate-700 w-20 border-b border-r border-gray-100 bg-white sticky left-0 z-20">Tiết</th>
+                                    {days.map((day) => {
+                                        const realDayNum = new Date().getDay();
+                                        const highlightToday = realDayNum === (day.value === 7 && realDayNum === 6 ? 6 : day.value - 1);
+
+                                        return (
+                                            <th
+                                                key={day.value}
+                                                className={`p-4 text-center text-sm border-b border-r border-gray-100 transition-colors ${
+                                                    highlightToday ? "text-blue-700 font-bold bg-blue-50/50" : "text-blue-600 font-medium bg-white"
+                                                }`}
+                                            >
+                                                {day.label}
+                                                {highlightToday && <span className="block text-[10px] text-blue-400 mt-0.5">Hôm nay</span>}
+                                            </th>
+                                        );
+                                    })}
                                 </tr>
                             </thead>
                             <tbody>
                                 {/* Morning session header */}
                                 <tr>
-                                    <td colSpan={days.length + 1} className="p-3 text-center border-b border-gray-100">
-                                        <span className="text-xs font-medium text-blue-600 uppercase">BUỔI SÁNG</span>
+                                    <td colSpan={days.length + 1} className="p-3 text-center border-b border-gray-100 bg-slate-50/30">
+                                        <span className="text-xs font-semibold text-blue-600 uppercase tracking-widest">BUỔI SÁNG</span>
                                     </td>
                                 </tr>
                                 {[1, 2, 3, 4, 5].map((period) => (
@@ -180,13 +188,20 @@ export default function StudentTimetablePage() {
                                         </td>
                                         {days.map((day) => {
                                             const slot = getSlotForDayAndPeriod(day.value, period);
+                                            const realDayNum = new Date().getDay();
+                                            const highlightToday = realDayNum === (day.value === 7 && realDayNum === 6 ? 6 : day.value - 1);
 
                                             return (
-                                                <td key={day.value} className="p-2 border-r border-gray-100 align-middle text-center h-[60px]">
+                                                <td key={day.value} className={`p-2 border-r border-gray-100 align-middle text-center h-[70px] transition-colors ${highlightToday ? "bg-blue-50/20" : ""}`}>
                                                     {slot ? (
                                                         <div className="flex flex-col justify-center items-center h-full w-full">
-                                                            <span className="font-medium text-xs text-slate-800">{slot.subjectName}</span>
-                                                            <span className="text-[10px] text-blue-400 mt-0.5">-</span>
+                                                            <span className={`text-[13px] leading-tight mb-1 transition-colors ${highlightToday ? "font-bold text-blue-700" : "font-medium text-slate-800"}`}>
+                                                                {slot.subjectName}
+                                                            </span>
+                                                            <span className="text-[10px] text-slate-400 italic mb-1">
+                                                                {slot.teacherName || "-"}
+                                                            </span>
+                                                            <div className={`w-1 h-0.5 rounded-full ${highlightToday ? "bg-blue-600" : "bg-blue-400"}`}></div>
                                                         </div>
                                                     ) : (
                                                         <div className="flex items-center justify-center text-slate-200">-</div>
@@ -199,24 +214,31 @@ export default function StudentTimetablePage() {
 
                                 {/* Afternoon session header */}
                                 <tr>
-                                    <td colSpan={days.length + 1} className="p-3 text-center border-b border-gray-100">
-                                        <span className="text-xs font-medium text-blue-600 uppercase">BUỔI CHIỀU</span>
+                                    <td colSpan={days.length + 1} className="p-3 text-center border-b border-gray-100 bg-slate-50/30">
+                                        <span className="text-xs font-semibold text-blue-600 uppercase tracking-widest">BUỔI CHIỀU</span>
                                     </td>
                                 </tr>
-                                {[6, 7, 8, 9].map((period) => (
+                                {[6, 7, 8, 9, 10].map((period) => (
                                     <tr key={period} className="border-b border-gray-100 hover:bg-slate-50/50 transition-colors">
                                         <td className="p-3 text-center text-xs font-medium text-slate-500 border-r border-gray-100 bg-white sticky left-0 z-10">
                                             T{period}
                                         </td>
                                         {days.map((day) => {
                                             const slot = getSlotForDayAndPeriod(day.value, period);
+                                            const realDayNum = new Date().getDay();
+                                            const highlightToday = realDayNum === (day.value === 7 && realDayNum === 6 ? 6 : day.value - 1);
 
                                             return (
-                                                <td key={day.value} className="p-2 border-r border-gray-100 align-middle text-center h-[60px]">
+                                                <td key={day.value} className={`p-2 border-r border-gray-100 align-middle text-center h-[70px] transition-colors ${highlightToday ? "bg-blue-50/20" : ""}`}>
                                                     {slot ? (
                                                         <div className="flex flex-col justify-center items-center h-full w-full">
-                                                            <span className="font-medium text-xs text-slate-800">{slot.subjectName}</span>
-                                                            <span className="text-[10px] text-blue-400 mt-0.5">-</span>
+                                                            <span className={`text-[13px] leading-tight mb-1 transition-colors ${highlightToday ? "font-bold text-blue-700" : "font-medium text-slate-800"}`}>
+                                                                {slot.subjectName}
+                                                            </span>
+                                                            <span className="text-[10px] text-slate-400 italic mb-1">
+                                                                {slot.teacherName || "-"}
+                                                            </span>
+                                                            <div className={`w-1 h-0.5 rounded-full ${highlightToday ? "bg-blue-600" : "bg-blue-400"}`}></div>
                                                         </div>
                                                     ) : (
                                                         <div className="flex items-center justify-center text-slate-200">-</div>

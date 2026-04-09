@@ -64,7 +64,7 @@ export default function SchoolAdminLayout() {
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Sidebar - Fixed */}
-            <aside className={`fixed top-0 left-0 h-full bg-white border-r border-gray-200 flex flex-col z-40 transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
+            <aside className={`fixed top-0 left-0 h-screen bg-white border-r border-gray-200 flex flex-col z-40 transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
                 {/* Logo & Toggle */}
                 <div className={`p-4 border-b border-gray-200 ${!sidebarCollapsed ? 'h-16 flex items-center' : ''}`}>
                     {sidebarCollapsed ? (
@@ -119,7 +119,7 @@ export default function SchoolAdminLayout() {
                                 <div key={index} className="space-y-1">
                                     <button
                                         onClick={() => toggleMenu(item.label || "")}
-                                        className={`flex items-center justify-between px-3 py-3 rounded-lg transition-all text-sm group
+                                        className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all text-sm group
                                             ${isActiveParent ? 'text-blue-700 bg-blue-50 font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}
                                             ${sidebarCollapsed ? 'justify-center' : ''}
                                         `}
@@ -164,7 +164,7 @@ export default function SchoolAdminLayout() {
                                 key={item.path}
                                 to={item.path}
                                 className={({ isActive }) => `
-                                    flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm
+                                    w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm
                                     ${isActive
                                         ? "bg-blue-50 text-blue-700 font-medium"
                                         : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
@@ -185,9 +185,9 @@ export default function SchoolAdminLayout() {
                     <button
                         onClick={logout}
                         title={sidebarCollapsed ? 'Đăng xuất' : undefined}
-                        className={`flex items-center gap-3 px-3 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm ${sidebarCollapsed ? 'justify-center' : ''}`}
+                        className={`w-full flex items-center gap-3 px-3 py-3 text-red-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-all text-sm group ${sidebarCollapsed ? 'justify-center' : ''}`}
                     >
-                        <LogOut size={20} strokeWidth={1.5} />
+                        <LogOut size={20} strokeWidth={1.5} className="text-red-400 group-hover:text-red-600 transition-colors" />
                         {!sidebarCollapsed && <span className="font-medium">Đăng xuất</span>}
                     </button>
                 </div>
@@ -251,14 +251,14 @@ export default function SchoolAdminLayout() {
                                             </button>
                                             <div className="border-t border-gray-100 my-1" />
                                             <button
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-all group"
                                                 onClick={() => {
                                                     setProfileDropdownOpen(false);
                                                     logout();
                                                 }}
                                             >
-                                                <LogOut size={20} strokeWidth={1.5} />
-                                                <span>Đăng xuất</span>
+                                                <LogOut size={20} strokeWidth={1.5} className="text-red-400 group-hover:text-red-600 transition-colors" />
+                                                <span className="font-medium">Đăng xuất</span>
                                             </button>
                                         </div>
                                     </>

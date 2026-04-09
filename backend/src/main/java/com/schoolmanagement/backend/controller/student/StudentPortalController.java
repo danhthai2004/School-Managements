@@ -78,7 +78,7 @@ public class StudentPortalController {
     public ResponseEntity<List<ScoreDto>> getScores(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String semesterId) {
-        List<ScoreDto> scores = studentPortalService.getScores(principal.getId(), semesterId);
+        List<ScoreDto> scores = studentPortalService.getScoresForUser(principal.getId(), semesterId);
         return ResponseEntity.ok(scores);
     }
 
@@ -93,7 +93,7 @@ public class StudentPortalController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) Integer month,
             @RequestParam(required = false) Integer year) {
-        AttendanceSummaryDto attendance = studentPortalService.getAttendance(principal.getId(), month, year);
+        AttendanceSummaryDto attendance = studentPortalService.getAttendanceForUser(principal.getId(), month, year);
         return ResponseEntity.ok(attendance);
     }
 

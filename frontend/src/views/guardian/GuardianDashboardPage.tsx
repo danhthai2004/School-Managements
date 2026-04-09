@@ -1,238 +1,236 @@
-import { BookOpen, Check } from "lucide-react";
-import { NotificationIcon, ScoreIcon } from "./GuardianIcons";
-import { useOutletContext } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { BookOpen, CheckCircle, TrendingUp, Bell, Calendar as CalendarIcon, Clock, ChevronRight } from "lucide-react";
+import { useOutletContext, Link } from "react-router-dom";
 import type { StudentDataProp } from "../../components/layout/GuardianLayout.tsx";
-import type { TimetableDto } from "../../services/guardianService.ts";
-import { useEffect } from "react";
+import { guardianService, type GuardianDto } from "../../services/guardianService.ts";
+
+const periodTimes: Record<number, string> = {
+    1: "07:00 - 07:45",
+    2: "07:50 - 08:35",
+    3: "08:40 - 09:25",
+    4: "09:35 - 10:20",
+    5: "10:35 - 11:20",
+};
 
 export default function GuardianDashboardPage() {
-  const { student, timetable } = useOutletContext<StudentDataProp>();
-  const currentDay = new Date()
-    .toLocaleDateString("en-US", { weekday: "long" })
-    .toUpperCase();
+    const { student, timetable } = useOutletContext<StudentDataProp>();
+    const [guardianProfile, setGuardianProfile] = useState<GuardianDto | null>(null);
+    const [loading, setLoading] = useState(true);
 
-  const currentDaySchedule: TimetableDto[] = [];
+    const currentDay = new Date()
+        .toLocaleDateString("en-US", { weekday: "long" })
+        .toUpperCase();
 
-  // Get currenDay schedule
-  for (const slot of timetable) {
-    if (slot.dayOfWeek == currentDay && slot.className == student.currentClassName) currentDaySchedule.push(slot);
-  }
+    const currentDaySchedule = timetable.filter(
+        slot => slot.dayOfWeek === currentDay && slot.className === student?.currentClassName
+    ).sort((a, b) => a.slot - b.slot);
 
-  useEffect(() => {
-    console.log(timetable);
-  }, []);
+    useEffect(() => {
+        const fetchGuardianInfo = async () => {
+            try {
+                const info = await guardianService.getUserProfileInfo();
+                setGuardianProfile(info);
+            } catch (error) {
+                console.error("Failed to fetch guardian info:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchGuardianInfo();
+    }, []);
 
-  return (
-    <div className="animate-fade-in-up">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Tổng quan học tập
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Theo dõi tiến độ học tập của {student?.fullName}
-        </p>
-      </div>
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return "Chào buổi sáng";
+        if (hour < 18) return "Chào buổi chiều";
+        return "Chào buổi tối";
+    };
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
-        <div className="p-4 bg-white rounded-xl border-gray-200 border shadow-sm">
-          <div className="flex justify-between">
-            <p className="font-semibold">Điểm trung bình</p>
-
-            <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center text-green-500 flex-shrink-0">
-              <ScoreIcon />
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
             </div>
-          </div>
+        );
+    }
 
-          <div className="pt-4">
-            <p className="text-2xl font-semibold">8.5</p>
-            <span className="text-sm text-green-600">Bằng học kì trước</span>
-          </div>
+    return (
+        <div className="animate-fade-in-up space-y-6">
+            {/* Welcome Banner */}
+            <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+                <div className="relative z-10">
+                    <h2 className="text-2xl font-bold mb-1">
+                        {getGreeting()}, {guardianProfile?.fullName || 'Phụ huynh'}!
+                    </h2>
+                    <p className="text-blue-100 text-sm">
+                        Chào mừng bạn quay trở lại với SchoolIMS. Chúc bạn một ngày tốt lành!
+                    </p>
+                </div>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <StatCard
+                    title="Điểm trung bình"
+                    value="8.5"
+                    icon={<TrendingUp className="w-5 h-5" />}
+                    color="blue"
+                    change="+0.2"
+                    subtitle="Học kỳ 1"
+                />
+                <StatCard
+                    title="Tỷ lệ chuyên cần"
+                    value="98%"
+                    icon={<CheckCircle className="w-5 h-5" />}
+                    color="green"
+                    subtitle="Vắng 1 buổi"
+                />
+                <StatCard
+                    title="Số tiết hoàn thành"
+                    value="20/105"
+                    icon={<BookOpen className="w-5 h-5" />}
+                    color="purple"
+                    subtitle="Năm học này"
+                />
+            </div>
+
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Today's Schedule */}
+                <div className="lg:col-span-2">
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden h-full">
+                        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <CalendarIcon className="w-5 h-5 text-gray-500" />
+                                <h3 className="font-semibold text-gray-900">Thời khóa biểu hôm nay</h3>
+                            </div>
+                            <span className="text-sm text-gray-500">
+                                {new Date().toLocaleDateString('vi-VN')}
+                            </span>
+                        </div>
+                        <div className="p-4">
+                            {currentDaySchedule.length > 0 ? (
+                                <div className="space-y-0">
+                                    {currentDaySchedule.map((slot, index) => (
+                                        <div key={index} className="flex items-center py-4 border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors px-2 rounded-xl">
+                                            <div className="w-24 text-sm text-gray-500 font-medium tracking-tight">
+                                                {periodTimes[slot.slot] || ""}
+                                            </div>
+                                            <div className="flex-1 pl-4 border-l-2 border-indigo-100">
+                                                <h4 className="font-semibold text-gray-900">{slot.subjectName}</h4>
+                                                <p className="text-sm text-gray-500 italic">None</p>
+                                            </div>
+                                            <div className="text-right text-sm text-gray-500">
+                                                <div className="font-medium">P.101</div>
+                                                <div className="text-xs bg-gray-100 px-2 py-0.5 rounded mt-1 inline-block">{slot.slot}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-12 text-gray-500">
+                                    <CalendarIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                                    <p className="font-medium">Hôm nay không có lịch học</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right Column */}
+                <div className="space-y-6">
+                    {/* Upcoming Exams Card */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                            <h3 className="font-semibold text-gray-900">Sắp kiểm tra</h3>
+                        </div>
+                        <div className="p-4 space-y-3">
+                             {/* Placeholder for real exams */}
+                             <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-blue-50 transition-colors cursor-pointer group">
+                                <div>
+                                    <h4 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">Toán học</h4>
+                                    <p className="text-xs text-gray-500">Giữa kỳ</p>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-600 font-bold">
+                                        Còn 2 ngày
+                                    </span>
+                                    <p className="text-xs text-gray-400 mt-1">15/01/2024</p>
+                                </div>
+                            </div>
+                            <div className="text-center py-2">
+                                <p className="text-xs text-gray-400 italic">Xem thêm trong mục Lịch kiểm tra</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Notifications Card */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                            <h3 className="font-semibold text-gray-900">Thông báo mới</h3>
+                            <span className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
+                        </div>
+                        <div className="p-4 space-y-3">
+                             <div className="flex items-start gap-3 p-2.5 hover:bg-gray-50 rounded-xl transition-all cursor-pointer group border border-transparent hover:border-gray-100">
+                                <div className="w-9 h-9 bg-blue-50 text-blue-500 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                                    <Bell className="w-4 h-4" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm text-gray-900 font-bold truncate group-hover:text-blue-600 transition-colors">Lịch họp phụ huynh</p>
+                                    <div className="text-[11px] text-gray-500 mt-0.5 line-clamp-1 italic">Thông báo về việc tổ chức họp...</div>
+                                    <div className="flex items-center gap-1.5 mt-1 text-[10px] text-gray-400">
+                                        <Clock className="w-3 h-3" />
+                                        <span>2 giờ trước</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <Link to="/guardian/notification" className="w-full text-center text-[11px] font-bold text-blue-600 hover:bg-blue-50 py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 border border-blue-50">
+                                Xem tất cả <ChevronRight className="w-4 h-4" />
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-
-        <div className="p-4 bg-white rounded-xl border-gray-200 border shadow-sm">
-          <div className="flex justify-between">
-            <p className="font-semibold">Tỷ lệ chuyên cần</p>
-
-            <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-500 flex-shrink-0">
-              <Check />
-            </div>
-          </div>
-
-          <div className="pt-4">
-            <p className="text-2xl font-semibold">98%</p>
-            <span className="text-sm text-green-600">Bằng học kì trước</span>
-          </div>
-        </div>
-
-        <div className="p-4 bg-white rounded-xl border-gray-200 border shadow-sm">
-          <div className="flex justify-between">
-            <p className="font-semibold">Số tiết học hoàn thành</p>
-
-            <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-purple-500 flex-shrink-0">
-              <BookOpen />
-            </div>
-          </div>
-
-          <div className="pt-4">
-            <p className="text-2xl font-semibold">20/105</p>
-            <span className="text-sm text-green-600">Trong năm học này</span>
-          </div>
-        </div>
-
-        <div className="p-4 bg-white rounded-xl border-gray-200 border shadow-sm">
-          <div className="flex justify-between">
-            <p className="font-semibold">Thông báo mới</p>
-
-            <div className="w-12 h-12 bg-yellow-50 rounded-xl flex items-center justify-center text-yellow-500 flex-shrink-0">
-              <NotificationIcon />
-            </div>
-          </div>
-
-          <div className="pt-4">
-            <p className="text-2xl font-semibold">5</p>
-            <span className="text-sm text-gray-600">Chưa đọc</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 mt-8 space-y-8">
-        {/* ===== LOWER DASHBOARD SECTION ===== */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Lịch học hôm nay */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <h2 className="font-semibold mb-4">Lịch học hôm nay</h2>
-
-            <div className="space-y-3">
-              {currentDaySchedule.map(slot => {
-                console.log(slot);
-                return (
-                  <ScheduleItem
-                    time={`Tiết ${slot.slot}`}
-                    subject={slot.subjectName}
-                    teacher={"None"}
-                  />
-                )
-              })}
-              {/* True data type */}
-              {/*<ScheduleItem*/}
-              {/*  time="07:00 - 07:45"*/}
-              {/*  subject="Toán học"*/}
-              {/*  teacher="Cô Nguyễn Thị C"*/}
-              {/*/>*/}
-            </div>
-          </div>
-
-          {/* Điểm gần đây */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <h2 className="font-semibold mb-4">Điểm gần đây</h2>
-
-            <div className="space-y-4">
-              <ScoreRow subject="Toán học" date="10/01/2024" score="9" />
-              <ScoreRow subject="Văn học" date="09/01/2024" score="8.5" />
-              <ScoreRow subject="Tiếng Anh" date="08/01/2024" score="8" />
-              <ScoreRow subject="Vật lý" date="07/01/2024" score="9.5" />
-            </div>
-          </div>
-
-          {/* Sự kiện sắp tới */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <h2 className="font-semibold mb-4">Sự kiện sắp tới</h2>
-
-            <div className="space-y-3">
-              <EventItem
-                title="Kiểm tra giữa kỳ Toán"
-                date="Thứ Hai, 15/01/2024"
-                color="red"
-              />
-              <EventItem
-                title="Họp phụ huynh trực tuyến"
-                date="Thứ Năm, 18/01/2024"
-                color="blue"
-              />
-              <EventItem
-                title="Nộp bài tiểu luận Văn"
-                date="Thứ Bảy, 20/01/2024"
-                color="purple"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    );
 }
 
-function ScheduleItem({
-  time,
-  subject,
-  teacher,
-}: {
-  time: string;
-  subject: string;
-  teacher: string;
+function StatCard({ title, value, icon, color, subtitle, change }: {
+    title: string;
+    value: string | number;
+    icon: React.ReactNode;
+    color: 'blue' | 'yellow' | 'green' | 'purple';
+    subtitle?: string;
+    change?: string;
 }) {
-  return (
-    <div className="p-3 rounded-xl bg-yellow-50 border border-yellow-400">
-      <p className="text-sm text-orange-500">{time}</p>
-      <p className="font-medium">{subject}</p>
-      <p className="text-sm text-gray-600">{teacher}</p>
-    </div>
-  );
-}
+    const colorClasses: Record<string, { bg: string; text: string; iconBg: string }> = {
+        blue: { bg: "bg-white", text: "text-blue-600", iconBg: "bg-blue-50" },
+        yellow: { bg: "bg-white", text: "text-yellow-600", iconBg: "bg-yellow-50" },
+        green: { bg: "bg-white", text: "text-green-600", iconBg: "bg-green-50" },
+        purple: { bg: "bg-white", text: "text-purple-600", iconBg: "bg-purple-50" },
+    };
+    const classes = colorClasses[color] || colorClasses.blue;
 
-function ScoreRow({
-  subject,
-  date,
-  score,
-  up,
-  down,
-}: {
-  subject: string;
-  date: string;
-  score: string;
-  up?: boolean;
-  down?: boolean;
-}) {
-  return (
-    <div className="flex justify-between items-center bg-gray-100 p-4">
-      <div>
-        <p className="font-medium">{subject}</p>
-        <p className="text-xs text-gray-400">{date}</p>
-      </div>
-
-      <div className="flex items-center gap-1">
-        <span
-          className={`font-semibold ${up ? "text-green-600" : down ? "text-red-600" : "text-blue-600"
-            }`}
-        >
-          {score}
-        </span>
-        {up && <span className="text-green-600">↗</span>}
-        {down && <span className="text-red-600">↘</span>}
-      </div>
-    </div>
-  );
-}
-
-function EventItem({
-  title,
-  date,
-  color,
-}: {
-  title: string;
-  date: string;
-  color: "red" | "blue" | "purple";
-}) {
-  const colors: Record<string, string> = {
-    red: "bg-red-50 text-red-600",
-    blue: "bg-blue-50 text-blue-600",
-    purple: "bg-purple-50 text-purple-600",
-  };
-
-  return (
-    <div className={`p-3 rounded-xl ${colors[color]}`}>
-      <p className="font-medium">{title}</p>
-      <p className="text-sm">{date}</p>
-    </div>
-  );
+    return (
+        <div className={`${classes.bg} rounded-xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300`}>
+            <div className="flex items-start justify-between">
+                <div className={`${classes.iconBg} ${classes.text} w-10 h-10 rounded-xl flex items-center justify-center shadow-sm`}>
+                    {icon}
+                </div>
+                {change && (
+                    <span className="text-xs font-bold text-green-500 bg-green-50 px-2 py-0.5 rounded-full">
+                        {change}
+                    </span>
+                )}
+            </div>
+            <div className="mt-4">
+                <p className="text-sm font-medium text-gray-500">{title}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
+                {subtitle && <p className="text-xs text-gray-400 mt-1 font-medium">{subtitle}</p>}
+            </div>
+        </div>
+    );
 }
