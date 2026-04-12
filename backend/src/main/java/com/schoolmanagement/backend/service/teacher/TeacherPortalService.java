@@ -30,6 +30,7 @@ import com.schoolmanagement.backend.domain.entity.auth.User;
 // import com.schoolmanagement.backend.dto.TimetableScheduleSummaryDto.SlotTimeDto;
 import com.schoolmanagement.backend.domain.entity.classes.ClassEnrollment;
 import com.schoolmanagement.backend.domain.entity.student.Student;
+import com.schoolmanagement.backend.domain.entity.student.Guardian;
 import com.schoolmanagement.backend.repo.classes.ClassEnrollmentRepository;
 import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.teacher.TeacherAssignmentRepository;
