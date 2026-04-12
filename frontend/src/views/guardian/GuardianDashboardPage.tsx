@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { BookOpen, CheckCircle, TrendingUp, Bell, Calendar as CalendarIcon, Clock, ChevronRight } from "lucide-react";
 import { useOutletContext, Link } from "react-router-dom";
 import type { StudentDataProp } from "../../components/layout/GuardianLayout.tsx";
 import { guardianService, type GuardianDto } from "../../services/guardianService.ts";
+import type { AttendanceSummaryDto, ExamScheduleDto } from "../../services/studentService.ts";
 
 const periodTimes: Record<number, string> = {
     1: "07:00 - 07:45",
@@ -10,11 +11,28 @@ const periodTimes: Record<number, string> = {
     3: "08:40 - 09:25",
     4: "09:35 - 10:20",
     5: "10:35 - 11:20",
+    6: "13:00 - 13:45",
+    7: "13:50 - 14:35",
+    8: "14:40 - 15:25",
+    9: "15:35 - 16:20",
+    10: "16:25 - 17:10",
 };
+
+interface NotificationDto {
+    id: string;
+    title: string;
+    content: string;
+    createdAt: string;
+    isRead: boolean;
+}
 
 export default function GuardianDashboardPage() {
     const { student, timetable } = useOutletContext<StudentDataProp>();
     const [guardianProfile, setGuardianProfile] = useState<GuardianDto | null>(null);
+    const [attendance, setAttendance] = useState<AttendanceSummaryDto | null>(null);
+    const [averageScore, setAverageScore] = useState<number | null>(null);
+    const [upcomingExams, setUpcomingExams] = useState<ExamScheduleDto[]>([]);
+    const [notifications, setNotifications] = useState<NotificationDto[]>([]);
     const [loading, setLoading] = useState(true);
 
     const currentDay = new Date()
@@ -22,28 +40,77 @@ export default function GuardianDashboardPage() {
         .toUpperCase();
 
     const currentDaySchedule = timetable.filter(
-        slot => slot.dayOfWeek === currentDay && slot.className === student?.currentClassName
+        slot => slot.dayOfWeek === currentDay && (student?.currentClassName ? slot.className === student.currentClassName : true)
     ).sort((a, b) => a.slot - b.slot);
 
-    useEffect(() => {
-        const fetchGuardianInfo = async () => {
-            try {
-                const info = await guardianService.getUserProfileInfo();
-                setGuardianProfile(info);
-            } catch (error) {
-                console.error("Failed to fetch guardian info:", error);
-            } finally {
-                setLoading(false);
+    const fetchData = useCallback(async () => {
+        if (!student?.id) return;
+        setLoading(true);
+        try {
+            const [profile, att, scores, exams, notifsRes] = await Promise.all([
+                guardianService.getUserProfileInfo(),
+                guardianService.getAttendance(student.id),
+                guardianService.getScores(student.id),
+                guardianService.getExamSchedule(student.id),
+                fetch(`${import.meta.env.VITE_API_URL || ""}/v1/notifications?page=0&size=5`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+                }).then(res => res.json())
+            ]);
+
+            setGuardianProfile(profile);
+            setAttendance(att);
+            
+            // Calculate average score
+            if (scores && scores.length > 0) {
+                const total = scores.reduce((sum, s) => sum + (s.averageScore || 0), 0);
+                setAverageScore(total / scores.length);
             }
-        };
-        fetchGuardianInfo();
-    }, []);
+
+            // Filter upcoming exams
+            const now = new Date();
+            const futureExams = exams
+                .filter(e => new Date(e.examDate) >= now)
+                .sort((a, b) => new Date(a.examDate).getTime() - new Date(b.examDate).getTime())
+                .slice(0, 3);
+            setUpcomingExams(futureExams);
+
+            setNotifications(notifsRes.notifications || []);
+        } catch (error) {
+            console.error("Failed to fetch dashboard data:", error);
+        } finally {
+            setLoading(false);
+        }
+    }, [student?.id]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     const getGreeting = () => {
         const hour = new Date().getHours();
         if (hour < 12) return "Chào buổi sáng";
         if (hour < 18) return "Chào buổi chiều";
         return "Chào buổi tối";
+    };
+
+    const formatDaysRemaining = (dateString: string) => {
+        const diff = new Date(dateString).getTime() - new Date().getTime();
+        const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+        if (days === 0) return "Hôm nay";
+        if (days < 0) return "Đã diễn ra";
+        return `Còn ${days} ngày`;
+    };
+
+    const formatTimeAgo = (dateString: string) => {
+        const diff = new Date().getTime() - new Date(dateString).getTime();
+        const mins = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+
+        if (mins < 1) return "Vừa xong";
+        if (mins < 60) return `${mins} phút trước`;
+        if (hours < 24) return `${hours} giờ trước`;
+        return `${days} ngày trước`;
     };
 
     if (loading) {
@@ -74,25 +141,24 @@ export default function GuardianDashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <StatCard
                     title="Điểm trung bình"
-                    value="8.5"
+                    value={averageScore !== null ? averageScore.toFixed(1) : "--"}
                     icon={<TrendingUp className="w-5 h-5" />}
                     color="blue"
-                    change="+0.2"
-                    subtitle="Học kỳ 1"
+                    subtitle="Dựa trên điểm thành phần"
                 />
                 <StatCard
                     title="Tỷ lệ chuyên cần"
-                    value="98%"
+                    value={attendance ? `${(attendance.attendanceRate * 100).toFixed(0)}%` : "--"}
                     icon={<CheckCircle className="w-5 h-5" />}
                     color="green"
-                    subtitle="Vắng 1 buổi"
+                    subtitle={`Vắng ${attendance?.absentDays || 0} buổi`}
                 />
                 <StatCard
-                    title="Số tiết hoàn thành"
-                    value="20/105"
+                    title="Số ngày có mặt"
+                    value={attendance ? `${attendance.presentDays}/${attendance.totalDays}` : "--"}
                     icon={<BookOpen className="w-5 h-5" />}
                     color="purple"
-                    subtitle="Năm học này"
+                    subtitle="Từ đầu học kỳ"
                 />
             </div>
 
@@ -120,11 +186,11 @@ export default function GuardianDashboardPage() {
                                             </div>
                                             <div className="flex-1 pl-4 border-l-2 border-indigo-100">
                                                 <h4 className="font-semibold text-gray-900">{slot.subjectName}</h4>
-                                                <p className="text-sm text-gray-500 italic">None</p>
+                                                <p className="text-sm text-gray-500 italic">{slot.teacherName || "Giáo viên"}</p>
                                             </div>
                                             <div className="text-right text-sm text-gray-500">
-                                                <div className="font-medium">P.101</div>
-                                                <div className="text-xs bg-gray-100 px-2 py-0.5 rounded mt-1 inline-block">{slot.slot}</div>
+                                                <div className="font-medium text-indigo-600">{slot.roomName || "N/A"}</div>
+                                                <div className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded mt-1 inline-block font-bold">Tiết {slot.slot}</div>
                                             </div>
                                         </div>
                                     ))}
@@ -148,22 +214,29 @@ export default function GuardianDashboardPage() {
                             <h3 className="font-semibold text-gray-900">Sắp kiểm tra</h3>
                         </div>
                         <div className="p-4 space-y-3">
-                             {/* Placeholder for real exams */}
-                             <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-blue-50 transition-colors cursor-pointer group">
-                                <div>
-                                    <h4 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">Toán học</h4>
-                                    <p className="text-xs text-gray-500">Giữa kỳ</p>
+                             {upcomingExams.length > 0 ? upcomingExams.map((exam, idx) => (
+                                 <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-blue-50 transition-colors cursor-pointer group">
+                                    <div>
+                                        <h4 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{exam.subjectName}</h4>
+                                        <p className="text-xs text-gray-500">{exam.examType}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className={`text-xs px-2 py-1 rounded-full font-bold ${
+                                            formatDaysRemaining(exam.examDate).includes("Còn 1") || formatDaysRemaining(exam.examDate).includes("Hôm nay")
+                                            ? "bg-red-100 text-red-600"
+                                            : "bg-blue-100 text-blue-600"
+                                        }`}>
+                                            {formatDaysRemaining(exam.examDate)}
+                                        </span>
+                                        <p className="text-xs text-gray-400 mt-1">{new Date(exam.examDate).toLocaleDateString('vi-VN')}</p>
+                                    </div>
                                 </div>
-                                <div className="text-right">
-                                    <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-600 font-bold">
-                                        Còn 2 ngày
-                                    </span>
-                                    <p className="text-xs text-gray-400 mt-1">15/01/2024</p>
-                                </div>
-                            </div>
-                            <div className="text-center py-2">
-                                <p className="text-xs text-gray-400 italic">Xem thêm trong mục Lịch kiểm tra</p>
-                            </div>
+                             )) : (
+                                <p className="text-center text-sm text-gray-400 py-4">Không có lịch kiểm tra sắp tới</p>
+                             )}
+                            <Link to="/guardian/examschedule" className="block text-center py-2">
+                                <p className="text-xs text-blue-600 hover:underline italic font-medium">Xem lịch kiểm tra chi tiết</p>
+                            </Link>
                         </div>
                     </div>
 
@@ -171,22 +244,26 @@ export default function GuardianDashboardPage() {
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                             <h3 className="font-semibold text-gray-900">Thông báo mới</h3>
-                            <span className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
+                            {notifications.some(n => !n.isRead) && <span className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>}
                         </div>
                         <div className="p-4 space-y-3">
-                             <div className="flex items-start gap-3 p-2.5 hover:bg-gray-50 rounded-xl transition-all cursor-pointer group border border-transparent hover:border-gray-100">
-                                <div className="w-9 h-9 bg-blue-50 text-blue-500 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                                    <Bell className="w-4 h-4" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm text-gray-900 font-bold truncate group-hover:text-blue-600 transition-colors">Lịch họp phụ huynh</p>
-                                    <div className="text-[11px] text-gray-500 mt-0.5 line-clamp-1 italic">Thông báo về việc tổ chức họp...</div>
-                                    <div className="flex items-center gap-1.5 mt-1 text-[10px] text-gray-400">
-                                        <Clock className="w-3 h-3" />
-                                        <span>2 giờ trước</span>
+                             {notifications.length > 0 ? notifications.map((notif, idx) => (
+                                 <div key={idx} className="flex items-start gap-3 p-2.5 hover:bg-gray-50 rounded-xl transition-all cursor-pointer group border border-transparent hover:border-gray-100">
+                                    <div className={`w-9 h-9 ${notif.isRead ? 'bg-gray-50 text-gray-400' : 'bg-blue-50 text-blue-500'} rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
+                                        <Bell className="w-4 h-4" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className={`text-sm text-gray-900 ${notif.isRead ? 'font-medium' : 'font-bold'} truncate group-hover:text-blue-600 transition-colors`}>{notif.title}</p>
+                                        <div className="text-[11px] text-gray-500 mt-0.5 line-clamp-1 italic">{notif.content}</div>
+                                        <div className="flex items-center gap-1.5 mt-1 text-[10px] text-gray-400">
+                                            <Clock className="w-3 h-3" />
+                                            <span>{formatTimeAgo(notif.createdAt)}</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                             )) : (
+                                <p className="text-center text-sm text-gray-400 py-4">Không có thông báo mới</p>
+                             )}
                             <Link to="/guardian/notification" className="w-full text-center text-[11px] font-bold text-blue-600 hover:bg-blue-50 py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 border border-blue-50">
                                 Xem tất cả <ChevronRight className="w-4 h-4" />
                             </Link>

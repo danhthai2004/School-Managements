@@ -112,13 +112,20 @@ public class RestExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiError> handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest req) {
-        String message = "Lỗi ràng buộc dữ liệu.";
+        String message = "Dữ liệu bị trùng lặp hoặc vi phạm ràng buộc.";
         Throwable rootCause = NestedExceptionUtils.getRootCause(ex);
-        if (rootCause != null && rootCause.getMessage().contains("violates unique constraint")) {
-            // Can be more specific here if needed by parsing the constraint name
-            message = "Dữ liệu bị trùng lặp: " + rootCause.getMessage();
+        
+        if (rootCause != null) {
+            String detail = rootCause.getMessage();
+            if (detail.contains("idx_room_name_building_school")) {
+                message = "Phòng học này đã tồn tại trong tòa nhà này.";
+            } else if (detail.contains("violates unique constraint")) {
+                // If it's a generic unique constraint violation, try to make it cleaner
+                message = "Dữ liệu này đã tồn tại trong hệ thống. Vui lòng kiểm tra lại.";
+            }
         }
-        log.error("Data integrity violation", ex);
+        
+        log.error("Data integrity violation: {}", message, ex);
         var status = HttpStatus.CONFLICT;
         var body = new ApiError(Instant.now(), status.value(), status.getReasonPhrase(), message, req.getRequestURI());
         return ResponseEntity.status(status).body(body);

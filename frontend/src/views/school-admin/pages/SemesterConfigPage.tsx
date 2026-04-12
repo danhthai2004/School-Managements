@@ -254,42 +254,46 @@ const SemesterConfigPage: React.FC = () => {
             </div>
 
             {/* Academic Years Grid */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                    <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-gray-600" />
-                        Năm học
-                    </h2>
-                    <p className="text-xs text-gray-500 mt-1">Học kỳ 1 và Học kỳ 2 sẽ được tự động tạo khi thêm năm học mới.</p>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="px-6 py-5 border-b border-gray-100 bg-white">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                            <Calendar className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-bold text-gray-900 leading-none">Danh sách Năm học</h2>
+                            <p className="text-sm text-gray-500 mt-1.5">Quản lý và thiết lập trạng thái hoạt động cho các năm học.</p>
+                        </div>
+                    </div>
                 </div>
                 
                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {academicYears.map(year => (
                         <div
                             key={year.id}
-                            className={`border rounded-xl p-5 cursor-pointer transition-all duration-200 ${
+                            className={`group border rounded-2xl p-6 cursor-pointer transition-all duration-300 ${
                                 selectedYearId === year.id
-                                    ? 'border-blue-500 shadow-md ring-1 ring-blue-500 bg-blue-50/20'
-                                    : 'border-gray-200 hover:border-blue-300 hover:shadow-sm bg-white'
+                                    ? 'border-blue-500 shadow-lg shadow-blue-500/10 ring-1 ring-blue-500 bg-blue-50/10'
+                                    : 'border-gray-100 hover:border-blue-200 hover:shadow-md bg-white'
                             }`}
                             onClick={() => setSelectedYearId(year.id)}
                         >
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <h3 className="text-lg font-bold text-gray-900">{year.name}</h3>
-                                    <div className="mt-1">{getStatusBadge(year.status)}</div>
+                            <div className="flex justify-between items-start mb-5">
+                                <div className="space-y-1">
+                                    <h3 className="text-xl font-black text-gray-900 tracking-tight">{year.name}</h3>
+                                    <div>{getStatusBadge(year.status)}</div>
                                 </div>
-                                <div className="flex gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
+                                <div className="flex gap-1 translate-x-2 -translate-y-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
                                     <button
                                         onClick={(e) => openEditYear(year, e)}
-                                        className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg transition-colors"
+                                        className="text-blue-600 hover:bg-blue-50 p-2 rounded-xl transition-colors"
                                         title="Chỉnh sửa"
                                     >
                                         <Edit className="w-4 h-4" />
                                     </button>
                                     <button
                                         onClick={(e) => handleDeleteYear(year, e)}
-                                        className="text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors"
+                                        className="text-red-600 hover:bg-red-50 p-2 rounded-xl transition-colors"
                                         title="Xóa năm học"
                                     >
                                         <Trash2 className="w-4 h-4" />
@@ -297,32 +301,53 @@ const SemesterConfigPage: React.FC = () => {
                                 </div>
                             </div>
                             
-                            <div className="space-y-2 text-sm text-gray-600 mb-5">
-                                <div className="flex items-center gap-2">
-                                    <span className="font-medium min-w-[70px]">Bắt đầu:</span> 
-                                    <span>{formatDate(year.startDate)}</span>
+                            <div className="space-y-3 py-4 border-y border-gray-50">
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-400 font-medium uppercase tracking-wider text-[10px]">Ngày bắt đầu</span> 
+                                    <span className="text-gray-900 font-semibold">{formatDate(year.startDate)}</span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="font-medium min-w-[70px]">Kết thúc:</span> 
-                                    <span>{formatDate(year.endDate)}</span>
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-400 font-medium uppercase tracking-wider text-[10px]">Ngày kết thúc</span> 
+                                    <span className="text-gray-900 font-semibold">{formatDate(year.endDate)}</span>
                                 </div>
                             </div>
-
-                            {year.status !== 'ACTIVE' && (
-                                <button
-                                    onClick={(e) => handleActivateYear(year.id, e)}
-                                    className="w-full py-2 bg-green-50 text-green-700 hover:bg-green-100 rounded-lg text-sm font-semibold transition border border-green-200 flex items-center justify-center gap-2"
-                                >
-                                    <CheckCircle className="w-4 h-4" />
-                                    Kích hoạt năm học
-                                </button>
-                            )}
+                            
+                            <div className="mt-5">
+                                {year.status === 'ACTIVE' ? (
+                                    <div className="flex items-center justify-center gap-2 py-2 px-4 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20">
+                                        <CheckCircle className="w-4 h-4" />
+                                        Năm học hiện tại
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={(e) => handleActivateYear(year.id, e)}
+                                        className="w-full py-2.5 bg-gray-50 text-gray-600 hover:bg-green-600 hover:text-white rounded-xl text-sm font-bold transition-all border border-gray-100 flex items-center justify-center gap-2 group/btn"
+                                    >
+                                        <CheckCircle className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
+                                        Kích hoạt năm học
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     ))}
                     
                     {academicYears.length === 0 && (
-                        <div className="col-span-full py-8 text-center text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                            Chưa có năm học nào. Vui lòng thêm năm học mới.
+                        <div className="col-span-full py-16 flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-gray-50 rounded-2xl border-2 border-dashed border-gray-200 shadow-inner group transition-all hover:border-blue-200">
+                            <div className="w-20 h-20 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 border border-gray-100">
+                                <Calendar className="w-10 h-10 text-blue-500/80" />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Chưa có năm học nào được tạo</h3>
+                            <p className="text-gray-500 text-sm max-w-sm text-center mb-8 leading-relaxed">
+                                Hệ thống cần ít nhất một năm học để bắt đầu vận hành. <br/>
+                                <span className="font-medium text-blue-600">Học kỳ 1 và Học kỳ 2 sẽ được tự động khởi tạo</span> sau khi bạn tạo năm học mới.
+                            </p>
+                            <button
+                                onClick={openNewYear}
+                                className="flex items-center gap-2 px-6 py-3 bg-white text-blue-600 border border-blue-200 rounded-xl text-sm font-bold hover:bg-blue-600 hover:text-white hover:border-blue-600 hover:shadow-lg hover:shadow-blue-500/20 transition-all active:scale-95"
+                            >
+                                <PlusIcon />
+                                <span>Tạo năm học đầu tiên</span>
+                            </button>
                         </div>
                     )}
                 </div>

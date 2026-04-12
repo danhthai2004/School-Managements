@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import api from "../../../services/api";
-import { Download, AlertCircle } from "lucide-react"; // Remove Search
+import { Download, AlertCircle, SlidersHorizontal, ArrowLeft } from "lucide-react";
 import { FilterIcon } from "../../../components/layout/SystemIcons";
 import { schoolAdminService, type ClassRoomDto } from "../../../services/schoolAdminService";
 
@@ -21,6 +21,7 @@ const AFTERNOON_SLOTS = [6, 7, 8, 9];
 
 export default function TimetableDetailView() {
     const { id } = useParams();
+    const navigate = useNavigate();
 
     const [details, setDetails] = useState<TimetableDetail[]>([]);
     const [loading, setLoading] = useState(true);
@@ -121,18 +122,33 @@ export default function TimetableDetailView() {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Chi tiết Thời Khóa Biểu</h1>
-                    <div className="flex items-center gap-2 mt-1">
-                        <span className="text-gray-500 text-sm">Xem và quản lý thời khóa biểu chi tiết</span>
-                        {timetableName && (
-                            <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
-                                {timetableName}
-                            </span>
-                        )}
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => navigate('/school-admin/schedule')}
+                        className="p-2 rounded-xl hover:bg-gray-100 transition-colors"
+                    >
+                        <ArrowLeft size={20} className="text-gray-600" />
+                    </button>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Chi tiết Thời Khóa Biểu</h1>
+                        <div className="flex items-center gap-2 mt-1">
+                            <span className="text-gray-500 text-sm">Xem và quản lý thời khóa biểu chi tiết</span>
+                            {timetableName && (
+                                <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+                                    {timetableName}
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
                 <div className="flex gap-3">
+                    <button
+                        onClick={() => navigate(`/school-admin/schedule/${id}/adjust`)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-xl font-medium hover:shadow-lg transition-all"
+                    >
+                        <SlidersHorizontal size={18} />
+                        <span>Tinh chỉnh</span>
+                    </button>
 
                     <button
                         onClick={handleExport}

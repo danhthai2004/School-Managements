@@ -356,13 +356,13 @@ export const schoolAdminService = {
     // Import students from Excel
     importStudentsFromExcel: async (
         file: File,
-        academicYear: string,
+        academicYearId: string,
         grade: number,
         autoAssign: boolean = true
     ): Promise<ImportStudentResult> => {
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("academicYear", academicYear);
+        formData.append("academicYearId", academicYearId);
         formData.append("grade", grade.toString());
         formData.append("autoAssign", autoAssign.toString());
 
@@ -499,6 +499,11 @@ export const schoolAdminService = {
         const res = await api.put<import("./dtos/TeacherAssignmentDto").TeacherAssignmentDto>(`/school/assignments/${assignmentId}/teacher`, {
             teacherId
         });
+        return res.data;
+    },
+
+    bulkAssignTeachers: async (assignments: { assignmentId: string, teacherId: string | null }[]): Promise<import("./dtos/TeacherAssignmentDto").TeacherAssignmentDto[]> => {
+        const res = await api.put<import("./dtos/TeacherAssignmentDto").TeacherAssignmentDto[]>(`/school/assignments/bulk-teacher`, assignments);
         return res.data;
     },
 };
