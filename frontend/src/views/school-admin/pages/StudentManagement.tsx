@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
     schoolAdminService,
     type StudentDto,
@@ -12,6 +12,7 @@ import { StatusBadge } from '../../../components/common/StatusBadge';
 import BatchDeleteModal from '../../../components/common/BatchDeleteModal';
 import { formatDate } from "../../../utils/dateHelpers";
 // ... (imports)
+import { NoAcademicYearState } from "../../../components/common/EmptyState";
 import { useToast } from "../../../context/ToastContext";
 
 
@@ -28,6 +29,7 @@ import ImportExcelModal from "../components/student/ImportExcelModal";
 // ==================== PAGE COMPONENT ====================
 
 const StudentManagement = () => {
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const [students, setStudents] = useState<StudentDto[]>([]);
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
@@ -244,6 +246,13 @@ const StudentManagement = () => {
     }
 
     if (error) {
+        if (error.includes("Năm học hiện tại không tìm thấy")) {
+            return (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 animate-fade-in-up">
+                    <NoAcademicYearState onAction={() => navigate("/school-admin/semesters")} />
+                </div>
+            );
+        }
         return <div className="bg-red-50 border border-red-200 text-red-600 px-6 py-4 rounded-xl text-sm">{error}</div>;
     }
 
@@ -544,7 +553,6 @@ const StudentManagement = () => {
                         setImportToastResult(result);
                     }
                 }}
-                defaultAcademicYear={currentAcademicYear}
             />
             <ImportStudentResultModal
                 result={importToastResult}

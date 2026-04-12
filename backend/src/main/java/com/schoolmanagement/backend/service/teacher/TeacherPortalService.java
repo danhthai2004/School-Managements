@@ -197,14 +197,14 @@ public class TeacherPortalService {
                         builder.totalStudents(studentCount)
                                         .homeroomClassName(homeroom.getName())
                                         .todayAttendance(TeacherDashboardStatsDto.AttendanceDto.builder()
-                                                        .present(studentCount > 0 ? studentCount - 2 : 0)
+                                                        .present(0) // Default to 0 until real-time aggregation is implemented
                                                         .total(studentCount)
                                                         .build())
-                                        .studentsNeedingAttention(3)
-                                        .averageGpa(7.8)
-                                        .attendanceRate(92.0)
-                                        .excellentStudents(12)
-                                        .pendingAssignments(8);
+                                        .studentsNeedingAttention(0)
+                                        .averageGpa(0.0)
+                                        .attendanceRate(0.0)
+                                        .excellentStudents(0)
+                                        .pendingAssignments(0);
                 }
 
                 return builder.build();
@@ -240,7 +240,7 @@ public class TeacherPortalService {
                                 .filter(d -> d.getDayOfWeek() == dayOfWeek)
                                 .sorted(Comparator.comparingInt(
                                                 com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail::getSlotIndex))
-                                .map(this::mapToTodayScheduleItemDto)
+                                .map(d -> mapToTodayScheduleItemDto(d, user.getSchool()))
                                 .toList();
         }
 
@@ -331,7 +331,7 @@ public class TeacherPortalService {
                 }
 
                 // Return placeholder data for AI features
-                return getMockRiskAnalysis();
+                return List.of();
         }
 
         /**
@@ -347,7 +347,7 @@ public class TeacherPortalService {
                 }
 
                 // Return placeholder data for AI features
-                return getMockRecommendations();
+                return List.of();
         }
 
         // ==================== HELPER METHODS ====================
@@ -378,11 +378,14 @@ public class TeacherPortalService {
         }
 
         private int getAssignedClassCount(User teacher) {
-                return 5; // Placeholder
+                com.schoolmanagement.backend.domain.entity.teacher.Teacher teacherObj = teacherRepository.findByUser(teacher)
+                                .orElse(null);
+                if (teacherObj == null) return 0;
+                return teacherAssignmentRepository.findAllByTeacher(teacherObj).size();
         }
 
         private int getTodayPeriodCount(User teacher) {
-                return 4; // Placeholder
+                return getTodaySchedule(teacher.getEmail()).size();
         }
 
         private int getStudentCount(ClassRoom classRoom) {
@@ -395,7 +398,7 @@ public class TeacherPortalService {
         // getCurrentAcademicYear() removed — now using semesterService.getActiveAcademicYearName()
 
         private HomeroomStudentDto mapToHomeroomStudentDto(Student student) {
-                Random random = new Random(student.getId().hashCode());
+                Guardian guardian = student.getGuardian();
                 return HomeroomStudentDto.builder()
                                 .id(student.getId().toString())
                                 .studentCode(student.getStudentCode())
@@ -405,12 +408,11 @@ public class TeacherPortalService {
                                 .phone(student.getPhone())
                                 .avatarUrl(student.getAvatarUrl())
                                 .status(student.getStatus().name())
-                                .attendanceRate(85.0 + random.nextDouble() * 15)
-                                .averageGpa(5.0 + random.nextDouble() * 5)
-                                .conductGrade(CONDUCT_GRADES[random.nextInt(CONDUCT_GRADES.length)])
-                                .parentPhone(student.getPhone() != null ? "0" + (900000000 + random.nextInt(99999999))
-                                                : null)
-                                .parentEmail(student.getEmail() != null ? "parent." + student.getEmail() : null)
+                                .attendanceRate(0.0) // Set to 0 until real-time aggregation is implemented
+                                .averageGpa(0.0)     // Set to 0 until real-time aggregation is implemented
+                                .conductGrade("Chưa xếp loại")
+                                .parentPhone(guardian != null ? guardian.getPhone() : null)
+                                .parentEmail(guardian != null ? guardian.getEmail() : null)
                                 .build();
         }
 
@@ -427,51 +429,29 @@ public class TeacherPortalService {
         }
 
         private TodayScheduleItemDto mapToTodayScheduleItemDto(
-                        com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail detail) {
-                int slot = detail.getSlotIndex();
-                String start = "";
-                String end = "";
-
-                switch (slot) {
-                        case 1 -> {
-                                start = "07:00";
-                                end = "07:45";
-                        }
-                        case 2 -> {
-                                start = "07:50";
-                                end = "08:35";
-                        }
-                        case 3 -> {
-                                start = "08:50";
-                                end = "09:35";
-                        }
-                        case 4 -> {
-                                start = "09:40";
-                                end = "10:25";
-                        }
-                        case 5 -> {
-                                start = "10:30";
-                                end = "11:15";
-                        }
-                        case 6 -> {
-                                start = "12:30";
-                                end = "13:15";
-                        }
-                        default -> {
-                                start = "Slot " + slot;
-                                end = "";
-                        }
+                        com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail detail,
+                        com.schoolmanagement.backend.domain.entity.admin.School school) {
+                                
+                String startTime = "00:00";
+                String endTime = "00:00";
+                
+                try {
+                    SlotTimeDto slotTime = settingsService.calculateSlotTime(school, detail.getSlotIndex());
+                    startTime = slotTime.getStartTime();
+                    endTime = slotTime.getEndTime();
+                } catch (Exception e) {
+                    log.warn("Could not calculate slot time for slot {}: {}", detail.getSlotIndex(), e.getMessage());
                 }
 
                 return TodayScheduleItemDto.builder()
-                                .periodNumber(slot)
+                                .periodNumber(detail.getSlotIndex())
                                 .subjectName(detail.getSubject().getName())
                                 .className(detail.getClassRoom().getName())
                                 .roomNumber(detail.getClassRoom().getRoom() != null
                                                 ? detail.getClassRoom().getRoom().getName()
                                                 : "Chưa gán")
-                                .startTime(start)
-                                .endTime(end)
+                                .startTime(startTime)
+                                .endTime(endTime)
                                 .build();
         }
 

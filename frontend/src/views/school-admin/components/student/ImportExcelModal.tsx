@@ -9,12 +9,11 @@ interface ImportExcelModalProps {
     onClose: () => void;
     onSuccess: () => void;
     onImportComplete: (result: ImportStudentResult) => void;
-    defaultAcademicYear: string;
 }
 
-function ImportExcelModal({ isOpen, onClose, onSuccess, onImportComplete, defaultAcademicYear }: ImportExcelModalProps) {
+function ImportExcelModal({ isOpen, onClose, onSuccess, onImportComplete }: ImportExcelModalProps) {
     const [file, setFile] = useState<File | null>(null);
-    const [academicYear, setAcademicYear] = useState(defaultAcademicYear);
+    const [academicYearId, setAcademicYearId] = useState("");
     const [grade, setGrade] = useState(10);
     const [autoAssign, setAutoAssign] = useState(true);
     const [academicYears, setAcademicYears] = useState<AcademicYearDto[]>([]);
@@ -38,10 +37,10 @@ function ImportExcelModal({ isOpen, onClose, onSuccess, onImportComplete, defaul
             // If current academicYear is not in the list, try to find the ACTIVE one
             if (filtered.length > 0) {
                 const activeYear = filtered.find(y => y.status === 'ACTIVE');
-                if (activeYear && !academicYear) {
-                    setAcademicYear(activeYear.name);
-                } else if (!academicYear) {
-                    setAcademicYear(filtered[0].name);
+                if (activeYear) {
+                    setAcademicYearId(activeYear.id);
+                } else {
+                    setAcademicYearId(filtered[0].id);
                 }
             }
         } catch (err) {
@@ -76,7 +75,7 @@ function ImportExcelModal({ isOpen, onClose, onSuccess, onImportComplete, defaul
         try {
             const importResult = await schoolAdminService.importStudentsFromExcel(
                 file,
-                academicYear,
+                academicYearId,
                 grade,
                 autoAssign
             );
@@ -165,14 +164,14 @@ function ImportExcelModal({ isOpen, onClose, onSuccess, onImportComplete, defaul
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Năm học</label>
                                 <select
-                                    value={academicYear}
-                                    onChange={(e) => setAcademicYear(e.target.value)}
+                                    value={academicYearId}
+                                    onChange={(e) => setAcademicYearId(e.target.value)}
                                     disabled={loadingYears}
                                     className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-emerald-500 outline-none bg-white disabled:bg-slate-50"
                                 >
                                     {academicYears.length === 0 && <option value="">Đang tải...</option>}
                                     {academicYears.map(y => (
-                                        <option key={y.id} value={y.name}>
+                                        <option key={y.id} value={y.id}>
                                             {y.name}
                                         </option>
                                     ))}

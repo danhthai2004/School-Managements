@@ -11,10 +11,7 @@ import {
     CalendarClock,
     UserCheck,
     GraduationCap,
-    BarChart3,
     Bell,
-    SquareActivity,
-    Settings2,
     Search,
     Menu,
     LogOut,
@@ -59,15 +56,12 @@ export default function TeacherLayout() {
         { path: "/teacher/attendance", label: "Điểm danh", icon: <UserCheck size={20} strokeWidth={1.5} /> },
         { path: "/teacher/grades", label: "Nhập điểm", icon: <GraduationCap size={20} strokeWidth={1.5} /> },
         { path: "/teacher/class-map", label: "Sơ đồ lớp", icon: <LayoutGrid size={20} strokeWidth={1.5} /> },
-        { path: "/teacher/reports", label: "Báo cáo", icon: <BarChart3 size={20} strokeWidth={1.5} /> },
         { path: "/teacher/notifications", label: "Thông báo", icon: <Bell size={20} strokeWidth={1.5} /> },
     ];
 
     // Additional menu items for homeroom teachers only
     const homeroomOnlyMenuItems = [
         { path: "/teacher/students", label: "Học sinh", icon: <Users size={20} strokeWidth={1.5} /> },
-        { path: "/teacher/risk-analytics", label: "Cảnh báo rủi ro", icon: <SquareActivity size={20} strokeWidth={1.5} /> },
-        { path: "/teacher/settings", label: "Cài đặt lớp", icon: <Settings2 size={20} strokeWidth={1.5} /> },
     ];
 
     // Build menu based on teacher type
@@ -75,9 +69,7 @@ export default function TeacherLayout() {
         ? [
             commonMenuItems[0], // Tổng quan
             homeroomOnlyMenuItems[0], // Học sinh (homeroom only)
-            homeroomOnlyMenuItems[1], // Cảnh báo rủi ro (homeroom only)
             ...commonMenuItems.slice(1), // Rest of common items
-            homeroomOnlyMenuItems[2], // Cài đặt lớp (homeroom only)
         ]
         : commonMenuItems;
 

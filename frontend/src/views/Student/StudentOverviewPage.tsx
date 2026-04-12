@@ -106,7 +106,6 @@ export default function StudentOverviewPage() {
                     value={dashboard.averageScore?.toFixed(1) || "-"}
                     icon={<TrendingUp className="w-5 h-5" />}
                     color="blue"
-                    change="+0.2"
                     subtitle={`Học kỳ ${selectedSemester?.semesterNumber || 1}`}
                 />
                 <StatCard
@@ -121,7 +120,7 @@ export default function StudentOverviewPage() {
                     value={`${dashboard.attendanceRate}%`}
                     icon={<CheckCircle className="w-5 h-5" />}
                     color="green"
-                    subtitle="Vắng 1 buổi"
+                    subtitle="Tỉ lệ hiện diện"
                 />
             </div>
 

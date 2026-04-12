@@ -146,6 +146,18 @@ public class TeacherAssignmentService {
     }
 
     @Transactional
+    public List<TeacherAssignmentDto> bulkAssignTeachers(School school, java.util.List<com.schoolmanagement.backend.dto.teacher.TeacherAssignmentUpdate> updates) {
+        return updates.stream().map(update -> {
+            try {
+                return assignTeacher(school, update.assignmentId(), update.teacherId());
+            } catch (Exception e) {
+                // If one fails, the transaction rolls back, but we can also just throw exception
+                throw e; // Or handle selectively
+            }
+        }).collect(Collectors.toList());
+    }
+
+    @Transactional
     public TeacherAssignmentDto updateLessonsPerWeek(School school, UUID assignmentId, int lessons) {
         TeacherAssignment assignment = assignments.findById(assignmentId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy phân công"));

@@ -11,7 +11,50 @@ export default function RoomManagement() {
     const [modal, setModal] = useState<ModalState>({ open: false, room: null });
     const [form, setForm] = useState<CreateRoomRequest>({ name: "", capacity: 40, building: "", status: "ACTIVE" });
     const [saving, setSaving] = useState(false);
+    const [sortConfig, setSortConfig] = useState<{ key: keyof RoomDto; direction: 'asc' | 'desc' } | null>(null);
     const { toast } = useToast();
+
+    const sortedRooms = (rooms || []).slice().sort((a, b) => {
+        if (!sortConfig) return 0;
+        const { key, direction } = sortConfig;
+        let aValue = a[key];
+        let bValue = b[key];
+
+        if (aValue === null || aValue === undefined) aValue = "";
+        if (bValue === null || bValue === undefined) bValue = "";
+
+        if (aValue < bValue) return direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    const handleSort = (key: keyof RoomDto) => {
+        setSortConfig(current => {
+            if (current?.key === key) {
+                if (current.direction === 'asc') return { key, direction: 'desc' };
+                return null;
+            }
+            return { key, direction: 'asc' };
+        });
+    };
+
+    const SortHeader = ({ label, sortKey, className = "" }: { label: string, sortKey: keyof RoomDto, className?: string }) => (
+        <th
+            className={`px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 hover:text-blue-600 transition-colors select-none ${className}`}
+            onClick={() => handleSort(sortKey)}
+        >
+            <div className={`flex items-center gap-1 ${className.includes("text-center") ? "justify-center" : ""}`}>
+                {label}
+                <span className="text-gray-400">
+                    {sortConfig?.key === sortKey ? (
+                        sortConfig.direction === 'asc' ? '↑' : '↓'
+                    ) : (
+                        <span className="opacity-0 group-hover:opacity-50">⇅</span>
+                    )}
+                </span>
+            </div>
+        </th>
+    );
 
     const fetchRooms = async () => {
         try {
@@ -120,16 +163,16 @@ export default function RoomManagement() {
                 ) : (
                     <table className="w-full">
                         <thead>
-                            <tr className="bg-gray-50 border-b border-gray-200">
-                                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tên phòng</th>
-                                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tòa nhà</th>
-                                <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Sức chứa</th>
-                                <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Trạng thái</th>
+                            <tr className="bg-gray-50 border-b border-gray-200 group">
+                                <SortHeader label="Tên phòng" sortKey="name" />
+                                <SortHeader label="Tòa nhà" sortKey="building" />
+                                <SortHeader label="Sức chứa" sortKey="capacity" className="text-center" />
+                                <SortHeader label="Trạng thái" sortKey="status" className="text-center" />
                                 <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {rooms.map(room => (
+                            {sortedRooms.map(room => (
                                 <tr key={room.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">

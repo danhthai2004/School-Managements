@@ -8,7 +8,8 @@ export type TimetableDto = {
   slot: number,
   dayOfWeek: string,
   subjectName: string,
-  teacherName?: string
+  teacherName?: string,
+  roomName?: string
 }
 
 export type GuardianDto = {

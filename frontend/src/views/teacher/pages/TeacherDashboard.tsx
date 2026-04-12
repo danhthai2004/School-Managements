@@ -131,8 +131,6 @@ export default function TeacherDashboard() {
                     icon={<StudentIcon />}
                     bgColor="bg-blue-50"
                     iconColor="text-blue-500"
-                    change={isHomeroom ? "+12 so với HK trước" : undefined}
-                    changePositive
                 />
 
                 {/* Lớp chủ nhiệm (homeroom) / Tiết dạy hôm nay (subject) */}
@@ -153,8 +151,6 @@ export default function TeacherDashboard() {
                         icon={<CheckCircleIcon />}
                         bgColor="bg-green-50"
                         iconColor="text-green-500"
-                        change={`${Math.round(((stats?.todayAttendance?.present || 0) / (stats?.todayAttendance?.total || 1)) * 100)}% có mặt`}
-                        changePositive
                     />
                 )}
 
@@ -166,29 +162,7 @@ export default function TeacherDashboard() {
                         icon={<WarningIcon />}
                         bgColor="bg-red-50"
                         iconColor="text-red-500"
-                        change="-2 so với tuần trước"
-                        changePositive={false}
                     />
-                )}
-
-                {/* For subject teachers, show placeholder cards */}
-                {!isHomeroom && (
-                    <>
-                        <StatCard
-                            title="Bài tập đã giao"
-                            value={12}
-                            icon={<ClassIcon />}
-                            bgColor="bg-orange-50"
-                            iconColor="text-orange-500"
-                        />
-                        <StatCard
-                            title="Bài tập cần chấm"
-                            value={8}
-                            icon={<CheckCircleIcon />}
-                            bgColor="bg-purple-50"
-                            iconColor="text-purple-500"
-                        />
-                    </>
                 )}
             </div>
 
@@ -228,7 +202,9 @@ export default function TeacherDashboard() {
                                     <RiskCard key={student.studentId} student={student} />
                                 ))
                             ) : (
-                                <MockRiskCards />
+                                <div className="text-center py-8 text-gray-400 italic text-sm">
+                                    Không có dữ liệu phân tích rủi ro
+                                </div>
                             )}
                         </div>
                     </div>
@@ -246,14 +222,14 @@ export default function TeacherDashboard() {
                                     <RecommendationCard key={rec.id} recommendation={rec} />
                                 ))
                             ) : (
-                                <MockRecommendations />
+                                <div className="text-center py-8 text-gray-400 italic text-sm">
+                                    Không có đề xuất mới từ AI
+                                </div>
                             )}
                         </div>
                     </div>
                 </div>
             )}
-
-
         </div>
     );
 }
@@ -426,114 +402,5 @@ function ScheduleCard({ item }: { item: TodayScheduleItem }) {
             <h4 className="font-semibold text-gray-900 mb-1">{item.subjectName}</h4>
             <p className="text-sm text-gray-500">Lớp {item.className} • Phòng {item.roomNumber}</p>
         </div>
-    );
-}
-
-// ==================== MOCK DATA COMPONENTS ====================
-
-function MockRiskCards() {
-    return (
-        <>
-            <div className="border border-gray-100 rounded-lg p-4">
-                <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-600 font-medium">H</div>
-                    <div className="flex-1">
-                        <p className="font-medium text-gray-900">Hoàng Văn Em</p>
-                        <div className="flex gap-2">
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600">Rủi ro cao</span>
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-600">Đang giảm</span>
-                        </div>
-                    </div>
-                </div>
-                <div className="space-y-2 mb-3">
-                    <div>
-                        <div className="flex justify-between text-xs text-gray-500 mb-1"><span>Học tập</span><span>30</span></div>
-                        <div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-blue-500 h-2 rounded-full" style={{ width: '30%' }} /></div>
-                    </div>
-                    <div>
-                        <div className="flex justify-between text-xs text-gray-500 mb-1"><span>Chuyên cần</span><span>25</span></div>
-                        <div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-blue-500 h-2 rounded-full" style={{ width: '25%' }} /></div>
-                    </div>
-                </div>
-                <p className="text-xs text-gray-500">Điểm số giảm liên tục 3 tháng gần đây</p>
-            </div>
-
-            <div className="border border-gray-100 rounded-lg p-4">
-                <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-medium">L</div>
-                    <div className="flex-1">
-                        <p className="font-medium text-gray-900">Lê Văn Cường</p>
-                        <div className="flex gap-2">
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-600">Trung bình</span>
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-600">Ổn định</span>
-                        </div>
-                    </div>
-                </div>
-                <div className="space-y-2">
-                    <div>
-                        <div className="flex justify-between text-xs text-gray-500 mb-1"><span>Học tập</span><span>45</span></div>
-                        <div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-blue-500 h-2 rounded-full" style={{ width: '45%' }} /></div>
-                    </div>
-                </div>
-            </div>
-        </>
-    );
-}
-
-function MockRecommendations() {
-    return (
-        <>
-            <div className="border border-gray-100 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                    <span className="text-xl">📚</span>
-                    <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium text-gray-900">Cải thiện kết quả môn Toán</h4>
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600">Ưu tiên cao</span>
-                        </div>
-                        <p className="text-sm text-gray-500 mb-2">5 học sinh có điểm môn Toán dưới trung bình. Cần can thiệp sớm.</p>
-                        <p className="text-sm text-gray-600 flex items-start gap-2">
-                            <span className="text-blue-500">○</span>
-                            <span>Tổ chức buổi học phụ đạo vào thứ 7</span>
-                        </p>
-                        <button className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium">
-                            Xem chi tiết và thực hiện →
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div className="border border-gray-100 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                    <span className="text-xl">📋</span>
-                    <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium text-gray-900">Tăng cường điểm danh</h4>
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-600">Ưu tiên TB</span>
-                        </div>
-                        <p className="text-sm text-gray-500 mb-2">Tỷ lệ vắng mặt tăng 15% so với tháng trước.</p>
-                        <button className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium">
-                            Xem chi tiết và thực hiện →
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div className="border border-gray-100 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                    <span className="text-xl">⚠️</span>
-                    <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium text-gray-900">Cải thiện kỷ luật lớp học</h4>
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-600">Ưu tiên TB</span>
-                        </div>
-                        <p className="text-sm text-gray-500 mb-2">Có 3 học sinh vi phạm kỷ luật tuần này.</p>
-                        <button className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium">
-                            Xem chi tiết và thực hiện →
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </>
     );
 }

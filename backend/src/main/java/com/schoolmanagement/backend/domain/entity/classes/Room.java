@@ -15,7 +15,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "rooms", indexes = {
         @Index(name = "idx_room_school", columnList = "school_id"),
-        @Index(name = "idx_room_name_school", columnList = "name, school_id", unique = true)
+        @Index(name = "idx_room_name_building_school", columnList = "name, building, school_id", unique = true)
 })
 public class Room {
 

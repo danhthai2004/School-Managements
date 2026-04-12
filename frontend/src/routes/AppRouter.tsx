@@ -29,6 +29,7 @@ import CombinationManagement from "../views/school-admin/pages/CombinationManage
 import TeacherAssignment from "../views/school-admin/pages/TeacherAssignment";
 import TimetableManagement from "../views/school-admin/pages/TimetableManagement";
 import TimetableDetailView from "../views/school-admin/pages/TimetableDetailView";
+import TimetableAdjustPage from "../views/school-admin/pages/TimetableAdjustPage";
 import NotificationManagement from "../views/school-admin/pages/NotificationManagement";
 import RoomManagement from "../views/school-admin/pages/RoomManagement";
 import ExamSessionManagement from "../views/school-admin/pages/ExamSessionManagement";
@@ -125,6 +126,7 @@ export default function AppRouter() {
         <Route path="assignments" element={<TeacherAssignment />} />
         <Route path="schedule" element={<TimetableManagement />} />
         <Route path="schedule/:id" element={<TimetableDetailView />} />
+        <Route path="schedule/:id/adjust" element={<TimetableAdjustPage />} />
         <Route path="notifications" element={<NotificationManagement />} />
         <Route path="rooms" element={<RoomManagement />} />
         <Route path="exam-sessions" element={<ExamSessionManagement />} />
