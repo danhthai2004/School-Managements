@@ -7,8 +7,6 @@ import {
     CalendarClock,
     GraduationCap,
     UserCheck,
-    Activity,
-    SquareActivity,
     Menu,
     Search,
     LogOut,
