@@ -1,7 +1,11 @@
 package com.schoolmanagement.backend.controller.timetable;
 
+import com.schoolmanagement.backend.dto.timetable.MoveSlotRequest;
+import com.schoolmanagement.backend.dto.timetable.SlotValidationResponse;
+import com.schoolmanagement.backend.dto.timetable.SwapSlotRequest;
 import com.schoolmanagement.backend.dto.timetable.TimetableDto;
 import com.schoolmanagement.backend.service.timetable.AutoScheduleService;
+import com.schoolmanagement.backend.service.timetable.TimetableAdjustmentService;
 import com.schoolmanagement.backend.service.timetable.TimetableService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +25,7 @@ public class TimetableController {
 
     private final TimetableService timetableService;
     private final AutoScheduleService autoScheduleService;
+    private final TimetableAdjustmentService adjustmentService;
     private final UserLookupService userLookup;
 
     @GetMapping
@@ -93,5 +98,52 @@ public class TimetableController {
     }
 
     public record CreateTimetableRequest(String name, UUID semesterId) {
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Manual Adjustment APIs (Post-Auto-Scheduling)
+    // ──────────────────────────────────────────────────────────────────────
+
+    /**
+     * Kiểm tra xem di chuyển tiết học đến ô trống có bị xung đột không.
+     */
+    @PostMapping("/adjust/validate-move")
+    public ResponseEntity<SlotValidationResponse> validateMove(@RequestBody MoveSlotRequest request) {
+        return ResponseEntity.ok(adjustmentService.validateMove(request));
+    }
+
+    /**
+     * Kiểm tra xem hoán đổi 2 tiết học có bị xung đột không.
+     */
+    @PostMapping("/adjust/validate-swap")
+    public ResponseEntity<SlotValidationResponse> validateSwap(@RequestBody SwapSlotRequest request) {
+        return ResponseEntity.ok(adjustmentService.validateSwap(request));
+    }
+
+    /**
+     * Thực hiện di chuyển tiết học đến ô trống.
+     */
+    @PutMapping("/adjust/move")
+    public ResponseEntity<Void> applyMove(@RequestBody MoveSlotRequest request) {
+        adjustmentService.applyMove(request);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Thực hiện hoán đổi 2 tiết học.
+     */
+    @PutMapping("/adjust/swap")
+    public ResponseEntity<Void> applySwap(@RequestBody SwapSlotRequest request) {
+        adjustmentService.applySwap(request);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Ghim/Mở ghim tiết học (tiết bị ghim không cho di chuyển/hoán đổi).
+     */
+    @PatchMapping("/adjust/{detailId}/toggle-lock")
+    public ResponseEntity<Void> toggleLock(@PathVariable UUID detailId) {
+        adjustmentService.toggleLock(detailId);
+        return ResponseEntity.ok().build();
     }
 }

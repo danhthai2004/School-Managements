@@ -19,6 +19,7 @@ interface Timetable {
 
 import { useSemester } from "../../../context/SemesterContext";
 import SemesterSelector from "../../../components/common/SemesterSelector";
+import { NoAcademicYearState } from "../../../components/common/EmptyState";
 
 // Modal Component for Creating Timetable
 interface CreateModalProps {
@@ -153,7 +154,7 @@ export default function TimetableManagement() {
     // Create Modal state
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-    const { activeSemester, loading: isContextLoading } = useSemester();
+    const { activeSemester, allSemesters, loading: isContextLoading } = useSemester();
     const [selectedSemesterId, setSelectedSemesterId] = useState<string>("");
 
     // Initial load priority: System Active Semester
@@ -180,8 +181,12 @@ export default function TimetableManagement() {
     };
 
     useEffect(() => {
-        if (!isContextLoading && selectedSemesterId) {
-            fetchTimetables();
+        if (!isContextLoading) {
+            if (selectedSemesterId) {
+                fetchTimetables();
+            } else {
+                setLoading(false);
+            }
         }
     }, [selectedSemesterId, isContextLoading]);
 
@@ -280,7 +285,13 @@ export default function TimetableManagement() {
                 </div>
             </div>
 
-            {/* Error Alerts (Keep error as banner, logical for persistent issues) */}
+            {allSemesters.length === 0 && !isContextLoading ? (
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <NoAcademicYearState onAction={() => navigate("/school-admin/semesters")} />
+                </div>
+            ) : (
+                <>
+                {/* Error Alerts (Keep error as banner, logical for persistent issues) */}
             {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
                     <AlertCircle size={20} />
@@ -388,6 +399,8 @@ export default function TimetableManagement() {
 
             {/* Confirmation Dialog */}
             <ConfirmationDialog />
+            </>
+            )}
         </div>
     );
 }

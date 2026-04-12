@@ -126,4 +126,16 @@ public class CurriculumController {
         }
         return teacherAssignmentService.assignTeacher(admin.getSchool(), assignmentId, req.teacherId());
     }
+
+    @Transactional
+    @PutMapping("/assignments/bulk-teacher")
+    public List<TeacherAssignmentDto> bulkAssignTeachers(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody List<com.schoolmanagement.backend.dto.teacher.TeacherAssignmentUpdate> req) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return teacherAssignmentService.bulkAssignTeachers(admin.getSchool(), req);
+    }
 }

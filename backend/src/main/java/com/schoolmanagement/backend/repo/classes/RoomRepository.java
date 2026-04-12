@@ -21,5 +21,9 @@ public interface RoomRepository extends JpaRepository<Room, UUID> {
 
     Optional<Room> findByIdAndSchoolId(UUID id, UUID schoolId);
 
-    boolean existsByNameIgnoreCaseAndSchoolId(String name, UUID schoolId);
+    boolean existsByNameIgnoreCaseAndBuildingIgnoreCaseAndSchoolId(String name, String building, UUID schoolId);
+
+    // Fallback for when building is null - name must be unique among rooms with no building
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(r) > 0 FROM Room r WHERE LOWER(r.name) = LOWER(:name) AND r.building IS NULL AND r.school.id = :schoolId")
+    boolean existsByNameIgnoreCaseAndBuildingIsNullAndSchoolId(String name, UUID schoolId);
 }

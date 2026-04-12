@@ -5,6 +5,7 @@ public record SimpleTimetableDetailDto(
   int slot,
   String dayOfWeek,
   String subjectName,
-  String teacherName
+  String teacherName,
+  String roomName
 ) {}
 

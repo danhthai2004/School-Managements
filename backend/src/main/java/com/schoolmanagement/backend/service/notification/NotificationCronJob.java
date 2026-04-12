@@ -34,7 +34,7 @@ public class NotificationCronJob {
      * Chạy lúc 08:00 sáng mỗi ngày: Nhắc lịch thi ngày mai.
      */
     @Transactional
-    @Scheduled(cron = "0 45 18 * * ?", zone = "Asia/Ho_Chi_Minh")
+    @Scheduled(cron = "0 25 00 * * ?", zone = "Asia/Ho_Chi_Minh")
     public void remindExamsForTomorrow() {
         LocalDate tomorrow = LocalDate.now().plusDays(1);
         log.info("Bắt đầu CronJob: Nhắc lịch thi cho ngày mai ({})", tomorrow);
@@ -62,7 +62,7 @@ public class NotificationCronJob {
      * cho học sinh, phụ huynh và giáo viên.
      */
     @Transactional
-    @Scheduled(cron = "0 45 18 * * ?", zone = "Asia/Ho_Chi_Minh")
+    @Scheduled(cron = "0 25 00 * * ?", zone = "Asia/Ho_Chi_Minh")
     public void remindScheduleForTomorrow() {
         LocalDate tomorrow = LocalDate.now().plusDays(1);
         log.info("Bắt đầu CronJob: Nhắc thời khóa biểu cho ngày mai ({}, {})",

@@ -33,7 +33,7 @@ public interface GuardianRepository extends JpaRepository<Guardian, UUID> {
      * Find guardians associated with a specific school who do not have a user
      * account.
      */
-    @Query("SELECT DISTINCT g FROM Guardian g JOIN g.students s LEFT JOIN g.user u WHERE s.school = :school AND u.id IS NULL")
+    @Query("SELECT DISTINCT g FROM Guardian g JOIN g.students s LEFT JOIN g.user u WHERE s.school = :school AND u.id IS NULL AND g.email IS NOT NULL AND g.email <> ''")
     List<Guardian> findGuardiansWithoutAccount(
             @Param("school") School school);
 }

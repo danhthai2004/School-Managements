@@ -13,10 +13,13 @@ import AddClassModal from "../components/class/AddClassModal";
 import EditClassModal from "../components/class/EditClassModal";
 import DeleteConfirmModal from "../components/class/DeleteConfirmModal";
 import PromotionModal from "../components/class/PromotionModal";
+import { NoAcademicYearState } from "../../../components/common/EmptyState";
+import { useNavigate } from "react-router-dom";
 
 // ==================== PAGE COMPONENT ====================
 
 const ClassManagement = () => {
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
     const [teachers, setTeachers] = useState<UserDto[]>([]);
@@ -82,6 +85,13 @@ const ClassManagement = () => {
     }
 
     if (error) {
+        if (error.includes("Năm học hiện tại không tìm thấy")) {
+            return (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 animate-fade-in-up">
+                    <NoAcademicYearState onAction={() => navigate("/school-admin/semesters")} />
+                </div>
+            );
+        }
         return <div className="bg-red-50 border border-red-200 text-red-600 px-6 py-4 rounded-xl text-sm">{error}</div>;
     }
 
