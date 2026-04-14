@@ -20,21 +20,31 @@ public class FirebaseConfig {
     @Value("${firebase.config.path:}")
     private String firebaseConfigPath;
 
+    @Value("${firebase.credentials.json:}")
+    private String firebaseCredentialsJson;
+
     @PostConstruct
     public void initialize() {
         try {
             if (FirebaseApp.getApps().isEmpty()) {
                 GoogleCredentials credentials;
 
-                if (firebaseConfigPath != null && !firebaseConfigPath.isBlank()) {
-                    // Ưu tiên file path bên ngoài (production)
+                if (firebaseCredentialsJson != null && !firebaseCredentialsJson.isBlank()) {
+                    // Ưu tiên đọc trực tiếp từ biến môi trường (Render Production)
+                    InputStream serviceAccount = new java.io.ByteArrayInputStream(
+                            firebaseCredentialsJson.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    credentials = GoogleCredentials.fromStream(serviceAccount);
+                    log.info("Khởi tạo Firebase Admin SDK bằng JSON từ biến môi trường.");
+                } else if (firebaseConfigPath != null && !firebaseConfigPath.isBlank()) {
+                    // Ưu tiên file path bên ngoài
                     credentials = GoogleCredentials.fromStream(new FileInputStream(firebaseConfigPath));
-                    log.info("🔥 Khởi tạo Firebase Admin SDK bằng file config: {}", firebaseConfigPath);
+                    log.info("Khởi tạo Firebase Admin SDK bằng file config: {}", firebaseConfigPath);
                 } else {
                     // Fallback: đọc từ classpath (dev)
-                    InputStream serviceAccount = new ClassPathResource("firebase-service-account.json").getInputStream();
+                    InputStream serviceAccount = new ClassPathResource("firebase-service-account.json")
+                            .getInputStream();
                     credentials = GoogleCredentials.fromStream(serviceAccount);
-                    log.info("🔥 Khởi tạo Firebase Admin SDK bằng classpath resource.");
+                    log.info("Khởi tạo Firebase Admin SDK bằng classpath resource.");
                 }
 
                 FirebaseOptions options = FirebaseOptions.builder()
@@ -42,10 +52,11 @@ public class FirebaseConfig {
                         .build();
 
                 FirebaseApp.initializeApp(options);
-                log.info("✅ Firebase Admin SDK đã được khởi tạo thành công.");
+                log.info("Firebase Admin SDK đã được khởi tạo thành công.");
             }
         } catch (IOException e) {
-            log.warn("⚠️ Không thể khởi tạo Firebase Admin SDK (Push notification sẽ không hoạt động): {}", e.getMessage());
+            log.warn("Không thể khởi tạo Firebase Admin SDK (Push notification sẽ không hoạt động): {}",
+                    e.getMessage());
         }
     }
 }
