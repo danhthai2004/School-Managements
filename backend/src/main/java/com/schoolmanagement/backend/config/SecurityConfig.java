@@ -38,7 +38,7 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/", "/health").permitAll()
+                        .requestMatchers("/", "/health", "/api/mail-test").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/v1/locations/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
