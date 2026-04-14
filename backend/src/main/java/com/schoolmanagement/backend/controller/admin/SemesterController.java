@@ -112,7 +112,7 @@ public class SemesterController {
 
     private com.schoolmanagement.backend.domain.entity.auth.User requireUserWithSchool(UserPrincipal principal) {
         var user = userLookup.requireById(principal.getId());
-        if (user.getSchool() == null) {
+        if (user.getSchool() == null && user.getRole() != Role.SYSTEM_ADMIN) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Người dùng chưa được gán trường.");
         }
         return user;
