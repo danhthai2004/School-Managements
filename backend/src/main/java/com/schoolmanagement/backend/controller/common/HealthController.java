@@ -23,12 +23,18 @@ public class HealthController {
         return ResponseEntity.ok(Map.of("status", "UP"));
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.mail.javamail.JavaMailSender mailSender;
+
+    @org.springframework.beans.factory.annotation.Value("${spring.mail.username:}")
+    private String username;
+
+    @org.springframework.beans.factory.annotation.Value("${spring.mail.password:}")
+    private String password;
+
     @GetMapping("/api/mail-test")
     public ResponseEntity<Map<String, String>> testMail(
-            @org.springframework.web.bind.annotation.RequestParam String email,
-            @org.springframework.beans.factory.annotation.Autowired org.springframework.mail.javamail.JavaMailSender mailSender,
-            @org.springframework.beans.factory.annotation.Value("${spring.mail.username:}") String username,
-            @org.springframework.beans.factory.annotation.Value("${spring.mail.password:}") String password) {
+            @org.springframework.web.bind.annotation.RequestParam String email) {
         
         if (username == null || username.isBlank() || password == null || password.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("status", "FAILED", "reason", "Mail configuration is empty. Set MAIL_USERNAME and MAIL_APP_PASSWORD."));
@@ -48,3 +54,4 @@ public class HealthController {
         }
     }
 }
+
