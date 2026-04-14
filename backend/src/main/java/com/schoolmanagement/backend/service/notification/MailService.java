@@ -41,7 +41,7 @@ public class MailService {
     @Async
     public void sendOtpEmail(String to, String otp, String purpose) {
         if (!mailConfigured()) {
-            log.warn("[MAIL NOT CONFIGURED] OTP for {} ({}) = {}", to, purpose, otp);
+            log.warn("[MAIL NOT CONFIGURED] Skipping OTP email for {} ({})", to, purpose);
             return;
         }
         try {
@@ -53,16 +53,14 @@ public class MailService {
             mailSender.send(msg);
             log.info("[MAIL SENT] OTP to {}", to);
         } catch (Exception e) {
-            log.error("[MAIL FAILED] Render blocked port 587. Please view OTP here:");
-            log.error("====> OTP cho {} ({}): {} <====", to, purpose, otp);
-            log.error("Error Detail: {}", e.getMessage());
+            log.error("[MAIL FAILED] Failed to send OTP to {}: {}", to, e.getMessage());
         }
     }
 
     @Async
     public void sendTempPasswordEmail(String to, String fullName, String tempPassword) {
         if (!mailConfigured()) {
-            log.warn("[MAIL NOT CONFIGURED] Temp password for {} = {}", to, tempPassword);
+            log.warn("[MAIL NOT CONFIGURED] Skipping Temp Password email for {}", to);
             return;
         }
         try {
@@ -78,12 +76,7 @@ public class MailService {
             mailSender.send(msg);
             log.info("[MAIL SENT] Temp password to {}", to);
         } catch (Exception e) {
-            log.error("[MAIL FAILED] Render blocked SMTP. Recover the Temp Password below:");
-            log.error("==================================================");
-            log.error(" TÀI KHOẢN MỚI: {}", to);
-            log.error(" MẬT KHẨU TẠM: {}", tempPassword);
-            log.error("==================================================");
-            log.error("Error Detail: {}", e.getMessage());
+            log.error("[MAIL FAILED] Failed to send temp password to {}: {}", to, e.getMessage());
         }
     }
 }
