@@ -16,11 +16,20 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "timetable_details", indexes = {
-        @Index(name = "idx_detail_timetable", columnList = "timetable_id"),
-        @Index(name = "idx_detail_class", columnList = "classroom_id"),
-        @Index(name = "idx_detail_teacher", columnList = "teacher_id")
-})
+@Table(name = "timetable_details",
+        uniqueConstraints = {
+                // 1 lớp chỉ có 1 tiết tại 1 slot trong 1 ngày
+                @UniqueConstraint(name = "uk_detail_class_day_slot",
+                        columnNames = {"timetable_id", "classroom_id", "day_of_week", "slot_index"}),
+                // 1 giáo viên chỉ dạy 1 lớp tại 1 slot trong 1 ngày
+                @UniqueConstraint(name = "uk_detail_teacher_day_slot",
+                        columnNames = {"timetable_id", "teacher_id", "day_of_week", "slot_index"})
+        },
+        indexes = {
+                @Index(name = "idx_detail_timetable", columnList = "timetable_id"),
+                @Index(name = "idx_detail_class", columnList = "classroom_id"),
+                @Index(name = "idx_detail_teacher", columnList = "teacher_id")
+        })
 public class TimetableDetail {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

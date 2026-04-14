@@ -16,7 +16,8 @@ import {
     Menu,
     LogOut,
     UserCircle,
-    Lock
+    Lock,
+    SquareActivity
 } from "lucide-react";
 import NotificationBell from "../../components/layout/NotificationBell";
 
@@ -62,13 +63,14 @@ export default function TeacherLayout() {
     // Additional menu items for homeroom teachers only
     const homeroomOnlyMenuItems = [
         { path: "/teacher/students", label: "Học sinh", icon: <Users size={20} strokeWidth={1.5} /> },
+        { path: "/teacher/risk-analytics", label: "AI phân tích học tập", icon: <SquareActivity size={20} strokeWidth={1.5} /> },
     ];
 
     // Build menu based on teacher type
     const menuItems = teacherProfile?.isHomeroomTeacher
         ? [
             commonMenuItems[0], // Tổng quan
-            homeroomOnlyMenuItems[0], // Học sinh (homeroom only)
+            ...homeroomOnlyMenuItems, // Học sinh, Phân tích AI
             ...commonMenuItems.slice(1), // Rest of common items
         ]
         : commonMenuItems;

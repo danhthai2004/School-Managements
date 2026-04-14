@@ -4,16 +4,10 @@ import { useAuth } from "../../context/AuthContext";
 import {
     LayoutDashboard,
     Users,
-    LayoutGrid,
     BookOpen,
-    Calendar,
-    Building2,
-    CalendarClock,
     Bell,
     BarChart3,
-    Settings2,
-    SquareActivity,
-    GraduationCap,
+    Settings,
     Search,
     Menu,
     LogOut,
@@ -30,30 +24,42 @@ export default function SchoolAdminLayout() {
 
     const menuItems = [
         { path: "/school-admin/dashboard", label: "Tổng quan", icon: <LayoutDashboard size={20} strokeWidth={1.5} /> },
-        { path: "/school-admin/students", label: "Quản lý học sinh", icon: <Users size={20} strokeWidth={1.5} /> },
         {
-            label: "Quản lý giáo viên",
-            icon: <GraduationCap size={20} strokeWidth={1.5} />,
+            label: "Quản lý",
+            icon: <Users size={20} strokeWidth={1.5} /> ,
             children: [
+                { path: "/school-admin/students", label: "Quản lý học sinh" },
                 { path: "/school-admin/teachers", label: "Danh sách giáo viên" },
-                { path: "/school-admin/assignments", label: "Phân công chuyên môn" }
+                { path: "/school-admin/assignments", label: "Phân công chuyên môn" },
+                { path: "/school-admin/classes", label: "Quản lý lớp học" },
+                { path: "/school-admin/accounts", label: "Quản lý tài khoản" }
             ]
         },
-        { path: "/school-admin/classes", label: "Quản lý lớp học", icon: <LayoutGrid size={20} strokeWidth={1.5} /> },
-        { path: "/school-admin/subjects", label: "Quản lý Môn học & Tổ hợp", icon: <BookOpen size={20} strokeWidth={1.5} /> },
-        { path: "/school-admin/rooms", label: "Quản lý phòng", icon: <Building2 size={20} strokeWidth={1.5} /> },
-        { path: "/school-admin/schedule", label: "Thời khóa biểu", icon: <Calendar size={20} strokeWidth={1.5} /> },
-        { path: "/school-admin/exam-sessions", label: "Kỳ thi & Phân bổ", icon: <CalendarClock size={20} strokeWidth={1.5} /> },
+        {
+            label: "Đào tạo",
+            icon: <BookOpen size={20} strokeWidth={1.5} /> ,
+            children: [
+                { path: "/school-admin/subjects", label: "Môn học & Tổ hợp" },
+                { path: "/school-admin/rooms", label: "Quản lý phòng" },
+                { path: "/school-admin/schedule", label: "Thời khóa biểu" },
+                { path: "/school-admin/exam-sessions", label: "Kỳ thi & Phân bổ" }
+            ]
+        },
+        {
+            label: "Thống kê & AI",
+            icon: <BarChart3 size={20} strokeWidth={1.5} /> ,
+            children: [
+                { path: "/school-admin/risk-analytics", label: "AI Phân Tích Rủi Ro" },
+                { path: "/school-admin/reports", label: "Báo cáo & Thống kê" }
+            ]
+        },
         { path: "/school-admin/notifications", label: "Thông báo", icon: <Bell size={20} strokeWidth={1.5} /> },
-        { path: "/school-admin/reports", label: "Báo cáo & Thống kê", icon: <BarChart3 size={20} strokeWidth={1.5} /> },
-        { path: "/school-admin/risk-analytics", label: "AI Phân Tích Rủi Ro", icon: <SquareActivity size={20} strokeWidth={1.5} /> },
-        { path: "/school-admin/accounts", label: "Quản lý tài khoản", icon: <UserCircle size={20} strokeWidth={1.5} /> },
-        { path: "/school-admin/semesters", label: "Cấu hình Năm học & Học kỳ", icon: <Settings2 size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/semesters", label: "Cấu hình năm học", icon: <Settings size={20} strokeWidth={1.5} /> },
     ];
 
     // State for expanded menus (using labels as keys)
     const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
-        "Quản lý giáo viên": true
+        "Quản lý": true
     });
 
     const toggleMenu = (label: string) => {

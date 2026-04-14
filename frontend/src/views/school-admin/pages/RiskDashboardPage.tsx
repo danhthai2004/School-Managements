@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { riskService, type ClassRiskOverviewDto, type RiskAssessmentDto } from "../../../services/riskService";
-import { Shield, AlertTriangle, CheckCircle, RefreshCw, Users, Loader2, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Shield, AlertTriangle, CheckCircle, RefreshCw, Users, Loader2, ThumbsUp, ThumbsDown, Map, BellRing, MessageSquare, Activity } from "lucide-react";
 
 export default function RiskDashboardPage() {
     const [loading, setLoading] = useState(true);
@@ -52,9 +52,9 @@ export default function RiskDashboardPage() {
 
     const getRiskBadge = (level: string) => {
         switch (level) {
-            case "DANGER": return <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">🔴 Nguy cơ cao</span>;
-            case "WATCH": return <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">🟡 Theo dõi</span>;
-            default: return <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">🟢 An toàn</span>;
+            case "DANGER": return <span className="flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-700 rounded-full text-xs font-semibold border border-red-200"><div className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"/> Nguy cơ cao</span>;
+            case "WATCH": return <span className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-semibold border border-amber-200"><div className="w-1.5 h-1.5 rounded-full bg-amber-500"/> Theo dõi</span>;
+            default: return <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold border border-emerald-200"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500"/> An toàn</span>;
         }
     };
 
@@ -98,32 +98,53 @@ export default function RiskDashboardPage() {
 
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-                    <p className="text-sm text-gray-500 mb-1">Tổng số lớp</p>
-                    <p className="text-3xl font-bold text-gray-900">{totalClasses}</p>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 relative overflow-hidden group hover:shadow-md transition-all">
+                    <div className="absolute -right-4 -top-4 p-4 opacity-[0.03] group-hover:opacity-10 transition-opacity">
+                        <Users className="w-24 h-24 text-gray-900" />
+                    </div>
+                    <p className="text-sm text-gray-500 mb-1 relative z-10 flex items-center gap-1.5">
+                        <Activity className="w-4 h-4" /> Tổng số lớp
+                    </p>
+                    <p className="text-3xl font-bold text-gray-900 relative z-10">{totalClasses}</p>
                 </div>
-                <div className="bg-white rounded-2xl shadow-sm border border-red-100 p-5">
-                    <p className="text-sm text-red-600 mb-1">🔴 Nguy cơ cao</p>
-                    <p className="text-3xl font-bold text-red-600">{dangerClasses}</p>
+                <div className="bg-white rounded-2xl shadow-sm border border-red-100 p-5 relative overflow-hidden group hover:shadow-md hover:border-red-200 transition-all">
+                    <div className="absolute -right-4 -top-4 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <AlertTriangle className="w-24 h-24 text-red-600" />
+                    </div>
+                    <p className="text-sm text-red-600 font-medium mb-1 relative z-10 flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-red-600 shadow-[0_0_8px_rgba(220,38,38,0.5)] animate-pulse"/> Nguy cơ cao
+                    </p>
+                    <p className="text-3xl font-bold text-red-600 relative z-10">{dangerClasses}</p>
                 </div>
-                <div className="bg-white rounded-2xl shadow-sm border border-amber-100 p-5">
-                    <p className="text-sm text-amber-600 mb-1">🟡 Theo dõi</p>
-                    <p className="text-3xl font-bold text-amber-600">{watchClasses}</p>
+                <div className="bg-white rounded-2xl shadow-sm border border-amber-100 p-5 relative overflow-hidden group hover:shadow-md hover:border-amber-200 transition-all">
+                    <div className="absolute -right-4 -top-4 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <AlertTriangle className="w-24 h-24 text-amber-500" />
+                    </div>
+                    <p className="text-sm font-medium text-amber-600 mb-1 relative z-10 flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-amber-500"/> Theo dõi
+                    </p>
+                    <p className="text-3xl font-bold text-amber-600 relative z-10">{watchClasses}</p>
                 </div>
-                <div className="bg-white rounded-2xl shadow-sm border border-emerald-100 p-5">
-                    <p className="text-sm text-emerald-600 mb-1">🟢 An toàn</p>
-                    <p className="text-3xl font-bold text-emerald-600">{safeClasses}</p>
+                <div className="bg-white rounded-2xl shadow-sm border border-emerald-100 p-5 relative overflow-hidden group hover:shadow-md hover:border-emerald-200 transition-all">
+                    <div className="absolute -right-4 -top-4 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <CheckCircle className="w-24 h-24 text-emerald-500" />
+                    </div>
+                    <p className="text-sm font-medium text-emerald-600 mb-1 relative z-10 flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500"/> An toàn
+                    </p>
+                    <p className="text-3xl font-bold text-emerald-600 relative z-10">{safeClasses}</p>
                 </div>
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 bg-gray-100 rounded-xl p-1 w-fit">
-                <button onClick={() => setActiveTab("heatmap")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "heatmap" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
-                    🗺️ Heatmap Lớp Học
+            <div className="flex gap-2 bg-gray-100/80 p-1.5 rounded-xl w-fit">
+                <button onClick={() => setActiveTab("heatmap")} className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${activeTab === "heatmap" ? "bg-white shadow-sm text-indigo-700 font-semibold" : "text-gray-500 hover:text-gray-800 hover:bg-gray-200/50"}`}>
+                    <Map className="w-4 h-4" /> Heatmap Lớp Học
                 </button>
-                <button onClick={() => setActiveTab("alerts")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors relative ${activeTab === "alerts" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
-                    🔔 Cảnh Báo ({alerts.length})
-                    {alerts.length > 0 && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />}
+                <button onClick={() => setActiveTab("alerts")} className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all relative ${activeTab === "alerts" ? "bg-white shadow-sm text-indigo-700 font-semibold" : "text-gray-500 hover:text-gray-800 hover:bg-gray-200/50"}`}>
+                    <BellRing className="w-4 h-4" /> Cảnh Báo ({alerts.length})
+                    {alerts.length > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-ping" />}
+                    {alerts.length > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />}
                 </button>
             </div>
 
@@ -188,7 +209,7 @@ export default function RiskDashboardPage() {
                                         <div>
                                             <h4 className="font-semibold text-gray-900">{alert.studentName} <span className="text-gray-400 font-normal text-sm">({alert.studentCode})</span></h4>
                                             <p className="text-sm text-gray-500">{alert.className} • Điểm rủi ro: <span className={`font-bold ${alert.riskScore >= 80 ? "text-red-600" : "text-amber-600"}`}>{alert.riskScore}</span></p>
-                                            {alert.aiReason && <p className="text-sm text-gray-600 mt-1">💬 {alert.aiReason}</p>}
+                                            {alert.aiReason && <p className="text-sm text-gray-600 mt-2 flex items-start gap-2 bg-gray-50 p-3 rounded-lg border border-gray-100"><MessageSquare className="w-4 h-4 text-indigo-400 mt-0.5 flex-shrink-0" /> <span className="leading-relaxed">{alert.aiReason}</span></p>}
                                         </div>
                                     </div>
                                     <div className="flex gap-2 flex-shrink-0">

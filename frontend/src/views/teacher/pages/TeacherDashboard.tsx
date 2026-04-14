@@ -167,20 +167,37 @@ export default function TeacherDashboard() {
             </div>
 
             {/* Lịch dạy hôm nay */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 mb-8">
-                <div className="flex items-center gap-2 mb-4">
-                    <CalendarIcon />
-                    <h2 className="text-lg font-bold text-gray-900">Lịch dạy hôm nay</h2>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-8 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <CalendarIcon />
+                        <h2 className="text-lg font-bold text-gray-900">Lịch dạy hôm nay</h2>
+                    </div>
                 </div>
 
-                <div className="flex gap-4 overflow-x-auto pb-2">
+                <div className="p-4">
                     {schedule.length > 0 ? (
-                        schedule.map((item, index) => (
-                            <ScheduleCard key={index} item={item} />
-                        ))
+                        <div className="space-y-0">
+                            {schedule.map((item, index) => (
+                                <div key={index} className="flex items-center py-4 border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors px-2 rounded-xl">
+                                    <div className="w-32 text-sm text-gray-500 font-medium tracking-tight">
+                                        {item.startTime} - {item.endTime}
+                                    </div>
+                                    <div className="flex-1 pl-4 border-l-2 border-indigo-100">
+                                        <h4 className="font-semibold text-gray-900">{item.subjectName}</h4>
+                                        <p className="text-sm text-gray-500 italic">Lớp {item.className}</p>
+                                    </div>
+                                    <div className="text-right text-sm text-gray-500">
+                                        <div className="font-medium text-indigo-600">Phòng {item.roomNumber || "N/A"}</div>
+                                        <div className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded mt-1 inline-block font-bold">Tiết {item.periodNumber}</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     ) : (
-                        <div className="text-gray-500 py-6 text-center w-full italic bg-gray-50 rounded-lg border border-gray-100">
-                            Hôm nay không có lịch dạy
+                        <div className="text-center py-12 text-gray-500">
+                            <CalendarIcon />
+                            <p className="font-medium mt-3">Hôm nay không có lịch dạy</p>
                         </div>
                     )}
                 </div>
@@ -388,19 +405,3 @@ function RecommendationCard({ recommendation }: { recommendation: AIRecommendati
     );
 }
 
-function ScheduleCard({ item }: { item: TodayScheduleItem }) {
-    return (
-        <div className="min-w-48 bg-gray-50 rounded-lg p-4 border border-gray-100">
-            <div className="flex items-center gap-2 mb-2">
-                <span className="px-2 py-1 bg-blue-100 text-blue-600 text-xs font-medium rounded">
-                    Tiết {item.periodNumber}
-                </span>
-                <span className="text-xs text-gray-500">
-                    {item.startTime} - {item.endTime}
-                </span>
-            </div>
-            <h4 className="font-semibold text-gray-900 mb-1">{item.subjectName}</h4>
-            <p className="text-sm text-gray-500">Lớp {item.className} • Phòng {item.roomNumber}</p>
-        </div>
-    );
-}

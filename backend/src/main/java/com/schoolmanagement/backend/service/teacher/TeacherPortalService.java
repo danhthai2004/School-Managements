@@ -47,9 +47,11 @@ import com.schoolmanagement.backend.service.admin.SemesterService;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.TextStyle;
 // // import java.util.*;
 import java.util.stream.Collectors;
+import java.util.LinkedHashMap;
 
 /**
  * Service for Teacher Portal operations.
@@ -70,6 +72,7 @@ public class TeacherPortalService {
         private final SchoolTimetableSettingsService settingsService;
         private final com.schoolmanagement.backend.repo.teacher.ExamInvigilatorRepository examInvigilatorRepository;
         private final SemesterService semesterService;
+        private final com.schoolmanagement.backend.repo.risk.RiskAssessmentHistoryRepository riskAssessmentHistoryRepository;
 
         private static final String[] CONDUCT_GRADES = { "Xuất sắc", "Tốt", "Khá", "Trung bình", "Yếu" };
 
@@ -86,7 +89,7 @@ public class TeacherPortalService {
                 List<com.schoolmanagement.backend.domain.entity.teacher.ExamInvigilator> invigilations;
                 invigilations = examInvigilatorRepository.findByTeacherAndSemesterOrderByExamDate(teacher.getId(), targetSemester);
 
-                LocalDate today = LocalDate.now();
+                LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
 
                 return invigilations.stream()
                                 .map(invigilation -> {
@@ -220,9 +223,10 @@ public class TeacherPortalService {
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                                                 "Teacher profile not found"));
 
-                // Get today's day of week
-                LocalDate today = LocalDate.now();
+                // Get today's day of week - use Vietnam timezone to avoid UTC mismatch on server
+                LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
                 DayOfWeek dayOfWeek = today.getDayOfWeek();
+                log.info("getTodaySchedule: today={} dayOfWeek={} (zone=Asia/Ho_Chi_Minh)", today, dayOfWeek);
 
                 com.schoolmanagement.backend.domain.entity.admin.Semester activeSemester = semesterService.getActiveSemesterEntity(user.getSchool());
                 Optional<com.schoolmanagement.backend.domain.entity.timetable.Timetable> timetableOpt = timetableRepository
@@ -239,6 +243,13 @@ public class TeacherPortalService {
 
                 return details.stream()
                                 .filter(d -> d.getDayOfWeek() == dayOfWeek)
+                                // Deduplicate: keep only one entry per slotIndex (prevent duplicate periods)
+                                .collect(Collectors.toMap(
+                                        com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail::getSlotIndex,
+                                        d -> d,
+                                        (existing, duplicate) -> existing,
+                                        LinkedHashMap::new))
+                                .values().stream()
                                 .sorted(Comparator.comparingInt(
                                                 com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail::getSlotIndex))
                                 .map(d -> mapToTodayScheduleItemDto(d, user.getSchool()))
@@ -276,7 +287,15 @@ public class TeacherPortalService {
                 List<com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail> details = timetableDetailRepository
                                 .findAllByTimetableAndTeacher(timetableOpt.get(), teacher);
 
+                // Deduplicate: keep only one entry per (dayOfWeek, slotIndex) combination
+                // This prevents showing duplicate periods (e.g., two "period 3" on the same day)
                 return details.stream()
+                                .collect(Collectors.toMap(
+                                        d -> d.getDayOfWeek().name() + "-" + d.getSlotIndex(),
+                                        d -> d,
+                                        (existing, duplicate) -> existing,
+                                        LinkedHashMap::new))
+                                .values().stream()
                                 .map(d -> {
                                         SlotTimeDto slotTime = slotTimeMap.get(d.getSlotIndex());
                                         return new com.schoolmanagement.backend.dto.timetable.TimetableDetailDto(
@@ -320,7 +339,7 @@ public class TeacherPortalService {
         }
 
         /**
-         * Get AI risk analysis (homeroom only, placeholder data)
+         * Get AI risk analysis (homeroom only, real data from risk service)
          */
         public List<StudentRiskAnalysisDto> getRiskAnalysis(String email) {
                 User teacher = findTeacherByEmail(email);
@@ -331,12 +350,43 @@ public class TeacherPortalService {
                                         "Only homeroom teachers can access risk analysis");
                 }
 
-                // Return placeholder data for AI features
-                return List.of();
+                ClassRoom homeroom = homeroomClass.get();
+                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = homeroom.getAcademicYear();
+                List<ClassEnrollment> enrollments = classEnrollmentRepository.findAllByClassRoomAndAcademicYear(homeroom, currentAcademicYear);
+
+                List<StudentRiskAnalysisDto> result = new java.util.ArrayList<>();
+                for (ClassEnrollment enrollment : enrollments) {
+                    com.schoolmanagement.backend.domain.entity.student.Student student = enrollment.getStudent();
+                    com.schoolmanagement.backend.domain.entity.risk.RiskAssessmentHistory latest = riskAssessmentHistoryRepository.findLatestByStudent(student);
+                    
+                    if (latest != null && latest.getRiskScore() >= 50) { // Only show students with notable risk
+                        StudentRiskAnalysisDto.RiskLevel level;
+                        if (latest.getRiskScore() >= 80) level = StudentRiskAnalysisDto.RiskLevel.HIGH;
+                        else if (latest.getRiskScore() >= 60) level = StudentRiskAnalysisDto.RiskLevel.MEDIUM;
+                        else level = StudentRiskAnalysisDto.RiskLevel.LOW;
+
+                        result.add(StudentRiskAnalysisDto.builder()
+                            .studentId(student.getId().toString())
+                            .studentName(student.getFullName())
+                            .riskLevel(level)
+                            .riskType(latest.getRiskCategory() != null ? latest.getRiskCategory().name() : "MIXED")
+                            .metrics(List.of(
+                                new StudentRiskAnalysisDto.MetricDto("Risk Score", latest.getRiskScore(), 100)
+                            ))
+                            .issues(latest.getAiReason() != null && !latest.getAiReason().isBlank() ? List.of(latest.getAiReason()) : List.of())
+                            .suggestions(latest.getAiAdvice() != null && !latest.getAiAdvice().isBlank() ? List.of(latest.getAiAdvice()) : List.of())
+                            .build());
+                    }
+                }
+                
+                // Sort by risk score descending
+                return result.stream()
+                        .sorted(java.util.Comparator.comparingInt((StudentRiskAnalysisDto dto) -> dto.getMetrics().get(0).getValue()).reversed())
+                        .toList();
         }
 
         /**
-         * Get AI recommendations (homeroom only, placeholder data)
+         * Get AI recommendations (homeroom only, real data from risk service)
          */
         public List<AIRecommendationDto> getRecommendations(String email) {
                 User teacher = findTeacherByEmail(email);
@@ -347,8 +397,40 @@ public class TeacherPortalService {
                                         "Only homeroom teachers can access AI recommendations");
                 }
 
-                // Return placeholder data for AI features
-                return List.of();
+                ClassRoom homeroom = homeroomClass.get();
+                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = homeroom.getAcademicYear();
+                List<ClassEnrollment> enrollments = classEnrollmentRepository.findAllByClassRoomAndAcademicYear(homeroom, currentAcademicYear);
+
+                List<AIRecommendationDto> result = new java.util.ArrayList<>();
+                for (ClassEnrollment enrollment : enrollments) {
+                    com.schoolmanagement.backend.domain.entity.student.Student student = enrollment.getStudent();
+                    com.schoolmanagement.backend.domain.entity.risk.RiskAssessmentHistory latest = riskAssessmentHistoryRepository.findLatestByStudent(student);
+                    
+                    if (latest != null && latest.getRiskScore() >= 60) {
+                        AIRecommendationDto.RecommendationType type;
+                        try {
+                            type = AIRecommendationDto.RecommendationType.valueOf(latest.getRiskCategory().name());
+                        } catch (Exception e) {
+                            type = AIRecommendationDto.RecommendationType.ACADEMIC;
+                        }
+                        
+                        AIRecommendationDto.Priority priority = latest.getRiskScore() >= 80 ? AIRecommendationDto.Priority.HIGH : AIRecommendationDto.Priority.MEDIUM;
+                        
+                        result.add(AIRecommendationDto.builder()
+                            .id(latest.getId().toString())
+                            .type(type)
+                            .priority(priority)
+                            .title("Cần hỗ trợ học sinh: " + student.getFullName())
+                            .description(latest.getAiReason() != null ? latest.getAiReason() : "Học sinh có dấu hiệu rủi ro mức độ " + priority.name())
+                            .actions(latest.getAiAdvice() != null && !latest.getAiAdvice().isBlank() ? List.of(latest.getAiAdvice()) : List.of("Tổ chức buổi gặp mặt phụ huynh"))
+                            .build());
+                    }
+                }
+                
+                // Sort by priority (HIGH first)
+                return result.stream()
+                        .sorted((a, b) -> a.getPriority().compareTo(b.getPriority()))
+                        .toList();
         }
 
         // ==================== HELPER METHODS ====================

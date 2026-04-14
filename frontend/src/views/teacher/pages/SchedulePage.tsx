@@ -28,16 +28,27 @@ export default function SchedulePage() {
         }
     };
 
+    // Deduplicate schedule: keep only one entry per (dayOfWeek, slotIndex) pair
+    const deduplicatedSchedule = (() => {
+        const seen = new Set<string>();
+        return schedule.filter(s => {
+            const key = `${s.dayOfWeek}-${s.slotIndex}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    })();
+
     const getCell = (day: string, slot: number) => {
         const dayIndex = DAYS.indexOf(day);
         if (dayIndex === -1) return undefined;
         const originalDayName = ENGLISH_DAYS[dayIndex];
-        return schedule.find(s => s.dayOfWeek === originalDayName && s.slotIndex === slot);
+        return deduplicatedSchedule.find(s => s.dayOfWeek === originalDayName && s.slotIndex === slot);
     };
 
     // Get slot time from any matching schedule entry for that slot
     const getSlotTime = (slot: number): string | null => {
-        const entry = schedule.find(s => s.slotIndex === slot);
+        const entry = deduplicatedSchedule.find(s => s.slotIndex === slot);
         if (entry?.startTime && entry?.endTime) {
             return `${entry.startTime} - ${entry.endTime}`;
         }
