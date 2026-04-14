@@ -41,7 +41,7 @@ public class MailService {
     @Async
     public void sendOtpEmail(String to, String otp, String purpose) {
         if (!mailConfigured()) {
-            log.warn("[MAIL NOT CONFIGURED] OTP for {} ({}) = {}", to, purpose, otp);
+            log.warn("[MAIL NOT CONFIGURED] Skipping OTP email for {} ({})", to, purpose);
             return;
         }
         try {
@@ -60,7 +60,7 @@ public class MailService {
     @Async
     public void sendTempPasswordEmail(String to, String fullName, String tempPassword) {
         if (!mailConfigured()) {
-            log.warn("[MAIL NOT CONFIGURED] Temp password for {} = {}", to, tempPassword);
+            log.warn("[MAIL NOT CONFIGURED] Skipping Temp Password email for {}", to);
             return;
         }
         try {
@@ -80,3 +80,4 @@ public class MailService {
         }
     }
 }
+

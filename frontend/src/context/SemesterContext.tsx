@@ -29,7 +29,7 @@ export const SemesterProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [loading, setLoading] = useState(true);
 
     const loadSemesters = useCallback(async () => {
-        if (!user) {
+        if (!user || user.role === 'SYSTEM_ADMIN') {
             setAllSemesters([]);
             setAllAcademicYears([]);
             setActiveSemester(null);
