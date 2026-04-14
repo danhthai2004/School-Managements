@@ -53,7 +53,9 @@ public class MailService {
             mailSender.send(msg);
             log.info("[MAIL SENT] OTP to {}", to);
         } catch (Exception e) {
-            log.error("[MAIL FAILED] Failed to send OTP to {}: {}", to, e.getMessage());
+            log.error("[MAIL FAILED] Render blocked port 587. Please view OTP here:");
+            log.error("====> OTP cho {} ({}): {} <====", to, purpose, otp);
+            log.error("Error Detail: {}", e.getMessage());
         }
     }
 
@@ -76,7 +78,13 @@ public class MailService {
             mailSender.send(msg);
             log.info("[MAIL SENT] Temp password to {}", to);
         } catch (Exception e) {
-            log.error("[MAIL FAILED] Failed to send temp password to {}: {}", to, e.getMessage());
+            log.error("[MAIL FAILED] Render blocked SMTP. Recover the Temp Password below:");
+            log.error("==================================================");
+            log.error(" TÀI KHOẢN MỚI: {}", to);
+            log.error(" MẬT KHẨU TẠM: {}", tempPassword);
+            log.error("==================================================");
+            log.error("Error Detail: {}", e.getMessage());
         }
     }
 }
+
