@@ -26,6 +26,12 @@ public class MailService {
         this.username = username;
         this.appPassword = appPassword;
         this.from = (from == null || from.isBlank()) ? username : from;
+        
+        if (mailConfigured()) {
+            log.info("[MAIL SERVICE] Initialized with username: {}", username);
+        } else {
+            log.warn("[MAIL SERVICE] Initialized without credentials. Emails will not be sent.");
+        }
     }
 
     private boolean mailConfigured() {
@@ -38,12 +44,17 @@ public class MailService {
             log.warn("[MAIL NOT CONFIGURED] OTP for {} ({}) = {}", to, purpose, otp);
             return;
         }
-        SimpleMailMessage msg = new SimpleMailMessage();
-        msg.setFrom(from);
-        msg.setTo(to);
-        msg.setSubject("[School Management] Mã xác minh");
-        msg.setText("Mã xác minh của bạn là: " + otp + "\n\nMục đích: " + purpose + "\nMã sẽ hết hạn sau 5 phút.");
-        mailSender.send(msg);
+        try {
+            SimpleMailMessage msg = new SimpleMailMessage();
+            msg.setFrom(from);
+            msg.setTo(to);
+            msg.setSubject("[School Management] Mã xác minh");
+            msg.setText("Mã xác minh của bạn là: " + otp + "\n\nMục đích: " + purpose + "\nMã sẽ hết hạn sau 5 phút.");
+            mailSender.send(msg);
+            log.info("[MAIL SENT] OTP to {}", to);
+        } catch (Exception e) {
+            log.error("[MAIL FAILED] Failed to send OTP to {}: {}", to, e.getMessage());
+        }
     }
 
     @Async
@@ -52,15 +63,20 @@ public class MailService {
             log.warn("[MAIL NOT CONFIGURED] Temp password for {} = {}", to, tempPassword);
             return;
         }
-        SimpleMailMessage msg = new SimpleMailMessage();
-        msg.setFrom(from);
-        msg.setTo(to);
-        msg.setSubject("[School Management] Tài khoản của bạn");
-        msg.setText("Xin chào " + fullName + ",\n\n"
-                + "Tài khoản của bạn đã được tạo.\n"
-                + "Email đăng nhập: " + to + "\n"
-                + "Mật khẩu tạm thời: " + tempPassword + "\n\n"
-                + "Vui lòng đăng nhập và đổi mật khẩu ở lần đăng nhập đầu tiên.");
-        mailSender.send(msg);
+        try {
+            SimpleMailMessage msg = new SimpleMailMessage();
+            msg.setFrom(from);
+            msg.setTo(to);
+            msg.setSubject("[School Management] Tài khoản của bạn");
+            msg.setText("Xin chào " + fullName + ",\n\n"
+                    + "Tài khoản của bạn đã được tạo.\n"
+                    + "Email đăng nhập: " + to + "\n"
+                    + "Mật khẩu tạm thời: " + tempPassword + "\n\n"
+                    + "Vui lòng đăng nhập và đổi mật khẩu ở lần đăng nhập đầu tiên.");
+            mailSender.send(msg);
+            log.info("[MAIL SENT] Temp password to {}", to);
+        } catch (Exception e) {
+            log.error("[MAIL FAILED] Failed to send temp password to {}: {}", to, e.getMessage());
+        }
     }
 }
