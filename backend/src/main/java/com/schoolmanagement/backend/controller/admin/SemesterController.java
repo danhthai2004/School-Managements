@@ -1,5 +1,6 @@
 package com.schoolmanagement.backend.controller.admin;
 
+import com.schoolmanagement.backend.domain.auth.Role;
 import com.schoolmanagement.backend.dto.admin.*;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.security.UserPrincipal;
