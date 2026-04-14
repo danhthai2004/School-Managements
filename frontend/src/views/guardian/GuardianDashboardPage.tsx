@@ -62,8 +62,13 @@ export default function GuardianDashboardPage() {
             
             // Calculate average score
             if (scores && scores.length > 0) {
-                const total = scores.reduce((sum, s) => sum + (s.averageScore || 0), 0);
-                setAverageScore(total / scores.length);
+                const gradedScores = scores.filter(s => s.averageScore != null);
+                if (gradedScores.length > 0) {
+                    const total = gradedScores.reduce((sum, s) => sum + s.averageScore!, 0);
+                    setAverageScore(total / gradedScores.length);
+                } else {
+                    setAverageScore(null);
+                }
             }
 
             // Filter upcoming exams
@@ -148,7 +153,7 @@ export default function GuardianDashboardPage() {
                 />
                 <StatCard
                     title="Tỷ lệ chuyên cần"
-                    value={attendance ? `${(attendance.attendanceRate * 100).toFixed(0)}%` : "--"}
+                    value={attendance ? `${(attendance.attendanceRate).toFixed(1)}%` : "--"}
                     icon={<CheckCircle className="w-5 h-5" />}
                     color="green"
                     subtitle={`Vắng ${attendance?.absentDays || 0} buổi`}

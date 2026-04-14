@@ -355,7 +355,10 @@ public class StudentPortalService {
                 long presentDays = attendances.stream()
                                 .filter(a -> a.getStatus() == AttendanceStatus.PRESENT).count();
                 long absentDays = attendances.stream()
-                                .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED).count();
+                                .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED 
+                                          || a.getStatus() == AttendanceStatus.ABSENT_EXCUSED
+                                          || a.getStatus() == AttendanceStatus.ABSENT
+                                          || a.getStatus() == AttendanceStatus.EXCUSED).count();
                 long lateDays = attendances.stream()
                                 .filter(a -> a.getStatus() == AttendanceStatus.LATE).count();
 

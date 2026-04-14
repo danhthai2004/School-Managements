@@ -404,6 +404,24 @@ public class AutoScheduleService {
     private void createAndSaveDetail(Timetable timetable, ClassRoom classroom,
             Subject subject, DayOfWeek day, int slotIndex, Teacher teacher,
             ScheduleContext context) {
+
+        // Safety check: verify DB doesn't already have a detail for this class+day+slot
+        if (timetableDetailRepository.existsByTimetableAndClassRoomAndDayOfWeekAndSlotIndex(
+                timetable, classroom, day, slotIndex)) {
+            log.warn("SKIP: Class {} already has a lesson at {} slot {} (DB check)", 
+                    classroom.getName(), day, slotIndex);
+            context.markOccupied(classroom.getId(), teacher != null ? teacher.getId() : null, day, slotIndex);
+            return;
+        }
+
+        // Safety check: verify teacher isn't already teaching another class at this slot
+        if (teacher != null && timetableDetailRepository.existsByTimetableAndTeacherAndDayOfWeekAndSlotIndex(
+                timetable, teacher, day, slotIndex)) {
+            log.warn("SKIP: Teacher {} already teaches at {} slot {} (DB check)", 
+                    teacher.getFullName(), day, slotIndex);
+            return;
+        }
+
         var detail = TimetableDetail.builder()
                 .timetable(timetable)
                 .classRoom(classroom)
