@@ -43,7 +43,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/locations/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/api/system/**").hasRole("SYSTEM_ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/school/semesters/**", "/api/school/academic-years/**").hasAnyRole("SCHOOL_ADMIN", "TEACHER", "STUDENT", "GUARDIAN")
+                        .requestMatchers(HttpMethod.GET, "/api/school/semesters/**", "/api/school/academic-years/**").hasAnyRole("SYSTEM_ADMIN", "SCHOOL_ADMIN", "TEACHER", "STUDENT", "GUARDIAN")
                         .requestMatchers("/api/school/**").hasRole("SCHOOL_ADMIN")
                         .requestMatchers("/api/school-admin/**").hasRole("SCHOOL_ADMIN")
                         .requestMatchers("/api/teacher/**").hasRole("TEACHER")
@@ -52,7 +52,7 @@ public class SecurityConfig {
                         // Notification v1 APIs
                         .requestMatchers("/api/v1/admin/notifications/**").hasRole("SCHOOL_ADMIN")
                         .requestMatchers("/api/v1/teacher/notifications/**").hasRole("TEACHER")
-                        .requestMatchers("/api/v1/notifications/**").hasAnyRole("SCHOOL_ADMIN", "TEACHER", "STUDENT", "GUARDIAN")
+                        .requestMatchers("/api/v1/notifications/**").hasAnyRole("SYSTEM_ADMIN", "SCHOOL_ADMIN", "TEACHER", "STUDENT", "GUARDIAN")
                         // Risk Analytics APIs
                         .requestMatchers("/api/risk/trigger").hasRole("SCHOOL_ADMIN")
                         .requestMatchers("/api/risk/feedback").hasAnyRole("SCHOOL_ADMIN", "TEACHER")
