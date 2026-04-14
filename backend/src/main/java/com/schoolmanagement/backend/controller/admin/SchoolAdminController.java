@@ -45,7 +45,7 @@ public class SchoolAdminController {
     @GetMapping("/stats")
     public SchoolStatsDto getStats(@AuthenticationPrincipal UserPrincipal principal) {
         var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
+        if (admin.getSchool() == null && admin.getRole() != Role.SYSTEM_ADMIN) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         return schoolAdminService.getSchoolStats(admin.getSchool());
@@ -59,7 +59,7 @@ public class SchoolAdminController {
             @Valid @RequestBody CreateUserRequest req) {
 
         var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
+        if (admin.getSchool() == null && admin.getRole() != Role.SYSTEM_ADMIN) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
 
@@ -74,7 +74,7 @@ public class SchoolAdminController {
     @GetMapping("/users")
     public List<UserDto> listUsers(@AuthenticationPrincipal UserPrincipal principal) {
         var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
+        if (admin.getSchool() == null && admin.getRole() != Role.SYSTEM_ADMIN) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         return schoolAdminService.listUsersInSchool(admin.getSchool());
@@ -83,7 +83,7 @@ public class SchoolAdminController {
     @GetMapping("/teachers")
     public List<UserDto> listTeachers(@AuthenticationPrincipal UserPrincipal principal) {
         var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
+        if (admin.getSchool() == null && admin.getRole() != Role.SYSTEM_ADMIN) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         return schoolAdminService.listTeachersInSchool(admin.getSchool());
@@ -98,7 +98,7 @@ public class SchoolAdminController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "defaultRole", required = false, defaultValue = "STUDENT") String defaultRole) {
         var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
+        if (admin.getSchool() == null && admin.getRole() != Role.SYSTEM_ADMIN) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         Role role;
@@ -121,7 +121,7 @@ public class SchoolAdminController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Không thể đặt lại mật khẩu cho chính mình.");
         }
         var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
+        if (admin.getSchool() == null && admin.getRole() != Role.SYSTEM_ADMIN) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         schoolAdminService.resetPassword(admin.getSchool(), userId);
@@ -136,7 +136,7 @@ public class SchoolAdminController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Không thể thay đổi trạng thái tài khoản của chính mình.");
         }
         var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
+        if (admin.getSchool() == null && admin.getRole() != Role.SYSTEM_ADMIN) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         schoolAdminService.toggleUserStatus(admin.getSchool(), userId, enabled);
@@ -147,7 +147,7 @@ public class SchoolAdminController {
     public void deleteStudentAccount(@AuthenticationPrincipal UserPrincipal principal,
             @PathVariable("id") UUID studentId) {
         var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
+        if (admin.getSchool() == null && admin.getRole() != Role.SYSTEM_ADMIN) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         studentAccountService.deleteAccountForStudent(admin.getSchool(), studentId);
@@ -161,7 +161,7 @@ public class SchoolAdminController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Không thể xóa tài khoản của chính mình.");
         }
         var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
+        if (admin.getSchool() == null && admin.getRole() != Role.SYSTEM_ADMIN) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         schoolAdminService.deleteUser(admin.getSchool(), userId);
