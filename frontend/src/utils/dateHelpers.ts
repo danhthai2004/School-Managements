@@ -55,7 +55,7 @@ export const formatDate = (input: any): string => {
         if (Array.isArray(input) && input.length >= 3) {
             const year = input[0];
             const month = String(input[1]).padStart(2, '0');
-            const day = String(input[2]); // 'd' format
+            const day = String(input[2]).padStart(2, '0');
             return `${day}/${month}/${year}`;
         }
 
@@ -66,8 +66,7 @@ export const formatDate = (input: any): string => {
             // Check for yyyy-mm-dd format manually to prevent timezone shifts
             if (typeof input === 'string' && input.match(/^\d{4}-\d{2}-\d{2}$/)) {
                 const [year, month, day] = input.split('-');
-                // user requested d/mm/yyyy format
-                return `${parseInt(day, 10)}/${month.padStart(2, '0')}/${year}`;
+                return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
             }
             
             // Allow bypassing custom parsing if it is already dd/mm/yyyy or d/mm/yyyy
@@ -78,7 +77,7 @@ export const formatDate = (input: any): string => {
             date = new Date(input);
         }
         if (isNaN(date.getTime())) return '—';
-        const day = String(date.getDate()); // 'd' format
+        const day = String(date.getDate()).padStart(2, '0'); // 'dd' format
         const month = String(date.getMonth() + 1).padStart(2, '0'); // 'mm' format
         const year = date.getFullYear();
         return `${day}/${month}/${year}`;

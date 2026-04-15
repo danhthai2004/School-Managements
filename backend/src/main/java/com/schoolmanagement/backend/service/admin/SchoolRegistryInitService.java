@@ -3,7 +3,6 @@ package com.schoolmanagement.backend.service.admin;
 import com.schoolmanagement.backend.domain.entity.admin.SchoolLevel;
 import com.schoolmanagement.backend.domain.entity.admin.SchoolRegistry;
 import com.schoolmanagement.backend.repo.admin.SchoolRegistryRepository;
-import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;

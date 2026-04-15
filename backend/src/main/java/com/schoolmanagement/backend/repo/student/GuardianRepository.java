@@ -1,7 +1,6 @@
 package com.schoolmanagement.backend.repo.student;
 
 import com.schoolmanagement.backend.domain.entity.student.Guardian;
-import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.entity.auth.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import com.schoolmanagement.backend.domain.entity.admin.School;

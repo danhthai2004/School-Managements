@@ -9,13 +9,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface NotificationRecipientRepository extends JpaRepository<NotificationRecipient, UUID> {
-    
+
     @Query("SELECT nr FROM NotificationRecipient nr WHERE nr.user.id = :userId AND nr.notification.status = 'ACTIVE' ORDER BY nr.notification.createdAt DESC")
     Page<NotificationRecipient> findByUserIdOrderByCreatedAtDesc(@Param("userId") UUID userId, Pageable pageable);
 
