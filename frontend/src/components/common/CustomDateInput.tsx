@@ -10,7 +10,8 @@ const CustomDateInput = React.forwardRef<HTMLInputElement, {
     onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
     placeholder?: string;
     rawValue?: string;
-}>(({ value, onClick, onChange, placeholder, rawValue, ...props }, ref) => (
+    className?: string; // Add this line
+}>(({ value, onClick, onChange, placeholder, rawValue, className, ...props }, ref) => (
     <input
         {...props}
         ref={ref}
@@ -19,8 +20,8 @@ const CustomDateInput = React.forwardRef<HTMLInputElement, {
         onClick={onClick}
         onChange={onChange}
         placeholder={placeholder}
+        className={className || "w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none"} // Use default if no className passed
         maxLength={10}
-        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none"
     />
 ));
 

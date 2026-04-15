@@ -12,8 +12,6 @@ import com.schoolmanagement.backend.repo.teacher.TeacherAssignmentRepository;
 import com.schoolmanagement.backend.repo.teacher.ExamInvigilatorRepository;
 import com.schoolmanagement.backend.repo.timetable.TimetableDetailRepository;
 
-import com.schoolmanagement.backend.domain.entity.classes.ClassEnrollment;
-import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.entity.teacher.Teacher;
 
@@ -23,7 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.UUID;
 
 @Service

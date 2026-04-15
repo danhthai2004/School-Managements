@@ -9,6 +9,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
 import java.util.UUID;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -70,5 +71,5 @@ public class Teacher {
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "teacher_subjects", joinColumns = @JoinColumn(name = "teacher_id"), inverseJoinColumns = @JoinColumn(name = "subject_id"))
-    private java.util.Set<Subject> subjects = new java.util.HashSet<>();
+    private Set<Subject> subjects = new java.util.HashSet<>();
 }

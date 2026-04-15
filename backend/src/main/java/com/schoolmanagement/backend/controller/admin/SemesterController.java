@@ -1,6 +1,5 @@
 package com.schoolmanagement.backend.controller.admin;
 
-import com.schoolmanagement.backend.domain.auth.Role;
 import com.schoolmanagement.backend.dto.admin.*;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.security.UserPrincipal;
@@ -121,7 +120,8 @@ public class SemesterController {
 
     private com.schoolmanagement.backend.domain.entity.auth.User requireSchoolAdmin(UserPrincipal principal) {
         var admin = requireUserWithSchool(principal);
-        // Additional check for admin role if needed, but and security config already handles this.
+        // Additional check for admin role if needed, but and security config already
+        // handles this.
         // However, for extra safety we can verify role here if we want.
         return admin;
     }

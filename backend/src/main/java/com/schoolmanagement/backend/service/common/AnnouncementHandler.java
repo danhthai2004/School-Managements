@@ -5,8 +5,6 @@ import com.schoolmanagement.backend.service.chat.ChatHandler;
 import com.schoolmanagement.backend.domain.chat.ChatIntent;
 import com.schoolmanagement.backend.domain.entity.notification.Notification;
 import com.schoolmanagement.backend.domain.entity.notification.NotificationRecipient;
-import com.schoolmanagement.backend.domain.entity.auth.User;
-import com.schoolmanagement.backend.domain.notification.NotificationStatus;
 import com.schoolmanagement.backend.dto.chat.ChatContext;
 import com.schoolmanagement.backend.repo.notification.NotificationRecipientRepository;
 import com.schoolmanagement.backend.repo.auth.UserRepository;
@@ -21,7 +19,8 @@ import java.util.*;
 /**
  * Tầng 5 — Business Handler cho ASK_ANNOUNCEMENT
  *
- * Trả về thông báo gần nhất phù hợp với user (dựa trên bảng notification_recipients).
+ * Trả về thông báo gần nhất phù hợp với user (dựa trên bảng
+ * notification_recipients).
  */
 @Component
 public class AnnouncementHandler implements ChatHandler {

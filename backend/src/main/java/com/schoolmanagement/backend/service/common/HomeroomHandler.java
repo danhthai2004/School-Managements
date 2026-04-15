@@ -13,7 +13,6 @@ import com.schoolmanagement.backend.repo.attendance.AttendanceSessionRepository;
 import com.schoolmanagement.backend.repo.attendance.AttendanceRepository;
 
 import com.schoolmanagement.backend.domain.chat.ChatIntent;
-import com.schoolmanagement.backend.domain.attendance.AttendanceStatus;
 
 import com.schoolmanagement.backend.dto.chat.ChatContext;
 

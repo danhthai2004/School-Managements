@@ -3,7 +3,6 @@ package com.schoolmanagement.backend.repo.teacher;
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.teacher.TeacherAssignment;
-import com.schoolmanagement.backend.domain.entity.auth.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
