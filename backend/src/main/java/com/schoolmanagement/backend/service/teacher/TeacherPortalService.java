@@ -44,6 +44,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import com.schoolmanagement.backend.service.admin.SemesterService;
+import com.schoolmanagement.backend.service.student.StudentManagementService;
+import com.schoolmanagement.backend.service.student.StudentPortalService;
+import com.schoolmanagement.backend.dto.student.StudentProfileDto;
+import com.schoolmanagement.backend.dto.grade.ScoreDto;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -74,6 +78,8 @@ public class TeacherPortalService {
         private final com.schoolmanagement.backend.repo.teacher.ExamInvigilatorRepository examInvigilatorRepository;
         private final SemesterService semesterService;
         private final com.schoolmanagement.backend.repo.risk.RiskAssessmentHistoryRepository riskAssessmentHistoryRepository;
+        private final StudentManagementService studentManagementService;
+        private final StudentPortalService studentPortalService;
 
         private static final String[] CONDUCT_GRADES = { "Xuất sắc", "Tốt", "Khá", "Trung bình", "Yếu" };
 
@@ -470,6 +476,56 @@ public class TeacherPortalService {
                 return result.stream()
                                 .sorted((a, b) -> a.getPriority().compareTo(b.getPriority()))
                                 .toList();
+        }
+
+        /**
+         * Get student profile (homeroom only)
+         */
+        public StudentProfileDto getHomeroomStudentProfile(String email, java.util.UUID studentId) {
+                User teacher = findTeacherByEmail(email);
+                Optional<ClassRoom> homeroomClass = classRoomRepository.findByHomeroomTeacher(teacher);
+                if (homeroomClass.isEmpty()) {
+                        throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                                        "Only homeroom teachers can access student profile");
+                }
+
+                // Verify student is in homeroom
+                Student student = classEnrollmentRepository
+                                .findAllByClassRoomAndAcademicYear(homeroomClass.get(),
+                                                homeroomClass.get().getAcademicYear())
+                                .stream().map(ClassEnrollment::getStudent)
+                                .filter(s -> s.getId().equals(studentId))
+                                .findFirst()
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                                                "Student not in your homeroom class"));
+
+                return studentManagementService.getStudentProfile(teacher.getSchool(), studentId);
+        }
+
+        /**
+         * Get student scores (homeroom only)
+         */
+        public List<ScoreDto> getHomeroomStudentScores(String email, java.util.UUID studentId,
+                        java.util.UUID semesterId) {
+                User teacher = findTeacherByEmail(email);
+                Optional<ClassRoom> homeroomClass = classRoomRepository.findByHomeroomTeacher(teacher);
+                if (homeroomClass.isEmpty()) {
+                        throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                                        "Only homeroom teachers can access student scores");
+                }
+
+                // Verify student is in homeroom
+                Student student = classEnrollmentRepository
+                                .findAllByClassRoomAndAcademicYear(homeroomClass.get(),
+                                                homeroomClass.get().getAcademicYear())
+                                .stream().map(ClassEnrollment::getStudent)
+                                .filter(s -> s.getId().equals(studentId))
+                                .findFirst()
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                                                "Student not in your homeroom class"));
+
+                String semIdStr = semesterId != null ? semesterId.toString() : null;
+                return studentPortalService.getScores(studentId, semIdStr);
         }
 
         // ==================== HELPER METHODS ====================

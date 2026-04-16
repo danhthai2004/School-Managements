@@ -1,107 +1,97 @@
-import {
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    ResponsiveContainer,
-    Legend,
-} from "recharts";
 import type { TeacherReportDto } from "../../../../services/schoolReportService";
-import { TeacherIcon } from "../../SchoolAdminIcons";
 import StatCard from "./StatCard";
+import { Users, UserCheck, UserX, BookOpen } from "lucide-react";
 
 const TeacherTab = ({ data }: { data: TeacherReportDto }) => {
+    // Find max teacher count for progress bar scaling
+    const maxTeachers = Math.max(...data.teachersBySubject.map(s => s.teacherCount), 1);
+
     return (
         <div className="space-y-6">
             {/* Summary Cards */}
-            <div className="grid grid-cols-3 gap-4">
-                <StatCard icon={<TeacherIcon />} label="Tổng giáo viên" value={data.totalTeachers} color="blue" />
-                <StatCard icon={<TeacherIcon />} label="Đang hoạt động" value={data.activeTeachers} color="green" />
-                <StatCard icon={<TeacherIcon />} label="Tạm nghỉ" value={data.inactiveTeachers} color="orange" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard icon={<Users />} label="Tổng số giáo viên" value={data.totalTeachers} color="blue" />
+                <StatCard icon={<UserCheck />} label="Đang hoạt động" value={data.activeTeachers} color="green" />
+                <StatCard icon={<UserX />} label="Đã nghỉ/Tạm dừng" value={data.inactiveTeachers} color="orange" />
+                <StatCard icon={<BookOpen />} label="Số bộ môn" value={data.teachersBySubject.length} color="indigo" />
             </div>
 
-            {/* Charts Row */}
-            <div className="grid grid-cols-2 gap-6">
-                {/* Teachers by Subject */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Giáo viên theo môn</h3>
-                    {data.teachersBySubject.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={250}>
-                            <BarChart data={data.teachersBySubject} layout="vertical">
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                <XAxis type="number" />
-                                <YAxis dataKey="subjectName" type="category" width={100} />
-                                <Tooltip shared={false} cursor={{ fill: "transparent" }} formatter={(v) => [v, "Giáo viên"]} />
-                                <Bar dataKey="teacherCount" fill="#3B82F6" radius={[0, 4, 4, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <div className="h-[250px] flex items-center justify-center text-gray-400">
-                            Chưa có dữ liệu
+            {/* Combined Personnel Distribution Section */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-6 border-b border-gray-100 bg-gray-50/50">
+                    <h3 className="text-lg font-semibold text-gray-900">Phân bổ nhân sự theo bộ môn</h3>
+                    <p className="text-sm text-gray-500 mt-1">Danh sách chi tiết số lượng giáo viên theo từng chuyên môn giảng dạy</p>
+                </div>
+                <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+                        {data.teachersBySubject.sort((a, b) => b.teacherCount - a.teacherCount).map((subject) => (
+                            <div key={subject.subjectId} className="group p-3 rounded-lg hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
+                                <div className="flex justify-between items-start mb-2">
+                                    <span className="font-bold text-gray-800 text-sm leading-tight">
+                                        {subject.subjectName}
+                                    </span>
+                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-black whitespace-nowrap ml-4">
+                                        {subject.teacherCount} GV
+                                    </span>
+                                </div>
+                                <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                    <div
+                                        className="bg-blue-600 h-2 rounded-full transition-all duration-700"
+                                        style={{ width: `${(subject.teacherCount / maxTeachers) * 100}%` }}
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {data.teachersBySubject.length === 0 && (
+                        <div className="py-20 text-center">
+                            <BookOpen size={48} className="mx-auto text-gray-200 mb-4" />
+                            <p className="text-gray-400">Chưa có dữ liệu phân bổ bộ môn</p>
                         </div>
                     )}
                 </div>
-
-                {/* Top Workload */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Khối lượng công việc (Top 10)</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                        <BarChart
-                            data={data.workloadList.slice(0, 10).sort((a, b) => b.totalPeriodsPerWeek - a.totalPeriodsPerWeek)}
-                        >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                            <XAxis dataKey="teacherName" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={80} />
-                            <YAxis />
-                            <Tooltip shared={false} cursor={{ fill: "transparent" }} formatter={(v, name) => [v, name === "totalPeriodsPerWeek" ? "Tiết/tuần" : "Lớp"]} />
-                            <Legend />
-                            <Bar dataKey="totalPeriodsPerWeek" name="Tiết/tuần" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="assignedClasses" name="Số lớp" fill="#10B981" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
             </div>
 
-            {/* Workload Table */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Chi tiết phân công</h3>
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b border-gray-200">
-                                <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Mã GV</th>
-                                <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Họ tên</th>
-                                <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Môn chính</th>
-                                <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Số lớp</th>
-                                <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Tiết/tuần</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {data.workloadList.map((t) => (
-                                <tr key={t.teacherId} className="border-b border-gray-100 hover:bg-gray-50">
-                                    <td className="py-3 px-4 text-gray-600">{t.teacherCode}</td>
-                                    <td className="py-3 px-4 font-medium text-gray-900">{t.teacherName}</td>
-                                    <td className="py-3 px-4 text-gray-600">{t.primarySubject}</td>
-                                    <td className="py-3 px-4 text-right text-gray-900">{t.assignedClasses}</td>
-                                    <td className="py-3 px-4 text-right">
-                                        <span
-                                            className={`px-2 py-1 rounded-full text-xs font-medium ${t.totalPeriodsPerWeek > 25
-                                                ? "bg-red-100 text-red-700"
-                                                : t.totalPeriodsPerWeek > 20
-                                                    ? "bg-yellow-100 text-yellow-700"
-                                                    : "bg-green-100 text-green-700"
-                                                }`}
-                                        >
-                                            {t.totalPeriodsPerWeek}
-                                        </span>
-                                    </td>
+            {/* Optional workload list if needed */}
+            {data.workloadList && data.workloadList.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="p-6 border-b border-gray-100">
+                        <h3 className="text-lg font-semibold text-gray-900">Top phân công giảng dạy</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                <tr>
+                                    <th className="px-6 py-4">Giáo viên</th>
+                                    <th className="px-6 py-4">Môn dạy</th>
+                                    <th className="px-6 py-4 text-center">Số lớp</th>
+                                    <th className="px-6 py-4 text-center">Số tiết/tuần</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 text-sm">
+                                {data.workloadList.slice(0, 5).map((w) => (
+                                    <tr key={w.teacherId} className="hover:bg-gray-50/50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-gray-900">{w.teacherName}</span>
+                                                <span className="text-[10px] text-gray-400 font-mono">{w.teacherCode}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-gray-600">{w.primarySubject}</td>
+                                        <td className="px-6 py-4 text-center font-semibold text-gray-900">{w.assignedClasses}</td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full font-bold">
+                                                {w.totalPeriodsPerWeek} tiết
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };

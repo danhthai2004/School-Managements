@@ -163,6 +163,7 @@ export type AttendanceByClassDto = {
     className: string;
     grade: number;
     totalSessions: number;
+    studentCount: number;
     attendanceRate: number;
     presentCount: number;
     absentCount: number;

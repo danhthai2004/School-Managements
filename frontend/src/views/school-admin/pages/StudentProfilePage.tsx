@@ -1,10 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { schoolAdminService } from '../../../services/schoolAdminService';
-import type { StudentProfileDto, ClassRoomDto } from '../../../services/schoolAdminService';
+import { teacherService } from '../../../services/teacherService';
+import type { StudentProfileDto, ClassRoomDto, ScoreDto, SemesterDto } from '../../../services/schoolAdminService';
 import { XIcon } from '../SchoolAdminIcons';
 import { useToast } from '../../../context/ToastContext';
+import { useAuth } from '../../../context/AuthContext';
+
 import StudentRiskProfileCard from '../components/StudentRiskProfileCard';
 
 // Format date for display
@@ -157,11 +160,26 @@ export default function StudentProfilePage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { toast } = useToast();
+    const { user } = useAuth();
+    const isTeacher = user?.role === 'TEACHER';
+
     const [profile, setProfile] = useState<StudentProfileDto | null>(null);
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showTransferModal, setShowTransferModal] = useState(false);
+    const [scores, setScores] = useState<ScoreDto[]>([]);
+    const [loadingScores, setLoadingScores] = useState(false);
+    const [semesters, setSemesters] = useState<SemesterDto[]>([]);
+    const [selectedSemesterId, setSelectedSemesterId] = useState<string>('');
+
+    // Calculate max regular score columns for dynamic table
+    const maxRegularScores = useMemo(() => {
+        if (!scores || scores.length === 0) return 1;
+        const maxFound = Math.max(...scores.map(s => s.regularScores?.length || 0));
+        return Math.max(1, maxFound); // Show at least 1 column or the max found
+    }, [scores]);
+
 
     // Upload states & refs
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -173,12 +191,37 @@ export default function StudentProfilePage() {
             setLoading(true);
             setError(null);
             try {
-                const [profileData, classesData] = await Promise.all([
-                    schoolAdminService.getStudentProfile(id),
-                    schoolAdminService.listClasses()
-                ]);
+                let profileData: StudentProfileDto;
+                let classesData: ClassRoomDto[] = [];
+
+                if (isTeacher) {
+                    profileData = await teacherService.getStudentProfile(id);
+                    // Teachers don't transfer, so an empty array is fine
+                } else {
+                    const [_profileData, _classesData] = await Promise.all([
+                        schoolAdminService.getStudentProfile(id),
+                        schoolAdminService.listClasses()
+                    ]);
+                    profileData = _profileData;
+                    classesData = _classesData;
+                }
+
                 setProfile(profileData);
                 setClasses(classesData);
+
+                // Fetch semesters for filter
+                try {
+                    const semData = await schoolAdminService.listSemesters();
+                    setSemesters(semData);
+                    const activeSem = semData.find(s => s.status === 'ACTIVE');
+                    if (activeSem) {
+                        setSelectedSemesterId(activeSem.id);
+                    } else if (semData.length > 0) {
+                        setSelectedSemesterId(semData[0].id);
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch semesters", err);
+                }
             } catch (err: any) {
                 setError(err?.response?.data?.message || 'Không thể tải thông tin học sinh');
             } finally {
@@ -186,7 +229,26 @@ export default function StudentProfilePage() {
             }
         };
         fetchData();
-    }, [id]);
+    }, [id, isTeacher]);
+
+    useEffect(() => {
+        const fetchScores = async () => {
+            if (!id || !selectedSemesterId) return;
+            setLoadingScores(true);
+            try {
+                const scoresData = isTeacher
+                    ? await teacherService.getStudentScores(id, selectedSemesterId)
+                    : await schoolAdminService.getStudentScores(id, selectedSemesterId);
+                setScores(scoresData);
+            } catch (scoreErr) {
+                console.error("Failed to fetch scores", scoreErr);
+                setScores([]);
+            } finally {
+                setLoadingScores(false);
+            }
+        };
+        fetchScores();
+    }, [id, selectedSemesterId, isTeacher]);
 
     const handleTransfer = async (newClassId: string) => {
         if (!id) return;
@@ -253,7 +315,7 @@ export default function StudentProfilePage() {
             {/* Back Button */}
             <div>
                 <button
-                    onClick={() => navigate('/school-admin/students')}
+                    onClick={() => navigate(isTeacher ? '/teacher/students' : '/school-admin/students')}
                     className="group flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors font-medium text-sm"
                 >
                     <div className="p-1 rounded-full group-hover:bg-gray-100 transition-colors">
@@ -270,8 +332,8 @@ export default function StudentProfilePage() {
                 <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6">
                     {/* Avatar Upload */}
                     <div className="relative group shrink-0">
-                        <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl md:text-2xl font-bold shadow-lg shadow-blue-500/20 ring-4 ring-white border border-gray-100 overflow-hidden cursor-pointer"
-                            onClick={() => !uploadingAvatar && avatarInputRef.current?.click()}
+                        <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl md:text-2xl font-bold shadow-lg shadow-blue-500/20 ring-4 ring-white border border-gray-100 overflow-hidden ${!isTeacher ? 'cursor-pointer' : ''}`}
+                            onClick={() => !isTeacher && !uploadingAvatar && avatarInputRef.current?.click()}
                         >
                             {profile.avatarUrl ? (
                                 <img src={profile.avatarUrl} alt={profile.fullName} className="w-full h-full object-cover" />
@@ -279,12 +341,14 @@ export default function StudentProfilePage() {
                                 getInitials(profile.fullName)
                             )}
                             {/* Hover overlay */}
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                            </div>
+                            {!isTeacher && (
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                </div>
+                            )}
                             {/* Loading overlay */}
                             {uploadingAvatar && (
                                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
@@ -330,17 +394,19 @@ export default function StudentProfilePage() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-3 w-full md:w-auto mt-2 md:mt-0 md:self-center">
-                        <button
-                            onClick={() => setShowTransferModal(true)}
-                            className="w-full md:w-auto px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:shadow-lg hover:shadow-blue-500/30 rounded-xl font-medium transition-all shadow-sm flex items-center justify-center gap-2"
-                        >
-                            <svg className="w-5 h-5 text-white/90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                            </svg>
-                            Chuyển lớp
-                        </button>
-                    </div>
+                    {!isTeacher && (
+                        <div className="flex items-center gap-3 w-full md:w-auto mt-2 md:mt-0 md:self-center">
+                            <button
+                                onClick={() => setShowTransferModal(true)}
+                                className="w-full md:w-auto px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:shadow-lg hover:shadow-blue-500/30 rounded-xl font-medium transition-all shadow-sm flex items-center justify-center gap-2"
+                            >
+                                <svg className="w-5 h-5 text-white/90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                </svg>
+                                Chuyển lớp
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -465,33 +531,84 @@ export default function StudentProfilePage() {
                 </div>
             </div>
 
-            {/* Placeholder for future features */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden opacity-75">
-                    <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
-                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {/* Academic Grades Table */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                             </svg>
                         </div>
-                        <h2 className="text-lg font-semibold text-gray-400">Điểm số (Coming soon)</h2>
+                        <h2 className="text-lg font-semibold text-gray-900">Bảng điểm học tập</h2>
                     </div>
-                    <div className="p-6">
-                        <p className="text-gray-400 text-sm">Tính năng đang phát triển...</p>
+                    {/* Semester Selector */}
+                    <div className="flex items-center gap-2">
+                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Học kỳ:</label>
+                        <select
+                            value={selectedSemesterId}
+                            onChange={(e) => setSelectedSemesterId(e.target.value)}
+                            className="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-1.5 outline-none transition-all"
+                        >
+                            {semesters.map(s => (
+                                <option key={s.id} value={s.id}>
+                                    HK{s.semesterNumber} ({s.academicYearName})
+                                </option>
+                            ))}
+                        </select>
                     </div>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden opacity-75">
-                    <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
-                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                        <h2 className="text-lg font-semibold text-gray-400">Hạnh kiểm (Coming soon)</h2>
-                    </div>
-                    <div className="p-6">
-                        <p className="text-gray-400 text-sm">Tính năng đang phát triển...</p>
-                    </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                        <thead>
+                            <tr className="bg-gray-100 text-gray-700 font-bold uppercase text-[10px] tracking-wider border-y border-gray-200">
+                                <th rowSpan={2} className="text-left py-4 px-6 border-r border-gray-200 min-w-[160px]">Môn học</th>
+                                <th colSpan={maxRegularScores} className="text-center py-2 px-2 border-b border-gray-200">Đánh giá thường xuyên</th>
+                                <th rowSpan={2} className="text-center py-4 px-2 border-x border-gray-200 min-w-[80px]">Giữa kỳ</th>
+                                <th rowSpan={2} className="text-center py-4 px-2 border-r border-gray-200 min-w-[80px]">Cuối kỳ</th>
+                                <th rowSpan={2} className="text-center py-4 px-4 bg-blue-600 text-white min-w-[80px]">ĐTB</th>
+                            </tr>
+                            <tr className="bg-gray-50 text-gray-500 font-semibold uppercase text-[10px] tracking-wider border-b border-gray-200">
+                                {Array.from({ length: maxRegularScores }).map((_, i) => (
+                                    <th key={i} className={`text-center py-2 px-2 ${i < maxRegularScores - 1 ? 'border-r border-gray-200' : ''}`}>TX{i + 1}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                            {loadingScores ? (
+                                <tr>
+                                    <td colSpan={maxRegularScores + 4} className="py-8 text-center">
+                                        <div className="flex items-center justify-center gap-2 text-gray-400">
+                                            <svg className="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                            Đang tải bảng điểm...
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : scores.length > 0 ? (
+                                scores.map((s) => (
+                                    <tr key={s.subjectId} className="hover:bg-slate-50 transition-colors border-b border-gray-100">
+                                        <td className="py-3 px-6 font-medium text-gray-900 border-r border-gray-100">{s.subjectName}</td>
+                                        {Array.from({ length: maxRegularScores }).map((_, i) => (
+                                            <td key={i} className="py-3 px-2 text-center text-gray-600 border-r border-gray-100">
+                                                {s.regularScores[i] ?? '—'}
+                                            </td>
+                                        ))}
+                                        <td className="py-3 px-2 text-center text-gray-600 border-x border-gray-100">{s.midtermScore ?? '—'}</td>
+                                        <td className="py-3 px-2 text-center text-gray-600 border-r border-gray-100">{s.finalScore ?? '—'}</td>
+                                        <td className="py-3 px-4 text-center font-bold bg-blue-50/50 text-blue-700">
+                                            {s.averageScore ?? '—'}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr className="hover:bg-slate-50 transition-colors">
+                                    <td colSpan={maxRegularScores + 4} className="py-8 text-center text-gray-400 italic">
+                                        Chưa có dữ liệu điểm số cho học kỳ này
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

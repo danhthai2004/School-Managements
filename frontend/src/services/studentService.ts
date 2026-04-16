@@ -47,9 +47,7 @@ export type ExamScheduleDto = {
 export type ScoreDto = {
     subjectId: string;
     subjectName: string;
-    oralScore: number | null;
-    test15Score: number | null;
-    test45Score: number | null;
+    regularScores: (number | null)[];
     midtermScore: number | null;
     finalScore: number | null;
     averageScore: number | null;

@@ -79,7 +79,8 @@ public class StudentPortalService {
         @Transactional(readOnly = true)
         public StudentProfileDto getProfile(UUID userId) {
                 Student student = getStudentForUser(userId);
-                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = semesterService.getActiveAcademicYear(student.getSchool());
+                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = semesterService
+                                .getActiveAcademicYear(student.getSchool());
 
                 // Get current class enrollment (nullable)
                 ClassEnrollment enrollment = getCurrentEnrollment(student, currentAcademicYear);
@@ -103,13 +104,15 @@ public class StudentPortalService {
         @Transactional(readOnly = true)
         public StudentTimetableDto getTimetable(UUID userId, String semesterId) {
                 Student student = getStudentForUser(userId);
-                
-                com.schoolmanagement.backend.domain.entity.admin.Semester targetSemesterEntity = semesterId != null 
-                        ? semesterService.getSemester(UUID.fromString(semesterId)) 
-                        : semesterService.getActiveSemesterEntity(student.getSchool());
-                        
-                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYearEntity = targetSemesterEntity.getAcademicYear();
-                String currentAcademicYear = currentAcademicYearEntity != null ? currentAcademicYearEntity.getName() : null;
+
+                com.schoolmanagement.backend.domain.entity.admin.Semester targetSemesterEntity = semesterId != null
+                                ? semesterService.getSemester(UUID.fromString(semesterId))
+                                : semesterService.getActiveSemesterEntity(student.getSchool());
+
+                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYearEntity = targetSemesterEntity
+                                .getAcademicYear();
+                String currentAcademicYear = currentAcademicYearEntity != null ? currentAcademicYearEntity.getName()
+                                : null;
                 int currentSemester = targetSemesterEntity.getSemesterNumber();
 
                 log.info("=== getTimetable === StudentId={}, Year={}, Semester={}", student.getId(),
@@ -134,7 +137,8 @@ public class StudentPortalService {
 
                 // Find official timetable - try target semester first
                 Timetable officialTimetable = timetableRepository
-                                .findFirstBySchoolAndSemesterAndStatusOrderByCreatedAtDesc(student.getSchool(), targetSemesterEntity, TimetableStatus.OFFICIAL)
+                                .findFirstBySchoolAndSemesterAndStatusOrderByCreatedAtDesc(student.getSchool(),
+                                                targetSemesterEntity, TimetableStatus.OFFICIAL)
                                 .orElse(null);
                 int usedSemester = currentSemester;
 
@@ -182,9 +186,9 @@ public class StudentPortalService {
         @Transactional(readOnly = true)
         public List<ExamScheduleDto> getExamSchedule(UUID userId, String semesterId) {
                 Student student = getStudentForUser(userId);
-                com.schoolmanagement.backend.domain.entity.admin.Semester targetSemester = semesterId != null 
-                        ? semesterService.getSemester(UUID.fromString(semesterId)) 
-                        : semesterService.getActiveSemesterEntity(student.getSchool());
+                com.schoolmanagement.backend.domain.entity.admin.Semester targetSemester = semesterId != null
+                                ? semesterService.getSemester(UUID.fromString(semesterId))
+                                : semesterService.getActiveSemesterEntity(student.getSchool());
 
                 List<ExamStudent> examStudents = examStudentRepository.findByStudentAndSemester(
                                 student.getId(), targetSemester);
@@ -204,9 +208,9 @@ public class StudentPortalService {
                 Student student = studentRepository.findById(studentId)
                                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Học sinh không tồn tại"));
 
-                com.schoolmanagement.backend.domain.entity.admin.Semester targetSemester = semesterId != null 
-                        ? semesterService.getSemester(semesterId) 
-                        : semesterService.getActiveSemesterEntity(student.getSchool());
+                com.schoolmanagement.backend.domain.entity.admin.Semester targetSemester = semesterId != null
+                                ? semesterService.getSemester(semesterId)
+                                : semesterService.getActiveSemesterEntity(student.getSchool());
 
                 List<ExamStudent> examStudents = examStudentRepository.findByStudentAndSemester(
                                 student.getId(), targetSemester);
@@ -231,9 +235,9 @@ public class StudentPortalService {
          */
         @Transactional(readOnly = true)
         public List<ScoreDto> getScores(UUID studentId, String semesterId) {
-            Student student = studentRepository.findById(studentId)
-                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Học sinh không tồn tại"));
-            return getScoresInternal(student, semesterId);
+                Student student = studentRepository.findById(studentId)
+                                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Học sinh không tồn tại"));
+                return getScoresInternal(student, semesterId);
         }
 
         /**
@@ -248,13 +252,15 @@ public class StudentPortalService {
         }
 
         private List<ScoreDto> getScoresInternal(Student student, String semesterId) {
-                
-                com.schoolmanagement.backend.domain.entity.admin.Semester targetSemesterEntity = semesterId != null 
-                        ? semesterService.getSemester(UUID.fromString(semesterId)) 
-                        : semesterService.getActiveSemesterEntity(student.getSchool());
-                        
-                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYearEntity = targetSemesterEntity.getAcademicYear();
-                String currentAcademicYear = currentAcademicYearEntity != null ? currentAcademicYearEntity.getName() : null;
+
+                com.schoolmanagement.backend.domain.entity.admin.Semester targetSemesterEntity = semesterId != null
+                                ? semesterService.getSemester(UUID.fromString(semesterId))
+                                : semesterService.getActiveSemesterEntity(student.getSchool());
+
+                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYearEntity = targetSemesterEntity
+                                .getAcademicYear();
+                String currentAcademicYear = currentAcademicYearEntity != null ? currentAcademicYearEntity.getName()
+                                : null;
                 int targetSemester = targetSemesterEntity.getSemesterNumber();
 
                 ClassEnrollment enrollment = getCurrentEnrollment(student, currentAcademicYearEntity);
@@ -270,7 +276,8 @@ public class StudentPortalService {
                 }
 
                 // Get actual scores from DB
-                List<com.schoolmanagement.backend.domain.entity.grade.Grade> grades = gradeRepository.findAllByStudentAndSemester(student, targetSemesterEntity);
+                List<com.schoolmanagement.backend.domain.entity.grade.Grade> grades = gradeRepository
+                                .findAllByStudentAndSemester(student, targetSemesterEntity);
 
                 // Group scores by subject
                 Map<UUID, com.schoolmanagement.backend.domain.entity.grade.Grade> gradeBySubject = grades.stream()
@@ -281,7 +288,8 @@ public class StudentPortalService {
 
                 // 1. Add all curriculum subjects (with or without scores)
                 for (Subject subject : allSubjects) {
-                        com.schoolmanagement.backend.domain.entity.grade.Grade grade = gradeBySubject.remove(subject.getId());
+                        com.schoolmanagement.backend.domain.entity.grade.Grade grade = gradeBySubject
+                                        .remove(subject.getId());
                         if (grade != null) {
                                 ScoreDto dto = calculateSubjectScoresFromGrade(subject.getId(), grade);
                                 if (dto != null)
@@ -291,9 +299,7 @@ public class StudentPortalService {
                                 result.add(ScoreDto.builder()
                                                 .subjectId(subject.getId().toString())
                                                 .subjectName(subject.getName())
-                                                .oralScore(null)
-                                                .test15Score(null)
-                                                .test45Score(null)
+                                                .regularScores(new ArrayList<>())
                                                 .midtermScore(null)
                                                 .finalScore(null)
                                                 .averageScore(null)
@@ -302,7 +308,8 @@ public class StudentPortalService {
                 }
 
                 // 2. Add any extra subjects with scores not in the combination
-                for (Map.Entry<UUID, com.schoolmanagement.backend.domain.entity.grade.Grade> entry : gradeBySubject.entrySet()) {
+                for (Map.Entry<UUID, com.schoolmanagement.backend.domain.entity.grade.Grade> entry : gradeBySubject
+                                .entrySet()) {
                         ScoreDto dto = calculateSubjectScoresFromGrade(entry.getKey(), entry.getValue());
                         if (dto != null)
                                 result.add(dto);
@@ -312,30 +319,30 @@ public class StudentPortalService {
                 return result;
         }
 
-    /**
-     * Get attendance summary for any student by studentId (used by guardians).
-     */
-    @Transactional(readOnly = true)
-    public AttendanceSummaryDto getAttendance(UUID studentId, Integer month, Integer year) {
-        Student student = studentRepository.findById(studentId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Học sinh không tồn tại"));
+        /**
+         * Get attendance summary for any student by studentId (used by guardians).
+         */
+        @Transactional(readOnly = true)
+        public AttendanceSummaryDto getAttendance(UUID studentId, Integer month, Integer year) {
+                Student student = studentRepository.findById(studentId)
+                                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Học sinh không tồn tại"));
 
-        return getAttendanceInternal(student, month, year);
-    }
+                return getAttendanceInternal(student, month, year);
+        }
 
-    /**
-     * Get attendance summary for the logged-in student.
-     */
-    @Transactional(readOnly = true)
-    public AttendanceSummaryDto getAttendanceForUser(UUID userId, Integer month, Integer year) {
-        Student student = getStudentForUser(userId);
-        return getAttendanceInternal(student, month, year);
-    }
+        /**
+         * Get attendance summary for the logged-in student.
+         */
+        @Transactional(readOnly = true)
+        public AttendanceSummaryDto getAttendanceForUser(UUID userId, Integer month, Integer year) {
+                Student student = getStudentForUser(userId);
+                return getAttendanceInternal(student, month, year);
+        }
 
-    private AttendanceSummaryDto getAttendanceInternal(Student student, Integer month, Integer year) {
-        LocalDate now = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
-        int targetMonth = month != null ? month : now.getMonthValue();
-        int targetYear = year != null ? year : now.getYear();
+        private AttendanceSummaryDto getAttendanceInternal(Student student, Integer month, Integer year) {
+                LocalDate now = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+                int targetMonth = month != null ? month : now.getMonthValue();
+                int targetYear = year != null ? year : now.getYear();
 
                 List<Attendance> attendances = attendanceRepository
                                 .findByStudentAndMonthAndYear(student, targetMonth, targetYear);
@@ -355,10 +362,11 @@ public class StudentPortalService {
                 long presentDays = attendances.stream()
                                 .filter(a -> a.getStatus() == AttendanceStatus.PRESENT).count();
                 long absentDays = attendances.stream()
-                                .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED 
-                                          || a.getStatus() == AttendanceStatus.ABSENT_EXCUSED
-                                          || a.getStatus() == AttendanceStatus.ABSENT
-                                          || a.getStatus() == AttendanceStatus.EXCUSED).count();
+                                .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED
+                                                || a.getStatus() == AttendanceStatus.ABSENT_EXCUSED
+                                                || a.getStatus() == AttendanceStatus.ABSENT
+                                                || a.getStatus() == AttendanceStatus.EXCUSED)
+                                .count();
                 long lateDays = attendances.stream()
                                 .filter(a -> a.getStatus() == AttendanceStatus.LATE).count();
 
@@ -403,12 +411,14 @@ public class StudentPortalService {
 
                 AttendanceSummaryDto attendance = getAttendanceForUser(userId, null, null);
 
-                com.schoolmanagement.backend.domain.entity.admin.Semester targetSemester = semesterId != null 
-                        ? semesterService.getSemester(UUID.fromString(semesterId)) 
-                        : semesterService.getActiveSemesterEntity(dashboardStudent.getSchool());
+                com.schoolmanagement.backend.domain.entity.admin.Semester targetSemester = semesterId != null
+                                ? semesterService.getSemester(UUID.fromString(semesterId))
+                                : semesterService.getActiveSemesterEntity(dashboardStudent.getSchool());
 
                 String semesterLabel = "Học kỳ " + targetSemester.getSemesterNumber()
-                                + " - " + (targetSemester.getAcademicYear() != null ? targetSemester.getAcademicYear().getName() : "");
+                                + " - "
+                                + (targetSemester.getAcademicYear() != null ? targetSemester.getAcademicYear().getName()
+                                                : "");
 
                 return StudentDashboardDto.builder()
                                 .profile(profile)
@@ -532,7 +542,8 @@ public class StudentPortalService {
          * Finds the student's most recent ClassEnrollment for the given academic year.
          * Returns null if not found (instead of throwing an exception).
          */
-        private ClassEnrollment getCurrentEnrollment(Student student, com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear) {
+        private ClassEnrollment getCurrentEnrollment(Student student,
+                        com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear) {
                 if (academicYear == null)
                         return null;
                 return classEnrollmentRepository
@@ -572,7 +583,8 @@ public class StudentPortalService {
                                 .build();
         }
 
-        // getCurrentAcademicYear() and getCurrentSemester() removed — now using SemesterService
+        // getCurrentAcademicYear() and getCurrentSemester() removed — now using
+        // SemesterService
 
         private int getTodayDayOfWeek() {
                 DayOfWeek dow = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).getDayOfWeek();
@@ -602,23 +614,19 @@ public class StudentPortalService {
                                 .build();
         }
 
-        private ScoreDto calculateSubjectScoresFromGrade(UUID subjectId, com.schoolmanagement.backend.domain.entity.grade.Grade grade) {
-                if (grade == null) return null;
+        private ScoreDto calculateSubjectScoresFromGrade(UUID subjectId,
+                        com.schoolmanagement.backend.domain.entity.grade.Grade grade) {
+                if (grade == null)
+                        return null;
 
                 String subjectName = grade.getSubject().getName();
-
-                Double oralScore = null;
-                Double test15Score = null;
-                Double test45Score = null;
+                List<Double> regularScores = new ArrayList<>();
 
                 if (grade.getRegularScores() != null) {
-                    for (com.schoolmanagement.backend.domain.entity.grade.RegularScore regularScore : grade.getRegularScores()) {
-                        if (regularScore.getScoreValue() != null) {
-                            if (regularScore.getScoreIndex() == 1) oralScore = regularScore.getScoreValue().doubleValue();
-                            else if (regularScore.getScoreIndex() == 2) test15Score = regularScore.getScoreValue().doubleValue();
-                            else if (regularScore.getScoreIndex() == 3) test45Score = regularScore.getScoreValue().doubleValue();
-                        }
-                    }
+                        regularScores = grade.getRegularScores().stream()
+                                        .map(rs -> rs.getScoreValue() != null ? rs.getScoreValue().doubleValue() : null)
+                                        .filter(val -> val != null)
+                                        .collect(Collectors.toList());
                 }
 
                 Double midtermScore = grade.getMidtermScore() != null ? grade.getMidtermScore().doubleValue() : null;
@@ -628,9 +636,7 @@ public class StudentPortalService {
                 return ScoreDto.builder()
                                 .subjectId(subjectId.toString())
                                 .subjectName(subjectName)
-                                .oralScore(oralScore)
-                                .test15Score(test15Score)
-                                .test45Score(test45Score)
+                                .regularScores(regularScores)
                                 .midtermScore(midtermScore)
                                 .finalScore(finalScore)
                                 .averageScore(averageScore)

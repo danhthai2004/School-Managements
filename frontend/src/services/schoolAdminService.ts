@@ -9,6 +9,15 @@ export type SchoolStatsDto = {
     currentAcademicYear: string;
 };
 
+export type SemesterDto = {
+    id: string;
+    semesterNumber: number;
+    academicYearName: string;
+    startDate: string;
+    endDate: string;
+    status: 'UPCOMING' | 'ACTIVE' | 'CLOSED';
+};
+
 export type ClassRoomDto = {
     id: string;
     name: string;
@@ -87,6 +96,15 @@ export type ClassEnrollmentHistoryDto = {
 
 export type StudentProfileDto = StudentDto & {
     enrollmentHistory: ClassEnrollmentHistoryDto[];
+};
+
+export type ScoreDto = {
+    subjectId: string;
+    subjectName: string;
+    regularScores: (number | null)[];
+    midtermScore: number | null;
+    finalScore: number | null;
+    averageScore: number | null;
 };
 
 export type GuardianRequest = {
@@ -217,6 +235,17 @@ export const schoolAdminService = {
     // ClassRoom CRUD
     listClasses: async (): Promise<ClassRoomDto[]> => {
         const res = await api.get<ClassRoomDto[]>("/school/classes");
+        return res.data;
+    },
+
+    listSemesters: async (academicYearId?: string): Promise<SemesterDto[]> => {
+        const params = academicYearId ? { academicYearId } : {};
+        const res = await api.get<SemesterDto[]>("/school/semesters", { params });
+        return res.data;
+    },
+
+    listAcademicYears: async (): Promise<AcademicYearDto[]> => {
+        const res = await api.get<AcademicYearDto[]>("/school/academic-years");
         return res.data;
     },
 
@@ -353,6 +382,12 @@ export const schoolAdminService = {
                 "Content-Type": "multipart/form-data",
             },
         });
+        return res.data;
+    },
+
+    getStudentScores: async (studentId: string, semesterId?: string): Promise<ScoreDto[]> => {
+        const params = semesterId ? { semesterId } : {};
+        const res = await api.get<ScoreDto[]>(`/school/students/${studentId}/scores`, { params });
         return res.data;
     },
 
@@ -585,6 +620,14 @@ export type CombinationDto = {
     code: string | null;
     stream: 'TU_NHIEN' | 'XA_HOI';
     subjects: SubjectDto[];
+};
+
+export type AcademicYearDto = {
+    id: string;
+    name: string;
+    startDate: string;
+    endDate: string;
+    active: boolean;
 };
 
 export type CreateCombinationRequest = {

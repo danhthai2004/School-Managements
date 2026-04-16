@@ -95,6 +95,9 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
         List<Attendance> findBySchoolAndAttendanceDateBetween(
                         School school, LocalDate startDate, LocalDate endDate);
 
+        List<Attendance> findByClassRoom_SchoolAndAttendanceDateBetween(
+                        School school, LocalDate startDate, LocalDate endDate);
+
         /**
          * Delete all attendance records for a student.
          */
