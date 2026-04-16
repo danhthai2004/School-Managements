@@ -46,7 +46,7 @@ export type GenderStats = {
 export type StudentReportDto = {
     totalStudents: number;
     activeStudents: number;
-    inactiveStudents: number;
+    nonActiveStudents: number;
     studentsWithAccount: number;
     studentsWithoutAccount: number;
     studentsByClass: StudentByClassDto[];

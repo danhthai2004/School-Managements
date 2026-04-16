@@ -13,6 +13,7 @@ import BulkAccountResultModal from "../components/account/BulkAccountResultModal
 import AccountCreationTable from "../components/account/AccountCreationTable";
 import { useToast } from "../../../context/ToastContext";
 import { useConfirmation } from "../../../hooks/useConfirmation";
+import { vietnameseNameSort } from "../../../utils/sortUtils";
 
 const AccountManagement = () => {
     const [activeTab, setActiveTab] = useState<'users' | 'create-student-accounts' | 'create-teacher-accounts' | 'create-guardian-accounts'>('users');
@@ -48,7 +49,7 @@ const AccountManagement = () => {
             if (user.role !== roleFilter) return false;
         }
         return true;
-    });
+    }).sort((a, b) => vietnameseNameSort(a.fullName, b.fullName));
 
     useEffect(() => {
         // Reset selection when tab changes
@@ -82,7 +83,7 @@ const AccountManagement = () => {
         try {
             setLoading(true);
             const data = await schoolAdminService.getStudentsEligibleForAccount();
-            setEligibleStudents(data);
+            setEligibleStudents(data.sort((a, b) => vietnameseNameSort(a.fullName, b.fullName)));
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tải danh sách học sinh.");
         } finally {
@@ -94,7 +95,7 @@ const AccountManagement = () => {
         try {
             setLoading(true);
             const data = await schoolAdminService.getTeachersEligibleForAccount();
-            setEligibleTeachers(data);
+            setEligibleTeachers(data.sort((a, b) => vietnameseNameSort(a.fullName, b.fullName)));
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tải danh sách giáo viên.");
         } finally {
@@ -106,7 +107,7 @@ const AccountManagement = () => {
         try {
             setLoading(true);
             const data = await schoolAdminService.getGuardiansEligibleForAccount();
-            setEligibleGuardians(data);
+            setEligibleGuardians(data.sort((a, b) => vietnameseNameSort(a.fullName, b.fullName)));
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tải danh sách phụ huynh.");
         } finally {

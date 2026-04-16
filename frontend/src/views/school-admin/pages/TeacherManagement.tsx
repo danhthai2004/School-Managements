@@ -14,6 +14,7 @@ import EditTeacherModal from "../components/teacher/EditTeacherModal";
 import ImportTeacherExcelModal from "../components/teacher/ImportTeacherExcelModal";
 import ImportTeacherResultModal from "../components/teacher/ImportTeacherResultModal";
 import { useToast } from "../../../context/ToastContext";
+import { vietnameseNameSort } from "../../../utils/sortUtils";
 
 
 
@@ -143,9 +144,14 @@ const TeacherManagement = () => {
                 if (!bValue) bValue = "";
 
                 if (typeof aValue === 'string') {
+                    if (sortConfig.key === 'fullName') {
+                        return sortConfig.direction === 'asc'
+                            ? vietnameseNameSort(aValue, bValue as string)
+                            : vietnameseNameSort(bValue as string, aValue);
+                    }
                     return sortConfig.direction === 'asc'
-                        ? aValue.localeCompare(bValue as string)
-                        : (bValue as string).localeCompare(aValue);
+                        ? aValue.localeCompare(bValue as string, 'vi')
+                        : (bValue as string).localeCompare(aValue, 'vi');
                 }
 
                 // Fallback for non-string
@@ -356,17 +362,16 @@ const TeacherManagement = () => {
                 onClose={() => setShowImportModal(false)}
                 onSuccess={fetchData}
                 onImportComplete={(result) => {
-                    if (result.failedCount === 0) {
-                        showSuccess(`Import thành công ${result.successCount} giáo viên!`);
-                        setImportResult(null);
-                    } else {
-                        setImportResult(result);
-                    }
+                    setImportResult(result);
                 }}
             />
             <ImportTeacherResultModal
                 result={importResult}
                 onClose={() => setImportResult(null)}
+                onRetry={() => {
+                    setImportResult(null);
+                    setShowImportModal(true);
+                }}
             />
 
         </div>

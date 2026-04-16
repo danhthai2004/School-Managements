@@ -10,17 +10,18 @@ import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.entity.classes.Combination;
 
-import com.schoolmanagement.backend.domain.classes.ClassDepartment;
 import com.schoolmanagement.backend.domain.classes.ClassRoomStatus;
 import com.schoolmanagement.backend.domain.student.Gender;
 import com.schoolmanagement.backend.domain.student.StudentStatus;
 
 import com.schoolmanagement.backend.dto.student.ImportStudentResult;
 import com.schoolmanagement.backend.exception.ApiException;
+import com.schoolmanagement.backend.repo.auth.UserRepository;
 import com.schoolmanagement.backend.repo.classes.ClassEnrollmentRepository;
 import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.student.GuardianRepository;
 import com.schoolmanagement.backend.repo.student.StudentRepository;
+import com.schoolmanagement.backend.repo.classes.CombinationRepository;
 import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -46,8 +47,8 @@ public class StudentImportService {
 
     public StudentImportService(StudentRepository students, GuardianRepository guardians,
             ClassRoomRepository classRooms, ClassEnrollmentRepository enrollments,
-            com.schoolmanagement.backend.repo.auth.UserRepository users,
-            com.schoolmanagement.backend.repo.classes.CombinationRepository combinations) {
+            UserRepository users,
+            CombinationRepository combinations) {
         this.students = students;
         this.guardians = guardians;
         this.classRooms = classRooms;
@@ -145,29 +146,27 @@ public class StudentImportService {
                     String email = getValueFromRow(row, columnMap, "email");
                     if (email != null && !email.isBlank()) {
                         email = email.trim().toLowerCase();
-                        // Validation: Email must not be used by Guardian or other Role
-                        if (guardians.findByEmailIgnoreCase(email).size() > 0) {
+                        // Check 1: Email already used by a student who has an account
+                        if (students.existsByEmailAndUserIsNotNull(email)) {
                             errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
-                                    "Email học sinh trùng với email Phụ huynh khác."));
+                                    "Email đã tồn tại trong hệ thống (Học sinh đã có tài khoản): " + email));
                             failedCount++;
                             continue;
                         }
-                        if (users.existsByEmailIgnoreCase(email)) {
-                            // Check role? For now strict: if used by any user, be careful.
-                            // Actually, if it's a STUDENT user, it's a duplicate student check (handled by
-                            // unique constraint?).
-                            // If it's a GUARDIAN/TEACHER user -> Block.
-                            // Let's just block if any user exists to be safe and force unique new data,
-                            // OR check specific role collisions if we allow re-importing existing students.
-                            // Assuming new students:
-                            Optional<User> u = users.findByEmailIgnoreCase(email);
-                            if (u.isPresent()
-                                    && u.get().getRole() != Role.STUDENT) {
-                                errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
-                                        "Email đã được sử dụng bởi tài khoản " + u.get().getRole()));
-                                failedCount++;
-                                continue;
-                            }
+                        // Check 2: Email used by a guardian
+                        if (!guardians.findByEmailIgnoreCase(email).isEmpty()) {
+                            errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
+                                    "Email trùng với Phụ huynh: " + email));
+                            failedCount++;
+                            continue;
+                        }
+                        // Check 3: Email used by a user account with a different role
+                        Optional<User> u = users.findByEmailIgnoreCase(email);
+                        if (u.isPresent() && u.get().getRole() != Role.STUDENT) {
+                            errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
+                                    "Email đã được sử dụng bởi tài khoản: " + u.get().getRole()));
+                            failedCount++;
+                            continue;
                         }
                     }
 

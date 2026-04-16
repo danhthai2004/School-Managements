@@ -18,7 +18,7 @@ import StatCard from "./StatCard";
 const StudentTab = ({ data }: { data: StudentReportDto }) => {
     const statusData = [
         { name: "Đang học", value: data.activeStudents, color: "#10B981" },
-        { name: "Nghỉ học", value: data.inactiveStudents, color: "#EF4444" },
+        { name: "Tạm nghỉ / Khác", value: data.nonActiveStudents, color: "#EF4444" },
     ].filter((d) => d.value > 0);
 
     const accountData = [

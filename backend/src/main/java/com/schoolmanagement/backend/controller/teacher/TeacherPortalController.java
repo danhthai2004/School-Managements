@@ -8,9 +8,10 @@ import com.schoolmanagement.backend.dto.student.StudentRiskAnalysisDto;
 import com.schoolmanagement.backend.dto.teacher.TeacherDashboardStatsDto;
 import com.schoolmanagement.backend.dto.teacher.TeacherProfileDto;
 
-
+import com.schoolmanagement.backend.service.teacher.HomeroomStudentExportService;
 import com.schoolmanagement.backend.service.teacher.TeacherPortalService;
 import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -31,6 +32,7 @@ public class TeacherPortalController {
 
     private final TeacherPortalService teacherPortalService;
     private final com.schoolmanagement.backend.service.attendance.AttendanceService attendanceService;
+    private final HomeroomStudentExportService homeroomStudentExportService;
 
     @GetMapping("/profile")
     public ResponseEntity<TeacherProfileDto> getProfile(
@@ -73,6 +75,18 @@ public class TeacherPortalController {
             @AuthenticationPrincipal UserDetails userDetails) {
         List<HomeroomStudentDto> students = teacherPortalService.getHomeroomStudents(userDetails.getUsername());
         return ResponseEntity.ok(students);
+    }
+
+    @GetMapping("/students/export")
+    public void exportHomeroomStudents(
+            @AuthenticationPrincipal UserDetails userDetails,
+            jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
+        Workbook workbook = homeroomStudentExportService.exportHomeroomStudents(userDetails.getUsername());
+
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment; filename=danh-sach-hoc-sinh.xlsx");
+        workbook.write(response.getOutputStream());
+        workbook.close();
     }
 
     @GetMapping("/ai/risk-analysis")

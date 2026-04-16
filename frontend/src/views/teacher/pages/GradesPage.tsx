@@ -1,11 +1,13 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
-    Save, FileText, Download, Upload, AlertCircle, CheckCircle, Users, Award, Plus, Minus
+    Save, FileText, Download, Upload, AlertCircle, CheckCircle, Users, Award, Plus, Minus, Search
 } from "lucide-react";
 import { teacherService } from "../../../services/teacherService";
 import type { GradeBook, StudentGrade, AssignedClass } from "../../../services/teacherService";
+import { vietnameseNameSort } from "../../../utils/sortUtils";
 import { useSemester } from "../../../context/SemesterContext";
 import SemesterSelector from "../../../components/common/SemesterSelector";
+import ImportGradesModal from "../components/grades/ImportGradesModal";
 
 const GradeInput: React.FC<{
     value: number | null;
@@ -91,6 +93,9 @@ const GradesPage = () => {
     const [gradeBook, setGradeBook] = useState<GradeBook | null>(null);
     const [localRegularCount, setLocalRegularCount] = useState<number>(1);
     const [msg, setMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [sortBy, setSortBy] = useState<'NAME' | 'CODE'>('NAME');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [showImportModal, setShowImportModal] = useState(false);
 
     useEffect(() => {
         const fetchClasses = async () => {
@@ -180,6 +185,24 @@ const GradesPage = () => {
         setLocalRegularCount((prev: number) => prev - 1);
     };
 
+    // Sorted and filtered students
+    const processedStudents = useMemo(() => {
+        if (!gradeBook) return [];
+
+        let filtered = gradeBook.students.filter((s: StudentGrade) =>
+            s.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            s.studentCode.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+
+        return [...filtered].sort((a: StudentGrade, b: StudentGrade) => {
+            if (sortBy === 'CODE') {
+                return a.studentCode.localeCompare(b.studentCode);
+            } else {
+                return vietnameseNameSort(a.fullName, b.fullName);
+            }
+        });
+    }, [gradeBook, sortBy, searchQuery]);
+
     const handleSave = async () => {
         if (!gradeBook || !selectedSemesterId) return;
         setSaving(true);
@@ -259,37 +282,74 @@ const GradesPage = () => {
                         Nhập và theo dõi kết quả học tập của học sinh
                     </p>
                 </div>
+                {/* Filters and Actions */}
                 <div className="flex flex-wrap items-center gap-3">
-                    <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-lg text-sm font-medium hover:from-emerald-700 hover:to-emerald-600 transition-all shadow-sm hover:shadow-md">
-                        <Upload className="w-4 h-4" />
-                        Nhập Excel
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg text-sm font-medium hover:from-amber-600 hover:to-orange-600 transition-all shadow-sm hover:shadow-md">
-                        <Download className="w-4 h-4" />
-                        Xuất báo cáo
-                    </button>
-                    {gradeBook?.canEdit && (
+                    {/* Search */}
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Tìm tên học sinh..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-64 bg-white shadow-sm"
+                        />
+                    </div>
+
+                    {/* Sort Selector */}
+
+
+                    <div className="flex items-center gap-3 ml-auto">
                         <button
-                            onClick={handleSave}
-                            disabled={saving}
-                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-600 transition-all disabled:opacity-50 shadow-sm hover:shadow-md"
+                            onClick={() => setShowImportModal(true)}
+                            disabled={!selectedClassId || !selectedSubjectId || !selectedSemesterId}
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-lg text-sm font-medium hover:from-emerald-700 hover:to-emerald-600 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {saving ? (
-                                <>
-                                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Đang lưu...
-                                </>
-                            ) : (
-                                <>
-                                    <Save className="w-4 h-4" />
-                                    Lưu thay đổi
-                                </>
-                            )}
+                            <Upload className="w-4 h-4" />
+                            Nhập Excel
                         </button>
-                    )}
+                        <button
+                            onClick={async () => {
+                                if (selectedClassId && selectedSubjectId && selectedSemesterId) {
+                                    try {
+                                        const cls = selectedAssignment?.className ?? "lop";
+                                        const subj = selectedAssignment?.subjectName ?? "mon";
+                                        const filename = `bang_diem_${cls}_${subj}.xlsx`
+                                            .replace(/\s+/g, "_")
+                                            .replace(/[^a-zA-Z0-9_.\-]/g, "");
+                                        await teacherService.exportGradeReport(selectedClassId, selectedSubjectId, selectedSemesterId, filename);
+                                    } catch { setMsg({ type: 'error', text: 'Không thể xuất báo cáo.' }); }
+                                }
+                            }}
+                            disabled={!selectedClassId || !selectedSubjectId || !selectedSemesterId}
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg text-sm font-medium hover:from-amber-600 hover:to-orange-600 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <Download className="w-4 h-4" />
+                            Xuất báo cáo
+                        </button>
+                        {gradeBook?.canEdit && (
+                            <button
+                                onClick={handleSave}
+                                disabled={saving}
+                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-600 transition-all disabled:opacity-50 shadow-sm hover:shadow-md"
+                            >
+                                {saving ? (
+                                    <>
+                                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Đang lưu...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save className="w-4 h-4" />
+                                        Lưu thay đổi
+                                    </>
+                                )}
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -321,10 +381,10 @@ const GradesPage = () => {
                             </select>
                         </div>
 
-                        <SemesterSelector 
-                            value={selectedSemesterId} 
+                        <SemesterSelector
+                            value={selectedSemesterId}
                             onChange={setSelectedSemesterId}
-                            label="Học kỳ" 
+                            label="Học kỳ"
                         />
 
                         {/* Info badges */}
@@ -380,8 +440,32 @@ const GradesPage = () => {
                                 <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                                     <tr>
                                         <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">#</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Mã HS</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase min-w-[160px]">Họ và tên</th>
+                                        <th
+                                            className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-blue-600 transition-colors group"
+                                            onClick={() => setSortBy("CODE")}
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                Mã HS
+                                                {sortBy === "CODE" && (
+                                                    <svg className="w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </th>
+                                        <th
+                                            className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase min-w-[160px] cursor-pointer hover:text-blue-600 transition-colors group"
+                                            onClick={() => setSortBy("NAME")}
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                Họ và tên
+                                                {sortBy === "NAME" && (
+                                                    <svg className="w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </th>
                                         <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase" colSpan={localRegularCount}>
                                             <div className="flex items-center justify-center gap-1.5 relative group/header">
                                                 <div className="w-2 h-2 rounded-full bg-blue-400"></div>
@@ -429,7 +513,7 @@ const GradesPage = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 bg-white">
-                                    {gradeBook.students.map((student, idx) => {
+                                    {processedStudents.map((student, idx) => {
                                         const avg = calculateAverage(student, localRegularCount);
                                         return (
                                             <tr key={student.studentId} className="hover:bg-blue-50 transition-colors group">
@@ -502,6 +586,22 @@ const GradesPage = () => {
                     </div>
                 </div>
             )}
+
+            {/* Import Grades Modal */}
+            <ImportGradesModal
+                isOpen={showImportModal}
+                onClose={() => setShowImportModal(false)}
+                onSuccess={() => {
+                    fetchGrades();
+                    setMsg({ type: 'success', text: 'Import điểm thành công!' });
+                    setTimeout(() => setMsg(null), 3000);
+                }}
+                classId={selectedClassId}
+                subjectId={selectedSubjectId}
+                semesterId={selectedSemesterId}
+                className={selectedAssignment?.className}
+                subjectName={selectedAssignment?.subjectName}
+            />
         </div>
     );
 };

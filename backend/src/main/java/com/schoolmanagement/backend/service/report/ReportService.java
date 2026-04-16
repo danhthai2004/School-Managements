@@ -120,7 +120,7 @@ public class ReportService {
 
                 long totalStudents = allStudents.size();
                 long activeStudents = allStudents.stream().filter(s -> s.getStatus() == StudentStatus.ACTIVE).count();
-                long inactiveStudents = totalStudents - activeStudents;
+                long nonActiveStudents = totalStudents - activeStudents;
                 long studentsWithAccount = allStudents.stream().filter(s -> s.getUser() != null).count();
                 long studentsWithoutAccount = totalStudents - studentsWithAccount;
 
@@ -147,7 +147,7 @@ public class ReportService {
                 List<EnrollmentStatDto> enrollmentStats = getEnrollmentStatsByMonth(allStudents);
 
                 return new StudentReportDto(
-                                totalStudents, activeStudents, inactiveStudents,
+                                totalStudents, activeStudents, nonActiveStudents,
                                 studentsWithAccount, studentsWithoutAccount,
                                 studentsByClass, enrollmentStats, genderStats);
         }
@@ -239,11 +239,13 @@ public class ReportService {
 
                 String academicYearName = "";
                 if (academicYearId != null) {
-                    com.schoolmanagement.backend.domain.entity.admin.AcademicYear ay = academicYearRepository.findByIdAndSchool(academicYearId, school).orElse(null);
-                    if (ay != null) academicYearName = ay.getName();
+                        com.schoolmanagement.backend.domain.entity.admin.AcademicYear ay = academicYearRepository
+                                        .findByIdAndSchool(academicYearId, school).orElse(null);
+                        if (ay != null)
+                                academicYearName = ay.getName();
                 }
                 if (academicYearName == null || academicYearName.isEmpty()) {
-                    academicYearName = semesterService.getActiveAcademicYearName(school);
+                        academicYearName = semesterService.getActiveAcademicYearName(school);
                 }
 
                 // Parse academic year (e.g., "2024-2025")
@@ -418,7 +420,8 @@ public class ReportService {
                                 LocalDate.now().minusMonths(1), // Default to last 30 days if no range provided
                                 LocalDate.now());
 
-                long presentCount = allAttendance.stream().filter(a -> a.getStatus() == AttendanceStatus.PRESENT).count();
+                long presentCount = allAttendance.stream().filter(a -> a.getStatus() == AttendanceStatus.PRESENT)
+                                .count();
                 double overallAttendanceRate = allAttendance.isEmpty() ? 0.0
                                 : Math.round(presentCount * 100.0 / allAttendance.size() * 100.0) / 100.0;
 
@@ -432,13 +435,20 @@ public class ReportService {
                                 .map(e -> {
                                         ClassRoom c = e.getKey();
                                         List<Attendance> classAttendance = e.getValue();
-                                        long classSessions = allSessions.stream().filter(s -> s.getClassRoom().getId().equals(c.getId())).count();
-                                        long cPresent = classAttendance.stream().filter(a -> a.getStatus() == AttendanceStatus.PRESENT).count();
-                                        long cAbsent = classAttendance.stream().filter(a -> a.getStatus() == AttendanceStatus.ABSENT).count();
-                                        long cLate = classAttendance.stream().filter(a -> a.getStatus() == AttendanceStatus.LATE).count();
-                                        long cExcused = classAttendance.stream().filter(a -> a.getStatus() == AttendanceStatus.EXCUSED).count();
+                                        long classSessions = allSessions.stream()
+                                                        .filter(s -> s.getClassRoom().getId().equals(c.getId()))
+                                                        .count();
+                                        long cPresent = classAttendance.stream()
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.PRESENT).count();
+                                        long cAbsent = classAttendance.stream()
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT).count();
+                                        long cLate = classAttendance.stream()
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.LATE).count();
+                                        long cExcused = classAttendance.stream()
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.EXCUSED).count();
                                         double cRate = classAttendance.isEmpty() ? 0.0
-                                                : Math.round(cPresent * 100.0 / classAttendance.size() * 100.0) / 100.0;
+                                                        : Math.round(cPresent * 100.0 / classAttendance.size() * 100.0)
+                                                                        / 100.0;
 
                                         return new AttendanceReportDto.AttendanceByClassDto(
                                                         c.getId(),
@@ -451,7 +461,8 @@ public class ReportService {
                                                         cLate,
                                                         cExcused);
                                 })
-                                .sorted(Comparator.comparing(AttendanceReportDto.AttendanceByClassDto::attendanceRate).reversed())
+                                .sorted(Comparator.comparing(AttendanceReportDto.AttendanceByClassDto::attendanceRate)
+                                                .reversed())
                                 .toList();
 
                 // Chronic Absentees (Absent > 10% or some threshold)
@@ -462,14 +473,16 @@ public class ReportService {
                                 .map(e -> {
                                         Student s = e.getKey();
                                         List<Attendance> studentAttendance = e.getValue();
-                                        long sAbsent = studentAttendance.stream().filter(a -> a.getStatus() == AttendanceStatus.ABSENT).count();
+                                        long sAbsent = studentAttendance.stream()
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT).count();
                                         double sAbsentRate = studentAttendance.isEmpty() ? 0.0
-                                                : Math.round(sAbsent * 100.0 / studentAttendance.size() * 100.0) / 100.0;
+                                                        : Math.round(sAbsent * 100.0 / studentAttendance.size() * 100.0)
+                                                                        / 100.0;
 
                                         String className = "N/A";
                                         List<ClassEnrollment> enrollments = enrollmentRepository.findAllByStudent(s);
-                                        if(!enrollments.isEmpty()){
-                                            className = enrollments.get(0).getClassRoom().getName();
+                                        if (!enrollments.isEmpty()) {
+                                                className = enrollments.get(0).getClassRoom().getName();
                                         }
 
                                         return new AttendanceReportDto.ChronicAbsenteeDto(
@@ -481,7 +494,8 @@ public class ReportService {
                                                         sAbsentRate);
                                 })
                                 .filter(dto -> dto.absentRate() > 10.0) // Threshold 10%
-                                .sorted(Comparator.comparing(AttendanceReportDto.ChronicAbsenteeDto::absentRate).reversed())
+                                .sorted(Comparator.comparing(AttendanceReportDto.ChronicAbsenteeDto::absentRate)
+                                                .reversed())
                                 .limit(20)
                                 .toList();
 
@@ -644,7 +658,9 @@ public class ReportService {
                                                 .reversed())
                                 .toList();
 
-                String academicYearName = semesterEntity.getAcademicYear() != null ? semesterEntity.getAcademicYear().getName() : "";
+                String academicYearName = semesterEntity.getAcademicYear() != null
+                                ? semesterEntity.getAcademicYear().getName()
+                                : "";
                 int semesterNumber = semesterEntity.getSemesterNumber();
 
                 return new AcademicReportDto(
@@ -687,8 +703,12 @@ public class ReportService {
                                         return new TimetableReportDto.TimetableSummaryDto(
                                                         t.getId(),
                                                         t.getName(),
-                                                        t.getSemester() != null && t.getSemester().getAcademicYear() != null ? t.getSemester().getAcademicYear().getName() : "",
-                                                        t.getSemester() != null ? t.getSemester().getSemesterNumber() : 0,
+                                                        t.getSemester() != null && t.getSemester()
+                                                                        .getAcademicYear() != null ? t.getSemester()
+                                                                                        .getAcademicYear().getName()
+                                                                                        : "",
+                                                        t.getSemester() != null ? t.getSemester().getSemesterNumber()
+                                                                        : 0,
                                                         t.getStatus().name(),
                                                         t.getCreatedAt().toString(),
                                                         totalSlots,

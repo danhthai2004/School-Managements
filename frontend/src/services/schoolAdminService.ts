@@ -309,6 +309,15 @@ export const schoolAdminService = {
         return res.data;
     },
 
+    exportStudents: async (classId?: string): Promise<Blob> => {
+        const params = classId ? { classId } : {};
+        const res = await api.get("/school/students/export", {
+            params,
+            responseType: 'blob'
+        });
+        return res.data;
+    },
+
     getStudent: async (studentId: string): Promise<StudentDto> => {
         const res = await api.get<StudentDto>(`/school/students/${studentId}`);
         return res.data;
@@ -504,6 +513,17 @@ export const schoolAdminService = {
 
     bulkAssignTeachers: async (assignments: { assignmentId: string, teacherId: string | null }[]): Promise<import("./dtos/TeacherAssignmentDto").TeacherAssignmentDto[]> => {
         const res = await api.put<import("./dtos/TeacherAssignmentDto").TeacherAssignmentDto[]>(`/school/assignments/bulk-teacher`, assignments);
+        return res.data;
+    },
+
+    // Templates
+    downloadStudentTemplate: async (): Promise<Blob> => {
+        const res = await api.get("/templates/students", { responseType: 'blob' });
+        return res.data;
+    },
+
+    downloadTeacherTemplate: async (): Promise<Blob> => {
+        const res = await api.get("/templates/teachers", { responseType: 'blob' });
         return res.data;
     },
 };

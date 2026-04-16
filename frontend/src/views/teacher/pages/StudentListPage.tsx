@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { teacherService, type HomeroomStudent, type TeacherProfile } from "../../../services/teacherService";
 import { StatusBadge } from "../../../components/common/StatusBadge";
+import { vietnameseNameSort } from "../../../utils/sortUtils";
 
 type OutletContextType = {
     teacherProfile: TeacherProfile | null;
@@ -9,28 +10,7 @@ type OutletContextType = {
 
 import { createPortal } from "react-dom";
 
-// Helper to get conduct badge color
-const getConductBadgeClass = (grade?: string) => {
-    switch (grade) {
-        case "Xuất sắc": return "bg-green-100 text-green-700";
-        case "Tốt": return "bg-blue-100 text-blue-700";
-        case "Khá": return "bg-amber-100 text-amber-700";
-        case "Trung bình": return "bg-orange-100 text-orange-700";
-        case "Yếu": return "bg-red-100 text-red-700";
-        default: return "bg-gray-100 text-gray-600";
-    }
-};
-
-// Helper to translate status
-const translateStatus = (status: string) => {
-    switch (status) {
-        case "ACTIVE": return "Đang học";
-        case "SUSPENDED": return "Tạm nghỉ";
-        case "TRANSFERRED": return "Chuyển trường";
-        case "GRADUATED": return "Đã tốt nghiệp";
-        default: return status;
-    }
-};
+// Helper to remove translate status warnings since it's now handled by the backend.
 
 // Statistics Card Component (Updated with hover effects from TeacherDashboard)
 const StatCard = ({ icon, label, value, subValue, colorClass, delay = 0 }: {
@@ -120,12 +100,6 @@ const StudentDetailModal = ({ student, onClose }: { student: HomeroomStudent | n
                                 {student.attendanceRate ? `${student.attendanceRate.toFixed(0)}%` : '—'}
                             </p>
                         </div>
-                        <div>
-                            <p className="text-xs text-gray-500 mb-1">Hạnh kiểm</p>
-                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getConductBadgeClass(student.conductGrade)}`}>
-                                {student.conductGrade || '—'}
-                            </span>
-                        </div>
                     </div>
 
                     {/* Parent contact */}
@@ -156,7 +130,7 @@ export default function StudentListPage() {
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("ALL");
-    const [conductFilter, setConductFilter] = useState<string>("ALL");
+    const [sortBy, setSortBy] = useState<"NAME" | "CODE">("NAME");
     const [selectedStudent, setSelectedStudent] = useState<HomeroomStudent | null>(null);
 
     useEffect(() => {
@@ -178,9 +152,9 @@ export default function StudentListPage() {
         }
     };
 
-    // Filter and search students
+    // Filter, search and sort students
     const filteredStudents = useMemo(() => {
-        return students.filter(student => {
+        const filtered = students.filter(student => {
             // Search filter
             const matchesSearch = searchQuery === "" ||
                 student.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -190,12 +164,18 @@ export default function StudentListPage() {
             // Status filter
             const matchesStatus = statusFilter === "ALL" || student.status === statusFilter;
 
-            // Conduct filter
-            const matchesConduct = conductFilter === "ALL" || student.conductGrade === conductFilter;
-
-            return matchesSearch && matchesStatus && matchesConduct;
+            return matchesSearch && matchesStatus;
         });
-    }, [students, searchQuery, statusFilter, conductFilter]);
+
+        // Apply sorting
+        return [...filtered].sort((a, b) => {
+            if (sortBy === "CODE") {
+                return a.studentCode.localeCompare(b.studentCode);
+            } else {
+                return vietnameseNameSort(a.fullName, b.fullName);
+            }
+        });
+    }, [students, searchQuery, statusFilter, sortBy]);
 
     // Calculate statistics
     const stats = useMemo(() => {
@@ -210,28 +190,13 @@ export default function StudentListPage() {
     }, [students]);
 
     // Export to Excel function
-    const handleExportExcel = () => {
-        const headers = ["MSHS", "Họ tên", "Giới tính", "Email", "SĐT", "GPA", "Chuyên cần", "Hạnh kiểm", "Trạng thái"];
-        const csvContent = [
-            headers.join(","),
-            ...filteredStudents.map(s => [
-                s.studentCode,
-                `"${s.fullName}"`,
-                s.gender === 'MALE' ? 'Nam' : s.gender === 'FEMALE' ? 'Nữ' : 'Khác',
-                s.email || '',
-                s.phone || '',
-                s.averageGpa?.toFixed(1) || '',
-                s.attendanceRate ? `${s.attendanceRate.toFixed(0)}%` : '',
-                s.conductGrade || '',
-                translateStatus(s.status)
-            ].join(","))
-        ].join("\n");
-
-        const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = `danh-sach-hoc-sinh-${teacherProfile?.homeroomClassName || 'lop'}.csv`;
-        link.click();
+    const handleExportExcel = async () => {
+        try {
+            await teacherService.exportHomeroomStudents(`danh-sach-hoc-sinh-${teacherProfile?.homeroomClassName || 'lop'}.xlsx`);
+        } catch (error) {
+            console.error("Lỗi khi xuất file Excel:", error);
+            setError("Có lỗi xảy ra khi xuất file Excel. Vui lòng thử lại.");
+        }
     };
 
     if (!teacherProfile?.isHomeroomTeacher) {
@@ -273,12 +238,6 @@ export default function StudentListPage() {
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                    <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                        </svg>
-                        Nhập File
-                    </button>
                     <button
                         onClick={handleExportExcel}
                         className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
@@ -364,19 +323,6 @@ export default function StudentListPage() {
                             <option value="TRANSFERRED">Chuyển trường</option>
                         </select>
 
-                        {/* Conduct Filter */}
-                        <select
-                            value={conductFilter}
-                            onChange={(e) => setConductFilter(e.target.value)}
-                            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-600 focus:border-blue-500 outline-none cursor-pointer"
-                        >
-                            <option value="ALL">Tất cả hạnh kiểm</option>
-                            <option value="Xuất sắc">Xuất sắc</option>
-                            <option value="Tốt">Tốt</option>
-                            <option value="Khá">Khá</option>
-                            <option value="Trung bình">Trung bình</option>
-                            <option value="Yếu">Yếu</option>
-                        </select>
                     </div>
                 </div>
 
@@ -385,12 +331,35 @@ export default function StudentListPage() {
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Học sinh</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">MSHS</th>
+                                <th
+                                    className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-blue-600 transition-colors group"
+                                    onClick={() => setSortBy("NAME")}
+                                >
+                                    <div className="flex items-center gap-1">
+                                        Học sinh
+                                        {sortBy === "NAME" && (
+                                            <svg className="w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                </th>
+                                <th
+                                    className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-blue-600 transition-colors group"
+                                    onClick={() => setSortBy("CODE")}
+                                >
+                                    <div className="flex items-center gap-1">
+                                        MSHS
+                                        {sortBy === "CODE" && (
+                                            <svg className="w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                </th>
                                 <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Liên hệ</th>
                                 <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">GPA</th>
                                 <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Chuyên cần</th>
-                                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Hạnh kiểm</th>
                                 <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Trạng thái</th>
                                 <th className="px-6 py-3 text-end text-xs font-semibold text-gray-500 uppercase">Thao tác</th>
                             </tr>
@@ -443,12 +412,6 @@ export default function StudentListPage() {
                                     <td className="px-6 py-4 text-center whitespace-nowrap">
                                         <span className={`text-sm font-medium ${(student.attendanceRate || 0) >= 90 ? 'text-green-600' : (student.attendanceRate || 0) < 80 ? 'text-red-600' : 'text-yellow-600'}`}>
                                             {student.attendanceRate ? `${student.attendanceRate.toFixed(0)}%` : '—'}
-                                        </span>
-                                    </td>
-                                    {/* Conduct */}
-                                    <td className="px-6 py-4 text-center whitespace-nowrap">
-                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getConductBadgeClass(student.conductGrade)} whitespace-nowrap`}>
-                                            {student.conductGrade || '—'}
                                         </span>
                                     </td>
                                     {/* Status */}
