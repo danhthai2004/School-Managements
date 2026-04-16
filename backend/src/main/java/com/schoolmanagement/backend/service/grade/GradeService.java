@@ -22,6 +22,7 @@ import com.schoolmanagement.backend.domain.entity.grade.Grade;
 import com.schoolmanagement.backend.domain.entity.admin.Semester;
 import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
 import com.schoolmanagement.backend.repo.admin.SemesterRepository;
+import com.schoolmanagement.backend.util.StudentSortUtils;
 
 import com.schoolmanagement.backend.dto.grade.GradeBookDto;
 
@@ -154,7 +155,8 @@ public class GradeService {
                                                         .grades(gradeValues)
                                                         .build();
                                 })
-                                .sorted(Comparator.comparing(GradeBookDto.StudentGradeDto::getFullName))
+                                .sorted((s1, s2) -> StudentSortUtils.vietnameseNameComparator()
+                                                .compare(s1.getFullName(), s2.getFullName()))
                                 .toList();
 
                 return GradeBookDto.builder()

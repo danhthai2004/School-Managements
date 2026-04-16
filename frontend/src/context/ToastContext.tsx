@@ -9,6 +9,7 @@ interface ToastOptions {
 
 interface ToastContextType {
     showSuccess: (options: ToastOptions | string) => void;
+    showError: (options: ToastOptions | string) => void;
     hideToast: () => void;
     toast: {
         success: (options: ToastOptions | string) => void;
@@ -65,6 +66,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return (
         <ToastContext.Provider value={{
             showSuccess,
+            showError,
             hideToast,
             toast
         }}>

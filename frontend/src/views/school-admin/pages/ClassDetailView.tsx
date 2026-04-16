@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { schoolAdminService, type ClassRoomDto, type StudentDto } from "../../../services/schoolAdminService";
 import { ArrowLeft, Users, Calendar, DoorOpen, GraduationCap } from "lucide-react";
 import { StatusBadge } from "../../../components/common";
+import { vietnameseNameSort } from "../../../utils/sortUtils";
 
 const ClassDetailView = () => {
     const { id } = useParams<{ id: string }>();
@@ -11,6 +12,30 @@ const ClassDetailView = () => {
     const [students, setStudents] = useState<StudentDto[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [sortConfig, setSortConfig] = useState<{ key: 'fullName' | 'studentCode'; direction: 'asc' | 'desc' } | null>({ key: 'fullName', direction: 'asc' });
+
+    const sortedStudents = [...students].sort((a, b) => {
+        if (!sortConfig) return 0;
+        const { key, direction } = sortConfig;
+
+        let valA = a[key] || '';
+        let valB = b[key] || '';
+
+        if (key === 'fullName') {
+            return direction === 'asc' ? vietnameseNameSort(valA, valB) : vietnameseNameSort(valB, valA);
+        }
+
+        return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    });
+
+    const handleSort = (key: 'fullName' | 'studentCode') => {
+        setSortConfig(prev => {
+            if (prev?.key === key) {
+                return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+            }
+            return { key, direction: 'asc' };
+        });
+    };
 
     useEffect(() => {
         if (id) {
@@ -152,8 +177,24 @@ const ClassDetailView = () => {
                         <thead className="bg-gray-50">
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">STT</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Mã học sinh</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Họ và tên</th>
+                                <th
+                                    className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:bg-gray-100 transition-colors"
+                                    onClick={() => handleSort('studentCode')}
+                                >
+                                    <div className="flex items-center gap-1">
+                                        Mã học sinh
+                                        {sortConfig?.key === 'studentCode' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                    </div>
+                                </th>
+                                <th
+                                    className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:bg-gray-100 transition-colors"
+                                    onClick={() => handleSort('fullName')}
+                                >
+                                    <div className="flex items-center gap-1">
+                                        Họ và tên
+                                        {sortConfig?.key === 'fullName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                    </div>
+                                </th>
                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Ngày sinh</th>
                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Giới tính</th>
                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Điện thoại</th>
@@ -161,7 +202,7 @@ const ClassDetailView = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {students.map((student, index) => (
+                            {sortedStudents.map((student, index) => (
                                 <tr key={student.id} className="hover:bg-blue-50 transition-colors">
                                     <td className="px-6 py-4 text-sm text-gray-500">{index + 1}</td>
                                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{student.studentCode}</td>

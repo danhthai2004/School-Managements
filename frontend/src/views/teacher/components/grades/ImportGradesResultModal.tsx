@@ -1,19 +1,20 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import { type ImportStudentResult } from "../../../../services/schoolAdminService";
-import { XIcon } from "../../SchoolAdminIcons";
-import { RefreshCcw } from "lucide-react";
+import { X, RefreshCcw } from "lucide-react";
+import type { GradeImportResult } from "../../../../services/teacherService";
 
-interface ImportResultModalProps {
-    result: ImportStudentResult | null;
+interface ImportGradesResultModalProps {
+    result: GradeImportResult | null;
     onClose: () => void;
     onRetry?: () => void;
 }
 
-const ImportStudentResultModal: React.FC<ImportResultModalProps> = ({ result, onClose, onRetry }) => {
+const ImportGradesResultModal: React.FC<ImportGradesResultModalProps> = ({ result, onClose, onRetry }) => {
     if (!result) return null;
 
     const hasErrors = result.failedCount > 0;
+    // Gộp cả Thêm mới và Cập nhật vào một con số Thành công duy nhất
+    const totalSuccess = result.successCount + result.updatedCount;
 
     return createPortal(
         <div className="fixed inset-0 z-[110] flex items-center justify-center">
@@ -22,22 +23,22 @@ const ImportStudentResultModal: React.FC<ImportResultModalProps> = ({ result, on
                 {/* Header */}
                 <div className={`px-6 py-4 flex-none ${hasErrors ? 'bg-amber-500' : 'bg-emerald-500'}`}>
                     <div className="flex items-center justify-between">
-                        <h3 className="text-xl font-semibold text-white">Kết quả Import học sinh</h3>
+                        <h3 className="text-xl font-semibold text-white">Kết quả nhập điểm</h3>
                         <button onClick={onClose} className="text-white/80 hover:text-white transition-colors">
-                            <XIcon />
+                            <X className="w-5 h-5" />
                         </button>
                     </div>
                 </div>
 
-                <div className="p-6 overflow-y-auto font-sans">
-                    {/* Stats Grid */}
+                <div className="p-6 overflow-y-auto">
+                    {/* Stats Grid - 3 Columns Pattern */}
                     <div className="grid grid-cols-3 gap-4 mb-6">
                         <div className="text-center p-4 bg-slate-50 rounded-xl border border-slate-100">
                             <div className="text-2xl font-bold text-slate-700">{result.totalRows}</div>
                             <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-1">Tổng số dòng</div>
                         </div>
                         <div className="text-center p-4 bg-emerald-50 rounded-xl border border-emerald-100">
-                            <div className="text-2xl font-bold text-emerald-600">{result.successCount}</div>
+                            <div className="text-2xl font-bold text-emerald-600">{totalSuccess}</div>
                             <div className="text-xs font-medium text-emerald-600 uppercase tracking-wider mt-1">Thành công</div>
                         </div>
                         <div className="text-center p-4 bg-red-50 rounded-xl border border-red-100">
@@ -46,26 +47,16 @@ const ImportStudentResultModal: React.FC<ImportResultModalProps> = ({ result, on
                         </div>
                     </div>
 
-                    {/* Auto Assignment Result */}
-                    {result.assignedToClassCount > 0 && (
-                        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-2xl p-4 text-center">
-                            <p className="text-blue-800 font-bold">
-                                <span className="text-xl mr-1">{result.assignedToClassCount}</span>
-                                học sinh đã được hệ thống tự động phân lớp
-                            </p>
-                        </div>
-                    )}
-
                     {/* Error Details */}
                     {result.errors && result.errors.length > 0 && (
                         <div className="space-y-3">
                             <p className="text-sm font-semibold text-slate-700">Chi tiết các dòng lỗi:</p>
-                            <div className="max-h-60 overflow-y-auto bg-slate-50 border border-slate-200 rounded-xl divide-y divide-slate-200 custom-scrollbar">
+                            <div className="max-h-60 overflow-y-auto bg-slate-50 border border-slate-200 rounded-xl divide-y divide-slate-200">
                                 {result.errors.map((err, idx) => (
                                     <div key={idx} className="p-3 text-sm flex gap-3">
                                         <div className="font-bold text-red-600 shrink-0">Dòng {err.rowNumber}</div>
                                         <div className="text-slate-700">
-                                            {err.studentName && <span className="font-semibold">{err.studentName}: </span>}
+                                            {err.studentCode && <span className="font-semibold">{err.studentCode}: </span>}
                                             {err.errorMessage}
                                         </div>
                                     </div>
@@ -76,9 +67,9 @@ const ImportStudentResultModal: React.FC<ImportResultModalProps> = ({ result, on
 
                     {/* Success Message (if no errors) */}
                     {!hasErrors && (
-                        <div className="py-8 text-center bg-emerald-50 rounded-2xl border border-emerald-100 mt-2 animate-in fade-in zoom-in duration-300">
+                        <div className="py-8 text-center bg-emerald-50 rounded-2xl border border-emerald-100">
                             <p className="text-emerald-800 font-bold text-lg">Hoàn tất nhập liệu</p>
-                            <p className="text-emerald-600 text-sm mt-1 font-medium">Hệ thống đã cập nhật tất cả học sinh thành công!</p>
+                            <p className="text-emerald-600 text-sm mt-1">Tất cả điểm đã được cập nhật thành công!</p>
                         </div>
                     )}
 
@@ -105,4 +96,4 @@ const ImportStudentResultModal: React.FC<ImportResultModalProps> = ({ result, on
     );
 };
 
-export default ImportStudentResultModal;
+export default ImportGradesResultModal;

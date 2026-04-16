@@ -75,7 +75,6 @@ export type HomeroomStudent = {
     status: string;
     attendanceRate?: number;
     averageGpa?: number;
-    conductGrade?: string;
     parentPhone?: string;
     parentEmail?: string;
 };
@@ -128,6 +127,18 @@ export type SaveGradeRequest = {
     subjectId: string;
     semesterId: string;
     students: StudentGrade[];
+};
+
+export type GradeImportResult = {
+    totalRows: number;
+    successCount: number;
+    failedCount: number;
+    updatedCount: number;
+    errors: {
+        rowNumber: number;
+        studentCode: string;
+        errorMessage: string;
+    }[];
 };
 
 // ==================== SERVICE ====================
@@ -196,6 +207,63 @@ export const teacherService = {
     // Save grades
     saveGrades: async (data: SaveGradeRequest): Promise<void> => {
         await api.post("/teacher/grades", data);
+    },
+
+    // Import grades from Excel
+    importGrades: async (file: File, classId: string, subjectId: string, semesterId: string): Promise<GradeImportResult> => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("classId", classId);
+        formData.append("subjectId", subjectId);
+        formData.append("semesterId", semesterId);
+        const res = await api.post<GradeImportResult>("/teacher/grades/import-excel", formData, {
+            headers: { "Content-Type": "multipart/form-data" }
+        });
+        return res.data;
+    },
+
+    // Download grade template
+    downloadGradeTemplate: async (classId: string, subjectId: string, semesterId: string): Promise<void> => {
+        const res = await api.get("/teacher/grades/template", {
+            params: { classId, subjectId, semesterId },
+            responseType: "blob"
+        });
+        const blob = new Blob([res.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "bang_diem_mau.xlsx";
+        link.click();
+        window.URL.revokeObjectURL(url);
+    },
+
+    // Export official grade report
+    exportGradeReport: async (classId: string, subjectId: string, semesterId: string, filename?: string): Promise<void> => {
+        const res = await api.get("/teacher/grades/export", {
+            params: { classId, subjectId, semesterId },
+            responseType: "blob"
+        });
+        const blob = new Blob([res.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename || "bang_diem.xlsx";
+        link.click();
+        window.URL.revokeObjectURL(url);
+    },
+
+    // Export official homeroom student list report
+    exportHomeroomStudents: async (filename?: string): Promise<void> => {
+        const res = await api.get("/teacher/students/export", {
+            responseType: "blob"
+        });
+        const blob = new Blob([res.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename || "danh-sach-hoc-sinh.xlsx";
+        link.click();
+        window.URL.revokeObjectURL(url);
     }
 };
 

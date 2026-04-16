@@ -13,7 +13,6 @@ import com.schoolmanagement.backend.dto.student.StudentsWithoutAccountDto;
 import com.schoolmanagement.backend.dto.common.EnrollmentTrendDto;
 import com.schoolmanagement.backend.dto.teacher.TeacherReportDto;
 
-
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.security.UserPrincipal;
 import com.schoolmanagement.backend.service.report.ReportService;

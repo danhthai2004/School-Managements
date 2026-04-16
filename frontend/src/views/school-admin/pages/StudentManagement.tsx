@@ -14,6 +14,7 @@ import { formatDate } from "../../../utils/dateHelpers";
 // ... (imports)
 import { NoAcademicYearState } from "../../../components/common/EmptyState";
 import { useToast } from "../../../context/ToastContext";
+import { vietnameseNameSort } from "../../../utils/sortUtils";
 
 
 
@@ -104,9 +105,14 @@ const StudentManagement = () => {
                 if (!bValue) bValue = "";
 
                 if (typeof aValue === 'string') {
+                    if (sortConfig.key === 'fullName') {
+                        return sortConfig.direction === 'asc'
+                            ? vietnameseNameSort(aValue, bValue as string)
+                            : vietnameseNameSort(bValue as string, aValue);
+                    }
                     return sortConfig.direction === 'asc'
-                        ? aValue.localeCompare(bValue as string)
-                        : (bValue as string).localeCompare(aValue);
+                        ? aValue.localeCompare(bValue as string, 'vi')
+                        : (bValue as string).localeCompare(aValue, 'vi');
                 }
 
                 // Fallback for non-string
@@ -273,25 +279,22 @@ const StudentManagement = () => {
                         </button>
                     )}
                     <button
-                        onClick={() => {
-                            // Export to CSV
-                            const headers = ['Mã HS', 'Họ tên', 'Giới tính', 'Ngày sinh', 'Lớp', 'Trạng thái', 'Email', 'SĐT'];
-                            const rows = filteredStudents.map(stu => [
-                                stu.studentCode || '',
-                                stu.fullName || '',
-                                stu.gender === 'MALE' ? 'Nam' : stu.gender === 'FEMALE' ? 'Nữ' : 'Khác',
-                                formatDate(stu.dateOfBirth),
-                                stu.currentClassName || '',
-                                stu.status === 'ACTIVE' ? 'Đang học' : stu.status === 'GRADUATED' ? 'Đã TN' : stu.status === 'TRANSFERRED' ? 'Chuyển trường' : 'Tạm nghỉ',
-                                stu.email || '',
-                                stu.phone || ''
-                            ]);
-                            const csvContent = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-                            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-                            const link = document.createElement('a');
-                            link.href = URL.createObjectURL(blob);
-                            link.download = `danh_sach_hoc_sinh_${new Date().toISOString().split('T')[0]}.csv`;
-                            link.click();
+                        onClick={async () => {
+                            try {
+                                const blob = await schoolAdminService.exportStudents(classFilter);
+                                const url = window.URL.createObjectURL(blob);
+                                const link = document.createElement('a');
+                                link.href = url;
+                                const filename = `danh_sach_hoc_sinh_${new Date().toISOString().split('T')[0]}.xlsx`;
+                                link.setAttribute('download', filename);
+                                document.body.appendChild(link);
+                                link.click();
+                                link.remove();
+                                window.URL.revokeObjectURL(url);
+                                showSuccess("Đã xuất file Excel!");
+                            } catch (error) {
+                                toast.error("Không thể xuất file Excel.");
+                            }
                         }}
                         className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
                     >
@@ -544,19 +547,16 @@ const StudentManagement = () => {
                 onClose={() => setShowImportModal(false)}
                 onSuccess={fetchData}
                 onImportComplete={(result) => {
-                    if (result.failedCount === 0) {
-                        showSuccess(`Import thành công ${result.successCount} học sinh!`);
-                        // No need to show modal for perfect success
-                        setImportToastResult(null);
-                    } else {
-                        // Show modal for errors/mixed results
-                        setImportToastResult(result);
-                    }
+                    setImportToastResult(result);
                 }}
             />
             <ImportStudentResultModal
                 result={importToastResult}
                 onClose={() => setImportToastResult(null)}
+                onRetry={() => {
+                    setImportToastResult(null);
+                    setShowImportModal(true);
+                }}
             />
             <BatchDeleteModal
                 isOpen={showBatchDeleteModal}

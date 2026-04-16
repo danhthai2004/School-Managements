@@ -29,15 +29,41 @@ public class SchoolAdminController {
     private final UserLookupService userLookup;
     private final com.schoolmanagement.backend.service.student.StudentAccountService studentAccountService;
     private final com.schoolmanagement.backend.service.notification.NotificationService notificationService;
+    private final com.schoolmanagement.backend.service.student.StudentExportService studentExportService;
 
     public SchoolAdminController(SchoolAdminService schoolAdminService,
             UserLookupService userLookup,
             com.schoolmanagement.backend.service.student.StudentAccountService studentAccountService,
-            com.schoolmanagement.backend.service.notification.NotificationService notificationService) {
+            com.schoolmanagement.backend.service.notification.NotificationService notificationService,
+            com.schoolmanagement.backend.service.student.StudentExportService studentExportService) {
         this.schoolAdminService = schoolAdminService;
         this.userLookup = userLookup;
         this.studentAccountService = studentAccountService;
         this.notificationService = notificationService;
+        this.studentExportService = studentExportService;
+    }
+
+    @GetMapping("/students/export")
+    public void exportStudents(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String classId,
+            jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+
+        java.util.UUID classUuid = (classId != null && !classId.isEmpty()) ? java.util.UUID.fromString(classId) : null;
+        org.apache.poi.ss.usermodel.Workbook workbook = studentExportService.exportStudents(admin.getSchool(),
+                classUuid);
+
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        String filename = "danh_sach_hoc_sinh_"
+                + new java.text.SimpleDateFormat("yyyyMMdd").format(new java.util.Date()) + ".xlsx";
+        response.setHeader("Content-Disposition", "attachment; filename=" + filename);
+
+        workbook.write(response.getOutputStream());
+        workbook.close();
     }
 
     // ==================== STATISTICS ====================
@@ -170,7 +196,8 @@ public class SchoolAdminController {
     // ==================== NOTIFICATION MANAGEMENT ====================
 
     /**
-     * Lấy danh sách thông báo cá nhân cho School Admin (phân trang, kèm unreadCount).
+     * Lấy danh sách thông báo cá nhân cho School Admin (phân trang, kèm
+     * unreadCount).
      */
     @GetMapping("/notifications")
     public com.schoolmanagement.backend.dto.notification.NotificationPageResponse getNotifications(

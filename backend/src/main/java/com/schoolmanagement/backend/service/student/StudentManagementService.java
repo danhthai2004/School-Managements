@@ -38,16 +38,8 @@ import com.schoolmanagement.backend.repo.student.GuardianRepository;
 import com.schoolmanagement.backend.repo.student.StudentRepository;
 import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
 import com.schoolmanagement.backend.service.admin.SemesterService;
+import com.schoolmanagement.backend.util.StudentSortUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -111,7 +103,8 @@ public class StudentManagementService {
             // Check collision with User (Role != STUDENT)
             Optional<User> userOptional = users.findByEmailIgnoreCase(email);
             if (userOptional.isPresent() && userOptional.get().getRole() != Role.STUDENT) {
-                throw new ApiException(HttpStatus.CONFLICT, "Email đã được sử dụng bởi tài khoản " + userOptional.get().getRole());
+                throw new ApiException(HttpStatus.CONFLICT,
+                        "Email đã được sử dụng bởi tài khoản " + userOptional.get().getRole());
             }
         }
 
@@ -168,17 +161,21 @@ public class StudentManagementService {
                                 .fullName(guardianRequest.fullName().trim())
                                 .phone(guardianRequest.phone() != null ? guardianRequest.phone().trim() : null)
                                 .email(cleanEmail)
-                                .relationship(guardianRequest.relationship() != null ? guardianRequest.relationship().trim() : null)
+                                .relationship(
+                                        guardianRequest.relationship() != null ? guardianRequest.relationship().trim()
+                                                : null)
                                 .build();
                         guardian = guardians.save(guardian);
                     }
                 } else {
                     // No email -> Force create with NULL email
                     guardian = Guardian.builder()
-                            .fullName(guardianRequest.fullName() != null ? guardianRequest.fullName().trim() : "Người giám hộ")
+                            .fullName(guardianRequest.fullName() != null ? guardianRequest.fullName().trim()
+                                    : "Người giám hộ")
                             .phone(guardianRequest.phone() != null ? guardianRequest.phone().trim() : null)
                             .email(null)
-                            .relationship(guardianRequest.relationship() != null ? guardianRequest.relationship().trim() : null)
+                            .relationship(guardianRequest.relationship() != null ? guardianRequest.relationship().trim()
+                                    : null)
                             .build();
                     guardian = guardians.save(guardian);
                 }
@@ -217,7 +214,7 @@ public class StudentManagementService {
                 }
             }
 
-            AcademicYear academicYear = req.academicYear() != null 
+            AcademicYear academicYear = req.academicYear() != null
                     ? semesterService.getAcademicYearByName(school, req.academicYear())
                     : classRoom.getAcademicYear();
 
@@ -230,9 +227,9 @@ public class StudentManagementService {
             enrollments.save(enrollment);
         } else if (req.combinationId() != null && req.grade() != null) {
             // Auto-assign to class based on combination
-            AcademicYear academicYear = req.academicYear() != null 
-                ? semesterService.getAcademicYearByName(school, req.academicYear())
-                : semesterService.getActiveAcademicYear(school);
+            AcademicYear academicYear = req.academicYear() != null
+                    ? semesterService.getAcademicYearByName(school, req.academicYear())
+                    : semesterService.getActiveAcademicYear(school);
 
             if (academicYear != null) {
                 autoAssignStudentToClass(school, student, req.combinationId(), academicYear, req.grade());
@@ -252,14 +249,23 @@ public class StudentManagementService {
                 throw new ApiException(HttpStatus.FORBIDDEN, "Lớp học không thuộc trường này");
             }
 
-            return enrollments.findAllByClassRoom(classRoom).stream()
+            List<StudentDto> studentList = new java.util.ArrayList<>(enrollments.findAllByClassRoom(classRoom).stream()
                     .map(enrollment -> toStudentDto(enrollment.getStudent()))
-                    .toList();
+                    .toList());
+
+            studentList.sort((a, b) -> StudentSortUtils.vietnameseNameComparator()
+                    .compare(a.fullName(), b.fullName()));
+            return studentList;
         }
 
-        return students.findAllBySchoolOrderByFullNameAsc(school).stream()
-                .map(this::toStudentDto)
-                .toList();
+        List<StudentDto> allStudents = new java.util.ArrayList<>(
+                students.findAllBySchoolOrderByFullNameAsc(school).stream()
+                        .map(this::toStudentDto)
+                        .toList());
+
+        allStudents.sort((a, b) -> StudentSortUtils.vietnameseNameComparator()
+                .compare(a.fullName(), b.fullName()));
+        return allStudents;
     }
 
     @Transactional(readOnly = true)
@@ -470,17 +476,21 @@ public class StudentManagementService {
                                 .fullName(guardianRequest.fullName().trim())
                                 .phone(guardianRequest.phone() != null ? guardianRequest.phone().trim() : null)
                                 .email(cleanEmail)
-                                .relationship(guardianRequest.relationship() != null ? guardianRequest.relationship().trim() : null)
+                                .relationship(
+                                        guardianRequest.relationship() != null ? guardianRequest.relationship().trim()
+                                                : null)
                                 .build();
                         guardian = guardians.save(guardian);
                     }
                 } else {
                     // No email -> Force create with NULL email
                     guardian = Guardian.builder()
-                            .fullName(guardianRequest.fullName() != null ? guardianRequest.fullName().trim() : "Người giám hộ")
+                            .fullName(guardianRequest.fullName() != null ? guardianRequest.fullName().trim()
+                                    : "Người giám hộ")
                             .phone(guardianRequest.phone() != null ? guardianRequest.phone().trim() : null)
                             .email(null)
-                            .relationship(guardianRequest.relationship() != null ? guardianRequest.relationship().trim() : null)
+                            .relationship(guardianRequest.relationship() != null ? guardianRequest.relationship().trim()
+                                    : null)
                             .build();
                     guardian = guardians.save(guardian);
                 }
@@ -493,9 +503,9 @@ public class StudentManagementService {
         // Handle class enrollment change
         if (req.classId() != null) {
             // Get current enrollment for this academic year
-            AcademicYear academicYear = req.academicYear() != null 
-                ? semesterService.getAcademicYearByName(school, req.academicYear())
-                : semesterService.getActiveAcademicYear(school);
+            AcademicYear academicYear = req.academicYear() != null
+                    ? semesterService.getAcademicYearByName(school, req.academicYear())
+                    : semesterService.getActiveAcademicYear(school);
 
             Optional<ClassEnrollment> currentEnrollment = enrollments
                     .findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(student,
@@ -605,7 +615,7 @@ public class StudentManagementService {
         String currentClassName = null;
         UUID currentClassId = null;
         AcademicYear currentYear = semesterService.getActiveAcademicYearSafe(student.getSchool());
-        
+
         Optional<ClassEnrollment> currentEnrollment = Optional.empty();
         if (currentYear != null) {
             currentEnrollment = enrollments.findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(
@@ -653,7 +663,8 @@ public class StudentManagementService {
 
         // Filter by connection to combination
         List<ClassRoom> candidates = classes.stream()
-                .filter(classroom -> classroom.getCombination() != null && classroom.getCombination().getId().equals(combinationId))
+                .filter(classroom -> classroom.getCombination() != null
+                        && classroom.getCombination().getId().equals(combinationId))
                 .sorted(java.util.Comparator.comparingLong(classroom -> counts.get(classroom.getId())))
                 .toList();
 
