@@ -69,6 +69,7 @@ public class Teacher {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @Builder.Default
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "teacher_subjects", joinColumns = @JoinColumn(name = "teacher_id"), inverseJoinColumns = @JoinColumn(name = "subject_id"))
     private Set<Subject> subjects = new java.util.HashSet<>();

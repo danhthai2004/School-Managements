@@ -40,6 +40,7 @@ public class AuthChallenge {
     @Column(nullable = false)
     private Instant expiresAt;
 
+    @Builder.Default
     @Column(nullable = false)
     private int attempts = 0;
 
