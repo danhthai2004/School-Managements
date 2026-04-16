@@ -1,4 +1,6 @@
 import api from "./api";
+import type { StudentProfileDto, ScoreDto } from "./schoolAdminService";
+
 
 // ==================== TYPES ====================
 
@@ -173,6 +175,19 @@ export const teacherService = {
     // Get homeroom students (403 for subject-only teachers)
     getHomeroomStudents: async (): Promise<HomeroomStudent[]> => {
         const res = await api.get<HomeroomStudent[]>("/teacher/students");
+        return res.data;
+    },
+
+    // Get homeroom student profile
+    getStudentProfile: async (studentId: string): Promise<StudentProfileDto> => {
+        const res = await api.get<StudentProfileDto>(`/teacher/students/${studentId}/profile`);
+        return res.data;
+    },
+
+    // Get homeroom student scores
+    getStudentScores: async (studentId: string, semesterId?: string): Promise<ScoreDto[]> => {
+        const params = semesterId ? { semesterId } : {};
+        const res = await api.get<ScoreDto[]>(`/teacher/students/${studentId}/scores`, { params });
         return res.data;
     },
 

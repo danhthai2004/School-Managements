@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Edit, Trash2, ArrowUpCircle } from "lucide-react";
 import { useSearchParams, Link } from "react-router-dom";
 import {
@@ -38,6 +38,11 @@ const ClassManagement = () => {
     const [promotingClass, setPromotingClass] = useState<ClassRoomDto | null>(null);
     const [showPromotionModal, setShowPromotionModal] = useState(false);
     const [currentAcademicYear, setCurrentAcademicYear] = useState<string>("");
+    const sortedClasses = useMemo(() => {
+        return [...classes].sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+        );
+    }, [classes]);
 
     // Initial load
     useEffect(() => {
@@ -123,7 +128,7 @@ const ClassManagement = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                        {classes.map((cls) => (
+                        {sortedClasses.map((cls) => (
                             <tr key={cls.id} className="hover:bg-blue-50 transition-colors">
                                 <td className="px-6 py-4 font-medium text-gray-900">
                                     <Link to={`/school-admin/classes/${cls.id}`}

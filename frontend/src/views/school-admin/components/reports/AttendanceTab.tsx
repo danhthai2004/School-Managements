@@ -1,179 +1,157 @@
 import {
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    ResponsiveContainer,
     PieChart,
     Pie,
     Cell,
+    Tooltip,
     Legend,
+    ResponsiveContainer,
 } from "recharts";
 import type { AttendanceReportDto } from "../../../../services/schoolReportService";
-import { CheckIcon } from "./ReportIcons";
 import StatCard from "./StatCard";
+import { Calendar, AlertCircle, CheckCircle } from "lucide-react";
 
 const AttendanceTab = ({ data }: { data: AttendanceReportDto }) => {
     const attendanceStatusData = [
-        { name: "Có mặt", value: data.attendanceByClass.reduce((sum, c) => sum + c.presentCount, 0), color: "#10B981" },
-        { name: "Vắng", value: data.attendanceByClass.reduce((sum, c) => sum + c.absentCount, 0), color: "#EF4444" },
-        { name: "Trễ", value: data.attendanceByClass.reduce((sum, c) => sum + c.lateCount, 0), color: "#F59E0B" },
-        { name: "Có phép", value: data.attendanceByClass.reduce((sum, c) => sum + c.excusedCount, 0), color: "#3B82F6" },
-    ].filter((d) => d.value > 0);
+        { name: "Trung bình có mặt", value: data.overallAttendanceRate, color: "#10B981" },
+        { name: "Vắng học", value: 100 - data.overallAttendanceRate, color: "#E5E7EB" },
+    ];
 
     return (
         <div className="space-y-6">
             {/* Summary Cards */}
-            <div className="grid grid-cols-4 gap-4">
-                <StatCard icon={<CheckIcon />} label="Tổng buổi học" value={data.totalSessions} color="blue" />
-                <StatCard
-                    icon={<CheckIcon />}
-                    label="Tỷ lệ có mặt"
-                    value={`${data.overallAttendanceRate}%`}
-                    color={data.overallAttendanceRate >= 90 ? "green" : data.overallAttendanceRate >= 80 ? "orange" : "gray"}
-                />
-                <StatCard icon={<CheckIcon />} label="Số lớp" value={data.attendanceByClass.length} color="purple" />
-                <StatCard icon={<CheckIcon />} label="HS vắng nhiều" value={data.chronicAbsentees.length} color="orange" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <StatCard icon={<Calendar />} label="Tỷ lệ chuyên cần chung" value={`${data.overallAttendanceRate.toFixed(1)}%`} color="blue" />
+                <StatCard icon={<AlertCircle />} label="Học sinh vắng nhiều" value={data.chronicAbsentees.length} color="orange" />
+                <StatCard icon={<CheckCircle />} label="Số tiết đã điểm danh" value={data.totalSessions} color="green" />
             </div>
 
-            {/* Charts Row */}
-            <div className="grid grid-cols-2 gap-6">
-                {/* Attendance Status Pie Chart */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Attendance Summary Pie */}
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Tổng hợp điểm danh</h3>
-                    {attendanceStatusData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={250}>
-                            <PieChart>
-                                <Pie
-                                    data={attendanceStatusData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={100}
-                                    paddingAngle={2}
-                                    dataKey="value"
-                                    label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                                >
-                                    {attendanceStatusData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                                <Legend />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <div className="h-[250px] flex items-center justify-center text-gray-400">
-                            Chưa có dữ liệu điểm danh
-                        </div>
-                    )}
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Tổng quan hiện diện</h3>
+                    <div className="h-[300px] flex flex-col items-center justify-center relative">
+                        {data.totalSessions > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={attendanceStatusData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={70}
+                                        outerRadius={100}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                        label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                                    >
+                                        {attendanceStatusData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip formatter={(v: any) => `${Number(v).toFixed(1)}%`} />
+                                    <Legend verticalAlign="bottom" height={36} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="text-center space-y-2">
+                                <div className="w-24 h-24 rounded-full border-4 border-dashed border-gray-100 mx-auto flex items-center justify-center">
+                                    <Calendar size={32} className="text-gray-200" />
+                                </div>
+                                <p className="text-gray-400 text-sm italic">Chưa có dữ liệu điểm danh trong 30 ngày qua</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* Attendance Rate by Class Bar Chart */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Tỷ lệ có mặt theo lớp</h3>
-                    {data.attendanceByClass.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={250}>
-                            <BarChart data={data.attendanceByClass.slice(0, 10)}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                <XAxis dataKey="className" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={60} />
-                                <YAxis domain={[0, 100]} />
-                                <Tooltip shared={false} cursor={{ fill: "transparent" }} formatter={(v) => [`${v}%`, "Tỷ lệ có mặt"]} />
-                                <Bar dataKey="attendanceRate" fill="#10B981" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <div className="h-[250px] flex items-center justify-center text-gray-400">
-                            Chưa có dữ liệu
-                        </div>
-                    )}
+                {/* Chronic Absentees List */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="p-6 border-b border-gray-50">
+                        <h3 className="text-lg font-semibold text-gray-900">Cảnh báo vắng học bất thường</h3>
+                    </div>
+                    <div className="p-6">
+                        {data.chronicAbsentees.length > 0 ? (
+                            <div className="space-y-4">
+                                {data.chronicAbsentees.slice(0, 5).map((s) => (
+                                    <div key={s.studentId} className="flex items-center justify-between p-3 bg-rose-50 rounded-lg border border-rose-100">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 font-bold text-xs">
+                                                {s.studentName.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-gray-900 text-sm">{s.studentName}</p>
+                                                <p className="text-[10px] text-gray-500">{s.className}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-bold text-rose-600 text-lg">{s.absentDays}</p>
+                                            <p className="text-[10px] text-rose-300 uppercase leading-none font-bold">Ngày vắng</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="h-40 flex flex-col items-center justify-center text-gray-300 border-2 border-dashed border-gray-50 rounded-xl">
+                                <CheckCircle size={32} strokeWidth={1} className="mb-2" />
+                                <p className="text-xs font-medium uppercase tracking-widest">Tất cả ổn định</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
             {/* Attendance by Class Table */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Chi tiết điểm danh theo lớp</h3>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-6 border-b border-gray-50">
+                    <h3 className="text-lg font-semibold text-gray-900">Chi tiết điểm danh theo lớp</h3>
+                </div>
                 <div className="overflow-x-auto">
-                    <table className="w-full">
+                    <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="border-b border-gray-200">
-                                <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Lớp</th>
-                                <th className="text-center py-3 px-4 text-sm font-medium text-gray-500">Khối</th>
-                                <th className="text-center py-3 px-4 text-sm font-medium text-gray-500">Số buổi</th>
-                                <th className="text-center py-3 px-4 text-sm font-medium text-green-600">Có mặt</th>
-                                <th className="text-center py-3 px-4 text-sm font-medium text-red-600">Vắng</th>
-                                <th className="text-center py-3 px-4 text-sm font-medium text-yellow-600">Trễ</th>
-                                <th className="text-center py-3 px-4 text-sm font-medium text-blue-600">Có phép</th>
-                                <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Tỷ lệ</th>
+                            <tr className="bg-gray-50 border-b border-gray-100">
+                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Lớp</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">Sĩ số</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tỷ lệ chuyên cần</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center text-rose-600">Vắng (TB/Tiết)</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center text-amber-600">Trễ (TB/Tiết)</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">Số tiết</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            {data.attendanceByClass.map((c) => (
-                                <tr key={c.classId} className="border-b border-gray-100 hover:bg-gray-50">
-                                    <td className="py-3 px-4 font-medium text-gray-900">{c.className}</td>
-                                    <td className="py-3 px-4 text-center text-gray-600">{c.grade}</td>
-                                    <td className="py-3 px-4 text-center text-gray-600">{c.totalSessions}</td>
-                                    <td className="py-3 px-4 text-center text-green-600 font-medium">{c.presentCount}</td>
-                                    <td className="py-3 px-4 text-center text-red-600 font-medium">{c.absentCount}</td>
-                                    <td className="py-3 px-4 text-center text-yellow-600 font-medium">{c.lateCount}</td>
-                                    <td className="py-3 px-4 text-center text-blue-600 font-medium">{c.excusedCount}</td>
-                                    <td className="py-3 px-4 text-right">
-                                        <span
-                                            className={`px-2 py-1 rounded-full text-xs font-medium ${c.attendanceRate >= 90
-                                                ? "bg-green-100 text-green-700"
-                                                : c.attendanceRate >= 80
-                                                    ? "bg-yellow-100 text-yellow-700"
-                                                    : "bg-red-100 text-red-700"
-                                                }`}
-                                        >
-                                            {c.attendanceRate}%
-                                        </span>
+                        <tbody className="divide-y divide-gray-100">
+                            {data.attendanceByClass.length > 0 ? (
+                                data.attendanceByClass.map((c) => (
+                                    <tr key={c.classId} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-6 py-4 font-medium text-gray-900">{c.className}</td>
+                                        <td className="px-6 py-4 text-center text-gray-600">{c.studentCount}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center justify-start gap-4">
+                                                <div className="w-[120px] bg-gray-100 rounded-full h-2 overflow-hidden">
+                                                    <div
+                                                        className={`h-full rounded-full transition-all duration-500 ${c.attendanceRate >= 90 ? 'bg-green-500' : 'bg-orange-500'}`}
+                                                        style={{ width: `${c.attendanceRate}%` }}
+                                                    />
+                                                </div>
+                                                <span className="font-bold text-gray-900 text-sm whitespace-nowrap">{c.attendanceRate}%</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-center text-rose-600 font-bold bg-rose-50/30">
+                                            {(c.absentCount / (c.totalSessions || 1)).toFixed(1)}
+                                        </td>
+                                        <td className="px-6 py-4 text-center text-amber-600 font-bold bg-amber-50/30">
+                                            {(c.lateCount / (c.totalSessions || 1)).toFixed(1)}
+                                        </td>
+                                        <td className="px-6 py-4 text-center font-medium text-gray-500">{c.totalSessions}</td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-10 text-center text-gray-400 italic">
+                                        Không có dữ liệu chi tiết cho các lớp
                                     </td>
                                 </tr>
-                            ))}
+                            )}
                         </tbody>
                     </table>
                 </div>
             </div>
-
-            {/* Chronic Absentees Table */}
-            {data.chronicAbsentees.length > 0 && (
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                        <span className="text-red-500">⚠️</span> Học sinh vắng nhiều (≥5 ngày)
-                    </h3>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-gray-200">
-                                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Mã HS</th>
-                                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Họ tên</th>
-                                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Lớp</th>
-                                    <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Số ngày vắng</th>
-                                    <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Tỷ lệ vắng</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {data.chronicAbsentees.map((s) => (
-                                    <tr key={s.studentId} className="border-b border-gray-100 hover:bg-gray-50">
-                                        <td className="py-3 px-4 text-gray-600">{s.studentCode}</td>
-                                        <td className="py-3 px-4 font-medium text-gray-900">{s.studentName}</td>
-                                        <td className="py-3 px-4 text-gray-600">{s.className}</td>
-                                        <td className="py-3 px-4 text-right">
-                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
-                                                {s.absentDays} ngày
-                                            </span>
-                                        </td>
-                                        <td className="py-3 px-4 text-right text-red-600 font-medium">{s.absentRate}%</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

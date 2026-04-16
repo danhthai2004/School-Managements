@@ -35,9 +35,7 @@ import com.schoolmanagement.backend.dto.timetable.TimetableReportDto;
 import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.student.Gender;
 import com.schoolmanagement.backend.domain.entity.admin.Semester;
-// Removed unused import
 import com.schoolmanagement.backend.domain.entity.attendance.Attendance;
-import com.schoolmanagement.backend.domain.entity.attendance.AttendanceSession;
 import com.schoolmanagement.backend.domain.attendance.AttendanceStatus;
 import com.schoolmanagement.backend.domain.student.StudentStatus;
 
@@ -68,7 +66,6 @@ public class ReportService {
         private final ClassRoomRepository classRoomRepository;
         private final ClassEnrollmentRepository enrollmentRepository;
         private final TeacherAssignmentRepository assignmentRepository;
-        private final AttendanceSessionRepository attendanceSessionRepository;
         private final AttendanceRepository attendanceRepository;
         private final GradeRepository gradeRepository;
         private final TimetableRepository timetableRepository;
@@ -408,22 +405,29 @@ public class ReportService {
          * Cần refactor lại khi merge hoàn tất
          */
         public AttendanceReportDto getAttendanceReport(School school) {
-                List<AttendanceSession> allSessions = attendanceSessionRepository.findAllBySchool(school);
-                long totalSessions = allSessions.size();
+                // Fetch attendance records for the last 30 days
+                // Use ClassRoom's school link in case direct school link is missing
+                // (legacy/buggy records)
+                List<Attendance> allAttendance = attendanceRepository.findByClassRoom_SchoolAndAttendanceDateBetween(
+                                school,
+                                LocalDate.now().minusMonths(1),
+                                LocalDate.now());
 
-                if (totalSessions == 0) {
+                if (allAttendance.isEmpty()) {
                         return new AttendanceReportDto(0L, 0.0, new ArrayList<>(), new ArrayList<>());
                 }
 
-                List<Attendance> allAttendance = attendanceRepository.findBySchoolAndAttendanceDateBetween(
-                                school,
-                                LocalDate.now().minusMonths(1), // Default to last 30 days if no range provided
-                                LocalDate.now());
-
-                long presentCount = allAttendance.stream().filter(a -> a.getStatus() == AttendanceStatus.PRESENT)
+                // Calculate total unique sessions from attendance records (Date + Class + Slot)
+                long totalSessions = allAttendance.stream()
+                                .map(a -> a.getAttendanceDate().toString() + "_" + a.getClassRoom().getId() + "_"
+                                                + a.getSlotIndex())
+                                .distinct()
                                 .count();
-                double overallAttendanceRate = allAttendance.isEmpty() ? 0.0
-                                : Math.round(presentCount * 100.0 / allAttendance.size() * 100.0) / 100.0;
+
+                long presentCount = allAttendance.stream()
+                                .filter(a -> a.getStatus() == AttendanceStatus.PRESENT)
+                                .count();
+                double overallAttendanceRate = Math.round(presentCount * 100.0 / allAttendance.size() * 100.0) / 100.0;
 
                 // Group by class
                 Map<ClassRoom, List<Attendance>> attendanceByClassMap = allAttendance.stream()
@@ -435,17 +439,27 @@ public class ReportService {
                                 .map(e -> {
                                         ClassRoom c = e.getKey();
                                         List<Attendance> classAttendance = e.getValue();
-                                        long classSessions = allSessions.stream()
-                                                        .filter(s -> s.getClassRoom().getId().equals(c.getId()))
+
+                                        // Sessions for this specific class
+                                        long classSessions = classAttendance.stream()
+                                                        .map(a -> a.getAttendanceDate().toString() + "_"
+                                                                        + a.getSlotIndex())
+                                                        .distinct()
                                                         .count();
+
                                         long cPresent = classAttendance.stream()
                                                         .filter(a -> a.getStatus() == AttendanceStatus.PRESENT).count();
                                         long cAbsent = classAttendance.stream()
-                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT).count();
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT
+                                                                        || a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED)
+                                                        .count();
                                         long cLate = classAttendance.stream()
                                                         .filter(a -> a.getStatus() == AttendanceStatus.LATE).count();
                                         long cExcused = classAttendance.stream()
-                                                        .filter(a -> a.getStatus() == AttendanceStatus.EXCUSED).count();
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_EXCUSED
+                                                                        || a.getStatus() == AttendanceStatus.EXCUSED)
+                                                        .count();
+
                                         double cRate = classAttendance.isEmpty() ? 0.0
                                                         : Math.round(cPresent * 100.0 / classAttendance.size() * 100.0)
                                                                         / 100.0;
@@ -455,6 +469,7 @@ public class ReportService {
                                                         c.getName(),
                                                         c.getGrade(),
                                                         classSessions,
+                                                        (int) enrollmentRepository.countByClassRoom(c),
                                                         cRate,
                                                         cPresent,
                                                         cAbsent,
@@ -465,7 +480,7 @@ public class ReportService {
                                                 .reversed())
                                 .toList();
 
-                // Chronic Absentees (Absent > 10% or some threshold)
+                // Chronic Absentees (Absent > 10% threshold)
                 Map<Student, List<Attendance>> attendanceByStudent = allAttendance.stream()
                                 .collect(Collectors.groupingBy(Attendance::getStudent));
 
@@ -474,7 +489,9 @@ public class ReportService {
                                         Student s = e.getKey();
                                         List<Attendance> studentAttendance = e.getValue();
                                         long sAbsent = studentAttendance.stream()
-                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT).count();
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT
+                                                                        || a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED)
+                                                        .count();
                                         double sAbsentRate = studentAttendance.isEmpty() ? 0.0
                                                         : Math.round(sAbsent * 100.0 / studentAttendance.size() * 100.0)
                                                                         / 100.0;
@@ -493,7 +510,7 @@ public class ReportService {
                                                         (int) sAbsent,
                                                         sAbsentRate);
                                 })
-                                .filter(dto -> dto.absentRate() > 10.0) // Threshold 10%
+                                .filter(dto -> dto.absentRate() > 10.0)
                                 .sorted(Comparator.comparing(AttendanceReportDto.ChronicAbsenteeDto::absentRate)
                                                 .reversed())
                                 .limit(20)

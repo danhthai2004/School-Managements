@@ -117,7 +117,9 @@ export default function TimetableDetailView() {
         return details.find(d => d.className === className && d.dayOfWeek === originalDayName && d.slotIndex === slot);
     };
 
-    const filteredClasses = classesList.filter(c => gradeFilter === "ALL" || c.grade.toString() === gradeFilter).sort((a, b) => a.name.localeCompare(b.name));
+    const filteredClasses = classesList
+        .filter(c => gradeFilter === "ALL" || c.grade.toString() === gradeFilter)
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 
     return (
         <div className="space-y-6">

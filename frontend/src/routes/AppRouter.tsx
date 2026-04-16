@@ -181,6 +181,7 @@ export default function AppRouter() {
         <Route path="reports" element={<TeacherReportsPage />} />
         <Route path="notifications" element={<TeacherNotificationsPage />} />
         <Route path="students" element={<StudentListPage />} />
+        <Route path="students/:id" element={<StudentProfilePage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="exam-schedule" element={<TeacherExamSchedulePage />} />
         <Route path="risk-analytics" element={<ClassRiskManagementPage />} />

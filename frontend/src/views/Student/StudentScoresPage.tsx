@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { studentService, type ScoreDto } from "../../services/studentService";
 import { Download, BookOpen } from "lucide-react";
 import { useSemester } from "../../context/SemesterContext";
@@ -17,6 +17,14 @@ export default function StudentScoresPage() {
     const [scores, setScores] = useState<ScoreDto[]>([]);
     const { activeSemester, allSemesters } = useSemester();
     const [selectedSemesterId, setSelectedSemesterId] = useState<string>("");
+
+    // Calculate max regular score columns
+    const maxRegularScores = useMemo(() => {
+        if (!scores || scores.length === 0) return 1;
+        const maxFound = Math.max(...scores.map(s => s.regularScores?.length || 0));
+        return Math.max(1, maxFound);
+    }, [scores]);
+
 
     // Initial load priority: System Active Semester
     useEffect(() => {
@@ -67,8 +75,8 @@ export default function StudentScoresPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <SemesterSelector 
-                        value={selectedSemesterId} 
+                    <SemesterSelector
+                        value={selectedSemesterId}
                         onChange={setSelectedSemesterId}
                         label=""
                         className="h-[42px]"
@@ -86,11 +94,16 @@ export default function StudentScoresPage() {
                     <table className="w-full">
                         <thead>
                             <tr className="bg-gray-50 border-b border-gray-100">
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Môn học</th>
-                                <th className="px-4 py-4 text-center text-sm font-semibold text-gray-600" colSpan={3}>Kiểm tra TX</th>
-                                <th className="px-4 py-4 text-center text-sm font-semibold text-gray-600">Giữa kỳ</th>
-                                <th className="px-4 py-4 text-center text-sm font-semibold text-gray-600">Cuối kỳ</th>
-                                <th className="px-4 py-4 text-center text-sm font-semibold text-gray-600">Trung bình</th>
+                                <th rowSpan={2} className="px-6 py-4 text-left text-sm font-semibold text-gray-600 border-r border-gray-100">Môn học</th>
+                                <th colSpan={maxRegularScores} className="px-4 py-2 text-center text-sm font-semibold text-gray-600 border-b border-gray-100">Kiểm tra TX</th>
+                                <th rowSpan={2} className="px-4 py-4 text-center text-sm font-semibold text-gray-600 border-l border-gray-100">Giữa kỳ</th>
+                                <th rowSpan={2} className="px-4 py-4 text-center text-sm font-semibold text-gray-600 border-l border-gray-100">Cuối kỳ</th>
+                                <th rowSpan={2} className="px-4 py-4 text-center text-sm font-semibold text-gray-600 border-l border-gray-100">Trung bình</th>
+                            </tr>
+                            <tr className="bg-gray-50/50 border-b border-gray-100">
+                                {Array.from({ length: maxRegularScores }).map((_, i) => (
+                                    <th key={i} className="px-2 py-1 text-center text-[10px] font-bold text-gray-400 uppercase border-r last:border-r-0 border-gray-100">TX{i + 1}</th>
+                                ))}
                             </tr>
                         </thead>
                         <tbody>
@@ -99,15 +112,11 @@ export default function StudentScoresPage() {
                                     <td className="px-6 py-4">
                                         <span className="text-sm font-semibold text-gray-800">{score.subjectName}</span>
                                     </td>
-                                    <td className={`px-3 py-4 text-center text-sm font-bold ${getScoreColor(score.oralScore)}`}>
-                                        {score.oralScore ?? "-"}
-                                    </td>
-                                    <td className={`px-3 py-4 text-center text-sm font-bold ${getScoreColor(score.test15Score)}`}>
-                                        {score.test15Score ?? "-"}
-                                    </td>
-                                    <td className={`px-3 py-4 text-center text-sm font-bold ${getScoreColor(score.test45Score)}`}>
-                                        {score.test45Score ?? "-"}
-                                    </td>
+                                    {Array.from({ length: maxRegularScores }).map((_, i) => (
+                                        <td key={i} className={`px-2 py-4 text-center text-sm font-bold ${getScoreColor(score.regularScores[i])}`}>
+                                            {score.regularScores[i] ?? "-"}
+                                        </td>
+                                    ))}
                                     <td className={`px-4 py-4 text-center text-sm font-bold ${getScoreColor(score.midtermScore)}`}>
                                         {score.midtermScore ?? "-"}
                                     </td>
@@ -134,7 +143,7 @@ export default function StudentScoresPage() {
                             ))}
                             {scores.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-12 text-center">
+                                    <td colSpan={maxRegularScores + 4} className="px-6 py-12 text-center">
                                         <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                                         <p className="text-gray-500 font-medium">Chưa có điểm cho học kỳ này</p>
                                         <p className="text-sm text-gray-400 mt-1">Điểm sẽ hiển thị khi giáo viên nhập vào hệ thống</p>
@@ -145,7 +154,7 @@ export default function StudentScoresPage() {
                             {scores.length > 0 && (
                                 <tr className="font-semibold border-t border-gray-100">
                                     <td className="px-6 py-4 text-gray-900">Tổng kết</td>
-                                    <td className="px-3 py-4" colSpan={5}></td>
+                                    <td className="px-3 py-4" colSpan={maxRegularScores + 2}></td>
                                     <td className="px-4 py-4 text-center">
                                         <div className="text-lg font-bold text-blue-600">
                                             {overallAverage?.toFixed(1) ?? "-"}
@@ -162,6 +171,6 @@ export default function StudentScoresPage() {
                     </table>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

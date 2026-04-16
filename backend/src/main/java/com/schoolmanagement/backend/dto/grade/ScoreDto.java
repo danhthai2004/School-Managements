@@ -8,9 +8,7 @@ import lombok.Data;
 public class ScoreDto {
     private String subjectId;
     private String subjectName;
-    private Double oralScore;
-    private Double test15Score;
-    private Double test45Score;
+    private java.util.List<Double> regularScores;
     private Double midtermScore;
     private Double finalScore;
     private Double averageScore;

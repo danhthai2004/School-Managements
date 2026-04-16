@@ -8,93 +8,101 @@ import {
     ResponsiveContainer,
 } from "recharts";
 import type { AcademicReportDto } from "../../../../services/schoolReportService";
-import { BookIcon } from "./ReportIcons";
 import StatCard from "./StatCard";
+import { GraduationCap, Trophy, Award } from "lucide-react";
 
 const AcademicTab = ({ data }: { data: AcademicReportDto }) => {
+    // Academic year and semester from data
+    const title = `Kết quả học tập HK${data.semester} - Năm học ${data.academicYear}`;
+
     return (
         <div className="space-y-6">
+            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest">{title}</h2>
+
             {/* Summary Cards */}
-            <div className="grid grid-cols-4 gap-4">
-                <StatCard icon={<BookIcon />} label="Tổng bản ghi điểm" value={data.totalGradeRecords} color="blue" />
-                <StatCard icon={<BookIcon />} label="ĐTB chung" value={data.overallAverageScore} color="green" />
-                <StatCard icon={<BookIcon />} label="Năm học" value={data.academicYear} color="purple" />
-                <StatCard icon={<BookIcon />} label="Học kỳ" value={`HK${data.semester}`} color="orange" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <StatCard icon={<Trophy />} label="Điểm trung bình toàn trường" value={data.overallAverageScore.toFixed(2)} color="blue" />
+                <StatCard icon={<Award />} label="Tổng số bản ghi điểm" value={data.totalGradeRecords} color="green" />
+                <StatCard icon={<GraduationCap />} label="Số môn học" value={data.subjectAverages.length} color="indigo" />
             </div>
 
-            {/* Charts Row */}
-            <div className="grid grid-cols-2 gap-6">
-                {/* Grade Distribution */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Phân bố điểm số</h3>
-                    {data.gradeDistribution.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={250}>
-                            <BarChart data={data.gradeDistribution}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                <XAxis dataKey="range" />
-                                <YAxis />
-                                <Tooltip shared={false} cursor={{ fill: "transparent" }} formatter={(v, name) => [v, name === "count" ? "Số lượng" : "Tỷ lệ"]} />
-                                <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <div className="h-[250px] flex items-center justify-center text-gray-400">
-                            Chưa có dữ liệu điểm
-                        </div>
-                    )}
-                </div>
-
-                {/* Subject Averages */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Điểm TB theo môn</h3>
-                    {data.subjectAverages.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={250}>
-                            <BarChart data={data.subjectAverages.slice(0, 8)} layout="vertical">
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                <XAxis type="number" domain={[0, 10]} />
-                                <YAxis dataKey="subjectName" type="category" width={80} tick={{ fontSize: 11 }} />
-                                <Tooltip shared={false} cursor={{ fill: "transparent" }} formatter={(v) => [`${v}`, "ĐTB"]} />
-                                <Bar dataKey="averageScore" fill="#10B981" radius={[0, 4, 4, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <div className="h-[250px] flex items-center justify-center text-gray-400">
-                            Chưa có dữ liệu
-                        </div>
-                    )}
+            {/* Subject Performance Bar Chart */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Điểm trung bình theo môn học</h3>
+                <div className="h-[350px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data.subjectAverages} margin={{ bottom: 40 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                            <XAxis
+                                dataKey="subjectName"
+                                interval={0}
+                                angle={-45}
+                                textAnchor="end"
+                                height={80}
+                                tick={{ fontSize: 11 }}
+                            />
+                            <YAxis domain={[0, 10]} />
+                            <Tooltip labelFormatter={(v) => `Môn: ${v}`} />
+                            <Bar dataKey="averageScore" name="Điểm TB" fill="#3B82F6" radius={[4, 4, 0, 0]} barSize={40} />
+                        </BarChart>
+                    </ResponsiveContainer>
                 </div>
             </div>
 
-            {/* Top Students Table */}
-            {data.topStudents.length > 0 && (
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                        ⭐ Top học sinh xuất sắc (ĐTB ≥ 8.0)
-                    </h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Top Students List */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="p-6 border-b border-gray-50 flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-gray-900">Học sinh tiêu biểu</h3>
+                    </div>
+                    <div className="p-6">
+                        <div className="space-y-4">
+                            {data.topStudents.slice(0, 5).map((s, idx) => (
+                                <div key={s.studentId} className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${idx === 0 ? "bg-yellow-400 text-white" : "bg-blue-100 text-blue-600"}`}>
+                                            {idx + 1}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-gray-900 text-sm">{s.studentName}</p>
+                                            <p className="text-xs text-gray-500">{s.className} • {s.performanceCategory}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-black text-blue-600 text-lg">{s.averageScore.toFixed(2)}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Class Averages Table */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="p-6 border-b border-gray-50">
+                        <h3 className="text-lg font-semibold text-gray-900">Điểm trung bình theo lớp</h3>
+                    </div>
                     <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-gray-200">
-                                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">#</th>
-                                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Mã HS</th>
-                                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Họ tên</th>
-                                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Lớp</th>
-                                    <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">ĐTB</th>
-                                    <th className="text-center py-3 px-4 text-sm font-medium text-gray-500">Xếp loại</th>
+                        <table className="w-full text-left">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Tên lớp</th>
+                                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase text-center">Khối</th>
+                                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase text-center">Điểm TB</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {data.topStudents.map((s, idx) => (
-                                    <tr key={s.studentId} className="border-b border-gray-100 hover:bg-gray-50">
-                                        <td className="py-3 px-4 text-gray-600">{idx + 1}</td>
-                                        <td className="py-3 px-4 text-gray-600">{s.studentCode}</td>
-                                        <td className="py-3 px-4 font-medium text-gray-900">{s.studentName}</td>
-                                        <td className="py-3 px-4 text-gray-600">{s.className}</td>
-                                        <td className="py-3 px-4 text-right font-bold text-green-600">{s.averageScore}</td>
-                                        <td className="py-3 px-4 text-center">
-                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                                                {s.performanceCategory}
-                                            </span>
+                            <tbody className="divide-y divide-gray-100">
+                                {data.classAverages.slice(0, 10).sort((a, b) => b.averageScore - a.averageScore).map((c) => (
+                                    <tr key={c.classId}>
+                                        <td className="px-6 py-4 font-medium text-gray-900">{c.className}</td>
+                                        <td className="px-6 py-4 text-gray-500 text-center">{c.grade}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center justify-center gap-3">
+                                                <div className="flex-1 bg-gray-100 rounded-full h-1.5 max-w-[80px]">
+                                                    <div className="bg-green-500 h-1.5 rounded-full" style={{ width: `${(c.averageScore / 10) * 100}%` }} />
+                                                </div>
+                                                <span className="font-bold text-gray-900 text-xs">{c.averageScore.toFixed(2)}</span>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -102,42 +110,7 @@ const AcademicTab = ({ data }: { data: AcademicReportDto }) => {
                         </table>
                     </div>
                 </div>
-            )}
-
-            {/* Class Averages Table */}
-            {data.classAverages.length > 0 && (
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Điểm TB theo lớp</h3>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-gray-200">
-                                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Lớp</th>
-                                    <th className="text-center py-3 px-4 text-sm font-medium text-gray-500">Khối</th>
-                                    <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">ĐTB</th>
-                                    <th className="text-center py-3 px-4 text-sm font-medium text-green-600">Giỏi</th>
-                                    <th className="text-center py-3 px-4 text-sm font-medium text-blue-600">Khá</th>
-                                    <th className="text-center py-3 px-4 text-sm font-medium text-yellow-600">TB</th>
-                                    <th className="text-center py-3 px-4 text-sm font-medium text-red-600">Yếu</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {data.classAverages.map((c) => (
-                                    <tr key={c.classId} className="border-b border-gray-100 hover:bg-gray-50">
-                                        <td className="py-3 px-4 font-medium text-gray-900">{c.className}</td>
-                                        <td className="py-3 px-4 text-center text-gray-600">{c.grade}</td>
-                                        <td className="py-3 px-4 text-right font-bold text-blue-600">{c.averageScore}</td>
-                                        <td className="py-3 px-4 text-center text-green-600 font-medium">{c.excellentCount}</td>
-                                        <td className="py-3 px-4 text-center text-blue-600 font-medium">{c.goodCount}</td>
-                                        <td className="py-3 px-4 text-center text-yellow-600 font-medium">{c.averageCount}</td>
-                                        <td className="py-3 px-4 text-center text-red-600 font-medium">{c.belowAverageCount}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
+            </div>
         </div>
     );
 };

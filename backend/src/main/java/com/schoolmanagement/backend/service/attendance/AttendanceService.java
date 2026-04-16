@@ -133,7 +133,8 @@ public class AttendanceService {
                 // Block future dates
                 if (request.getDate().isAfter(today)) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                        "Không thể thực hiện điểm danh cho tương lai. Vui lòng quay lại vào ngày " + request.getDate());
+                                        "Không thể thực hiện điểm danh cho tương lai. Vui lòng quay lại vào ngày "
+                                                        + request.getDate());
                 }
 
                 com.schoolmanagement.backend.domain.entity.admin.Semester currentSemester = semesterService
@@ -183,6 +184,7 @@ public class AttendanceService {
                                 attendance = Attendance.builder()
                                                 .student(student)
                                                 .classRoom(classRoom)
+                                                .school(teacher.getUser().getSchool())
                                                 .subject(timetableDetail.getSubject())
                                                 .teacher(teacher)
                                                 .attendanceDate(request.getDate())

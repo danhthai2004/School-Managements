@@ -30,15 +30,18 @@ public class StudentController {
 
     private final StudentManagementService studentManagementService;
     private final StudentImportService studentImportService;
+    private final com.schoolmanagement.backend.service.student.StudentPortalService studentPortalService;
     private final UserLookupService userLookup;
     private final com.schoolmanagement.backend.repo.admin.AcademicYearRepository academicYearRepository;
 
     public StudentController(StudentManagementService studentManagementService,
             StudentImportService studentImportService,
+            com.schoolmanagement.backend.service.student.StudentPortalService studentPortalService,
             UserLookupService userLookup,
             com.schoolmanagement.backend.repo.admin.AcademicYearRepository academicYearRepository) {
         this.studentManagementService = studentManagementService;
         this.studentImportService = studentImportService;
+        this.studentPortalService = studentPortalService;
         this.userLookup = userLookup;
         this.academicYearRepository = academicYearRepository;
     }
@@ -165,5 +168,12 @@ public class StudentController {
         }
         String url = studentManagementService.uploadAvatar(admin.getSchool(), studentId, file);
         return java.util.Map.of("url", url);
+    }
+
+    @GetMapping("/students/{id}/scores")
+    public List<com.schoolmanagement.backend.dto.grade.ScoreDto> getStudentScores(
+            @PathVariable("id") UUID studentId,
+            @RequestParam(required = false) String semesterId) {
+        return studentPortalService.getScores(studentId, semesterId);
     }
 }

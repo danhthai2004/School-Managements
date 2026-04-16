@@ -5,6 +5,8 @@ import com.schoolmanagement.backend.dto.common.*;
 import com.schoolmanagement.backend.dto.exam.ExamScheduleDto;
 import com.schoolmanagement.backend.dto.student.HomeroomStudentDto;
 import com.schoolmanagement.backend.dto.student.StudentRiskAnalysisDto;
+import com.schoolmanagement.backend.dto.student.StudentProfileDto;
+import com.schoolmanagement.backend.dto.grade.ScoreDto;
 import com.schoolmanagement.backend.dto.teacher.TeacherDashboardStatsDto;
 import com.schoolmanagement.backend.dto.teacher.TeacherProfileDto;
 
@@ -75,6 +77,22 @@ public class TeacherPortalController {
             @AuthenticationPrincipal UserDetails userDetails) {
         List<HomeroomStudentDto> students = teacherPortalService.getHomeroomStudents(userDetails.getUsername());
         return ResponseEntity.ok(students);
+    }
+
+    @GetMapping("/students/{id}/profile")
+    public ResponseEntity<StudentProfileDto> getStudentProfile(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable java.util.UUID id) {
+        return ResponseEntity.ok(teacherPortalService.getHomeroomStudentProfile(userDetails.getUsername(), id));
+    }
+
+    @GetMapping("/students/{id}/scores")
+    public ResponseEntity<List<ScoreDto>> getStudentScores(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable java.util.UUID id,
+            @RequestParam(required = false) java.util.UUID semesterId) {
+        return ResponseEntity
+                .ok(teacherPortalService.getHomeroomStudentScores(userDetails.getUsername(), id, semesterId));
     }
 
     @GetMapping("/students/export")

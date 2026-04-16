@@ -130,6 +130,12 @@ const StudentManagement = () => {
         setCurrentPage(1);
     }, [searchTerm, gradeFilter, classFilter, statusFilter, sortConfig]);
 
+    const sortedClasses = useMemo(() => {
+        return [...classes].sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+        );
+    }, [classes]);
+
     const handleSort = (key: keyof StudentDto | 'currentClassName') => {
         setSortConfig(current => {
             if (current?.key === key) {
@@ -357,7 +363,7 @@ const StudentManagement = () => {
                     className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm focus:border-blue-500 outline-none"
                 >
                     <option value="">Tất cả lớp</option>
-                    {classes.map(c => (
+                    {sortedClasses.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                 </select>
