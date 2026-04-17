@@ -8,7 +8,6 @@ import com.schoolmanagement.backend.domain.entity.teacher.Teacher;
 import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.teacher.TeacherAssignment;
 
-
 import com.schoolmanagement.backend.dto.teacher.TeacherAssignmentDto;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
@@ -49,7 +48,7 @@ public class TeacherAssignmentService {
 
             for (Subject subject : combo.getSubjects()) {
                 // Check if assignment already exists
-                if (assignments.findByClassRoomAndSubject(cls, subject).isEmpty()) {
+                if (assignments.findFirstByClassRoomAndSubject(cls, subject).isEmpty()) {
                     TeacherAssignment assignment = TeacherAssignment.builder()
                             .classRoom(cls)
                             .subject(subject)
@@ -138,20 +137,23 @@ public class TeacherAssignmentService {
 
         assignment.setTeacher(teacher);
         assignment = assignments.save(assignment);
-        
+
         // Sync with timetables matching the class and subject
-        timetableDetailRepository.updateTeacherForClassAndSubject(assignment.getClassRoom(), assignment.getSubject(), teacher);
-        
+        timetableDetailRepository.updateTeacherForClassAndSubject(assignment.getClassRoom(), assignment.getSubject(),
+                teacher);
+
         return toDto(assignment);
     }
 
     @Transactional
-    public List<TeacherAssignmentDto> bulkAssignTeachers(School school, java.util.List<com.schoolmanagement.backend.dto.teacher.TeacherAssignmentUpdate> updates) {
+    public List<TeacherAssignmentDto> bulkAssignTeachers(School school,
+            java.util.List<com.schoolmanagement.backend.dto.teacher.TeacherAssignmentUpdate> updates) {
         return updates.stream().map(update -> {
             try {
                 return assignTeacher(school, update.assignmentId(), update.teacherId());
             } catch (Exception e) {
-                // If one fails, the transaction rolls back, but we can also just throw exception
+                // If one fails, the transaction rolls back, but we can also just throw
+                // exception
                 throw e; // Or handle selectively
             }
         }).collect(Collectors.toList());
@@ -183,6 +185,7 @@ public class TeacherAssignmentService {
                 entity.getSubject().getName(),
                 entity.getTeacher() != null ? entity.getTeacher().getId() : null,
                 entity.getTeacher() != null ? entity.getTeacher().getFullName() : null,
-                entity.getLessonsPerWeek());
+                entity.getLessonsPerWeek(),
+                false); // default isHeadOfDepartment
     }
 }

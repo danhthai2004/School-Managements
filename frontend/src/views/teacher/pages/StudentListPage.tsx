@@ -3,6 +3,8 @@ import { useOutletContext, useNavigate } from "react-router-dom";
 import { teacherService, type HomeroomStudent, type TeacherProfile } from "../../../services/teacherService";
 import { StatusBadge } from "../../../components/common/StatusBadge";
 import { vietnameseNameSort } from "../../../utils/sortUtils";
+import { usePagination } from "../../../hooks/usePagination";
+import Pagination from "../../../components/common/Pagination";
 
 type OutletContextType = {
     teacherProfile: TeacherProfile | null;
@@ -90,6 +92,15 @@ export default function StudentListPage() {
             }
         });
     }, [students, searchQuery, statusFilter, sortBy]);
+
+    const {
+        paginatedData: paginatedStudents,
+        currentPage,
+        totalPages,
+        pageSize,
+        goToPage: handlePageChange,
+        setPageSize: handlePageSizeChange
+    } = usePagination(filteredStudents, { dependencies: [searchQuery, statusFilter] });
 
     // Calculate statistics
     const stats = useMemo(() => {
@@ -279,7 +290,7 @@ export default function StudentListPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 bg-white">
-                            {filteredStudents.map((student) => (
+                            {paginatedStudents.map((student) => (
                                 <tr key={student.id} className="hover:bg-blue-50 transition-colors group">
                                     {/* Student Name + Avatar */}
                                     <td className="px-6 py-4">
@@ -367,6 +378,18 @@ export default function StudentListPage() {
                         </tbody>
                     </table>
                 </div>
+                {totalPages > 1 && (
+                    <div className="border-t border-gray-100">
+                        <Pagination
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={handlePageChange}
+                            pageSize={pageSize}
+                            onPageSizeChange={handlePageSizeChange}
+                            totalItems={filteredStudents.length}
+                        />
+                    </div>
+                )}
             </div>
 
         </div >

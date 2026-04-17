@@ -18,6 +18,18 @@ import {
     CalendarIcon,
 } from "../TeacherIcons";
 import { useAuth } from "../../../context/AuthContext";
+import {
+    Brain,
+    Lightbulb,
+    GraduationCap,
+    ClipboardCheck,
+    AlertTriangle,
+    Circle,
+    TrendingUp,
+    TrendingDown,
+    Zap,
+    ChevronRight
+} from "lucide-react";
 
 // Animated Counter Component (synced with Admin Dashboard)
 const AnimatedCounter = ({ value, duration = 1000 }: { value: number | string; duration?: number }) => {
@@ -208,8 +220,10 @@ export default function TeacherDashboard() {
                 <div className="grid grid-cols-2 gap-6 mb-8">
                     {/* Phân tích rủi ro AI */}
                     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                        <div className="flex items-center gap-2 mb-4">
-                            <span className="text-lg">🧠</span>
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100/50">
+                                <Brain className="w-5 h-5 line-height-0" />
+                            </div>
                             <h2 className="text-lg font-bold text-gray-900">Phân tích rủi ro AI</h2>
                         </div>
 
@@ -219,8 +233,8 @@ export default function TeacherDashboard() {
                                     <RiskCard key={student.studentId} student={student} />
                                 ))
                             ) : (
-                                <div className="text-center py-8 text-gray-400 italic text-sm">
-                                    Không có dữ liệu phân tích rủi ro
+                                <div className="text-center py-8 text-gray-400 italic text-sm bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+                                    Chưa có dữ liệu phân tích rủi ro
                                 </div>
                             )}
                         </div>
@@ -228,8 +242,10 @@ export default function TeacherDashboard() {
 
                     {/* Đề xuất từ AI */}
                     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                        <div className="flex items-center gap-2 mb-4">
-                            <span className="text-lg">💡</span>
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 shadow-sm border border-amber-100/50">
+                                <Lightbulb className="w-5 h-5" />
+                            </div>
                             <h2 className="text-lg font-bold text-gray-900">Đề xuất từ AI</h2>
                         </div>
 
@@ -239,8 +255,8 @@ export default function TeacherDashboard() {
                                     <RecommendationCard key={rec.id} recommendation={rec} />
                                 ))
                             ) : (
-                                <div className="text-center py-8 text-gray-400 italic text-sm">
-                                    Không có đề xuất mới từ AI
+                                <div className="text-center py-8 text-gray-400 italic text-sm bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+                                    Chưa có đề xuất từ AI
                                 </div>
                             )}
                         </div>
@@ -282,17 +298,18 @@ function StatCard({
             <div className="flex items-start justify-between">
                 <div>
                     <p className="text-sm text-gray-500 font-medium mb-1">{title}</p>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-2xl font-bold text-gray-900 leading-none">
                         {typeof value === 'number' ? <AnimatedCounter value={value} /> : value}
                     </p>
-                    {subtitle && <p className="text-sm text-gray-400">{subtitle}</p>}
+                    {subtitle && <p className="text-sm text-gray-400 mt-1">{subtitle}</p>}
                     {change && (
-                        <p className={`text-xs mt-1 ${changePositive ? 'text-green-600' : 'text-red-500'}`}>
-                            {changePositive ? '↑' : '↓'} {change}
-                        </p>
+                        <div className={`flex items-center gap-1 text-xs mt-2 font-bold ${changePositive ? 'text-emerald-600' : 'text-rose-500'}`}>
+                            {changePositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                            <span>{change}</span>
+                        </div>
                     )}
                 </div>
-                <div className={`w-12 h-12 ${bgColor} rounded-xl flex items-center justify-center ${iconColor} flex-shrink-0`}>
+                <div className={`w-12 h-12 ${bgColor} rounded-xl flex items-center justify-center ${iconColor} flex-shrink-0 shadow-sm`}>
                     {icon}
                 </div>
             </div>
@@ -302,25 +319,27 @@ function StatCard({
 
 function RiskCard({ student }: { student: StudentRiskAnalysis }) {
     const riskColors = {
-        HIGH: { bg: "bg-red-100", text: "text-red-600", label: "Rủi ro cao" },
-        MEDIUM: { bg: "bg-yellow-100", text: "text-yellow-600", label: "Trung bình" },
-        LOW: { bg: "bg-green-100", text: "text-green-600", label: "Ổn định" },
+        HIGH: { bg: "bg-red-50", text: "text-red-700", border: "border-red-100", label: "Rủi ro cao", icon: AlertTriangle },
+        MEDIUM: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-100", label: "Trung bình", icon: Zap },
+        LOW: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-100", label: "Ổn định", icon: ClipboardCheck },
     };
     const colors = riskColors[student.riskLevel];
+    const StatusIcon = colors.icon;
 
     return (
-        <div className="border border-gray-100 rounded-lg p-4">
-            <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 font-medium">
+        <div className="border border-gray-100 rounded-xl p-4 bg-white hover:border-indigo-100 transition-all group">
+            <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-bold text-sm shadow-sm border border-indigo-100">
                     {student.studentName.charAt(0)}
                 </div>
                 <div className="flex-1">
-                    <p className="font-medium text-gray-900">{student.studentName}</p>
-                    <div className="flex gap-2">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${colors.bg} ${colors.text}`}>
+                    <p className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors uppercase tracking-tight text-xs">{student.studentName}</p>
+                    <div className="flex gap-2 mt-1">
+                        <span className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-widest font-black px-2 py-0.5 rounded-lg border ${colors.bg} ${colors.text} ${colors.border}`}>
+                            <StatusIcon className="w-3 h-3" />
                             {colors.label}
                         </span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-600">
+                        <span className="text-[10px] uppercase tracking-widest font-black px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100">
                             {student.riskType}
                         </span>
                     </div>
@@ -328,16 +347,16 @@ function RiskCard({ student }: { student: StudentRiskAnalysis }) {
             </div>
 
             {/* Progress bars */}
-            <div className="space-y-2 mb-3">
+            <div className="space-y-3 mb-4 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
                 {student.metrics.map((metric, idx) => (
                     <div key={idx}>
-                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <div className="flex justify-between text-[10px] font-black uppercase tracking-tight text-slate-500 mb-1.5">
                             <span>{metric.label}</span>
-                            <span>{metric.value}/{metric.maxValue}</span>
+                            <span>{metric.value} / {metric.maxValue}</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
                             <div
-                                className="bg-blue-500 h-2 rounded-full"
+                                className="bg-indigo-500 h-full rounded-full transition-all duration-1000"
                                 style={{ width: `${(metric.value / metric.maxValue) * 100}%` }}
                             />
                         </div>
@@ -346,12 +365,12 @@ function RiskCard({ student }: { student: StudentRiskAnalysis }) {
             </div>
 
             {/* Suggestions */}
-            <div className="text-sm text-gray-600">
-                <p className="font-medium mb-1">Đề xuất can thiệp:</p>
-                <ul className="space-y-1">
+            <div className="text-sm">
+                <p className="font-black text-[10px] uppercase tracking-widest text-slate-400 mb-2">Đề xuất can thiệp:</p>
+                <ul className="space-y-1.5">
                     {student.suggestions.map((s, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                            <span className="text-blue-500 mt-0.5">○</span>
+                        <li key={idx} className="flex items-start gap-2.5 text-xs text-slate-700 font-medium leading-relaxed">
+                            <Circle className="w-1.5 h-1.5 text-indigo-500 mt-1.5 fill-indigo-500" />
                             <span>{s}</span>
                         </li>
                     ))}
@@ -363,45 +382,48 @@ function RiskCard({ student }: { student: StudentRiskAnalysis }) {
 
 function RecommendationCard({ recommendation }: { recommendation: AIRecommendation }) {
     const priorityColors = {
-        HIGH: { bg: "bg-red-100", text: "text-red-600" },
-        MEDIUM: { bg: "bg-yellow-100", text: "text-yellow-600" },
-        LOW: { bg: "bg-green-100", text: "text-green-600" },
+        HIGH: { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-100" },
+        MEDIUM: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-100" },
+        LOW: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-100" },
     };
     const colors = priorityColors[recommendation.priority];
 
     const typeIcons = {
-        ACADEMIC: "📚",
-        ATTENDANCE: "📋",
-        DISCIPLINE: "⚠️",
+        ACADEMIC: GraduationCap,
+        ATTENDANCE: ClipboardCheck,
+        DISCIPLINE: AlertTriangle,
     };
+    const IconComponent = typeIcons[recommendation.type] || GraduationCap;
 
     return (
-        <div className="border border-gray-100 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-                <span className="text-xl">{typeIcons[recommendation.type]}</span>
+        <div className="border border-gray-100 rounded-xl p-4 hover:border-amber-100 transition-all overflow-hidden bg-white">
+            <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 border border-slate-100 shrink-0">
+                    <IconComponent className="w-5 h-5" />
+                </div>
                 <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-medium text-gray-900">{recommendation.title}</h4>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${colors.bg} ${colors.text}`}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                        <h4 className="font-bold text-gray-900 tracking-tight text-sm uppercase">{recommendation.title}</h4>
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg border ${colors.bg} ${colors.text} ${colors.border}`}>
                             {recommendation.priority === 'HIGH' ? 'Ưu tiên cao' :
                                 recommendation.priority === 'MEDIUM' ? 'Ưu tiên TB' : 'Ưu tiên thấp'}
                         </span>
                     </div>
-                    <p className="text-sm text-gray-500 mb-2">{recommendation.description}</p>
-                    <div className="space-y-1">
+                    <p className="text-xs text-slate-500 mb-3 font-medium leading-relaxed">{recommendation.description}</p>
+                    <div className="space-y-1.5 mb-3">
                         {recommendation.actions.map((action, idx) => (
-                            <p key={idx} className="text-sm text-gray-600 flex items-start gap-2">
-                                <span className="text-blue-500">○</span>
+                            <div key={idx} className="text-xs text-slate-700 flex items-start gap-2 font-medium">
+                                <Circle className="w-1.5 h-1.5 text-blue-500 mt-1.5 fill-blue-500" />
                                 <span>{action}</span>
-                            </p>
+                            </div>
                         ))}
                     </div>
-                    <button className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium">
-                        Xem chi tiết và thực hiện →
+                    <button className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-black uppercase tracking-widest transition-all hover:gap-2">
+                        Thực hiện ngay
+                        <ChevronRight className="w-3 h-3" strokeWidth={3} />
                     </button>
                 </div>
             </div>
         </div>
     );
 }
-

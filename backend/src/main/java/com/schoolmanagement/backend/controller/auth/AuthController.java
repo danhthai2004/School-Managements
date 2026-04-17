@@ -66,9 +66,29 @@ public class AuthController {
         return auth.me(principal.getId());
     }
 
-    @PostMapping("/logout")
-    public MessageResponse logout() {
-        // JWT is stateless: frontend clears token.
-        return new MessageResponse("OK");
+    @PutMapping("/profile")
+    public UserDto updateProfile(@AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody com.schoolmanagement.backend.dto.request.auth.UpdateProfileRequest req) {
+        return auth.updateProfile(principal.getId(), req);
     }
+
+    @PutMapping("/change-password")
+    public MessageResponse changePassword(@AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody com.schoolmanagement.backend.dto.request.auth.ChangePasswordRequest req) {
+        return auth.changePassword(principal.getId(), req.currentPassword(), req.newPassword());
+    }
+
+    @PostMapping("/logout")
+    public MessageResponse logout(jakarta.servlet.http.HttpServletRequest request) {
+        auth.logoutCurrentDevice(request);
+        return new MessageResponse("Đã đăng xuất khỏi thiết bị này.");
+    }
+
+    @PostMapping("/logout-other-devices")
+    public MessageResponse logoutOtherDevices(@AuthenticationPrincipal UserPrincipal principal,
+            jakarta.servlet.http.HttpServletRequest request) {
+        auth.logoutOtherDevices(principal.getId(), request);
+        return new MessageResponse("Đã đăng xuất khỏi các thiết bị khác.");
+    }
+
 }

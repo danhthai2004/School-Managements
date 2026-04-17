@@ -73,4 +73,29 @@ public interface TimetableDetailRepository extends JpaRepository<TimetableDetail
         void nullifyTeacherId(@Param("teacherId") UUID teacherId);
 
         List<TimetableDetail> findAllByTimetableAndDayOfWeek(Timetable timetable, DayOfWeek dayOfWeek);
+
+        List<TimetableDetail> findAllByTimetableAndClassRoomAndDayOfWeek(Timetable timetable, ClassRoom classRoom, DayOfWeek dayOfWeek);
+
+        void deleteByTimetableAndIsFixedFalse(Timetable timetable);
+
+        void deleteByTeacherId(UUID teacherId);
+
+        boolean existsByTimetable_StatusAndTeacher_User_IdAndClassRoom_IdAndSubject_Id(
+                        com.schoolmanagement.backend.domain.timetable.TimetableStatus status,
+                        UUID teacherUserId, UUID classRoomId, UUID subjectId);
+
+        void deleteAllByClassRoom(ClassRoom classRoom);
+
+        @Query("SELECT DISTINCT td FROM TimetableDetail td " +
+                        "JOIN FETCH td.classRoom " +
+                        "JOIN FETCH td.subject " +
+                        "WHERE td.teacher.user.id = :userId " +
+                        "AND td.timetable.status = com.schoolmanagement.backend.domain.timetable.TimetableStatus.OFFICIAL")
+        List<TimetableDetail> findDistinctAssignmentsByTeacherUserId(@Param("userId") UUID userId);
+
+        @Query("SELECT DISTINCT td.subject FROM TimetableDetail td " +
+                        "WHERE td.classRoom.id = :classRoomId " +
+                        "AND td.timetable.status = com.schoolmanagement.backend.domain.timetable.TimetableStatus.OFFICIAL")
+        List<com.schoolmanagement.backend.domain.entity.classes.Subject> findDistinctSubjectsByClassRoomId(
+                        @Param("classRoomId") UUID classRoomId);
 }

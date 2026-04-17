@@ -1,7 +1,6 @@
 import api from "./api";
 import type { StudentProfileDto, ScoreDto } from "./schoolAdminService";
 
-
 // ==================== TYPES ====================
 
 export type TeacherProfile = {
@@ -97,6 +96,48 @@ export type TimetableDetail = {
     endTime?: string;
 };
 
+// ==================== NOTIFICATION TYPES ====================
+
+export type NotificationTypeEnum =
+    | 'EXAM'
+    | 'SCHEDULE'
+    | 'OTHER';
+
+export type RecipientTypeEnum = 'ALL' | 'STUDENTS_ONLY' | 'PARENTS_ONLY' | 'SPECIFIC';
+
+export type RecipientInfo = {
+    userId: string;
+    name: string;
+    role: string;
+    isRead: boolean;
+};
+
+export type HomeroomNotification = {
+    id: string;
+    className: string;
+    classRoomId: string;
+    notificationType: NotificationTypeEnum;
+    recipientType: RecipientTypeEnum;
+    title: string;
+    content: string;
+    scheduledDate?: string;
+    scheduledTime?: string;
+    createdByName: string;
+    createdAt: string;
+    recipientCount: number;
+    readCount: number;
+    recipients: RecipientInfo[];
+};
+
+export type CreateNotificationPayload = {
+    notificationType: NotificationTypeEnum;
+    recipientType: RecipientTypeEnum;
+    title: string;
+    content: string;
+    scheduledDate?: string;
+    scheduledTime?: string;
+    specificRecipientIds?: string[];
+};
 
 // ==================== GRADE TYPES ====================
 
@@ -106,11 +147,25 @@ export type GradeValue = {
     value: number | null;
 };
 
+export type SubGradeValue = {
+    id?: string;
+    category: 'ORAL' | 'TEST_15MIN';
+    subIndex: number;
+    value: number | null;
+};
+
+export type SubGradeColumn = {
+    category: 'ORAL' | 'TEST_15MIN';
+    subIndex: number;
+    label: string;
+};
+
 export type StudentGrade = {
     studentId: string;
     studentCode: string;
     fullName: string;
     grades: GradeValue[];
+    subGrades?: SubGradeValue[];
 };
 
 export type GradeBook = {
@@ -121,13 +176,14 @@ export type GradeBook = {
     semester: number;
     regularAssessmentCount: number; // 2, 3, or 4
     canEdit: boolean;
+    subGradeColumns?: SubGradeColumn[];
     students: StudentGrade[];
 };
 
 export type SaveGradeRequest = {
     classId: string;
     subjectId: string;
-    semesterId: string;
+    semester: number;
     students: StudentGrade[];
 };
 
@@ -141,6 +197,75 @@ export type GradeImportResult = {
         studentCode: string;
         errorMessage: string;
     }[];
+};
+
+// ==================== HOMEROOM GRADE SUMMARY TYPES ====================
+
+export type SubjectGradeDetail = {
+    regularGrades: (number | null)[];
+    midTerm: number | null;
+    finalTerm: number | null;
+    average: number | null;
+};
+
+export type StudentSummaryRow = {
+    studentId: string;
+    studentCode: string;
+    fullName: string;
+    subjectGrades: Record<string, SubjectGradeDetail>;
+    overallAverage: number | null;
+    performanceCategory: string;
+};
+
+export type SubjectInfo = {
+    subjectId: string;
+    subjectName: string;
+    regularCount: number;
+};
+
+export type HomeroomGradeSummary = {
+    classId: string;
+    className: string;
+    academicYear: string;
+    semester: number;
+    subjects: SubjectInfo[];
+    students: StudentSummaryRow[];
+};
+
+// ==================== CLASS SEAT MAP TYPES ====================
+
+export type SeatPosition = {
+    studentId: string;
+    studentCode: string;
+    fullName: string;
+    gender: string;
+    row: number;
+    col: number;
+    seatIndex: number;
+};
+
+export type ClassObject = {
+    id: string;
+    type: 'DOOR' | 'TEACHER_DESK' | 'PROJECTOR' | 'TV' | 'WHITEBOARD';
+    position: 'TOP' | 'BOTTOM' | 'LEFT' | 'RIGHT';
+    label: string;
+    offset?: number; // percentage offset along the bar (0-100), default 50 = center
+};
+
+export type ClassSeatMapConfig = {
+    rows: number;
+    desksPerRow: number;
+    seatsPerDesk: number;
+    studentPositions: SeatPosition[];
+    objects: ClassObject[];
+};
+
+export type ClassSeatMapData = {
+    classId: string;
+    className: string;
+    config: string | null; // JSON string of ClassSeatMapConfig
+    updatedAt?: string;
+    updatedByName?: string;
 };
 
 // ==================== SERVICE ====================
@@ -165,10 +290,8 @@ export const teacherService = {
     },
 
     // Get weekly schedule
-    getWeeklySchedule: async (semesterId?: string): Promise<TimetableDetail[]> => {
-        const res = await api.get<TimetableDetail[]>("/teacher/schedule/weekly", {
-            params: { semesterId }
-        });
+    getWeeklySchedule: async (): Promise<TimetableDetail[]> => {
+        const res = await api.get<TimetableDetail[]>("/teacher/schedule/weekly");
         return res.data;
     },
 
@@ -203,18 +326,18 @@ export const teacherService = {
         return res.data;
     },
 
-    // Get grade book
-    getGradeBook: async (classId: string, subjectId: string, semesterId: string): Promise<GradeBook> => {
-        const res = await api.get<GradeBook>("/teacher/grades", {
-            params: { classId, subjectId, semesterId }
+    // Get teacher exam schedule (invigilation)
+    getExamSchedule: async (semesterId?: string): Promise<import("./studentService").ExamScheduleDto[]> => {
+        const res = await api.get<import("./studentService").ExamScheduleDto[]>("/teacher/schedule/exam", {
+            params: { semesterId }
         });
         return res.data;
     },
 
-    // Get teacher exam schedule (invigilation)
-    getExamSchedule: async (semesterId?: string): Promise<import("../services/studentService").ExamScheduleDto[]> => {
-        const res = await api.get<import("../services/studentService").ExamScheduleDto[]>("/teacher/schedule/exam", {
-            params: { semesterId }
+    // Get grade book
+    getGradeBook: async (classId: string, subjectId: string, semester: number = 1): Promise<GradeBook> => {
+        const res = await api.get<GradeBook>("/teacher/grades", {
+            params: { classId, subjectId, semester }
         });
         return res.data;
     },
@@ -235,6 +358,28 @@ export const teacherService = {
             headers: { "Content-Type": "multipart/form-data" }
         });
         return res.data;
+    },
+
+    // Add sub-grade column
+    addSubGradeColumn: async (classId: string, subjectId: string, semester: number, category: string): Promise<SubGradeColumn> => {
+        const res = await api.post<SubGradeColumn>("/teacher/grades/sub-columns", {
+            classId, subjectId, semester, category
+        });
+        return res.data;
+    },
+
+    // Remove sub-grade column
+    removeSubGradeColumn: async (classId: string, subjectId: string, semester: number, category: string, subIndex: number): Promise<void> => {
+        await api.delete("/teacher/grades/sub-columns", {
+            params: { classId, subjectId, semester, category, subIndex }
+        });
+    },
+
+    // Resolve overflow
+    resolveOverflow: async (classId: string, subjectId: string, semester: number, strategy: 'AVERAGE' | 'MAX'): Promise<void> => {
+        await api.post("/teacher/grades/resolve", {
+            classId, subjectId, semester, strategy
+        });
     },
 
     // Download grade template
@@ -279,6 +424,51 @@ export const teacherService = {
         link.download = filename || "danh-sach-hoc-sinh.xlsx";
         link.click();
         window.URL.revokeObjectURL(url);
+    },
+
+    // Get homeroom grade summary (GVCN only)
+    getHomeroomGradeSummary: async (semester: number = 1): Promise<HomeroomGradeSummary> => {
+        const res = await api.get<HomeroomGradeSummary>("/teacher/grades/homeroom-summary", {
+            params: { semester }
+        });
+        return res.data;
+    },
+
+    // ==================== NOTIFICATIONS ====================
+
+    // Create a homeroom notification
+    createNotification: async (data: CreateNotificationPayload): Promise<HomeroomNotification> => {
+        const res = await api.post<HomeroomNotification>("/teacher/notifications", data);
+        return res.data;
+    },
+
+    // Get sent notifications
+    getNotifications: async (): Promise<HomeroomNotification[]> => {
+        const res = await api.get<HomeroomNotification[]>("/teacher/notifications");
+        return res.data;
+    },
+
+    // Delete a notification
+    deleteNotification: async (id: string): Promise<void> => {
+        await api.delete(`/teacher/notifications/${id}`);
+    },
+
+    // ==================== CLASS SEAT MAP ====================
+
+    // Get seating chart for a class
+    getClassSeatMap: async (classId: string): Promise<ClassSeatMapData> => {
+        const res = await api.get<ClassSeatMapData>(`/teacher/class-map/${classId}`);
+        return res.data;
+    },
+
+    // Save seating chart for a class (GVCN only)
+    saveClassSeatMap: async (classId: string, config: string): Promise<ClassSeatMapData> => {
+        const res = await api.post<ClassSeatMapData>(`/teacher/class-map/${classId}`, { config });
+        return res.data;
+    },
+
+    // Delete/reset seating chart for a class (GVCN only)
+    deleteClassSeatMap: async (classId: string): Promise<void> => {
+        await api.delete(`/teacher/class-map/${classId}`);
     }
 };
-

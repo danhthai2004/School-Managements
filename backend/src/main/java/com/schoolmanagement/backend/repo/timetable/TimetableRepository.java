@@ -24,4 +24,9 @@ public interface TimetableRepository extends JpaRepository<Timetable, UUID> {
   Optional<Timetable> findFirstBySchoolAndSemesterAndStatusOrderByCreatedAtDesc(School school, com.schoolmanagement.backend.domain.entity.admin.Semester semester, TimetableStatus status);
 
   List<Timetable> findAllBySchoolAndSemester(School school, com.schoolmanagement.backend.domain.entity.admin.Semester semester);
+
+        @org.springframework.data.jpa.repository.Query("SELECT t FROM Timetable t WHERE t.school = :school AND t.semester.academicYear.name = :academicYear AND t.semester.semesterNumber = :semester")
+        List<Timetable> findAllBySchoolAndAcademicYearAndSemester(@org.springframework.data.repository.query.Param("school") com.schoolmanagement.backend.domain.entity.admin.School school, @org.springframework.data.repository.query.Param("academicYear") String academicYear, @org.springframework.data.repository.query.Param("semester") int semester);
+
+        void deleteBySchoolId(java.util.UUID schoolId);
 }

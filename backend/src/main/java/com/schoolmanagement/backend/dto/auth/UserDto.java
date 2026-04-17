@@ -11,5 +11,14 @@ public record UserDto(
                 Role role,
                 UUID schoolId,
                 String schoolCode,
-                boolean enabled) {
+                boolean enabled,
+        String phone,
+        java.time.LocalDate dateOfBirth,
+        String address,
+        String bio) {
+
+    public UserDto(UUID id, String email, String fullName, Role role, UUID schoolId, String schoolCode, boolean enabled) {
+        this(id, email, fullName, role, schoolId, schoolCode, enabled, null, null, null, null);
+    }
 }
+

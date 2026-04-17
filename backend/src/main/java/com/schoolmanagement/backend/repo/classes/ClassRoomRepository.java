@@ -58,7 +58,7 @@ public interface ClassRoomRepository extends JpaRepository<ClassRoom, UUID> {
 
         Optional<ClassRoom> findByHomeroomTeacher_IdAndAcademicYear(UUID teacherId, com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
-        Optional<ClassRoom> findTopByHomeroomTeacher_IdOrderByAcademicYearDesc(UUID teacherId);
+        Optional<ClassRoom> findTopByHomeroomTeacher_IdOrderByAcademicYear_StartDateDesc(UUID teacherId);
 
         @Modifying
         @Query("UPDATE ClassRoom c SET c.homeroomTeacher = null WHERE c.homeroomTeacher.id = :userId")

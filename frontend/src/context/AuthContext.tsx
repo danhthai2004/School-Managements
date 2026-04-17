@@ -6,6 +6,7 @@ import { useFirebaseMessaging } from "../hooks/useFirebaseMessaging";
 type PendingChallenge = {
   challengeId: string;
   emailMasked?: string | null;
+  authStatus?: string;
 };
 
 type AuthContextValue = {
@@ -93,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await refreshMe();
     }
     if (res.status === "OTP_REQUIRED" && res.challengeId) {
-      setPendingChallenge({ challengeId: res.challengeId, emailMasked: res.emailMasked });
+      setPendingChallenge({ challengeId: res.challengeId, emailMasked: res.emailMasked, authStatus: res.status });
     }
     return res;
   };
@@ -105,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await refreshMe();
     }
     if (res.status === "OTP_REQUIRED" && res.challengeId) {
-      setPendingChallenge({ challengeId: res.challengeId, emailMasked: res.emailMasked });
+      setPendingChallenge({ challengeId: res.challengeId, emailMasked: res.emailMasked, authStatus: res.status });
     }
     return res;
   };
@@ -113,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const forgotPassword = async (email: string) => {
     const res = await authService.forgotPassword(email);
     if (res.status === "OTP_REQUIRED" && res.challengeId) {
-      setPendingChallenge({ challengeId: res.challengeId, emailMasked: res.emailMasked });
+      setPendingChallenge({ challengeId: res.challengeId, emailMasked: res.emailMasked, authStatus: res.status });
     }
     return res;
   };

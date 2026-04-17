@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Plus, Bell, Send, X, ChevronDown, Clock, RotateCcw, Users, Search } from "lucide-react";
+import { Plus, Bell, Send, X, ChevronDown, Clock, RotateCcw, Users, Search, ClipboardList, Calendar } from "lucide-react";
 import { useToast } from "../../../context/ToastContext";
 import { useConfirmation } from "../../../hooks/useConfirmation";
 
@@ -35,7 +35,7 @@ const TARGET_GROUP_LABELS: Record<string, string> = {
 const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
     EXAM: "Kiểm tra",
     SCHEDULE: "Thời khóa biểu",
-    MANUAL: "Khác",
+    OTHER: "Khác",
 };
 
 function getToken() {
@@ -56,7 +56,7 @@ export default function NotificationManagement() {
     // Form state
     const [formTitle, setFormTitle] = useState("");
     const [formContent, setFormContent] = useState("");
-    const [formType, setFormType] = useState("MANUAL");
+    const [formType, setFormType] = useState("OTHER");
     const [formTargetGroup, setFormTargetGroup] = useState("ALL");
     const [formClassId, setFormClassId] = useState("");
 
@@ -207,7 +207,7 @@ export default function NotificationManagement() {
     const resetForm = () => {
         setFormTitle("");
         setFormContent("");
-        setFormType("MANUAL");
+        setFormType("OTHER");
         setFormTargetGroup("ALL");
         setFormClassId("");
     };
@@ -268,7 +268,7 @@ export default function NotificationManagement() {
                     <option value="">Tất cả loại</option>
                     <option value="EXAM">Kiểm tra</option>
                     <option value="SCHEDULE">Thời khóa biểu</option>
-                    <option value="MANUAL">Khác</option>
+                    <option value="OTHER">Khác</option>
                 </select>
 
                 <select
@@ -316,8 +316,12 @@ export default function NotificationManagement() {
                                     <div className="flex items-start gap-3 flex-1 min-w-0">
                                         <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${notification.status === "RECALLED" ? "bg-gray-100" : "bg-blue-100"
                                             }`}>
-                                            <Bell className={`w-5 h-5 ${notification.status === "RECALLED" ? "text-gray-400" : "text-blue-600"
-                                                }`} />
+                                            {(() => {
+                                                const iconClass = `w-5 h-5 ${notification.status === "RECALLED" ? "text-gray-400" : "text-blue-600"}`;
+                                                if (notification.type === "EXAM") return <ClipboardList className={iconClass} />;
+                                                if (notification.type === "SCHEDULE") return <Calendar className={iconClass} />;
+                                                return <Bell className={iconClass} />;
+                                            })()}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-1">
@@ -478,7 +482,7 @@ export default function NotificationManagement() {
                                     >
                                         <option value="EXAM">Kiểm tra</option>
                                         <option value="SCHEDULE">Thời khóa biểu</option>
-                                        <option value="MANUAL">Khác</option>
+                                        <option value="OTHER">Khác</option>
                                     </select>
                                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                                 </div>

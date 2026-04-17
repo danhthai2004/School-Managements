@@ -17,7 +17,6 @@ import com.schoolmanagement.backend.repo.teacher.TeacherRepository;
 import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.classes.ClassEnrollmentRepository;
 import com.schoolmanagement.backend.repo.teacher.TeacherAssignmentRepository;
-import com.schoolmanagement.backend.repo.attendance.AttendanceSessionRepository;
 import com.schoolmanagement.backend.repo.attendance.AttendanceRepository;
 import com.schoolmanagement.backend.repo.grade.GradeRepository;
 import com.schoolmanagement.backend.repo.timetable.TimetableRepository;
@@ -450,14 +449,12 @@ public class ReportService {
                                         long cPresent = classAttendance.stream()
                                                         .filter(a -> a.getStatus() == AttendanceStatus.PRESENT).count();
                                         long cAbsent = classAttendance.stream()
-                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT
-                                                                        || a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED)
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED)
                                                         .count();
                                         long cLate = classAttendance.stream()
                                                         .filter(a -> a.getStatus() == AttendanceStatus.LATE).count();
                                         long cExcused = classAttendance.stream()
-                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_EXCUSED
-                                                                        || a.getStatus() == AttendanceStatus.EXCUSED)
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_EXCUSED)
                                                         .count();
 
                                         double cRate = classAttendance.isEmpty() ? 0.0
@@ -489,8 +486,7 @@ public class ReportService {
                                         Student s = e.getKey();
                                         List<Attendance> studentAttendance = e.getValue();
                                         long sAbsent = studentAttendance.stream()
-                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT
-                                                                        || a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED)
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED)
                                                         .count();
                                         double sAbsentRate = studentAttendance.isEmpty() ? 0.0
                                                         : Math.round(sAbsent * 100.0 / studentAttendance.size() * 100.0)

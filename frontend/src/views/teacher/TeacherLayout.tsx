@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link, Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
+import NotificationDropdown from "../../components/common/NotificationDropdown";
 import { teacherService } from "../../services/teacherService";
 import type { TeacherProfile } from "../../services/teacherService";
 import {
@@ -12,17 +14,18 @@ import {
     UserCheck,
     GraduationCap,
     Bell,
-    Search,
+    Settings,
     Menu,
     LogOut,
     UserCircle,
     Lock,
-    SquareActivity
+    SquareActivity,
+    BarChart3
 } from "lucide-react";
-import NotificationBell from "../../components/layout/NotificationBell";
 
 export default function TeacherLayout() {
     const { user, logout } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -57,6 +60,7 @@ export default function TeacherLayout() {
         { path: "/teacher/attendance", label: "Điểm danh", icon: <UserCheck size={20} strokeWidth={1.5} /> },
         { path: "/teacher/grades", label: "Nhập điểm", icon: <GraduationCap size={20} strokeWidth={1.5} /> },
         { path: "/teacher/class-map", label: "Sơ đồ lớp", icon: <LayoutGrid size={20} strokeWidth={1.5} /> },
+        { path: "/teacher/reports", label: "Báo cáo", icon: <BarChart3 size={20} strokeWidth={1.5} /> },
         { path: "/teacher/notifications", label: "Thông báo", icon: <Bell size={20} strokeWidth={1.5} /> },
     ];
 
@@ -64,31 +68,32 @@ export default function TeacherLayout() {
     const homeroomOnlyMenuItems = [
         { path: "/teacher/students", label: "Học sinh", icon: <Users size={20} strokeWidth={1.5} /> },
         { path: "/teacher/risk-analytics", label: "AI phân tích học tập", icon: <SquareActivity size={20} strokeWidth={1.5} /> },
+        { path: "/teacher/settings", label: "Cài đặt lớp", icon: <Settings size={20} strokeWidth={1.5} /> },
     ];
 
     // Build menu based on teacher type
     const menuItems = teacherProfile?.isHomeroomTeacher
         ? [
             commonMenuItems[0], // Tổng quan
-            ...homeroomOnlyMenuItems, // Học sinh, Phân tích AI
+            ...homeroomOnlyMenuItems,
             ...commonMenuItems.slice(1), // Rest of common items
         ]
         : commonMenuItems;
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
                 <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Sidebar - Fixed */}
-            <aside className={`fixed top-0 left-0 h-screen bg-white border-r border-gray-200 flex flex-col z-40 transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+            {/* Sidebar */}
+            <aside className={`fixed top-0 left-0 h-screen bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col z-40 transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
                 {/* Logo & Toggle */}
-                <div className={`p-4 border-b border-gray-200 ${!sidebarCollapsed ? 'h-16 flex items-center' : ''}`}>
+                <div className={`p-4 border-b border-gray-200 dark:border-gray-700 ${!sidebarCollapsed ? 'h-16 flex items-center' : ''}`}>
                     {sidebarCollapsed ? (
                         <div className="flex flex-col items-center gap-3">
                             <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
@@ -98,8 +103,7 @@ export default function TeacherLayout() {
                             </div>
                             <button
                                 onClick={() => setSidebarCollapsed(false)}
-                                className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                                title="Mở rộng"
+                                className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                             >
                                 <Menu size={20} strokeWidth={1.5} />
                             </button>
@@ -114,15 +118,14 @@ export default function TeacherLayout() {
                                         </svg>
                                     </div>
                                     <div>
-                                        <h1 className="font-bold text-lg text-gray-900">SchoolIMS</h1>
-                                        <p className="text-xs text-gray-500">Teacher Portal</p>
+                                        <h1 className="font-bold text-lg text-gray-900 dark:text-white leading-none">SchoolIMS</h1>
+                                        <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-1 font-semibold">Teacher Portal</p>
                                     </div>
                                 </Link>
                             </div>
                             <button
                                 onClick={() => setSidebarCollapsed(true)}
-                                className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                                title="Thu gọn"
+                                className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                             >
                                 <Menu size={20} strokeWidth={1.5} />
                             </button>
@@ -132,40 +135,42 @@ export default function TeacherLayout() {
 
                 {/* Homeroom badge */}
                 {!sidebarCollapsed && teacherProfile?.isHomeroomTeacher && (
-                    <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
-                        <p className="text-xs text-blue-600 font-medium">Chủ nhiệm lớp</p>
-                        <p className="text-sm font-semibold text-blue-800">{teacherProfile.homeroomClassName}</p>
+                    <div className="mx-4 my-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/50">
+                        <p className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-tight">Giáo viên chủ nhiệm</p>
+                        <p className="text-sm font-bold text-blue-900 dark:text-blue-100 truncate">{teacherProfile.homeroomClassName}</p>
                     </div>
                 )}
 
                 {/* Menu */}
-                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+                <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
                     {menuItems.map((item) => (
                         <NavLink
                             key={item.path}
                             to={item.path}
                             className={({ isActive }) => `
-                                w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm
+                                w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm group
                                 ${isActive
-                                    ? "bg-blue-50 text-blue-700 font-medium"
-                                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                                    ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-semibold"
+                                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
                                 }
                                 ${sidebarCollapsed ? 'justify-center' : ''}
                             `}
                             title={sidebarCollapsed ? item.label : undefined}
                         >
-                            {item.icon}
+                            <span className={`${sidebarCollapsed ? '' : 'group-hover:scale-110'} transition-transform duration-200`}>
+                                {item.icon}
+                            </span>
                             {!sidebarCollapsed && <span>{item.label}</span>}
                         </NavLink>
                     ))}
                 </nav>
 
                 {/* Logout */}
-                <div className="p-4 border-t border-gray-200">
+                <div className="p-4 border-t border-gray-200 dark:border-gray-700">
                     <button
                         onClick={handleLogout}
                         title={sidebarCollapsed ? 'Đăng xuất' : undefined}
-                        className={`w-full flex items-center gap-3 px-3 py-3 text-red-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-all text-sm group ${sidebarCollapsed ? 'justify-center' : ''}`}
+                        className={`w-full flex items-center gap-3 px-3 py-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all text-sm group ${sidebarCollapsed ? 'justify-center' : ''}`}
                     >
                         <LogOut size={20} strokeWidth={1.5} className="text-red-400 group-hover:text-red-600 transition-colors" />
                         {!sidebarCollapsed && <span className="font-medium">Đăng xuất</span>}
@@ -176,82 +181,82 @@ export default function TeacherLayout() {
             {/* Main Content */}
             <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
                 {/* Header */}
-                <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center sticky top-0 z-30">
-                    <div className="flex items-center justify-between w-full">
-                        {/* Search */}
-                        <div className="relative w-96">
-                            <label htmlFor="teacher-search" className="sr-only">
-                                Tìm kiếm học sinh, lớp học
-                            </label>
-                            <input
-                                id="teacher-search"
-                                name="teacher-search"
-                                type="text"
-                                placeholder="Tìm kiếm học sinh, lớp học..."
-                                className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-lg border-0 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all text-sm"
-                            />
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                <Search size={20} strokeWidth={1.5} />
+                <header className="h-16 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 px-8 flex items-center sticky top-0 z-30 justify-end gap-4">
+                    {/* Theme Toggle */}
+                    <button
+                        onClick={toggleTheme}
+                        className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        title={theme === 'dark' ? 'Chế độ sáng' : 'Chế độ tối'}
+                    >
+                        {theme === 'dark' ? (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                        ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                            </svg>
+                        )}
+                    </button>
+
+                    {/* Notification Dropdown */}
+                    <NotificationDropdown role="teacher" />
+
+                    {/* Profile Dropdown */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                            className="flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg pr-2 py-1 transition-colors group"
+                        >
+                            <div className="text-right hidden sm:block">
+                                <p className="text-sm font-bold text-gray-900 dark:text-white leading-none">{user?.fullName || user?.email}</p>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-500 uppercase font-bold mt-1">
+                                    {teacherProfile?.isHomeroomTeacher ? 'Giáo viên chủ nhiệm' : 'Giáo viên'}
+                                </p>
                             </div>
-                        </div>
-
-                        {/* Right side */}
-                        <div className="flex items-center gap-4">
-                            <NotificationBell />
-
-                            <div className="relative">
-                                <button
-                                    onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                                    className="flex items-center gap-3 pl-4 border-l border-gray-200 hover:bg-gray-50 rounded-lg pr-2 py-1 transition-colors"
-                                >
-                                    <div className="text-right">
-                                        <p className="text-sm font-medium text-gray-900">{user?.fullName || user?.email}</p>
-                                        <p className="text-xs text-gray-500">
-                                            {teacherProfile?.isHomeroomTeacher ? 'Giáo viên chủ nhiệm' : 'Giáo viên bộ môn'}
-                                        </p>
-                                    </div>
-                                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-semibold">
-                                        {(user?.fullName || user?.email || "T").charAt(0).toUpperCase()}
-                                    </div>
-                                </button>
-
-                                {profileDropdownOpen && (
-                                    <>
-                                        <div
-                                            className="fixed inset-0 z-40"
-                                            onClick={() => setProfileDropdownOpen(false)}
-                                        />
-                                        <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
-                                            <button
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                                                onClick={() => setProfileDropdownOpen(false)}
-                                            >
-                                                <UserCircle size={20} strokeWidth={1.5} />
-                                                <span>Thông tin cá nhân</span>
-                                            </button>
-                                            <button
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                                                onClick={() => setProfileDropdownOpen(false)}
-                                            >
-                                                <Lock size={20} strokeWidth={1.5} />
-                                                <span>Đổi mật khẩu</span>
-                                            </button>
-                                            <div className="border-t border-gray-100 my-1" />
-                                            <button
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-all group"
-                                                onClick={() => {
-                                                    setProfileDropdownOpen(false);
-                                                    handleLogout();
-                                                }}
-                                            >
-                                                <LogOut size={20} strokeWidth={1.5} className="text-red-400 group-hover:text-red-600 transition-colors" />
-                                                <span className="font-medium">Đăng xuất</span>
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold ring-2 ring-white dark:ring-gray-700 group-hover:ring-blue-100 dark:group-hover:ring-blue-900 transition-all shadow-sm">
+                                {(user?.fullName || user?.email || "T").charAt(0).toUpperCase()}
                             </div>
-                        </div>
+                        </button>
+
+                        {profileDropdownOpen && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setProfileDropdownOpen(false)} />
+                                <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 py-3 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <div className="px-5 py-2 border-b border-gray-100 dark:border-gray-700 mb-2">
+                                        <p className="text-sm font-bold text-gray-900 dark:text-white">{user?.fullName}</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
+                                    </div>
+                                    <Link
+                                        to="/teacher/profile"
+                                        className="flex items-center gap-3 px-5 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-400 transition-colors"
+                                        onClick={() => setProfileDropdownOpen(false)}
+                                    >
+                                        <UserCircle size={18} strokeWidth={1.5} />
+                                        <span>Thông tin cá nhân</span>
+                                    </Link>
+                                    <Link
+                                        to="/teacher/profile"
+                                        className="flex items-center gap-3 px-5 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-400 transition-colors"
+                                        onClick={() => setProfileDropdownOpen(false)}
+                                    >
+                                        <Lock size={18} strokeWidth={1.5} />
+                                        <span>Đổi mật khẩu</span>
+                                    </Link>
+                                    <div className="border-t border-gray-100 dark:border-gray-700 my-2" />
+                                    <button
+                                        className="w-full flex items-center gap-3 px-5 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                        onClick={() => {
+                                            setProfileDropdownOpen(false);
+                                            handleLogout();
+                                        }}
+                                    >
+                                        <LogOut size={18} strokeWidth={1.5} />
+                                        <span className="font-semibold">Đăng xuất</span>
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </header>
 

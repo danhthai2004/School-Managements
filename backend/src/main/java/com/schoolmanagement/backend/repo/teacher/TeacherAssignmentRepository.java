@@ -12,16 +12,17 @@ import java.util.UUID;
 
 @Repository
 public interface TeacherAssignmentRepository extends JpaRepository<TeacherAssignment, UUID> {
-    List<TeacherAssignment> findAllBySchool(School school);
+        List<TeacherAssignment> findAllBySchool(School school);
 
-    List<TeacherAssignment> findAllByClassRoom(ClassRoom classRoom);
+        List<TeacherAssignment> findAllByClassRoom(ClassRoom classRoom);
 
-    List<TeacherAssignment> findAllByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
+        List<TeacherAssignment> findAllByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
 
-    Optional<TeacherAssignment> findByClassRoomAndSubject(ClassRoom classRoom,
-            com.schoolmanagement.backend.domain.entity.classes.Subject subject);
+        Optional<TeacherAssignment> findFirstByClassRoomAndSubject(ClassRoom classRoom,
+                        com.schoolmanagement.backend.domain.entity.classes.Subject subject);
 
-    void deleteAllByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
+        void deleteAllByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
 
-    boolean existsByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
+        boolean existsByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
+
 }

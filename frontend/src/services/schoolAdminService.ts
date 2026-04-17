@@ -566,6 +566,28 @@ export const schoolAdminService = {
         const res = await api.get("/templates/teachers", { responseType: 'blob' });
         return res.data;
     },
+
+    // ==================== Attendance Management ====================
+
+    getAttendanceSlots: async (classRoomId: string, date: string): Promise<AdminSlotDto[]> => {
+        const res = await api.get<AdminSlotDto[]>("/school/attendance/slots", {
+            params: { classRoomId, date }
+        });
+        return res.data;
+    },
+
+    getAttendanceForSlot: async (classRoomId: string, date: string, slotIndex: number): Promise<AdminAttendanceDto[]> => {
+        const res = await api.get<AdminAttendanceDto[]>("/school/attendance/slot", {
+            params: { classRoomId, date, slotIndex }
+        });
+        return res.data;
+    },
+
+    saveAttendance: async (classRoomId: string, request: AdminSaveAttendanceRequest): Promise<void> => {
+        await api.post("/school/attendance/slot", request, {
+            params: { classRoomId }
+        });
+    },
 };
 
 export type BulkAccountCreationResponse = {
@@ -643,5 +665,150 @@ export type CreateCombinationRequest = {
     specializedSubjectIds: string[];
 };
 
+// ==================== ADMIN ATTENDANCE TYPES ====================
 
+export type AdminSlotDto = {
+    slotIndex: number;
+    subjectName: string;
+    teacherName: string;
+};
+
+export type AdminAttendanceDto = {
+    studentId: string;
+    studentCode: string;
+    studentName: string;
+    status: 'PRESENT' | 'ABSENT_EXCUSED' | 'ABSENT_UNEXCUSED' | 'LATE';
+    remarks: string;
+};
+
+export type AdminAttendanceRecord = {
+    studentId: string;
+    status: 'PRESENT' | 'ABSENT_EXCUSED' | 'ABSENT_UNEXCUSED' | 'LATE';
+    remarks: string;
+};
+
+export type AdminSaveAttendanceRequest = {
+    date: string;
+    slotIndex: number;
+    records: AdminAttendanceRecord[];
+};
+
+// ==================== FACE PHOTO MANAGEMENT TYPES ====================
+
+export type FaceOverviewResponse = {
+    totalStudents: number;
+    totalRegistered: number;
+    totalUnregistered: number;
+    registrationPercentage: number;
+    classes: ClassFaceStatusDto[];
+};
+
+export type ClassFaceStatusDto = {
+    classId: string;
+    className: string;
+    grade: number;
+    totalStudents: number;
+    registered: number;
+    unregistered: number;
+    homeroomTeacherName: string | null;
+};
+
+export type ClassFaceDetailResponse = {
+    classId: string;
+    className: string;
+    grade: number;
+    students: StudentFaceStatusDto[];
+    totalStudents: number;
+    totalRegistered: number;
+    totalUnregistered: number;
+};
+
+export type StudentFaceStatusDto = {
+    studentId: string;
+    studentCode: string;
+    studentName: string;
+    avatarUrl: string | null;
+    isRegistered: boolean;
+    imageCount: number;
+    lastUpdated: string | null;
+};
+
+export type StudentPhotosDto = {
+    studentId: string;
+    studentCode: string;
+    studentName: string;
+    avatarUrl: string | null;
+    photos: PhotoDto[];
+    totalPhotos: number;
+};
+
+export type PhotoDto = {
+    id: number;
+    imageUrl: string | null;
+    qualityScore: number | null;
+    createdAt: string | null;
+};
+
+export type UploadFacePhotoResult = {
+    success: boolean;
+    message: string;
+    imageUrl: string | null;
+    embeddingCount: number;
+};
+
+export type BulkUploadResult = {
+    totalFiles: number;
+    successCount: number;
+    failCount: number;
+    results: UploadFacePhotoResult[];
+};
+
+// ==================== FACE PHOTO MANAGEMENT SERVICE ====================
+
+export const facePhotoService = {
+    getOverview: async (): Promise<FaceOverviewResponse> => {
+        const res = await api.get<FaceOverviewResponse>("/school/face-photos/overview");
+        return res.data;
+    },
+
+    getClassDetail: async (classId: string): Promise<ClassFaceDetailResponse> => {
+        const res = await api.get<ClassFaceDetailResponse>(`/school/face-photos/classes/${classId}`);
+        return res.data;
+    },
+
+    getStudentPhotos: async (studentId: string): Promise<StudentPhotosDto> => {
+        const res = await api.get<StudentPhotosDto>(`/school/face-photos/students/${studentId}`);
+        return res.data;
+    },
+
+    uploadPhoto: async (studentId: string, file: File): Promise<UploadFacePhotoResult> => {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await api.post<UploadFacePhotoResult>(
+            `/school/face-photos/students/${studentId}`,
+            formData,
+            { headers: { "Content-Type": "multipart/form-data" } }
+        );
+        return res.data;
+    },
+
+    bulkUpload: async (studentId: string, files: File[]): Promise<BulkUploadResult> => {
+        const formData = new FormData();
+        files.forEach(f => formData.append("files", f));
+        const res = await api.post<BulkUploadResult>(
+            `/school/face-photos/students/${studentId}/bulk`,
+            formData,
+            { headers: { "Content-Type": "multipart/form-data" } }
+        );
+        return res.data;
+    },
+
+    deletePhoto: async (studentId: string, embeddingId: number): Promise<void> => {
+        await api.delete(`/school/face-photos/students/${studentId}/photos/${embeddingId}`);
+    },
+
+    deleteAllPhotos: async (studentId: string): Promise<void> => {
+        await api.delete(`/school/face-photos/students/${studentId}/photos`);
+    },
+};
 
