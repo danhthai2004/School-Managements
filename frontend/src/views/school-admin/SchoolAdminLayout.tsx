@@ -26,7 +26,7 @@ export default function SchoolAdminLayout() {
         { path: "/school-admin/dashboard", label: "Tổng quan", icon: <LayoutDashboard size={20} strokeWidth={1.5} /> },
         {
             label: "Quản lý",
-            icon: <Users size={20} strokeWidth={1.5} /> ,
+            icon: <Users size={20} strokeWidth={1.5} />,
             children: [
                 { path: "/school-admin/students", label: "Quản lý học sinh" },
                 { path: "/school-admin/teachers", label: "Danh sách giáo viên" },
@@ -37,7 +37,7 @@ export default function SchoolAdminLayout() {
         },
         {
             label: "Đào tạo",
-            icon: <BookOpen size={20} strokeWidth={1.5} /> ,
+            icon: <BookOpen size={20} strokeWidth={1.5} />,
             children: [
                 { path: "/school-admin/subjects", label: "Môn học & Tổ hợp" },
                 { path: "/school-admin/rooms", label: "Quản lý phòng" },
@@ -47,7 +47,7 @@ export default function SchoolAdminLayout() {
         },
         {
             label: "Thống kê & AI",
-            icon: <BarChart3 size={20} strokeWidth={1.5} /> ,
+            icon: <BarChart3 size={20} strokeWidth={1.5} />,
             children: [
                 { path: "/school-admin/risk-analytics", label: "AI Phân Tích Rủi Ro" },
                 { path: "/school-admin/reports", label: "Báo cáo & Thống kê" }
@@ -227,7 +227,13 @@ export default function SchoolAdminLayout() {
                                 >
                                     <div className="text-right">
                                         <p className="text-sm font-medium text-gray-900">{user?.fullName || user?.email}</p>
-                                        <p className="text-xs text-gray-500">Quản trị viên</p>
+                                        <p className="text-xs text-gray-500">
+                                            {user?.role === "SCHOOL_ADMIN" ? "Quản trị viên trường" :
+                                                user?.role === "SYSTEM_ADMIN" ? "Quản trị viên hệ thống" :
+                                                    user?.role === "TEACHER" ? "Giáo viên" :
+                                                        user?.role === "STUDENT" ? "Học sinh" :
+                                                            user?.role === "GUARDIAN" ? "Phụ huynh" : "Người dùng"}
+                                        </p>
                                     </div>
                                     <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-semibold">
                                         {(user?.fullName || user?.email || "U").charAt(0).toUpperCase()}

@@ -2,7 +2,7 @@
 FROM maven:3.9-eclipse-temurin-21-jammy AS build
 WORKDIR /app
 COPY pom.xml .
-RUN mvn dependency:go-offline -B
+RUN mvn dependency:resolve -B
 COPY src ./src
 RUN mvn package -DskipTests -B
 
@@ -16,7 +16,7 @@ COPY mvnw .
 COPY .mvn .mvn
 COPY src src
 RUN chmod +x mvnw
-RUN ./mvnw dependency:go-offline
+RUN ./mvnw dependency:resolve
 EXPOSE 8081
 CMD ["./mvnw", "spring-boot:run"]
 

@@ -10,6 +10,7 @@ import com.schoolmanagement.backend.security.UserPrincipal;
 import com.schoolmanagement.backend.service.timetable.CurriculumService;
 import com.schoolmanagement.backend.service.teacher.TeacherAssignmentService;
 import com.schoolmanagement.backend.service.auth.UserLookupService;
+import com.schoolmanagement.backend.dto.teacher.TeacherAssignmentUpdate;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -131,7 +132,7 @@ public class CurriculumController {
     @PutMapping("/assignments/bulk-teacher")
     public List<TeacherAssignmentDto> bulkAssignTeachers(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestBody List<com.schoolmanagement.backend.dto.teacher.TeacherAssignmentUpdate> req) {
+            @RequestBody List<TeacherAssignmentUpdate> req) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");

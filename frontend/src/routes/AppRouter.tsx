@@ -109,7 +109,7 @@ export default function AppRouter() {
       </Route>
 
       <Route path="/school-admin" element={
-        <ProtectedRoute>
+        <ProtectedRoute requiredRole="SCHOOL_ADMIN">
           <SchoolAdminLayout />
         </ProtectedRoute>
       }>

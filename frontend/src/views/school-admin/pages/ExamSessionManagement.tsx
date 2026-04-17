@@ -15,6 +15,7 @@ import { formatDate } from "../../../utils/dateHelpers";
 import { useSemester } from "../../../context/SemesterContext";
 import SemesterSelector from "../../../components/common/SemesterSelector";
 import { NoAcademicYearState } from "../../../components/common/EmptyState";
+import { useConfirmation } from "../../../hooks/useConfirmation";
 
 const GRADES = [10, 11, 12];
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
@@ -32,6 +33,7 @@ export default function ExamSessionManagement() {
     // Global context
     const { activeSemester, allSemesters, loading: isContextLoading } = useSemester();
     const [selectedSemesterId, setSelectedSemesterId] = useState<string>("");
+    const { confirm, ConfirmationDialog } = useConfirmation();
 
     // Initial load priority: System Active Semester
     useEffect(() => {
@@ -93,10 +95,10 @@ export default function ExamSessionManagement() {
         }
     };
 
-    useEffect(() => { 
+    useEffect(() => {
         if (!isContextLoading) {
             if (selectedSemesterId) {
-                fetchSessions(); 
+                fetchSessions();
             } else {
                 setLoading(false);
             }
@@ -144,35 +146,56 @@ export default function ExamSessionManagement() {
         }
     };
 
-    const handleDeleteSession = async (id: string) => {
-        if (!window.confirm("Bạn chắc chắn muốn xóa kỳ thi này? Tất cả lịch thi, phòng thi và danh sách học sinh liên quan sẽ bị xóa.")) return;
-        try {
-            await examAdminService.deleteSession(id);
-            toast.success("Đã xóa kỳ thi và toàn bộ dữ liệu liên quan");
-            fetchSessions();
-        } catch (e: any) {
-            const status = e?.response?.status;
-            const msg = e?.response?.data?.message;
-            if (status === 404) {
-                toast.error("Kỳ thi không tồn tại hoặc đã bị xóa trước đó");
-            } else if (status === 409 || (msg && msg.includes("constraint"))) {
-                toast.error("Không thể xóa: Kỳ thi đang có dữ liệu ràng buộc. Vui lòng thử lại.");
-            } else {
-                toast.error(msg || "Có lỗi xảy ra khi xóa kỳ thi. Vui lòng thử lại.");
+    const handleDeleteSession = async (session: ExamSessionDto) => {
+        confirm({
+            title: "Xóa kỳ thi?",
+            message: (
+                <div>
+                    <p>Bạn chắc chắn muốn xóa kỳ thi <strong>{session.name}</strong>?</p>
+                    <p className="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded border border-red-100 italic">
+                        Lưu ý: Tất cả lịch thi, phòng thi và danh sách học sinh liên quan sẽ bị xóa vĩnh viễn.
+                    </p>
+                </div>
+            ),
+            variant: "danger",
+            confirmText: "Xóa kỳ thi",
+            onConfirm: async () => {
+                try {
+                    await examAdminService.deleteSession(session.id);
+                    toast.success("Đã xóa kỳ thi và toàn bộ dữ liệu liên quan");
+                    fetchSessions();
+                } catch (e: any) {
+                    const status = e?.response?.status;
+                    const msg = e?.response?.data?.message;
+                    if (status === 404) {
+                        toast.error("Kỳ thi không tồn tại hoặc đã bị xóa trước đó");
+                    } else if (status === 409 || (msg && msg.includes("constraint"))) {
+                        toast.error("Không thể xóa: Kỳ thi đang có dữ liệu ràng buộc. Vui lòng thử lại.");
+                    } else {
+                        toast.error(msg || "Có lỗi xảy ra khi xóa kỳ thi. Vui lòng thử lại.");
+                    }
+                }
             }
-        }
+        });
     };
 
     const handleStatusChange = async (session: ExamSessionDto, newStatus: "PUBLISHED" | "COMPLETED") => {
         const label = newStatus === "PUBLISHED" ? "công bố" : "hoàn thành";
-        if (!window.confirm(`Bạn chắc chắn muốn chuyển kỳ thi "${session.name}" sang trạng thái ${label}?`)) return;
-        try {
-            await examAdminService.updateSessionStatus(session.id, newStatus);
-            toast.success(`Đã ${label} kỳ thi "${session.name}"`);
-            fetchSessions();
-        } catch (e: any) {
-            toast.error(e?.response?.data?.message || `Không thể ${label} kỳ thi`);
-        }
+        confirm({
+            title: `Thay đổi trạng thái?`,
+            message: `Bạn chắc chắn muốn chuyển kỳ thi "${session.name}" sang trạng thái ${label}?`,
+            variant: newStatus === "PUBLISHED" ? "success" : "primary",
+            confirmText: "Xác nhận",
+            onConfirm: async () => {
+                try {
+                    await examAdminService.updateSessionStatus(session.id, newStatus);
+                    toast.success(`Đã ${label} kỳ thi "${session.name}"`);
+                    fetchSessions();
+                } catch (e: any) {
+                    toast.error(e?.response?.data?.message || `Không thể ${label} kỳ thi`);
+                }
+            }
+        });
     };
 
     // ====== Wizard ======
@@ -270,10 +293,10 @@ export default function ExamSessionManagement() {
                     <p className="text-sm text-gray-500 mt-1">Tạo kỳ thi, phân bổ học sinh ngẫu nhiên vào phòng thi</p>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    <SemesterSelector 
-                        value={selectedSemesterId} 
+                    <SemesterSelector
+                        value={selectedSemesterId}
                         onChange={setSelectedSemesterId}
-                        label="" 
+                        label=""
                         className="h-[42px]"
                     />
                     <button onClick={openCreateSession}
@@ -286,71 +309,71 @@ export default function ExamSessionManagement() {
 
             {allSemesters.length === 0 && !isContextLoading ? (
                 <div className="bg-white rounded-xl border border-gray-200 p-6">
-                     <NoAcademicYearState onAction={() => navigate("/school-admin/semesters")} />
+                    <NoAcademicYearState onAction={() => navigate("/school-admin/semesters")} />
                 </div>
             ) : (
                 <>
-                {/* Session Cards */}
-            {loading ? (
-                <div className="p-12 text-center text-gray-400 flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /> Đang tải...</div>
-            ) : sessions.length === 0 ? (
-                <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                    <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">Chưa có kỳ thi nào</p>
-                    <button onClick={openCreateSession} className="mt-3 text-blue-600 text-sm hover:underline">+ Tạo kỳ thi mới</button>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {sessions.map(s => (
-                        <div key={s.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
-                            <div className="flex items-start justify-between mb-3">
-                                <div>
-                                    <h3 className="font-semibold text-gray-900">{s.name}</h3>
-                                    <p className="text-xs text-gray-500 mt-0.5">{s.academicYear} — HK{s.semester}</p>
-                                </div>
-                                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_MAP[s.status]?.cls || "bg-gray-100"}`}>
-                                    {STATUS_MAP[s.status]?.label || s.status}
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
-                                <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{formatDate(s.startDate)}</span>
-                                <span>→</span>
-                                <span>{formatDate(s.endDate)}</span>
-                            </div>
-                            <div className="flex items-center gap-2 border-t border-gray-100 pt-3">
-                                {s.status === "DRAFT" && (
-                                    <button onClick={() => handleStatusChange(s, "PUBLISHED")}
-                                        className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 text-sm font-medium transition-colors"
-                                        title="Công bố kỳ thi">
-                                        <CheckCircle className="w-4 h-4" /> Công bố
-                                    </button>
-                                )}
-                                {s.status === "PUBLISHED" && (
-                                    <button onClick={() => handleStatusChange(s, "COMPLETED")}
-                                        className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 text-sm font-medium transition-colors"
-                                        title="Đánh dấu hoàn thành">
-                                        <CheckCircle className="w-4 h-4" /> Hoàn thành
-                                    </button>
-                                )}
-                                <button onClick={() => openWizard(s)}
-                                    className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 text-sm font-medium transition-colors">
-                                    <Users className="w-4 h-4" /> Phân bổ
-                                </button>
-                                <button onClick={() => navigate(`/school-admin/exam-sessions/${s.id}`)} className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Xem chi tiết">
-                                    <Eye className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => openEditSession(s)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Sửa">
-                                    <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => handleDeleteSession(s.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Xóa">
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
+                    {/* Session Cards */}
+                    {loading ? (
+                        <div className="p-12 text-center text-gray-400 flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /> Đang tải...</div>
+                    ) : sessions.length === 0 ? (
+                        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                            <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                            <p className="text-gray-500">Chưa có kỳ thi nào</p>
+                            <button onClick={openCreateSession} className="mt-3 text-blue-600 text-sm hover:underline">+ Tạo kỳ thi mới</button>
                         </div>
-                    ))}
-                </div>
-            )}
-            </>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {sessions.map(s => (
+                                <div key={s.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div>
+                                            <h3 className="font-semibold text-gray-900">{s.name}</h3>
+                                            <p className="text-xs text-gray-500 mt-0.5">{s.academicYear} — HK{s.semester}</p>
+                                        </div>
+                                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_MAP[s.status]?.cls || "bg-gray-100"}`}>
+                                            {STATUS_MAP[s.status]?.label || s.status}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+                                        <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{formatDate(s.startDate)}</span>
+                                        <span>→</span>
+                                        <span>{formatDate(s.endDate)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 border-t border-gray-100 pt-3">
+                                        {s.status === "DRAFT" && (
+                                            <button onClick={() => handleStatusChange(s, "PUBLISHED")}
+                                                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 text-sm font-medium transition-colors"
+                                                title="Công bố kỳ thi">
+                                                <CheckCircle className="w-4 h-4" /> Công bố
+                                            </button>
+                                        )}
+                                        {s.status === "PUBLISHED" && (
+                                            <button onClick={() => handleStatusChange(s, "COMPLETED")}
+                                                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 text-sm font-medium transition-colors"
+                                                title="Đánh dấu hoàn thành">
+                                                <CheckCircle className="w-4 h-4" /> Hoàn thành
+                                            </button>
+                                        )}
+                                        <button onClick={() => openWizard(s)}
+                                            className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 text-sm font-medium transition-colors">
+                                            <Users className="w-4 h-4" /> Phân bổ
+                                        </button>
+                                        <button onClick={() => navigate(`/school-admin/exam-sessions/${s.id}`)} className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Xem chi tiết">
+                                            <Eye className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => openEditSession(s)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Sửa">
+                                            <Edit2 className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => handleDeleteSession(s)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Xóa">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </>
             )}
 
             {/* ==================== Session Modal ==================== */}
@@ -645,6 +668,7 @@ export default function ExamSessionManagement() {
                     </div>
                 </div>
             )}
+            <ConfirmationDialog />
         </div>
     );
 }

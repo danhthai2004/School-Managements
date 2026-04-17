@@ -1,6 +1,6 @@
-import {Link, NavLink, Outlet, useNavigate} from "react-router-dom";
-import {useAuth} from "../../context/AuthContext";
-import {useEffect, useState} from "react";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Calendar,
@@ -14,9 +14,9 @@ import {
   Lock
 } from "lucide-react";
 import NotificationBell from "./NotificationBell";
-import {guardianService} from "../../services/guardianService.ts";
-import type {StudentDto} from "../../services/schoolAdminService.ts";
-import type {TimetableDto} from "../../services/guardianService.ts";
+import { guardianService } from "../../services/guardianService.ts";
+import type { StudentDto } from "../../services/schoolAdminService.ts";
+import type { TimetableDto } from "../../services/guardianService.ts";
 
 export type StudentDataProp = {
   student: StudentDto,
@@ -24,7 +24,7 @@ export type StudentDataProp = {
 }
 
 export default function GuardianLayout() {
-  const {user, logout} = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -81,7 +81,7 @@ export default function GuardianLayout() {
 
 
   const navItems = [
-    {to: "/guardian/overview", label: "Tổng quan", icon: <LayoutDashboard size={20} strokeWidth={1.5} />},
+    { to: "/guardian/overview", label: "Tổng quan", icon: <LayoutDashboard size={20} strokeWidth={1.5} /> },
     {
       to: "/guardian/timetable",
       label: "Thời khóa biểu",
@@ -113,15 +113,13 @@ export default function GuardianLayout() {
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar - Fixed */}
       <aside
-        className={`fixed top-0 left-0 h-screen bg-white border-r border-gray-200 flex flex-col z-40 transition-all duration-300 ${
-          sidebarCollapsed ? "w-20" : "w-64"
-        }`}
+        className={`fixed top-0 left-0 h-screen bg-white border-r border-gray-200 flex flex-col z-40 transition-all duration-300 ${sidebarCollapsed ? "w-20" : "w-64"
+          }`}
       >
         {/* Logo & Toggle */}
         <div
-          className={`p-4 border-b border-gray-200 ${
-            !sidebarCollapsed ? "h-16 flex items-center" : ""
-          }`}
+          className={`p-4 border-b border-gray-200 ${!sidebarCollapsed ? "h-16 flex items-center" : ""
+            }`}
         >
           {sidebarCollapsed ? (
             <div className="flex flex-col items-center gap-3">
@@ -178,20 +176,19 @@ export default function GuardianLayout() {
           </div>
         )}
 
-        <hr className="border-gray-100"/>
+        <hr className="border-gray-100" />
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
-              className={({isActive}) => `
+              className={({ isActive }) => `
                 w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm
-                ${
-                isActive
+                ${isActive
                   ? "bg-indigo-50 text-indigo-700 font-semibold shadow-sm shadow-indigo-100"
                   : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-              }
+                }
                 ${sidebarCollapsed ? "justify-center" : ""}
               `}
               title={sidebarCollapsed ? item.label : undefined}
@@ -207,9 +204,8 @@ export default function GuardianLayout() {
           <button
             onClick={handleLogout}
             title={sidebarCollapsed ? "Đăng xuất" : undefined}
-            className={`w-full flex items-center gap-3 px-3 py-3 text-red-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-all text-sm group ${
-              sidebarCollapsed ? "justify-center" : ""
-            }`}
+            className={`w-full flex items-center gap-3 px-3 py-3 text-red-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-all text-sm group ${sidebarCollapsed ? "justify-center" : ""
+              }`}
           >
             <LogOut size={20} strokeWidth={1.5} className="text-red-400 group-hover:text-red-600 transition-colors" />
             {!sidebarCollapsed && (
@@ -221,9 +217,8 @@ export default function GuardianLayout() {
 
       {/* Main Content */}
       <main
-        className={`flex-1 flex flex-col min-h-screen transition-all duration-300 animate-fade-in-up ${
-          sidebarCollapsed ? "ml-20" : "ml-64"
-        }`}
+        className={`flex-1 flex flex-col min-h-screen transition-all duration-300 animate-fade-in-up ${sidebarCollapsed ? "ml-20" : "ml-64"
+          }`}
       >
         {/* Header */}
         <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center sticky top-0 z-30">
@@ -287,7 +282,7 @@ export default function GuardianLayout() {
                         <Lock size={20} strokeWidth={1.5} className="text-gray-400 group-hover:text-indigo-600" />
                         <span className="flex-1 text-left">Đổi mật khẩu</span>
                       </button>
-                      <div className="border-t border-gray-100 my-1"/>
+                      <div className="border-t border-gray-100 my-1" />
                       <button
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-all group"
                         onClick={() => {
@@ -308,7 +303,7 @@ export default function GuardianLayout() {
 
         {/* Content */}
         <div className="flex-1 p-8">
-          <Outlet context={{student, timetable}}/>
+          <Outlet context={{ student, timetable }} />
         </div>
       </main>
     </div>
