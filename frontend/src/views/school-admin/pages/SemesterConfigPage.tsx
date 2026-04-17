@@ -7,8 +7,7 @@ import { semesterService } from '../../../services/semesterService';
 import { useSemester } from '../../../context/SemesterContext';
 import { useToast } from '../../../context/ToastContext';
 import { formatDate } from '../../../utils/dateHelpers';
-import CloseSemesterConfirmModal from '../components/semester/CloseSemesterConfirmModal';
-import DeleteYearConfirmModal from '../components/semester/DeleteYearConfirmModal';
+import { useConfirmation } from '../../../hooks/useConfirmation';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { formatDateInput, parseDateDDMMYYYY } from '../../../utils/dateHelpers';
@@ -27,10 +26,7 @@ const SemesterConfigPage: React.FC = () => {
     const [showSemesterModal, setShowSemesterModal] = useState(false);
     const [editingYear, setEditingYear] = useState<AcademicYearDto | null>(null);
     const [editingSemester, setEditingSemester] = useState<SemesterDto | null>(null);
-    const [semesterToClose, setSemesterToClose] = useState<SemesterDto | null>(null);
-    const [yearToDelete, setYearToDelete] = useState<AcademicYearDto | null>(null);
-    const [showCloseConfirmModal, setShowCloseConfirmModal] = useState(false);
-    const [showDeleteYearModal, setShowDeleteYearModal] = useState(false);
+    const { confirm, ConfirmationDialog } = useConfirmation();
 
     // Form states
     const [yearForm, setYearForm] = useState<CreateAcademicYearRequest>({ name: '', startDate: '', endDate: '' });
@@ -111,40 +107,45 @@ const SemesterConfigPage: React.FC = () => {
 
     const handleDeleteYear = (year: AcademicYearDto, e: React.MouseEvent) => {
         e.stopPropagation();
-        setYearToDelete(year);
-        setShowDeleteYearModal(true);
-    };
+        confirm({
+            title: "Xóa năm học?",
+            message: (
+                <div className="space-y-3">
+                    <p>Bạn có chắc chắn muốn xóa năm học <strong>{year.name}</strong>?</p>
+                    <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-700 space-y-2">
+                        <p>• Dữ liệu học kỳ, phân công, thời khóa biểu sẽ bị xóa vĩnh viễn.</p>
+                        <p>• Hệ thống sẽ ngăn chặn nếu năm học đang có dữ liệu ràng buộc quan trọng.</p>
+                    </div>
+                </div>
+            ),
+            variant: "danger",
+            confirmText: "Xác nhận xóa",
+            onConfirm: async () => {
+                try {
+                    await semesterService.deleteAcademicYear(year.id);
+                    toast.success('Xóa năm học thành công!');
 
-    const handleConfirmDeleteYear = async () => {
-        if (!yearToDelete) return;
-        try {
-            await semesterService.deleteAcademicYear(yearToDelete.id);
-            toast.success('Xóa năm học thành công!');
-            setShowDeleteYearModal(false);
-            
-            let nextSelectedId = selectedYearId;
-            if (selectedYearId === yearToDelete.id) {
-                setSelectedYearId(null);
-                setSemesters([]);
-                nextSelectedId = null;
+                    if (selectedYearId === year.id) {
+                        setSelectedYearId(null);
+                        setSemesters([]);
+                    }
+
+                    // Immediately load new years
+                    const years = await semesterService.listAcademicYears();
+                    setAcademicYears(years);
+
+                    if (selectedYearId === year.id && years.length > 0) {
+                        const activeYear = years.find(y => y.status === 'ACTIVE') || years[0];
+                        setSelectedYearId(activeYear.id);
+                    }
+
+                    // Refresh global context
+                    await refreshSemesters();
+                } catch (err: any) {
+                    toast.error(err?.response?.data?.message || 'Lỗi xóa năm học');
+                }
             }
-
-            setYearToDelete(null);
-
-            // Immediately load new years
-            const years = await semesterService.listAcademicYears();
-            setAcademicYears(years);
-
-            if (!nextSelectedId && years.length > 0) {
-                const activeYear = years.find(y => y.status === 'ACTIVE') || years[0];
-                setSelectedYearId(activeYear.id);
-            }
-
-            // Refresh global context
-            await refreshSemesters();
-        } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Lỗi xóa năm học');
-        }
+        });
     };
 
     const handleActivateYear = async (id: string, e: React.MouseEvent) => {
@@ -186,22 +187,30 @@ const SemesterConfigPage: React.FC = () => {
     };
 
     const handleCloseSemester = (sem: SemesterDto) => {
-        setSemesterToClose(sem);
-        setShowCloseConfirmModal(true);
-    };
-
-    const handleConfirmCloseSemester = async () => {
-        if (!semesterToClose) return;
-        try {
-            await semesterService.closeSemester(semesterToClose.id);
-            toast.success('Đóng học kỳ thành công!');
-            setShowCloseConfirmModal(false);
-            setSemesterToClose(null);
-            loadData();
-            refreshSemesters();
-        } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Lỗi đóng học kỳ');
-        }
+        confirm({
+            title: "Chốt sổ học kỳ?",
+            message: (
+                <div className="space-y-3">
+                    <p>Bạn có chắc muốn đóng học kỳ <strong>{sem.name}</strong>?</p>
+                    <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-700 space-y-2">
+                        <p>• Sau khi đóng, giáo viên sẽ không thể nhập/sửa điểm.</p>
+                        <p>• Trạng thái học kỳ sẽ chuyển sang "Đã đóng".</p>
+                    </div>
+                </div>
+            ),
+            variant: "warning",
+            confirmText: "Đóng học kỳ",
+            onConfirm: async () => {
+                try {
+                    await semesterService.closeSemester(sem.id);
+                    toast.success('Đóng học kỳ thành công!');
+                    loadData();
+                    refreshSemesters();
+                } catch (err: any) {
+                    toast.error(err?.response?.data?.message || 'Lỗi đóng học kỳ');
+                }
+            }
+        });
     };
 
     const openEditYear = (year: AcademicYearDto, e: React.MouseEvent) => {
@@ -284,16 +293,15 @@ const SemesterConfigPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
-                
+
                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {academicYears.map(year => (
                         <div
                             key={year.id}
-                            className={`group border rounded-2xl p-6 cursor-pointer transition-all duration-300 ${
-                                selectedYearId === year.id
+                            className={`group border rounded-2xl p-6 cursor-pointer transition-all duration-300 ${selectedYearId === year.id
                                     ? 'border-blue-500 shadow-lg shadow-blue-500/10 ring-1 ring-blue-500 bg-blue-50/10'
                                     : 'border-gray-100 hover:border-blue-200 hover:shadow-md bg-white'
-                            }`}
+                                }`}
                             onClick={() => setSelectedYearId(year.id)}
                         >
                             <div className="flex justify-between items-start mb-5">
@@ -318,18 +326,18 @@ const SemesterConfigPage: React.FC = () => {
                                     </button>
                                 </div>
                             </div>
-                            
+
                             <div className="space-y-3 py-4 border-y border-gray-50">
                                 <div className="flex items-center justify-between text-sm">
-                                    <span className="text-gray-400 font-medium uppercase tracking-wider text-[10px]">Ngày bắt đầu</span> 
+                                    <span className="text-gray-400 font-medium uppercase tracking-wider text-[10px]">Ngày bắt đầu</span>
                                     <span className="text-gray-900 font-semibold">{formatDate(year.startDate)}</span>
                                 </div>
                                 <div className="flex items-center justify-between text-sm">
-                                    <span className="text-gray-400 font-medium uppercase tracking-wider text-[10px]">Ngày kết thúc</span> 
+                                    <span className="text-gray-400 font-medium uppercase tracking-wider text-[10px]">Ngày kết thúc</span>
                                     <span className="text-gray-900 font-semibold">{formatDate(year.endDate)}</span>
                                 </div>
                             </div>
-                            
+
                             <div className="mt-5">
                                 {year.status === 'ACTIVE' ? (
                                     <div className="flex items-center justify-center gap-2 py-2 px-4 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20">
@@ -348,7 +356,7 @@ const SemesterConfigPage: React.FC = () => {
                             </div>
                         </div>
                     ))}
-                    
+
                     {academicYears.length === 0 && (
                         <div className="col-span-full py-16 flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-gray-50 rounded-2xl border-2 border-dashed border-gray-200 shadow-inner group transition-all hover:border-blue-200">
                             <div className="w-20 h-20 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 border border-gray-100">
@@ -356,7 +364,7 @@ const SemesterConfigPage: React.FC = () => {
                             </div>
                             <h3 className="text-xl font-bold text-gray-900 mb-2">Chưa có năm học nào được tạo</h3>
                             <p className="text-gray-500 text-sm max-w-sm text-center mb-8 leading-relaxed">
-                                Hệ thống cần ít nhất một năm học để bắt đầu vận hành. <br/>
+                                Hệ thống cần ít nhất một năm học để bắt đầu vận hành. <br />
                                 <span className="font-medium text-blue-600">Học kỳ 1 và Học kỳ 2 sẽ được tự động khởi tạo</span> sau khi bạn tạo năm học mới.
                             </p>
                             <button
@@ -380,7 +388,7 @@ const SemesterConfigPage: React.FC = () => {
                             <span>Học kỳ thuộc <span className="text-blue-600">{academicYears.find(y => y.id === selectedYearId)?.name}</span></span>
                         </h2>
                     </div>
-                    
+
                     {semesters.length === 0 ? (
                         <div className="p-8 text-center text-gray-500">
                             Chưa có học kỳ nào. Hãy tạo năm học mới để tự động sinh Học kỳ 1 và Học kỳ 2.
@@ -416,7 +424,7 @@ const SemesterConfigPage: React.FC = () => {
                                                 >
                                                     <Edit className="w-4 h-4" />
                                                 </button>
-                                                
+
                                                 {sem.status === 'UPCOMING' && (
                                                     <button
                                                         onClick={() => handleActivateSemester(sem.id)}
@@ -426,7 +434,7 @@ const SemesterConfigPage: React.FC = () => {
                                                         <CheckCircle className="w-4 h-4" />
                                                     </button>
                                                 )}
-                                                
+
                                                 {sem.status === 'ACTIVE' && (
                                                     <button
                                                         onClick={() => handleCloseSemester(sem)}
@@ -470,7 +478,7 @@ const SemesterConfigPage: React.FC = () => {
                                 </button>
                             </div>
                         </div>
-                        
+
                         {/* Form Content */}
                         <div className="p-6 space-y-5">
                             <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-2xl p-5 border border-slate-200/60">
@@ -600,7 +608,7 @@ const SemesterConfigPage: React.FC = () => {
                                 </button>
                             </div>
                         </div>
-                        
+
                         {/* Form Content */}
                         <div className="p-6 space-y-5">
                             <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-2xl p-5 border border-slate-200/60">
@@ -740,27 +748,7 @@ const SemesterConfigPage: React.FC = () => {
                 document.body
             )}
 
-            {/* Semester Close Confirmation Modal */}
-            <CloseSemesterConfirmModal
-                isOpen={showCloseConfirmModal}
-                semester={semesterToClose}
-                onClose={() => {
-                    setShowCloseConfirmModal(false);
-                    setSemesterToClose(null);
-                }}
-                onConfirm={handleConfirmCloseSemester}
-            />
-
-            {/* Academic Year Delete Confirmation Modal */}
-            <DeleteYearConfirmModal
-                isOpen={showDeleteYearModal}
-                year={yearToDelete}
-                onClose={() => {
-                    setShowDeleteYearModal(false);
-                    setYearToDelete(null);
-                }}
-                onConfirm={handleConfirmDeleteYear}
-            />
+            <ConfirmationDialog />
         </div>
     );
 };

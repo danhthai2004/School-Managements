@@ -80,27 +80,34 @@ public class AutoScheduleService {
         Timetable timetable = timetableRepository.findById(timetableId)
                 .orElseThrow(() -> new IllegalArgumentException("Timetable not found"));
 
-        // Clear existing details for this timetable to avoid duplicates if re-run
+        // Clear existing details for this timetable
         timetableDetailRepository.deleteByTimetable(timetable);
-        timetableDetailRepository.flush(); // Ensure deletion is committed
+        timetableDetailRepository.flush();
 
         // Initialize Context
         ScheduleContext context = new ScheduleContext();
 
+        // Get all relevant classes and shuffle them for fairness
+        var allClasses = new java.util.ArrayList<>(
+                classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool()).stream()
+                        .filter(c -> c.getAcademicYear().equals(timetable.getSemester().getAcademicYear()))
+                        .toList());
+
         // Step 1: Priority Activities (GDTC, GDQP, HDTN)
-        schedulePriorityActivities(timetable, context);
+        java.util.Collections.shuffle(allClasses);
+        schedulePriorityActivities(timetable, allClasses, context);
 
-        // Step 2: High Frequency Subjects
-        scheduleHighFrequencySubjects(timetable, context);
+        // Step 2: High Frequency Subjects (TOAN, VAN, ANH)
+        java.util.Collections.shuffle(allClasses);
+        scheduleHighFrequencySubjects(timetable, allClasses, context);
 
-        // Step 3: Elective Subjects (Load Balancing)
-        scheduleElectiveSubjects(timetable, context);
+        // Step 3: Elective Subjects
+        java.util.Collections.shuffle(allClasses);
+        scheduleElectiveSubjects(timetable, allClasses, context);
 
-        // Step 4: Specialized Subjects (Blocks)
-        scheduleSpecializedSubjects(timetable, context);
-
-        // Step 5: Handling Deadlocks (Backtracking/Swapping)
-        // Implemented within scheduleSubject via attemptBacktrackingSwap
+        // Step 4: Specialized Subjects
+        java.util.Collections.shuffle(allClasses);
+        scheduleSpecializedSubjects(timetable, allClasses, context);
 
         log.info("Auto-generation completed for Timetable ID: {}", timetableId);
     }
@@ -111,10 +118,9 @@ public class AutoScheduleService {
      * - GDTC & GDQP: Prefer slots 6-10 (Afternoon session)
      * - HDTN: Saturday last period (slot 4/9)
      */
-    private void schedulePriorityActivities(Timetable timetable, ScheduleContext context) {
+    private void schedulePriorityActivities(Timetable timetable, java.util.List<ClassRoom> allClasses,
+            ScheduleContext context) {
         log.info("Step 1: Scheduling priority activities (GDTC, GDQP, HDTN)...");
-
-        var allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool());
 
         // Find priority subjects
         Subject hdtnSubject = subjectRepository.findByCode("HDTN").orElse(null);
@@ -122,11 +128,9 @@ public class AutoScheduleService {
         Subject gdqpSubject = subjectRepository.findByCode("GDQP").orElse(null);
 
         for (var classroom : allClasses) {
-            if (!classroom.getAcademicYear().equals(timetable.getSemester().getAcademicYear()))
-                continue;
 
             // Determine session type
-            com.schoolmanagement.backend.domain.exam.SessionType session = classroom.getSession();
+            SessionType session = classroom.getSession();
             boolean isMorningMain = (session == null || session == SessionType.SANG);
 
             // 1. HDTN: Saturday last period (not strictly afternoon, but follows Saturday
@@ -209,15 +213,13 @@ public class AutoScheduleService {
                 subject.getCode(), classroom.getName(), day, slotIndex);
     }
 
-    private void scheduleHighFrequencySubjects(Timetable timetable, ScheduleContext context) {
+    private void scheduleHighFrequencySubjects(Timetable timetable, java.util.List<ClassRoom> allClasses,
+            ScheduleContext context) {
         log.info("Step 2: Scheduling high frequency subjects (TOAN, VAN, ANH)...");
 
         String[] highFreqCodes = { "TOAN", "VAN", "ANH" };
-        var allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool());
 
         for (var classroom : allClasses) {
-            if (!classroom.getAcademicYear().equals(timetable.getSemester().getAcademicYear()))
-                continue;
 
             for (String code : highFreqCodes) {
                 var subjectOpt = subjectRepository.findByCode(code);
@@ -408,16 +410,17 @@ public class AutoScheduleService {
         // Safety check: verify DB doesn't already have a detail for this class+day+slot
         if (timetableDetailRepository.existsByTimetableAndClassRoomAndDayOfWeekAndSlotIndex(
                 timetable, classroom, day, slotIndex)) {
-            log.warn("SKIP: Class {} already has a lesson at {} slot {} (DB check)", 
+            log.warn("SKIP: Class {} already has a lesson at {} slot {} (DB check)",
                     classroom.getName(), day, slotIndex);
             context.markOccupied(classroom.getId(), teacher != null ? teacher.getId() : null, day, slotIndex);
             return;
         }
 
-        // Safety check: verify teacher isn't already teaching another class at this slot
+        // Safety check: verify teacher isn't already teaching another class at this
+        // slot
         if (teacher != null && timetableDetailRepository.existsByTimetableAndTeacherAndDayOfWeekAndSlotIndex(
                 timetable, teacher, day, slotIndex)) {
-            log.warn("SKIP: Teacher {} already teaches at {} slot {} (DB check)", 
+            log.warn("SKIP: Teacher {} already teaches at {} slot {} (DB check)",
                     teacher.getFullName(), day, slotIndex);
             return;
         }
@@ -437,16 +440,14 @@ public class AutoScheduleService {
         context.markOccupied(classroom.getId(), teacher != null ? teacher.getId() : null, day, slotIndex);
     }
 
-    private void scheduleElectiveSubjects(Timetable timetable, ScheduleContext context) {
+    private void scheduleElectiveSubjects(Timetable timetable, java.util.List<ClassRoom> allClasses,
+            ScheduleContext context) {
         log.info("Step 3: Scheduling elective subjects...");
 
-        var allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool());
         var compulsorySubjects = subjectRepository
-                .findByTypeAndActiveTrue(com.schoolmanagement.backend.domain.classes.SubjectType.COMPULSORY);
+                .findByTypeAndActiveTrue(SubjectType.COMPULSORY);
 
         for (var classroom : allClasses) {
-            if (!classroom.getAcademicYear().equals(timetable.getSemester().getAcademicYear()))
-                continue;
 
             java.util.Set<Subject> subjectsToSchedule = new java.util.HashSet<>(compulsorySubjects);
 
@@ -458,7 +459,7 @@ public class AutoScheduleService {
                 if (isSkippedSubject(subject.getCode()))
                     continue;
 
-                if (subject.getType() == com.schoolmanagement.backend.domain.classes.SubjectType.SPECIALIZED)
+                if (subject.getType() == SubjectType.SPECIALIZED)
                     continue;
 
                 var assignmentOpt = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject);
@@ -476,16 +477,14 @@ public class AutoScheduleService {
         return java.util.List.of("TOAN", "VAN", "ANH", "CC", "SHL", "GDTC", "HDTN", "GDQP").contains(code);
     }
 
-    private void scheduleSpecializedSubjects(Timetable timetable, ScheduleContext context) {
+    private void scheduleSpecializedSubjects(Timetable timetable, java.util.List<ClassRoom> allClasses,
+            ScheduleContext context) {
         log.info("Step 4: Scheduling specialized subjects (Chuyen de)...");
 
-        var allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool());
         var specializedSubjects = subjectRepository
-                .findByTypeAndActiveTrue(com.schoolmanagement.backend.domain.classes.SubjectType.SPECIALIZED);
+                .findByTypeAndActiveTrue(SubjectType.SPECIALIZED);
 
         for (var classroom : allClasses) {
-            if (!classroom.getAcademicYear().equals(timetable.getSemester().getAcademicYear()))
-                continue;
 
             if (classroom.getCombination() == null)
                 continue;

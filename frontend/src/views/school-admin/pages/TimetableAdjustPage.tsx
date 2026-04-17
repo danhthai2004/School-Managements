@@ -370,7 +370,7 @@ export default function TimetableAdjustPage() {
 
   const filteredClasses = classesList
     .filter((c) => gradeFilter === "ALL" || c.grade.toString() === gradeFilter)
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 
   const totalSlots = ENGLISH_DAYS.length * ALL_SLOTS.length;
 
@@ -654,11 +654,10 @@ export default function TimetableAdjustPage() {
                   {timetableName}
                 </span>
               )}
-              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                timetableStatus === "OFFICIAL"
+              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${timetableStatus === "OFFICIAL"
                   ? "bg-green-100 text-green-700"
                   : "bg-gray-100 text-gray-600"
-              }`}>
+                }`}>
                 {timetableStatus === "OFFICIAL" ? "Đang áp dụng" : "Bản nháp"}
               </span>
               {saving && (

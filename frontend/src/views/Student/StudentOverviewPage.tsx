@@ -358,24 +358,24 @@ function NotificationsCard() {
             {selectedNotif && createPortal(
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-hidden">
                     {/* Background Overlay with strong blur */}
-                    <div 
-                        className="absolute inset-0 bg-black/30 backdrop-blur-xl animate-in fade-in duration-300" 
-                        onClick={() => setSelectedNotif(null)} 
+                    <div
+                        className="absolute inset-0 bg-black/30 backdrop-blur-xl animate-in fade-in duration-300"
+                        onClick={() => setSelectedNotif(null)}
                     />
-                    
+
                     {/* Modal Container */}
                     <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
                         {/* Header - Matching sample image style */}
                         <div className="bg-blue-600 px-6 py-4 flex items-center justify-between">
                             <h3 className="text-white font-bold text-lg">Thông tin chi tiết thông báo</h3>
-                            <button 
+                            <button
                                 onClick={() => setSelectedNotif(null)}
                                 className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
                             >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        
+
                         {/* Body */}
                         <div className="flex-1 overflow-y-auto p-8 space-y-6">
                             <div className="flex items-center gap-4 border-b border-gray-100 pb-6">
@@ -394,7 +394,7 @@ function NotificationsCard() {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div className="space-y-4">
                                 <div className="text-gray-400 text-xs font-bold uppercase tracking-wider">Nội dung chi tiết</div>
                                 <div className="text-gray-800 text-base leading-relaxed whitespace-pre-wrap bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
@@ -402,7 +402,7 @@ function NotificationsCard() {
                                 </div>
                             </div>
                         </div>
-                        
+
                         {/* Footer - Optional but nice */}
                         <div className="px-6 py-4 border-t border-gray-100 flex justify-end bg-gray-50/30">
                             <button

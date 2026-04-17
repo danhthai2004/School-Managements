@@ -27,7 +27,7 @@ public class AdminNotificationController {
     private final UserRepository userRepository;
 
     public AdminNotificationController(NotificationService notificationService,
-                                       UserRepository userRepository) {
+            UserRepository userRepository) {
         this.notificationService = notificationService;
         this.userRepository = userRepository;
     }
@@ -49,9 +49,13 @@ public class AdminNotificationController {
      */
     @GetMapping
     public Page<NotificationDto> getNotificationHistory(
+            @RequestParam(required = false) com.schoolmanagement.backend.domain.notification.NotificationType type,
+            @RequestParam(required = false) com.schoolmanagement.backend.domain.notification.TargetGroup targetGroup,
+            @RequestParam(required = false) com.schoolmanagement.backend.domain.notification.NotificationStatus status,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return notificationService.getAdminNotificationHistory(page, size);
+        return notificationService.getAdminNotificationHistory(type, targetGroup, status, search, page, size);
     }
 
     /**

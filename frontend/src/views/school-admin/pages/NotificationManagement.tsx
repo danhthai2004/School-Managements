@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Plus, Bell, Send, X, ChevronDown, Clock, RotateCcw, Users } from "lucide-react";
+import { Plus, Bell, Send, X, ChevronDown, Clock, RotateCcw, Users, Search } from "lucide-react";
 import { useToast } from "../../../context/ToastContext";
+import { useConfirmation } from "../../../hooks/useConfirmation";
 
 interface NotificationDto {
     id: string;
@@ -32,10 +33,9 @@ const TARGET_GROUP_LABELS: Record<string, string> = {
 };
 
 const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
-    SYSTEM: "Hệ thống",
     EXAM: "Kiểm tra",
     SCHEDULE: "Thời khóa biểu",
-    MANUAL: "Thủ công",
+    MANUAL: "Khác",
 };
 
 function getToken() {
@@ -46,6 +46,7 @@ export default function NotificationManagement() {
     const { toast } = useToast();
     const [notifications, setNotifications] = useState<NotificationDto[]>([]);
     const [loading, setLoading] = useState(true);
+    const { confirm, ConfirmationDialog } = useConfirmation();
     const [page, setPage] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
     const [showModal, setShowModal] = useState(false);
@@ -59,15 +60,31 @@ export default function NotificationManagement() {
     const [formTargetGroup, setFormTargetGroup] = useState("ALL");
     const [formClassId, setFormClassId] = useState("");
 
+    // Filter states
+    const [searchTerm, setSearchTerm] = useState("");
+    const [typeFilter, setTypeFilter] = useState("");
+    const [targetFilter, setTargetFilter] = useState("");
+    const [statusFilter, setStatusFilter] = useState("");
+    const [pageSize] = useState(15);
+
     // Class list (for CLASS target)
     const [classOptions, setClassOptions] = useState<ClassRoomOption[]>([]);
 
     const fetchNotifications = useCallback(async (p = 0) => {
-        // Prevent concurrent fetches if already loading
         const token = getToken();
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/v1/admin/notifications?page=${p}&size=15`, {
+            const params = new URLSearchParams({
+                page: p.toString(),
+                size: pageSize.toString(),
+            });
+
+            if (searchTerm) params.append("search", searchTerm);
+            if (typeFilter) params.append("type", typeFilter);
+            if (targetFilter) params.append("targetGroup", targetFilter);
+            if (statusFilter) params.append("status", statusFilter);
+
+            const res = await fetch(`${API_BASE}/v1/admin/notifications?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
@@ -76,17 +93,14 @@ export default function NotificationManagement() {
                 setTotalPages(data.totalPages || 0);
                 setPage(data.number || 0);
             } else {
-                const errorText = await res.text();
-                console.error(`Fetch failed with status ${res.status}:`, errorText);
                 toast.error("Lỗi khi tải danh sách thông báo");
             }
         } catch (error) {
-            console.error("Network error fetching notifications:", error);
             toast.error("Lỗi khi tải danh sách thông báo");
         } finally {
             setLoading(false);
         }
-    }, [toast]);
+    }, [toast, searchTerm, typeFilter, targetFilter, statusFilter, pageSize]);
 
     const fetchClasses = async () => {
         try {
@@ -108,9 +122,10 @@ export default function NotificationManagement() {
     };
 
     useEffect(() => {
+        setPage(0);
         fetchNotifications(0);
         fetchClasses();
-    }, [fetchNotifications]);
+    }, [searchTerm, typeFilter, targetFilter, statusFilter, pageSize]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -159,28 +174,34 @@ export default function NotificationManagement() {
     };
 
     const handleRecall = async (id: string) => {
-        if (!confirm("Bạn có chắc muốn thu hồi thông báo này? Người nhận sẽ không còn thấy thông báo.")) return;
+        confirm({
+            title: "Thu hồi thông báo?",
+            message: "Bạn có chắc chắn muốn thu hồi thông báo này? Người nhận sẽ không còn thấy nội dung thông báo nữa.",
+            variant: "danger",
+            confirmText: "Thu hồi",
+            onConfirm: async () => {
+                setRecalling(id);
+                try {
+                    const token = getToken();
+                    const res = await fetch(`${API_BASE}/v1/admin/notifications/${id}/recall`, {
+                        method: "PATCH",
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
 
-        setRecalling(id);
-        try {
-            const token = getToken();
-            const res = await fetch(`${API_BASE}/v1/admin/notifications/${id}/recall`, {
-                method: "PATCH",
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (res.ok) {
-                toast.success("Đã thu hồi thông báo");
-                fetchNotifications(page);
-            } else {
-                toast.error("Lỗi khi thu hồi thông báo");
+                    if (res.ok) {
+                        toast.success("Đã thu hồi thông báo");
+                        fetchNotifications(page);
+                    } else {
+                        toast.error("Lỗi khi thu hồi thông báo");
+                    }
+                } catch (error) {
+                    console.error("Error recalling notification:", error);
+                    toast.error("Lỗi khi thu hồi thông báo");
+                } finally {
+                    setRecalling(null);
+                }
             }
-        } catch (error) {
-            console.error("Error recalling notification:", error);
-            toast.error("Lỗi khi thu hồi thông báo");
-        } finally {
-            setRecalling(null);
-        }
+        });
     };
 
     const resetForm = () => {
@@ -224,6 +245,55 @@ export default function NotificationManagement() {
                     <Plus className="w-5 h-5" />
                     <span>Tạo thông báo</span>
                 </button>
+            </div>
+
+            {/* Filter Bar */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap items-center gap-4">
+                <div className="relative flex-1 min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                        type="text"
+                        placeholder="Tìm kiếm tiêu đề hoặc nội dung..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all"
+                    />
+                </div>
+
+                <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                >
+                    <option value="">Tất cả loại</option>
+                    <option value="EXAM">Kiểm tra</option>
+                    <option value="SCHEDULE">Thời khóa biểu</option>
+                    <option value="MANUAL">Khác</option>
+                </select>
+
+                <select
+                    value={targetFilter}
+                    onChange={(e) => setTargetFilter(e.target.value)}
+                    className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                >
+                    <option value="">Tất cả đối tượng</option>
+                    <option value="ALL">Toàn trường</option>
+                    <option value="TEACHER">Giáo viên</option>
+                    <option value="STUDENT">Học sinh</option>
+                    <option value="GUARDIAN">Phụ huynh</option>
+                    <option value="CLASS">Theo lớp</option>
+                    <option value="GRADE">Theo khối</option>
+                </select>
+
+                <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                >
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="ACTIVE">Hoạt động</option>
+                    <option value="RECALLED">Đã thu hồi</option>
+                </select>
             </div>
 
             {/* Notifications List */}
@@ -406,10 +476,9 @@ export default function NotificationManagement() {
                                         onChange={(e) => setFormType(e.target.value)}
                                         className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none"
                                     >
-                                        <option value="MANUAL">Thủ công</option>
-                                        <option value="SYSTEM">Hệ thống</option>
                                         <option value="EXAM">Kiểm tra</option>
                                         <option value="SCHEDULE">Thời khóa biểu</option>
+                                        <option value="MANUAL">Khác</option>
                                     </select>
                                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                                 </div>
@@ -483,6 +552,8 @@ export default function NotificationManagement() {
                 </div>,
                 document.body
             )}
+            {/* Confirmation Dialog */}
+            <ConfirmationDialog />
         </div>
     );
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { schoolAdminService, type RoomDto, type CreateRoomRequest } from "../../../services/schoolAdminService";
 import { Plus, Edit2, Trash2, Building2, Users, X } from "lucide-react";
 import { useToast } from "../../../context/ToastContext";
+import { useConfirmation } from "../../../hooks/useConfirmation";
 
 type ModalState = { open: boolean; room: RoomDto | null };
 
@@ -13,6 +14,7 @@ export default function RoomManagement() {
     const [saving, setSaving] = useState(false);
     const [sortConfig, setSortConfig] = useState<{ key: keyof RoomDto; direction: 'asc' | 'desc' } | null>(null);
     const { toast } = useToast();
+    const { confirm, ConfirmationDialog } = useConfirmation();
 
     const sortedRooms = (rooms || []).slice().sort((a, b) => {
         if (!sortConfig) return 0;
@@ -100,15 +102,26 @@ export default function RoomManagement() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!window.confirm("Bạn chắc chắn muốn xóa phòng này?")) return;
-        try {
-            await schoolAdminService.deleteRoom(id);
-            toast.success("Đã xóa phòng");
-            fetchRooms();
-        } catch (e: any) {
-            toast.error(e?.response?.data?.message || "Lỗi xóa phòng");
-        }
+    const handleDelete = async (room: RoomDto) => {
+        confirm({
+            title: "Xóa phòng học?",
+            message: (
+                <span>
+                    Bạn có chắc chắn muốn xóa phòng <strong>{room.name}</strong>? Hành động này không thể hoàn tác.
+                </span>
+            ),
+            variant: "danger",
+            confirmText: "Xóa",
+            onConfirm: async () => {
+                try {
+                    await schoolAdminService.deleteRoom(room.id);
+                    toast.success("Đã xóa phòng");
+                    fetchRooms();
+                } catch (e: any) {
+                    toast.error(e?.response?.data?.message || "Lỗi xóa phòng");
+                }
+            }
+        });
     };
 
     const handleStatusToggle = async (room: RoomDto) => {
@@ -199,7 +212,7 @@ export default function RoomManagement() {
                                                 className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Sửa">
                                                 <Edit2 className="w-4 h-4" />
                                             </button>
-                                            <button onClick={() => handleDelete(room.id)}
+                                            <button onClick={() => handleDelete(room)}
                                                 className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Xóa">
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
@@ -275,6 +288,8 @@ export default function RoomManagement() {
                     </div>
                 </div>
             )}
+            {/* Confirmation Dialog */}
+            <ConfirmationDialog />
         </div>
     );
 }

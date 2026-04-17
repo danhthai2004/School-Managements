@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { schoolAdminService, type CombinationDto, type SubjectDto, type CreateCombinationRequest } from "../../../services/schoolAdminService";
 import { Plus, X, Check, AlertCircle, Edit, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useConfirmation } from "../../../hooks/useConfirmation";
 
 export default function CombinationManagement() {
     const [combinations, setCombinations] = useState<CombinationDto[]>([]);
@@ -11,6 +12,7 @@ export default function CombinationManagement() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const { confirm, ConfirmationDialog } = useConfirmation();
 
     // Form State
     const [formData, setFormData] = useState<CreateCombinationRequest>({
@@ -81,16 +83,27 @@ export default function CombinationManagement() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!window.confirm("Bạn có chắc chắn muốn xóa tổ hợp này?")) return;
-        try {
-            await schoolAdminService.deleteCombination(id);
-            toast.success("Xóa tổ hợp thành công");
-            fetchData();
-        } catch (error: any) {
-            console.error(error);
-            toast.error(error.response?.data?.message || "Không thể xóa tổ hợp");
-        }
+    const handleDelete = async (combo: CombinationDto) => {
+        confirm({
+            title: "Xóa tổ hợp môn?",
+            message: (
+                <span>
+                    Bạn có chắc chắn muốn xóa tổ hợp <strong>{combo.name}</strong>? Hành động này không thể hoàn tác.
+                </span>
+            ),
+            variant: "danger",
+            confirmText: "Xóa",
+            onConfirm: async () => {
+                try {
+                    await schoolAdminService.deleteCombination(combo.id);
+                    toast.success("Xóa tổ hợp thành công");
+                    fetchData();
+                } catch (error: any) {
+                    console.error(error);
+                    toast.error(error.response?.data?.message || "Không thể xóa tổ hợp");
+                }
+            }
+        });
     };
 
     const handleEdit = (combo: CombinationDto) => {
@@ -192,7 +205,7 @@ export default function CombinationManagement() {
                                         <Edit className="w-4 h-4" />
                                     </button>
                                     <button
-                                        onClick={() => handleDelete(combo.id)}
+                                        onClick={() => handleDelete(combo)}
                                         className="text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors"
                                         title="Xóa"
                                     >
@@ -412,6 +425,7 @@ export default function CombinationManagement() {
                 </div>,
                 document.body
             )}
+            <ConfirmationDialog />
         </div>
     );
 }

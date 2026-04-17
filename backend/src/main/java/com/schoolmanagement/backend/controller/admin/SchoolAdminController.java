@@ -9,6 +9,13 @@ import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.security.UserPrincipal;
 import com.schoolmanagement.backend.service.admin.SchoolAdminService;
 import com.schoolmanagement.backend.service.auth.UserLookupService;
+import com.schoolmanagement.backend.domain.notification.NotificationStatus;
+import com.schoolmanagement.backend.domain.notification.NotificationType;
+import com.schoolmanagement.backend.domain.notification.TargetGroup;
+import com.schoolmanagement.backend.dto.notification.CreateNotificationRequest;
+import com.schoolmanagement.backend.service.student.StudentAccountService;
+import com.schoolmanagement.backend.service.notification.NotificationService;
+import com.schoolmanagement.backend.service.student.StudentExportService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,15 +34,15 @@ public class SchoolAdminController {
 
     private final SchoolAdminService schoolAdminService;
     private final UserLookupService userLookup;
-    private final com.schoolmanagement.backend.service.student.StudentAccountService studentAccountService;
-    private final com.schoolmanagement.backend.service.notification.NotificationService notificationService;
-    private final com.schoolmanagement.backend.service.student.StudentExportService studentExportService;
+    private final StudentAccountService studentAccountService;
+    private final NotificationService notificationService;
+    private final StudentExportService studentExportService;
 
     public SchoolAdminController(SchoolAdminService schoolAdminService,
             UserLookupService userLookup,
-            com.schoolmanagement.backend.service.student.StudentAccountService studentAccountService,
-            com.schoolmanagement.backend.service.notification.NotificationService notificationService,
-            com.schoolmanagement.backend.service.student.StudentExportService studentExportService) {
+            StudentAccountService studentAccountService,
+            NotificationService notificationService,
+            StudentExportService studentExportService) {
         this.schoolAdminService = schoolAdminService;
         this.userLookup = userLookup;
         this.studentAccountService = studentAccountService;
@@ -214,10 +221,14 @@ public class SchoolAdminController {
     @GetMapping("/notifications/history")
     public org.springframework.data.domain.Page<com.schoolmanagement.backend.dto.notification.NotificationDto> getNotificationHistory(
             @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) NotificationType type,
+            @RequestParam(required = false) TargetGroup targetGroup,
+            @RequestParam(required = false) NotificationStatus status,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         log.info("[Notification] GET /notifications/history - User: {}", principal.getEmail());
-        return notificationService.getAdminNotificationHistory(page, size);
+        return notificationService.getAdminNotificationHistory(type, targetGroup, status, search, page, size);
     }
 
     /**
@@ -226,7 +237,7 @@ public class SchoolAdminController {
     @Transactional
     @PostMapping("/notifications")
     public com.schoolmanagement.backend.dto.notification.NotificationDto createNotification(
-            @Valid @RequestBody com.schoolmanagement.backend.dto.notification.CreateNotificationRequest request,
+            @Valid @RequestBody CreateNotificationRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         log.info("[Notification] POST /notifications - User: {}, Title: {}", principal.getEmail(), request.title());
         var admin = userLookup.requireById(principal.getId());

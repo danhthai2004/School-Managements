@@ -1,5 +1,5 @@
 package com.schoolmanagement.backend.service.notification;
- 
+
 import com.schoolmanagement.backend.domain.auth.Role;
 import com.schoolmanagement.backend.domain.entity.auth.User;
 import com.schoolmanagement.backend.domain.entity.classes.ClassEnrollment;
@@ -39,7 +39,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
- 
+
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -66,17 +66,17 @@ public class NotificationService {
     private final FirebaseMessagingService firebaseMessagingService;
 
     public NotificationService(NotificationRepository notificationRepository,
-                               NotificationRecipientRepository recipientRepository,
-                               DeviceTokenRepository deviceTokenRepository,
-                               UserRepository userRepository,
-                               ClassRoomRepository classRoomRepository,
-                               ClassEnrollmentRepository classEnrollmentRepository,
-                               TeacherRepository teacherRepository,
-                               TeacherAssignmentRepository teacherAssignmentRepository,
-                               TimetableRepository timetableRepository,
-                               TimetableDetailRepository timetableDetailRepository,
-                               ActivityLogService activityLog,
-                               FirebaseMessagingService firebaseMessagingService) {
+            NotificationRecipientRepository recipientRepository,
+            DeviceTokenRepository deviceTokenRepository,
+            UserRepository userRepository,
+            ClassRoomRepository classRoomRepository,
+            ClassEnrollmentRepository classEnrollmentRepository,
+            TeacherRepository teacherRepository,
+            TeacherAssignmentRepository teacherAssignmentRepository,
+            TimetableRepository timetableRepository,
+            TimetableDetailRepository timetableDetailRepository,
+            ActivityLogService activityLog,
+            FirebaseMessagingService firebaseMessagingService) {
         this.notificationRepository = notificationRepository;
         this.recipientRepository = recipientRepository;
         this.deviceTokenRepository = deviceTokenRepository;
@@ -92,7 +92,7 @@ public class NotificationService {
     }
 
     // ─────────────────────────────────────────────────────────
-    //  USER APIs
+    // USER APIs
     // ─────────────────────────────────────────────────────────
 
     /**
@@ -100,7 +100,8 @@ public class NotificationService {
      */
     public NotificationPageResponse getUserNotifications(UUID userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<NotificationRecipient> recipientPage = recipientRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+        Page<NotificationRecipient> recipientPage = recipientRepository.findByUserIdOrderByCreatedAtDesc(userId,
+                pageable);
         long unreadCount = recipientRepository.countUnreadByUserId(userId);
 
         List<NotificationDto> dtos = recipientPage.getContent().stream()
@@ -112,8 +113,7 @@ public class NotificationService {
                 unreadCount,
                 recipientPage.getTotalPages(),
                 recipientPage.getTotalElements(),
-                recipientPage.getNumber()
-        );
+                recipientPage.getNumber());
     }
 
     /**
@@ -160,7 +160,7 @@ public class NotificationService {
     }
 
     // ─────────────────────────────────────────────────────────
-    //  ADMIN APIs
+    // ADMIN APIs
     // ─────────────────────────────────────────────────────────
 
     /**
@@ -171,7 +171,8 @@ public class NotificationService {
         // Validate: CLASS/GRADE phải có referenceId
         if ((request.targetGroup() == TargetGroup.CLASS || request.targetGroup() == TargetGroup.GRADE)
                 && (request.referenceId() == null || request.referenceId().isBlank())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Cần chỉ định lớp/khối (referenceId) khi gửi cho CLASS/GRADE.");
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Cần chỉ định lớp/khối (referenceId) khi gửi cho CLASS/GRADE.");
         }
 
         Notification notification = Notification.builder()
@@ -218,7 +219,8 @@ public class NotificationService {
                 .content(content)
                 .type(NotificationType.EXAM)
                 .targetGroup(exam.getClassRoom() != null ? TargetGroup.CLASS : TargetGroup.GRADE)
-                .referenceId(exam.getClassRoom() != null ? exam.getClassRoom().getId().toString() : String.valueOf(exam.getGrade()))
+                .referenceId(exam.getClassRoom() != null ? exam.getClassRoom().getId().toString()
+                        : String.valueOf(exam.getGrade()))
                 .build();
 
         notification = notificationRepository.save(notification);
@@ -232,7 +234,8 @@ public class NotificationService {
     @Transactional
     public void sendScheduleNotificationForClass(ClassRoom classRoom, List<TimetableDetail> details) {
         List<User> targetUsers = resolveClassUsers(classRoom.getId().toString());
-        if (targetUsers.isEmpty()) return;
+        if (targetUsers.isEmpty())
+            return;
 
         String subjectList = details.stream()
                 .sorted(Comparator.comparing(TimetableDetail::getSlotIndex))
@@ -261,13 +264,15 @@ public class NotificationService {
      */
     @Transactional
     public void sendTeacherScheduleNotification(Teacher teacher, List<TimetableDetail> details) {
-        if (teacher.getUser() == null) return;
+        if (teacher.getUser() == null)
+            return;
 
         List<User> targetUsers = List.of(teacher.getUser());
 
         String classesList = details.stream()
                 .sorted(Comparator.comparing(TimetableDetail::getSlotIndex))
-                .map(d -> "**Tiết " + d.getSlotIndex() + ":** Lớp " + d.getClassRoom().getName() + " (" + d.getSubject().getName() + ")")
+                .map(d -> "**Tiết " + d.getSlotIndex() + ":** Lớp " + d.getClassRoom().getName() + " ("
+                        + d.getSubject().getName() + ")")
                 .collect(Collectors.joining("\n"));
 
         String title = "Lịch dạy ngày mai";
@@ -308,9 +313,14 @@ public class NotificationService {
     /**
      * Xem lịch sử thông báo đã phát (Admin).
      */
-    public Page<NotificationDto> getAdminNotificationHistory(int page, int size) {
+    public Page<NotificationDto> getAdminNotificationHistory(
+            NotificationType type,
+            TargetGroup targetGroup,
+            NotificationStatus status,
+            String search,
+            int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return notificationRepository.findAllByOrderByCreatedAtDesc(pageable)
+        return notificationRepository.findAllWithFilters(type, targetGroup, status, search, pageable)
                 .map(n -> toDto(n, false));
     }
 
@@ -334,7 +344,7 @@ public class NotificationService {
     }
 
     // ─────────────────────────────────────────────────────────
-    //  TEACHER APIs
+    // TEACHER APIs
     // ─────────────────────────────────────────────────────────
 
     /**
@@ -409,7 +419,7 @@ public class NotificationService {
     }
 
     // ─────────────────────────────────────────────────────────
-    //  PRIVATE HELPERS
+    // PRIVATE HELPERS
     // ─────────────────────────────────────────────────────────
 
     /**
@@ -425,7 +435,7 @@ public class NotificationService {
             case GRADE -> resolveGradeUsers(referenceId);
         };
     }
- 
+
     /**
      * Phân giải người nhận dựa trên thực thể ExamSchedule.
      * Tự động lọc theo Lớp hoặc (Khối + Môn học).
@@ -434,14 +444,14 @@ public class NotificationService {
         if (exam.getClassRoom() != null) {
             return resolveClassUsers(exam.getClassRoom().getId().toString());
         }
- 
+
         if (exam.getGrade() != null) {
             return resolveGradeBySubjectUsers(exam.getGrade(), exam.getSubject().getId());
         }
- 
+
         return new ArrayList<>();
     }
- 
+
     /**
      * Lấy danh sách User thuộc một Khối cụ thể.
      */
@@ -450,14 +460,14 @@ public class NotificationService {
         List<ClassRoom> rooms = classRoomRepository.findAll().stream()
                 .filter(r -> r.getGrade() == gradeNum)
                 .toList();
- 
+
         List<User> users = new ArrayList<>();
         for (ClassRoom r : rooms) {
             users.addAll(resolveClassUsers(r.getId().toString()));
         }
         return users;
     }
- 
+
     /**
      * Lấy danh sách học sinh thuộc Khối G và có học môn S (thông qua Combination).
      */
@@ -467,7 +477,7 @@ public class NotificationService {
                 .filter(r -> r.getCombination() != null &&
                         r.getCombination().getSubjects().stream().anyMatch(s -> s.getId().equals(subjectId)))
                 .toList();
- 
+
         List<User> users = new ArrayList<>();
         for (ClassRoom r : matchingRooms) {
             log.debug("Found matching class for subject notification: {}", r.getName());
@@ -477,7 +487,8 @@ public class NotificationService {
     }
 
     /**
-     * Lấy danh sách User thuộc một ClassRoom cụ thể (Student + Guardian của Student).
+     * Lấy danh sách User thuộc một ClassRoom cụ thể (Student + Guardian của
+     * Student).
      */
     private List<User> resolveClassUsers(String classRoomIdStr) {
         UUID classRoomId = UUID.fromString(classRoomIdStr);
@@ -506,7 +517,8 @@ public class NotificationService {
      * Batch insert NotificationRecipient cho danh sách User và gửi FCM Push.
      */
     private void batchCreateRecipients(Notification notification, List<User> users) {
-        if (users == null || users.isEmpty()) return;
+        if (users == null || users.isEmpty())
+            return;
 
         java.util.Map<UUID, User> uniqueUsers = new java.util.HashMap<>();
         for (User u : users) {
@@ -531,8 +543,7 @@ public class NotificationService {
                     notification.getTitle(),
                     notification.getContent(),
                     notification.getActionUrl(),
-                    fcmTokens
-            );
+                    fcmTokens);
         }
     }
 
@@ -556,7 +567,6 @@ public class NotificationService {
                 n.getStatus(),
                 createdByName,
                 n.getCreatedAt(),
-                isRead
-        );
+                isRead);
     }
 }

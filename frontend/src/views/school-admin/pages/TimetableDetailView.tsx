@@ -17,7 +17,7 @@ interface TimetableDetail {
 
 // Morning: 1-5, Afternoon: 6-9
 const MORNING_SLOTS = [1, 2, 3, 4, 5];
-const AFTERNOON_SLOTS = [6, 7, 8, 9];
+const AFTERNOON_SLOTS = [6, 7, 8, 9, 10];
 
 export default function TimetableDetailView() {
     const { id } = useParams();
@@ -101,11 +101,13 @@ export default function TimetableDetailView() {
     };
 
     // Group by Class
-    const classes = Array.from(new Set(details.map(d => d.className))).sort();
+    const classes = Array.from(new Set(details.map(d => d.className))).sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+    );
 
     // Days Mapping
-    const DAYS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
-    const ENGLISH_DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+    const DAYS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"];
+    const ENGLISH_DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
 
     const getCell = (className: string, day: string, slot: number) => {
         // Robust mapping using index

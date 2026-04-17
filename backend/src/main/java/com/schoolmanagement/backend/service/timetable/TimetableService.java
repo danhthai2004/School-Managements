@@ -2,6 +2,7 @@ package com.schoolmanagement.backend.service.timetable;
 
 import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.timetable.Timetable;
+import com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail;
 import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 
@@ -9,10 +10,15 @@ import com.schoolmanagement.backend.domain.timetable.TimetableStatus;
 
 import com.schoolmanagement.backend.dto.timetable.SimpleTimetableDetailDto;
 import com.schoolmanagement.backend.dto.timetable.TimetableDto;
+import com.schoolmanagement.backend.dto.timetable.TimetableDetailDto;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.repo.timetable.TimetableRepository;
 import com.schoolmanagement.backend.repo.timetable.TimetableDetailRepository;
 import jakarta.persistence.EntityNotFoundException;
+import org.apache.poi.ss.usermodel.*;
+import java.util.Map;
+import java.util.HashMap;
+import java.time.DayOfWeek;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -96,7 +102,8 @@ public class TimetableService {
   public List<SimpleTimetableDetailDto> getTimetableDetailsOfStudent(Student student, ClassRoom classRoom) {
     School school = student.getSchool();
     Timetable studentTimetable = timetables
-        .findFirstBySchoolAndSemesterAndStatusOrderByCreatedAtDesc(school, semesterService.getActiveSemesterEntity(school), TimetableStatus.OFFICIAL)
+        .findFirstBySchoolAndSemesterAndStatusOrderByCreatedAtDesc(school,
+            semesterService.getActiveSemesterEntity(school), TimetableStatus.OFFICIAL)
         .orElseThrow(() -> new EntityNotFoundException("Timetable not found"));
     return timetableDetailRepository.findAllByTimetableAndClassRoom(studentTimetable, classRoom)
         .stream()
@@ -110,7 +117,7 @@ public class TimetableService {
         .toList();
   }
 
-  public List<com.schoolmanagement.backend.dto.timetable.TimetableDetailDto> getTimetableDetails(UUID timetableId,
+  public List<TimetableDetailDto> getTimetableDetails(UUID timetableId,
       Integer grade, String className) {
     Timetable timetable = timetables.findById(timetableId)
         .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy thời khóa biểu."));
@@ -124,7 +131,7 @@ public class TimetableService {
             return false;
           return true;
         })
-        .map(d -> new com.schoolmanagement.backend.dto.timetable.TimetableDetailDto(
+        .map(d -> new TimetableDetailDto(
             d.getId(),
             d.getClassRoom().getId(),
             d.getClassRoom().getName(),
@@ -180,11 +187,11 @@ public class TimetableService {
 
     // Group by Class, then Day, then Slot
     // Map<ClassName, Map<DayOfWeek, Map<Slot, Detail>>>
-    java.util.Map<String, java.util.Map<java.time.DayOfWeek, java.util.Map<Integer, com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail>>> matrix = new java.util.HashMap<>();
+    java.util.Map<String, Map<DayOfWeek, Map<Integer, TimetableDetail>>> matrix = new java.util.HashMap<>();
 
-    for (com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail d : details) {
-      matrix.computeIfAbsent(d.getClassRoom().getName(), k -> new java.util.HashMap<>())
-          .computeIfAbsent(d.getDayOfWeek(), k -> new java.util.HashMap<>())
+    for (TimetableDetail d : details) {
+      matrix.computeIfAbsent(d.getClassRoom().getName(), k -> new HashMap<>())
+          .computeIfAbsent(d.getDayOfWeek(), k -> new HashMap<>())
           .put(d.getSlotIndex(), d);
     }
 
@@ -196,27 +203,27 @@ public class TimetableService {
       org.apache.poi.ss.usermodel.Font headerFont = workbook.createFont();
       headerFont.setBold(true);
       headerStyle.setFont(headerFont);
-      headerStyle.setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER);
-      headerStyle.setVerticalAlignment(org.apache.poi.ss.usermodel.VerticalAlignment.CENTER);
-      headerStyle.setFillForegroundColor(org.apache.poi.ss.usermodel.IndexedColors.GREY_25_PERCENT.getIndex());
-      headerStyle.setFillPattern(org.apache.poi.ss.usermodel.FillPatternType.SOLID_FOREGROUND);
-      headerStyle.setBorderBottom(org.apache.poi.ss.usermodel.BorderStyle.THIN);
-      headerStyle.setBorderTop(org.apache.poi.ss.usermodel.BorderStyle.THIN);
-      headerStyle.setBorderLeft(org.apache.poi.ss.usermodel.BorderStyle.THIN);
-      headerStyle.setBorderRight(org.apache.poi.ss.usermodel.BorderStyle.THIN);
+      headerStyle.setAlignment(HorizontalAlignment.CENTER);
+      headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+      headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+      headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+      headerStyle.setBorderBottom(BorderStyle.THIN);
+      headerStyle.setBorderTop(BorderStyle.THIN);
+      headerStyle.setBorderLeft(BorderStyle.THIN);
+      headerStyle.setBorderRight(BorderStyle.THIN);
 
-      org.apache.poi.ss.usermodel.CellStyle cellStyle = workbook.createCellStyle();
-      cellStyle.setVerticalAlignment(org.apache.poi.ss.usermodel.VerticalAlignment.CENTER);
-      cellStyle.setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER);
+      CellStyle cellStyle = workbook.createCellStyle();
+      cellStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+      cellStyle.setAlignment(HorizontalAlignment.CENTER);
       cellStyle.setWrapText(true);
-      cellStyle.setBorderBottom(org.apache.poi.ss.usermodel.BorderStyle.THIN);
-      cellStyle.setBorderTop(org.apache.poi.ss.usermodel.BorderStyle.THIN);
-      cellStyle.setBorderLeft(org.apache.poi.ss.usermodel.BorderStyle.THIN);
-      cellStyle.setBorderRight(org.apache.poi.ss.usermodel.BorderStyle.THIN);
+      cellStyle.setBorderBottom(BorderStyle.THIN);
+      cellStyle.setBorderTop(BorderStyle.THIN);
+      cellStyle.setBorderLeft(BorderStyle.THIN);
+      cellStyle.setBorderRight(BorderStyle.THIN);
 
       // Header Row
       org.apache.poi.ss.usermodel.Row header = sheet.createRow(0);
-      String[] columns = { "Lớp", "Tiết", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy" };
+      String[] columns = { "Lớp", "Tiết", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật" };
       for (int i = 0; i < columns.length; i++) {
         org.apache.poi.ss.usermodel.Cell cell = header.createCell(i);
         cell.setCellValue(columns[i]);
@@ -226,7 +233,25 @@ public class TimetableService {
       int rowIdx = 1;
       // Sort classes alphabetically
       List<String> sortedClasses = new java.util.ArrayList<>(matrix.keySet());
-      java.util.Collections.sort(sortedClasses);
+      sortedClasses.sort((a, b) -> {
+        // Manual natural sort for Java
+        String[] aParts = a.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)");
+        String[] bParts = b.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)");
+        int len = Math.min(aParts.length, bParts.length);
+        for (int i = 0; i < len; i++) {
+          if (Character.isDigit(aParts[i].charAt(0)) && Character.isDigit(bParts[i].charAt(0))) {
+            int aInt = Integer.parseInt(aParts[i]);
+            int bInt = Integer.parseInt(bParts[i]);
+            if (aInt != bInt)
+              return aInt - bInt;
+          } else {
+            int r = aParts[i].compareTo(bParts[i]);
+            if (r != 0)
+              return r;
+          }
+        }
+        return a.length() - b.length();
+      });
 
       java.time.DayOfWeek[] days = {
           java.time.DayOfWeek.MONDAY,
@@ -234,7 +259,8 @@ public class TimetableService {
           java.time.DayOfWeek.WEDNESDAY,
           java.time.DayOfWeek.THURSDAY,
           java.time.DayOfWeek.FRIDAY,
-          java.time.DayOfWeek.SATURDAY
+          java.time.DayOfWeek.SATURDAY,
+          java.time.DayOfWeek.SUNDAY
       };
 
       for (String clsName : sortedClasses) {
@@ -283,7 +309,7 @@ public class TimetableService {
       // Autosize columns
       sheet.setColumnWidth(0, 2500); // Class
       sheet.setColumnWidth(1, 2000); // Slot
-      for (int i = 2; i < 8; i++) {
+      for (int i = 2; i < 9; i++) {
         sheet.setColumnWidth(i, 5000); // Days
       }
 
