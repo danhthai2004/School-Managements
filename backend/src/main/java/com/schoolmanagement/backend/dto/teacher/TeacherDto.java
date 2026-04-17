@@ -22,5 +22,7 @@ public record TeacherDto(
                 java.util.List<SubjectDto> subjects,
                 String subjectName,
                 boolean hasAccount,
-                String avatarUrl) {
+        Integer maxPeriodsPerWeek) {
+
 }
+

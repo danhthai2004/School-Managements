@@ -24,7 +24,7 @@ function EditClassModal({ isOpen, classData, onClose, onSuccess, teachers, combi
     const [name, setName] = useState("");
     const [grade, setGrade] = useState(10);
     const [academicYear, setAcademicYear] = useState("");
-    const [maxCapacity, setMaxCapacity] = useState(35);
+    const [maxCapacity, setMaxCapacity] = useState(40);
     const [roomId, setRoomId] = useState("");
     const [combinationId, setCombinationId] = useState("");
     const [homeroomTeacherId, setHomeroomTeacherId] = useState("");
@@ -158,7 +158,7 @@ function EditClassModal({ isOpen, classData, onClose, onSuccess, teachers, combi
                                         value={maxCapacity}
                                         onChange={(e) => setMaxCapacity(Number(e.target.value))}
                                         min={1}
-                                        max={35}
+                                        max={40}
                                         required
                                         className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm"
                                     />

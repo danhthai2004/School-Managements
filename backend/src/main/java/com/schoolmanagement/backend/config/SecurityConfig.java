@@ -51,7 +51,7 @@ public class SecurityConfig {
                         // Notification v1 APIs
                         .requestMatchers("/api/v1/admin/notifications/**").hasRole("SCHOOL_ADMIN")
                         .requestMatchers("/api/v1/teacher/notifications/**").hasRole("TEACHER")
-                        .requestMatchers("/api/v1/notifications/**").hasAnyRole("SCHOOL_ADMIN", "TEACHER", "STUDENT", "GUARDIAN")
+                        .requestMatchers("/api/v1/notifications/**").hasAnyRole("SCHOOL_ADMIN", "TEACHER", "STUDENT", "GUARDIAN", "SYSTEM_ADMIN")
                         // Risk Analytics APIs
                         .requestMatchers("/api/risk/trigger").hasRole("SCHOOL_ADMIN")
                         .requestMatchers("/api/risk/feedback").hasAnyRole("SCHOOL_ADMIN", "TEACHER")

@@ -9,7 +9,6 @@ import {
   ActivityIcon,
   LogoutIcon,
   MenuIcon,
-  SearchIcon,
   UserIcon,
   LockIcon,
 } from "./SystemIcons";
@@ -114,7 +113,7 @@ export default function SystemLayout() {
           <button
             onClick={handleLogout}
             title={sidebarCollapsed ? "Đăng xuất" : undefined}
-            className={`flex items-center gap-3 px-3 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm ${sidebarCollapsed ? "justify-center" : ""
+            className={`w-full flex items-center gap-3 px-3 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm ${sidebarCollapsed ? "justify-center" : ""
               }`}
           >
             <LogoutIcon />
@@ -130,19 +129,7 @@ export default function SystemLayout() {
       >
         {/* Header */}
         <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center sticky top-0 z-30">
-          <div className="flex items-center justify-between w-full">
-            {/* Search */}
-            <div className="relative w-96">
-              <input
-                type="text"
-                placeholder="Tìm kiếm..."
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-lg border-0 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all text-sm"
-              />
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                <SearchIcon />
-              </div>
-            </div>
-
+          <div className="flex items-center justify-end w-full">
             {/* Right side */}
             <div className="flex items-center gap-4">
               <NotificationBell />
@@ -170,20 +157,22 @@ export default function SystemLayout() {
                       onClick={() => setProfileDropdownOpen(false)}
                     />
                     <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
-                      <button
+                      <Link
+                        to="/system/profile"
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => setProfileDropdownOpen(false)}
                       >
                         <UserIcon />
                         <span>Thông tin cá nhân</span>
-                      </button>
-                      <button
+                      </Link>
+                      <Link
+                        to="/system/profile"
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => setProfileDropdownOpen(false)}
                       >
                         <LockIcon />
                         <span>Đổi mật khẩu</span>
-                      </button>
+                      </Link>
                       <div className="border-t border-gray-100 my-1" />
                       <button
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"

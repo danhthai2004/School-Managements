@@ -6,6 +6,7 @@ import com.schoolmanagement.backend.domain.auth.Role;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Getter
@@ -42,9 +43,11 @@ public class User {
     /**
      * All roles must change password on first login except SYSTEM_ADMIN.
      */
+    @Builder.Default
     @Column(nullable = false)
     private boolean firstLogin = true;
 
+    @Builder.Default
     @Column(nullable = false)
     private boolean enabled = true;
 
@@ -66,4 +69,22 @@ public class User {
      * Used to restore the correct state when un-marking from pending delete.
      */
     private Boolean wasEnabledBeforePendingDelete;
+
+    @Column(length = 20)
+    private String phone;
+
+    private LocalDate dateOfBirth;
+
+    @Column(length = 255)
+    private String address;
+
+    @Column(length = 1000)
+    private String bio;
+
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean isTwoFactorEnabled = false;
+
+    @Column(length = 64)
+    private String twoFactorSecret;
 }

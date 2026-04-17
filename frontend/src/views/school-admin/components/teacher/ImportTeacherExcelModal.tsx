@@ -18,8 +18,8 @@ function ImportTeacherExcelModal({ isOpen, onClose, onSuccess, onImportComplete 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
         if (selectedFile) {
-            if (!selectedFile.name.endsWith('.xlsx') && !selectedFile.name.endsWith('.xls')) {
-                setError('Vui lòng chọn file Excel (.xlsx hoặc .xls)');
+            if (!selectedFile.name.endsWith('.xlsx') && !selectedFile.name.endsWith('.xls') && !selectedFile.name.endsWith('.csv')) {
+                setError('Vui lòng chọn file Excel/CSV (.xlsx, .xls, .csv)');
                 return;
             }
             setFile(selectedFile);
@@ -30,7 +30,7 @@ function ImportTeacherExcelModal({ isOpen, onClose, onSuccess, onImportComplete 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!file) {
-            setError('Vui lòng chọn file Excel');
+            setError('Vui lòng chọn file Excel/CSV');
             return;
         }
 
@@ -78,7 +78,7 @@ function ImportTeacherExcelModal({ isOpen, onClose, onSuccess, onImportComplete 
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
                         <p className="font-medium text-blue-800 mb-2">Hướng dẫn:</p>
                         <ul className="text-blue-700 space-y-1 list-disc list-inside">
-                            <li>File Excel phải có cột <strong>Họ tên</strong> (bắt buộc)</li>
+                            <li>File dữ liệu phải có cột <strong>Họ tên</strong> (bắt buộc)</li>
                             <li>Các cột tùy chọn: Ngày sinh, Giới tính, Địa chỉ, Email, SĐT</li>
                             <li>Thông tin bổ sung: Bằng cấp. (Cột "Chuyên môn" dùng để xác định Môn học)</li>
                         </ul>
@@ -95,12 +95,12 @@ function ImportTeacherExcelModal({ isOpen, onClose, onSuccess, onImportComplete 
                         {/* File Input */}
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Chọn file Excel *
+                                Chọn file Excel/CSV *
                             </label>
                             <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-emerald-500 transition-colors">
                                 <input
                                     type="file"
-                                    accept=".xlsx,.xls"
+                                    accept=".xlsx,.xls,.csv"
                                     onChange={handleFileChange}
                                     className="hidden"
                                     id="teacher-excel-file-input"

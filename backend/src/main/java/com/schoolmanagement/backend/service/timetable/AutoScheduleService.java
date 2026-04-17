@@ -1,7 +1,6 @@
 package com.schoolmanagement.backend.service.timetable;
 
 import com.schoolmanagement.backend.domain.exam.SessionType;
-import com.schoolmanagement.backend.domain.classes.SubjectType;
 
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.classes.Subject;
@@ -151,7 +150,8 @@ public class AutoScheduleService {
         if (subject == null)
             return;
 
-        Teacher teacher = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject)
+        Teacher teacher = teacherAssignmentRepository
+                .findFirstByClassRoomAndSubjectAndTeacherIsNotNull(classroom, subject)
                 .map(TeacherAssignment::getTeacher).orElse(null);
 
         int lessonsToAssign = subject.getTotalLessons();
@@ -201,7 +201,8 @@ public class AutoScheduleService {
     private void createPriorityDetail(Timetable timetable, ClassRoom classroom,
             Subject subject, DayOfWeek day, int slotIndex, ScheduleContext context) {
 
-        Teacher teacher = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject)
+        Teacher teacher = teacherAssignmentRepository
+                .findFirstByClassRoomAndSubjectAndTeacherIsNotNull(classroom, subject)
                 .map(TeacherAssignment::getTeacher).orElse(null);
 
         createAndSaveDetail(timetable, classroom, subject, day, slotIndex, teacher, context);
@@ -225,8 +226,8 @@ public class AutoScheduleService {
                     continue;
 
                 Subject subject = subjectOpt.get();
-                var assignmentOpt = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject);
-                Teacher teacher = assignmentOpt
+                Teacher teacher = teacherAssignmentRepository
+                        .findFirstByClassRoomAndSubjectAndTeacherIsNotNull(classroom, subject)
                         .map(TeacherAssignment::getTeacher).orElse(null);
 
                 // Use the shared scheduling method with randomization enabled
@@ -443,8 +444,9 @@ public class AutoScheduleService {
                 if (subject.getType() == com.schoolmanagement.backend.domain.classes.SubjectType.SPECIALIZED)
                     continue;
 
-                var assignmentOpt = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject);
-                Teacher teacher = assignmentOpt.map(TeacherAssignment::getTeacher).orElse(null);
+                Teacher teacher = teacherAssignmentRepository
+                        .findFirstByClassRoomAndSubjectAndTeacherIsNotNull(classroom, subject)
+                        .map(TeacherAssignment::getTeacher).orElse(null);
 
                 scheduleSubject(timetable, classroom, subject, teacher, true, context);
             }
@@ -480,14 +482,16 @@ public class AutoScheduleService {
                     continue;
                 }
 
-                Teacher teacher = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject)
+                Teacher teacher = teacherAssignmentRepository
+                        .findFirstByClassRoomAndSubjectAndTeacherIsNotNull(classroom, subject)
                         .map(TeacherAssignment::getTeacher).orElse(null);
 
                 if (teacher == null && subject.getCode().startsWith("CD_")) {
                     String baseCode = subject.getCode().replace("CD_", "");
                     var baseSubjectOpt = subjectRepository.findByCode(baseCode);
                     if (baseSubjectOpt.isPresent()) {
-                        teacher = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, baseSubjectOpt.get())
+                        teacher = teacherAssignmentRepository
+                                .findFirstByClassRoomAndSubjectAndTeacherIsNotNull(classroom, baseSubjectOpt.get())
                                 .map(TeacherAssignment::getTeacher).orElse(null);
                     }
                 }

@@ -290,4 +290,17 @@ public class TimetableService {
       return out.toByteArray();
     }
   }
+
+  // ==================== MANUAL MODIFICATION STUBS ====================
+
+  @Transactional
+  public void updateGlobalSlot(UUID timetableId, java.time.DayOfWeek dayOfWeek, int slotIndex, UUID subjectId, List<Integer> grades) {
+    throw new ApiException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+  }
+
+  @Transactional
+  public void updateClassSlot(UUID timetableId, UUID classRoomId, java.time.DayOfWeek dayOfWeek, int slotIndex, UUID subjectId, UUID teacherId) {
+    throw new ApiException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+  }
+
 }

@@ -9,5 +9,13 @@ public record SchoolDetailDto(
         UUID id,
         String name,
         String code,
+        Integer provinceCode,
+        String provinceName,
+        Integer wardCode,
+        String wardName,
+        String address,
+        String enrollmentArea,
+        java.time.Instant pendingDeleteAt,
         List<UserListDto> admins) {
 }
+

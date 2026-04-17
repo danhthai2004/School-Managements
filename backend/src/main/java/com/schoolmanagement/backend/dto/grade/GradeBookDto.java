@@ -19,6 +19,7 @@ public class GradeBookDto {
     private Integer semester;
     private Integer regularAssessmentCount; // 2, 3, or 4
     private boolean canEdit;
+    private List<SubGradeColumnDto> subGradeColumns; // metadata of sub-grade columns
     private List<StudentGradeDto> students;
 
     @Data
@@ -30,6 +31,7 @@ public class GradeBookDto {
         private String studentCode;
         private String fullName;
         private List<GradeValueDto> grades;
+        private List<SubGradeValueDto> subGrades;
     }
 
     @Data
@@ -40,5 +42,26 @@ public class GradeBookDto {
         private String type; // REGULAR, MID_TERM, FINAL_TERM
         private Integer index; // 1-4 for REGULAR
         private Double value;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SubGradeValueDto {
+        private String id; // SubGrade UUID (for update)
+        private String category; // ORAL, TEST_15MIN
+        private Integer subIndex; // 1, 2, 3...
+        private Double value;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SubGradeColumnDto {
+        private String category; // ORAL, TEST_15MIN
+        private Integer subIndex;
+        private String label; // "Miệng 1", "15' 2", etc.
     }
 }

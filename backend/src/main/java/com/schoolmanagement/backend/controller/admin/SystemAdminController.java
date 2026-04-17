@@ -48,6 +48,11 @@ public class SystemAdminController {
         return systemAdmin.listSchools();
     }
 
+    @GetMapping("/schools/pending")
+    public List<SchoolDto> listPendingDeleteSchools() {
+        return systemAdmin.listPendingDeleteSchools();
+    }
+
     @GetMapping("/schools/{id}")
     public SchoolDetailDto getSchool(@PathVariable UUID id) {
         return systemAdmin.getSchoolWithAdmins(id);
@@ -59,6 +64,27 @@ public class SystemAdminController {
             @AuthenticationPrincipal UserPrincipal principal) {
         User user = getCurrentUser(principal);
         return systemAdmin.updateSchool(id, req, user);
+    }
+
+    @DeleteMapping("/schools/{id}")
+    public void deleteSchool(@PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        User user = getCurrentUser(principal);
+        systemAdmin.deleteSchool(id, user);
+    }
+
+    @PostMapping("/schools/{id}/restore")
+    public void restoreSchool(@PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        User user = getCurrentUser(principal);
+        systemAdmin.restoreSchool(id, user);
+    }
+
+    @DeleteMapping("/schools/{id}/permanent")
+    public void permanentDeleteSchool(@PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        User user = getCurrentUser(principal);
+        systemAdmin.permanentDeleteSchool(id, user);
     }
 
     @PostMapping("/schools/{schoolId}/admins")

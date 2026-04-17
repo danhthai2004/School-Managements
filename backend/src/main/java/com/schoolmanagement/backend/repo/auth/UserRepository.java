@@ -39,6 +39,12 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
             @Param("schoolId") UUID schoolId,
             @Param("enabled") Boolean enabled,
             @Param("pendingDelete") boolean pendingDelete);
+    List<User> findBySchoolIdAndPendingDeleteAtIsNotNull(UUID schoolId);
+
+    List<User> findBySchoolIdAndPendingDeleteAtIsNull(UUID schoolId);
+
+    long countBySchool(School school);
+
     long countBySchoolAndRole(School school, Role role);
 
     @org.springframework.data.jpa.repository.Query("SELECT u FROM User u LEFT JOIN FETCH u.school WHERE u.id = :id")

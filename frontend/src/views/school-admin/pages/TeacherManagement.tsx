@@ -14,6 +14,8 @@ import EditTeacherModal from "../components/teacher/EditTeacherModal";
 import ImportTeacherExcelModal from "../components/teacher/ImportTeacherExcelModal";
 import ImportTeacherResultModal from "../components/teacher/ImportTeacherResultModal";
 import { useToast } from "../../../context/ToastContext";
+import { usePagination } from "../../../hooks/usePagination";
+import Pagination from "../../../components/common/Pagination";
 
 
 
@@ -158,6 +160,15 @@ const TeacherManagement = () => {
         return result;
     }, [teachers, filterSubjectId, sortConfig]);
 
+    const {
+        paginatedData: paginatedTeachers,
+        currentPage,
+        totalPages,
+        pageSize,
+        goToPage: handlePageChange,
+        setPageSize: handlePageSizeChange
+    } = usePagination(filteredTeachers, { dependencies: [filterSubjectId, sortConfig] });
+
     const handleSort = (key: keyof TeacherDto | 'subjectName') => {
         setSortConfig(current => {
             if (current?.key === key) {
@@ -260,7 +271,7 @@ const TeacherManagement = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {filteredTeachers.map((teacher) => (
+                            {paginatedTeachers.map((teacher) => (
                                 <tr key={teacher.id} className="hover:bg-blue-50 transition-colors cursor-pointer" onClick={() => setSelectedTeacher(teacher)}>
                                     <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                                         <input
@@ -312,6 +323,19 @@ const TeacherManagement = () => {
                             )}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {totalPages > 1 && !loading && !error && (
+                <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <Pagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={handlePageChange}
+                        pageSize={pageSize}
+                        onPageSizeChange={handlePageSizeChange}
+                        totalItems={filteredTeachers.length}
+                    />
                 </div>
             )}
 

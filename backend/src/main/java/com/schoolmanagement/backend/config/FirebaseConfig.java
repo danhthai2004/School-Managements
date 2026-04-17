@@ -28,13 +28,25 @@ public class FirebaseConfig {
 
                 if (firebaseConfigPath != null && !firebaseConfigPath.isBlank()) {
                     // Ưu tiên file path bên ngoài (production)
-                    credentials = GoogleCredentials.fromStream(new FileInputStream(firebaseConfigPath));
-                    log.info("🔥 Khởi tạo Firebase Admin SDK bằng file config: {}", firebaseConfigPath);
+                    java.io.File configFile = new java.io.File(firebaseConfigPath);
+                    if (configFile.exists()) {
+                        credentials = GoogleCredentials.fromStream(new FileInputStream(configFile));
+                        log.info("🔥 Khởi tạo Firebase Admin SDK bằng file config: {}", firebaseConfigPath);
+                    } else {
+                        log.warn("⚠️ File cấu hình Firebase không tồn tại tại đường dẫn: {}. Push notification sẽ không hoạt động.", firebaseConfigPath);
+                        return;
+                    }
                 } else {
                     // Fallback: đọc từ classpath (dev)
-                    InputStream serviceAccount = new ClassPathResource("firebase-service-account.json").getInputStream();
-                    credentials = GoogleCredentials.fromStream(serviceAccount);
-                    log.info("🔥 Khởi tạo Firebase Admin SDK bằng classpath resource.");
+                    ClassPathResource resource = new ClassPathResource("firebase-service-account.json");
+                    if (resource.exists()) {
+                        InputStream serviceAccount = resource.getInputStream();
+                        credentials = GoogleCredentials.fromStream(serviceAccount);
+                        log.info("🔥 Khởi tạo Firebase Admin SDK bằng classpath resource.");
+                    } else {
+                        log.warn("⚠️ File 'firebase-service-account.json' không tồn tại trong resources. Push notification sẽ không hoạt động.");
+                        return;
+                    }
                 }
 
                 FirebaseOptions options = FirebaseOptions.builder()

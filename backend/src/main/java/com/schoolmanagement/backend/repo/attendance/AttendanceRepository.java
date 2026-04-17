@@ -2,7 +2,6 @@ package com.schoolmanagement.backend.repo.attendance;
 
 import com.schoolmanagement.backend.domain.attendance.AttendanceStatus;
 import com.schoolmanagement.backend.domain.entity.attendance.Attendance;
-import com.schoolmanagement.backend.domain.entity.attendance.AttendanceSession;
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.student.Student;
@@ -33,15 +32,15 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
         /**
          * Find attendance record for a student on a specific date.
          */
-        Optional<Attendance> findByStudentAndAttendanceDate(Student student, LocalDate attendanceDate);
+        Optional<Attendance> findByStudentAndDate(Student student, LocalDate date);
 
         /**
          * Find all attendance records for a student in a date range.
          */
         @Query("SELECT a FROM Attendance a " +
                         "WHERE a.student = :student " +
-                        "AND a.attendanceDate BETWEEN :startDate AND :endDate " +
-                        "ORDER BY a.attendanceDate DESC")
+                        "AND a.date BETWEEN :startDate AND :endDate " +
+                        "ORDER BY a.date DESC")
         List<Attendance> findByStudentAndDateRange(
                         @Param("student") Student student,
                         @Param("startDate") LocalDate startDate,
@@ -52,9 +51,9 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
          */
         @Query("SELECT a FROM Attendance a " +
                         "WHERE a.student = :student " +
-                        "AND MONTH(a.attendanceDate) = :month " +
-                        "AND YEAR(a.attendanceDate) = :year " +
-                        "ORDER BY a.attendanceDate DESC")
+                        "AND MONTH(a.date) = :month " +
+                        "AND YEAR(a.date) = :year " +
+                        "ORDER BY a.date DESC")
         List<Attendance> findByStudentAndMonthAndYear(
                         @Param("student") Student student,
                         @Param("month") Integer month,
@@ -63,14 +62,14 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
         /**
          * Find all attendance records for a classroom on a specific date.
          */
-        List<Attendance> findByClassRoomAndAttendanceDate(ClassRoom classRoom, LocalDate attendanceDate);
+        List<Attendance> findByClassRoomAndDate(ClassRoom classRoom, LocalDate date);
 
         /**
          * Count attendance by status for a student in a date range.
          */
         @Query("SELECT COUNT(a) FROM Attendance a " +
                         "WHERE a.student = :student " +
-                        "AND a.attendanceDate BETWEEN :startDate AND :endDate " +
+                        "AND a.date BETWEEN :startDate AND :endDate " +
                         "AND a.status = :status")
         long countByStudentAndDateRangeAndStatus(
                         @Param("student") Student student,
@@ -83,7 +82,7 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
          */
         @Query("SELECT COUNT(a) FROM Attendance a " +
                         "WHERE a.student = :student " +
-                        "AND a.attendanceDate BETWEEN :startDate AND :endDate")
+                        "AND a.date BETWEEN :startDate AND :endDate")
         long countByStudentAndDateRange(
                         @Param("student") Student student,
                         @Param("startDate") LocalDate startDate,
@@ -92,8 +91,9 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
         /**
          * Find attendance records for a school in a date range.
          */
-        List<Attendance> findBySchoolAndAttendanceDateBetween(
-                        School school, LocalDate startDate, LocalDate endDate);
+        @Query("SELECT a FROM Attendance a WHERE a.student.school = :school AND a.date BETWEEN :startDate AND :endDate")
+        List<Attendance> findBySchoolAndDateBetween(
+                        @Param("school") School school, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
         /**
          * Delete all attendance records for a student.
@@ -102,30 +102,30 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
 
         // --- Methods added for Teacher Portal (fuuko branch) ---
 
-        @Query("SELECT a FROM Attendance a WHERE a.classRoom = :classRoom AND a.attendanceDate = :date AND a.slotIndex = :slotIndex")
+        @Query("SELECT a FROM Attendance a WHERE a.classRoom = :classRoom AND a.date = :date AND a.slotIndex = :slotIndex")
         List<Attendance> findAllByClassRoomAndDateAndSlotIndex(
                         @Param("classRoom") ClassRoom classRoom,
                         @Param("date") LocalDate date,
                         @Param("slotIndex") int slotIndex);
 
-        @Query("SELECT a FROM Attendance a WHERE a.student = :student AND a.attendanceDate = :date AND a.slotIndex = :slotIndex")
+        @Query("SELECT a FROM Attendance a WHERE a.student = :student AND a.date = :date AND a.slotIndex = :slotIndex")
         Optional<Attendance> findByStudentAndDateAndSlotIndex(
                         @Param("student") Student student,
                         @Param("date") LocalDate date,
                         @Param("slotIndex") int slotIndex);
 
-        @Query("SELECT a FROM Attendance a WHERE a.classRoom = :classRoom AND a.attendanceDate = :date")
+        @Query("SELECT a FROM Attendance a WHERE a.classRoom = :classRoom AND a.date = :date")
         List<Attendance> findAllByClassRoomAndDate(
                         @Param("classRoom") ClassRoom classRoom,
                         @Param("date") LocalDate date);
 
-        @Query("SELECT a FROM Attendance a WHERE a.classRoom = :classRoom AND a.attendanceDate BETWEEN :startDate AND :endDate")
+        @Query("SELECT a FROM Attendance a WHERE a.classRoom = :classRoom AND a.date BETWEEN :startDate AND :endDate")
         List<Attendance> findAllByClassRoomAndDateBetween(
                         @Param("classRoom") ClassRoom classRoom,
                         @Param("startDate") LocalDate startDate,
                         @Param("endDate") LocalDate endDate);
 
-        @Query("SELECT a FROM Attendance a WHERE a.student.id = :studentId AND a.attendanceDate BETWEEN :startDate AND :endDate")
+        @Query("SELECT a FROM Attendance a WHERE a.student.id = :studentId AND a.date BETWEEN :startDate AND :endDate")
         List<Attendance> findAllByStudentIdAndDateBetween(
                         @Param("studentId") UUID studentId,
                         @Param("startDate") LocalDate startDate,

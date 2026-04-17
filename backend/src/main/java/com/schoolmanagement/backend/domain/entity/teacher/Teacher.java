@@ -63,6 +63,14 @@ public class Teacher {
     @JoinColumn(name = "school_id", nullable = false)
     private School school;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subject_id")
+    private Subject primarySubject;
+
+    @Builder.Default
+    @Column(name = "max_periods_per_week", nullable = false)
+    private int maxPeriodsPerWeek = 17;
+
     // Link to User account
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")

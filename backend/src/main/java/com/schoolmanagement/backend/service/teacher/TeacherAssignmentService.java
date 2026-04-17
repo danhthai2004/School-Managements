@@ -49,7 +49,7 @@ public class TeacherAssignmentService {
 
             for (Subject subject : combo.getSubjects()) {
                 // Check if assignment already exists
-                if (assignments.findByClassRoomAndSubject(cls, subject).isEmpty()) {
+                if (assignments.findFirstByClassRoomAndSubject(cls, subject).isEmpty()) {
                     TeacherAssignment assignment = TeacherAssignment.builder()
                             .classRoom(cls)
                             .subject(subject)
@@ -162,6 +162,51 @@ public class TeacherAssignmentService {
         return toDto(assignment);
     }
 
+    @Transactional
+    public void removeAssignment(School school, UUID assignmentId) {
+        TeacherAssignment assignment = assignments.findById(assignmentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy phân công"));
+
+        if (!assignment.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Không có quyền chỉnh sửa");
+        }
+
+        assignments.delete(assignment);
+    }
+
+    /**
+     * Appoint / remove head of department for a teacher-subject assignment.
+     * Returns all assignments for the affected subject so frontend can sync.
+     */
+    @Transactional
+    public List<TeacherAssignmentDto> setHeadOfDepartment(School school, UUID assignmentId, boolean isHead) {
+        TeacherAssignment assignment = assignments.findById(assignmentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy phân công"));
+
+        if (!assignment.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Không có quyền chỉnh sửa");
+        }
+
+        // If appointing head, remove existing head for this subject in the school
+        if (isHead) {
+            List<TeacherAssignment> subjectAssignments = assignments
+                    .findAllBySubjectAndSchool(assignment.getSubject(), school);
+            for (TeacherAssignment sa : subjectAssignments) {
+                if (sa.isHeadOfDepartment()) {
+                    sa.setHeadOfDepartment(false);
+                    assignments.save(sa);
+                }
+            }
+        }
+
+        assignment.setHeadOfDepartment(isHead);
+        assignments.save(assignment);
+
+        // Return all assignments for this subject so frontend can update the whole group
+        return assignments.findAllBySubjectAndSchool(assignment.getSubject(), school)
+                .stream().map(this::toDto).collect(Collectors.toList());
+    }
+
     private TeacherAssignmentDto toDto(TeacherAssignment entity) {
         return new TeacherAssignmentDto(
                 entity.getId(),
@@ -171,6 +216,7 @@ public class TeacherAssignmentService {
                 entity.getSubject().getName(),
                 entity.getTeacher() != null ? entity.getTeacher().getId() : null,
                 entity.getTeacher() != null ? entity.getTeacher().getFullName() : null,
-                entity.getLessonsPerWeek());
+                entity.getLessonsPerWeek(),
+                false); // default isHeadOfDepartment
     }
 }

@@ -13,7 +13,6 @@ import com.schoolmanagement.backend.repo.attendance.AttendanceSessionRepository;
 import com.schoolmanagement.backend.repo.attendance.AttendanceRepository;
 
 import com.schoolmanagement.backend.domain.chat.ChatIntent;
-import com.schoolmanagement.backend.domain.attendance.AttendanceStatus;
 
 import com.schoolmanagement.backend.dto.chat.ChatContext;
 
@@ -75,7 +74,7 @@ public class HomeroomHandler implements ChatHandler {
 
         // Điểm danh hôm nay
         LocalDate today = LocalDate.now();
-        List<Attendance> attendances = attendanceRepository.findByClassRoomAndAttendanceDate(classRoom, today);
+        List<Attendance> attendances = attendanceRepository.findByClassRoomAndDate(classRoom, today);
 
         long absentToday = 0;
         long lateToday = 0;
@@ -92,6 +91,7 @@ public class HomeroomHandler implements ChatHandler {
                 }
                 case LATE -> lateToday++;
                 case ABSENT_EXCUSED -> excusedToday++;
+                case EXCUSED -> excusedToday++; // Legacy excused
                 case ABSENT -> absentToday++; // Handle legacy ABSENT
                 case PRESENT -> {
                 }

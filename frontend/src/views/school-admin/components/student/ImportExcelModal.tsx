@@ -35,13 +35,12 @@ function ImportExcelModal({ isOpen, onClose, onSuccess, onImportComplete, defaul
             const filtered = years.filter(y => y.status === 'ACTIVE' || y.status === 'UPCOMING');
             setAcademicYears(filtered);
 
-            // If current academicYear is not in the list, try to find the ACTIVE one
             if (filtered.length > 0) {
                 const activeYear = filtered.find(y => y.status === 'ACTIVE');
-                if (activeYear && !academicYear) {
-                    setAcademicYear(activeYear.name);
-                } else if (!academicYear) {
-                    setAcademicYear(filtered[0].name);
+                if (activeYear) {
+                    setAcademicYear(activeYear.id);
+                } else {
+                    setAcademicYear(filtered[0].id);
                 }
             }
         } catch (err) {
@@ -54,8 +53,8 @@ function ImportExcelModal({ isOpen, onClose, onSuccess, onImportComplete, defaul
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
         if (selectedFile) {
-            if (!selectedFile.name.endsWith('.xlsx') && !selectedFile.name.endsWith('.xls')) {
-                setError('Vui lòng chọn file Excel (.xlsx hoặc .xls)');
+            if (!selectedFile.name.endsWith('.xlsx') && !selectedFile.name.endsWith('.xls') && !selectedFile.name.endsWith('.csv')) {
+                setError('Vui lòng chọn file Excel/CSV (.xlsx, .xls, .csv)');
                 return;
             }
             setFile(selectedFile);
@@ -66,7 +65,7 @@ function ImportExcelModal({ isOpen, onClose, onSuccess, onImportComplete, defaul
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!file) {
-            setError('Vui lòng chọn file Excel');
+            setError('Vui lòng chọn file Excel/CSV');
             return;
         }
 
@@ -120,7 +119,7 @@ function ImportExcelModal({ isOpen, onClose, onSuccess, onImportComplete, defaul
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
                         <p className="font-medium text-blue-800 mb-2">Hướng dẫn:</p>
                         <ul className="text-blue-700 space-y-1 list-disc list-inside">
-                            <li>File Excel phải có cột <strong>Họ tên</strong> (bắt buộc)</li>
+                            <li>File dữ liệu phải có cột <strong>Họ tên</strong> (bắt buộc)</li>
                             <li>Các cột tùy chọn: Ngày sinh, Giới tính, Ban, Nơi sinh, Địa chỉ, Email, SĐT</li>
                             <li>Thông tin phụ huynh: Họ tên, SĐT, Quan hệ</li>
                         </ul>
@@ -137,12 +136,12 @@ function ImportExcelModal({ isOpen, onClose, onSuccess, onImportComplete, defaul
                         {/* File Input */}
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Chọn file Excel *
+                                Chọn file Excel/CSV *
                             </label>
                             <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-emerald-500 transition-colors">
                                 <input
                                     type="file"
-                                    accept=".xlsx,.xls"
+                                    accept=".xlsx,.xls,.csv"
                                     onChange={handleFileChange}
                                     className="hidden"
                                     id="excel-file-input"
@@ -172,7 +171,7 @@ function ImportExcelModal({ isOpen, onClose, onSuccess, onImportComplete, defaul
                                 >
                                     {academicYears.length === 0 && <option value="">Đang tải...</option>}
                                     {academicYears.map(y => (
-                                        <option key={y.id} value={y.name}>
+                                        <option key={y.id} value={y.id}>
                                             {y.name}
                                         </option>
                                     ))}

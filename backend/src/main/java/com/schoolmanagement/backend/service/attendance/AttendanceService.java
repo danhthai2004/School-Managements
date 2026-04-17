@@ -179,7 +179,7 @@ public class AttendanceService {
                                                 .classRoom(classRoom)
                                                 .subject(timetableDetail.getSubject())
                                                 .teacher(teacher)
-                                                .attendanceDate(request.getDate())
+                                                .date(request.getDate())
                                                 .slotIndex(request.getSlotIndex())
                                                 .status(record.getStatus())
                                                 .remarks(record.getRemarks())
@@ -201,7 +201,7 @@ public class AttendanceService {
                 ClassRoom homeroomClass = classRoomRepository
                                 .findByHomeroomTeacher_IdAndAcademicYear(user.getId(), currentYear)
                                 .orElseGet(() -> classRoomRepository
-                                                .findTopByHomeroomTeacher_IdOrderByAcademicYearDesc(user.getId())
+                                                .findTopByHomeroomTeacher_IdOrderByAcademicYear_StartDateDesc(user.getId())
                                                 .orElseThrow(
                                                                 () -> new ResponseStatusException(HttpStatus.FORBIDDEN,
                                                                                 "Not a homeroom teacher")));
@@ -226,7 +226,7 @@ public class AttendanceService {
                                                         Collections.emptyList());
 
                                         Map<Integer, AttendanceStatus> slotStatusMap = studentRecords.stream()
-                                                        .filter(a -> a.getSlotIndex() != null)
+                                                        .filter(a -> a.getSlotIndex() > 0)
                                                         .collect(Collectors.toMap(Attendance::getSlotIndex,
                                                                         Attendance::getStatus));
 
@@ -262,7 +262,7 @@ public class AttendanceService {
                 ClassRoom homeroomClass = classRoomRepository
                                 .findByHomeroomTeacher_IdAndAcademicYear(user.getId(), currentYear)
                                 .orElseGet(() -> classRoomRepository
-                                                .findTopByHomeroomTeacher_IdOrderByAcademicYearDesc(user.getId())
+                                                .findTopByHomeroomTeacher_IdOrderByAcademicYear_StartDateDesc(user.getId())
                                                 .orElseThrow(
                                                                 () -> new ResponseStatusException(HttpStatus.FORBIDDEN,
                                                                                 "Not a homeroom teacher")));
@@ -304,6 +304,7 @@ public class AttendanceService {
                                         case ABSENT_UNEXCUSED -> absentUnexcused++;
                                         case LATE -> late++;
                                         case ABSENT -> absentUnexcused++; // Fallback for legacy
+                                        case EXCUSED -> absentExcused++; // Legacy excused
                                 }
                         }
 
@@ -372,16 +373,15 @@ public class AttendanceService {
                                         int dateComp = a.getDate().compareTo(b.getDate());
                                         return dateComp != 0 ? dateComp
                                                         : Integer.compare(
-                                                                        a.getSlotIndex() != null ? a.getSlotIndex() : 0,
-                                                                        b.getSlotIndex() != null ? b.getSlotIndex()
-                                                                                        : 0);
+                                                                        a.getSlotIndex(),
+                                                                        b.getSlotIndex());
                                 })
                                 .toList();
 
                 List<StudentAttendanceDetailDto.AttendanceRecord> detailRecords = records.stream()
                                 .map(a -> StudentAttendanceDetailDto.AttendanceRecord.builder()
                                                 .date(a.getDate().toString())
-                                                .slotIndex(a.getSlotIndex() != null ? a.getSlotIndex() : 0)
+                                                .slotIndex(a.getSlotIndex())
                                                 .subjectName(a.getSubject() != null ? a.getSubject().getName() : "")
                                                 .status(a.getStatus())
                                                 .remarks(a.getRemarks() != null ? a.getRemarks() : "")
@@ -415,7 +415,18 @@ public class AttendanceService {
                                                 "Teacher is not assigned to slot " + slotIndex + " on " + date));
         }
 
-        private String getCurrentAcademicYear(com.schoolmanagement.backend.domain.entity.admin.School school) {
-                return semesterService.getActiveAcademicYearName(school);
+        // ==================== ADMIN ENDPOINTS (STUBS) ====================
+
+        public java.util.List<AttendanceDto> getAttendanceForSlotAsAdmin(com.schoolmanagement.backend.domain.entity.admin.School school, UUID classRoomId, LocalDate date, int slotIndex) {
+                 throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+        }
+
+        @Transactional
+        public void saveAttendanceAsAdmin(com.schoolmanagement.backend.domain.entity.admin.School school, UUID classRoomId, SaveAttendanceRequest request) {
+                throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+        }
+
+        public java.util.List<com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail> getTimetableSlotsForClassOnDate(com.schoolmanagement.backend.domain.entity.admin.School school, UUID classRoomId, LocalDate date) {
+                throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
         }
 }

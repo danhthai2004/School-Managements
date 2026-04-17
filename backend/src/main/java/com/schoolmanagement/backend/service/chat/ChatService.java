@@ -17,7 +17,6 @@ import com.schoolmanagement.backend.dto.chat.ChatContext;
 import com.schoolmanagement.backend.dto.chat.ChatResponse;
 import com.schoolmanagement.backend.repo.chat.ChatMessageRepository;
 import com.schoolmanagement.backend.repo.auth.UserRepository;
-import com.schoolmanagement.backend.service.chat.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 

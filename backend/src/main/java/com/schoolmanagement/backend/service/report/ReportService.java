@@ -413,7 +413,7 @@ public class ReportService {
                         return new AttendanceReportDto(0L, 0.0, new ArrayList<>(), new ArrayList<>());
                 }
 
-                List<Attendance> allAttendance = attendanceRepository.findBySchoolAndAttendanceDateBetween(
+                List<Attendance> allAttendance = attendanceRepository.findBySchoolAndDateBetween(
                                 school,
                                 LocalDate.now().minusMonths(1), // Default to last 30 days if no range provided
                                 LocalDate.now());

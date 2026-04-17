@@ -119,7 +119,7 @@ export default function AttendanceReportView({ date, reportType }: Props) {
                             <h2 className="text-xl font-bold text-gray-800">
                                 Báo cáo điểm danh - {report.classroomName}
                             </h2>
-                            <p className="text-sm text-gray-500 mt-1">{periodLabel}</p>
+                            <p className="text-gray-500 mt-1">{periodLabel}</p>
                         </div>
                     </div>
 

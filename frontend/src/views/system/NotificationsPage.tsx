@@ -1,32 +1,35 @@
 import { useEffect, useState } from "react";
-import { systemService, type NotificationDto, type SchoolDto } from "../../services/systemService";
+import { systemService, type NotificationDto } from "../../services/systemService";
 import { extractErrorMessage } from "../../utils/errorUtils";
-
-const ROLES = ["SCHOOL_ADMIN", "TEACHER", "STUDENT", "GUARDIAN"];
+import { usePagination } from "../../hooks/usePagination";
+import Pagination from "../../components/common/Pagination";
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationDto[]>([]);
-  const [schools, setSchools] = useState<SchoolDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   // Form
   const [title, setTitle] = useState("");
-  const [message, setMessage] = useState("");
-  const [scope, setScope] = useState<"ALL" | "SCHOOL" | "ROLE">("ALL");
-  const [targetSchoolId, setTargetSchoolId] = useState("");
-  const [targetRole, setTargetRole] = useState("");
+  const [content, setContent] = useState("");
+  const [targetGroup, setTargetGroup] = useState<"ALL" | "TEACHER" | "STUDENT" | "GUARDIAN">("ALL");
   const [creating, setCreating] = useState(false);
+
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    paginatedData: paginatedNotifications,
+    goToPage,
+    setPageSize,
+    totalItems
+  } = usePagination(notifications, 50);
 
   const loadData = async () => {
     try {
-      const [notifs, schoolsData] = await Promise.all([
-        systemService.listNotifications(),
-        systemService.listSchools(),
-      ]);
+      const notifs = await systemService.listNotifications();
       setNotifications(notifs);
-      setSchools(schoolsData);
     } catch (e) {
       console.error(e);
     } finally {
@@ -42,32 +45,19 @@ export default function NotificationsPage() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
-    
-    // Validate
-    if (scope === "SCHOOL" && !targetSchoolId) {
-      setError("Vui lòng chọn trường");
-      return;
-    }
-    if (scope === "ROLE" && !targetRole) {
-      setError("Vui lòng chọn vai trò");
-      return;
-    }
 
     setCreating(true);
     try {
       await systemService.createNotification({
         title: title.trim(),
-        message: message.trim(),
-        scope,
-        targetSchoolId: scope === "SCHOOL" ? targetSchoolId : undefined,
-        targetRole: scope === "ROLE" ? targetRole : undefined,
+        content: content.trim(),
+        type: "SYSTEM",
+        targetGroup,
       });
       setSuccess("Đã tạo thông báo thành công");
       setTitle("");
-      setMessage("");
-      setScope("ALL");
-      setTargetSchoolId("");
-      setTargetRole("");
+      setContent("");
+      setTargetGroup("ALL");
       loadData();
     } catch (e: unknown) {
       setError(extractErrorMessage(e, "Lỗi khi tạo thông báo"));
@@ -77,7 +67,7 @@ export default function NotificationsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Xác nhận xóa thông báo này?")) return;
+    if (!window.confirm("Xác nhận xóa thông báo này?")) return;
     setError(null);
     setSuccess(null);
     try {
@@ -89,11 +79,16 @@ export default function NotificationsPage() {
     }
   };
 
-  const getScopeLabel = (notif: NotificationDto) => {
-    if (notif.scope === "ALL") return "Tất cả";
-    if (notif.scope === "SCHOOL") return `Trường: ${notif.targetSchoolName}`;
-    if (notif.scope === "ROLE") return `Vai trò: ${notif.targetRole}`;
-    return notif.scope;
+  const getTargetGroupLabel = (target: string) => {
+    switch (target) {
+      case "ALL": return "Tất cả";
+      case "TEACHER": return "Giáo viên";
+      case "STUDENT": return "Học sinh";
+      case "GUARDIAN": return "Phụ huynh";
+      case "CLASS": return "Lớp học";
+      case "GRADE": return "Khối";
+      default: return target;
+    }
   };
 
   return (
@@ -120,8 +115,9 @@ export default function NotificationsPage() {
         <h2 className="text-lg font-semibold text-slate-900 mb-4">Tạo thông báo mới</h2>
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Tiêu đề</label>
+            <label htmlFor="title" className="block text-sm font-medium text-slate-700 mb-1">Tiêu đề</label>
             <input
+              id="title"
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -131,65 +127,30 @@ export default function NotificationsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nội dung</label>
+            <label htmlFor="content" className="block text-sm font-medium text-slate-700 mb-1">Nội dung</label>
             <textarea
+              id="content"
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm h-24"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
               placeholder="Nội dung thông báo..."
               required
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Đối tượng</label>
-              <select
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm"
-                value={scope}
-                onChange={(e) => setScope(e.target.value as "ALL" | "SCHOOL" | "ROLE")}
-              >
-                <option value="ALL">Tất cả (ALL)</option>
-                <option value="SCHOOL">Theo trường (SCHOOL)</option>
-                <option value="ROLE">Theo vai trò (ROLE)</option>
-              </select>
-            </div>
-
-            {scope === "SCHOOL" && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Chọn trường</label>
-                <select
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm"
-                  value={targetSchoolId}
-                  onChange={(e) => setTargetSchoolId(e.target.value)}
-                >
-                  <option value="">-- Chọn trường --</option>
-                  {schools.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {scope === "ROLE" && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Chọn vai trò</label>
-                <select
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm"
-                  value={targetRole}
-                  onChange={(e) => setTargetRole(e.target.value)}
-                >
-                  <option value="">-- Chọn vai trò --</option>
-                  {ROLES.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+          <div>
+            <label htmlFor="targetGroup" className="block text-sm font-medium text-slate-700 mb-1">Đối tượng ưu tiên (Hệ thống)</label>
+            <select
+              id="targetGroup"
+              className="w-full md:w-1/3 px-3 py-2 border border-slate-200 rounded-xl text-sm"
+              value={targetGroup}
+              onChange={(e) => setTargetGroup(e.target.value as "ALL" | "TEACHER" | "STUDENT" | "GUARDIAN")}
+            >
+              <option value="ALL">Tất cả (ALL)</option>
+              <option value="TEACHER">Tất cả Giáo viên</option>
+              <option value="STUDENT">Tất cả Học sinh</option>
+              <option value="GUARDIAN">Tất cả Phụ huynh</option>
+            </select>
           </div>
 
           <button
@@ -213,30 +174,45 @@ export default function NotificationsPage() {
         ) : notifications.length === 0 ? (
           <div className="p-8 text-center text-slate-500">Chưa có thông báo nào</div>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {notifications.map((notif) => (
-              <div key={notif.id} className="p-4 hover:bg-slate-50">
+          <div>
+            <div className="divide-y divide-slate-100">
+              {paginatedNotifications.map((notif) => (
+                <div key={notif.id} className="p-4 hover:bg-slate-50">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <h3 className="font-medium text-slate-900">{notif.title}</h3>
-                    <p className="text-sm text-slate-600 mt-1">{notif.message}</p>
+                    <p className="text-sm text-slate-600 mt-1">{notif.content}</p>
                     <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
-                      <span className="px-2 py-0.5 bg-slate-100 rounded">
-                        {getScopeLabel(notif)}
+                      <span className="px-2 py-0.5 bg-slate-100 rounded text-blue-700 font-medium border border-blue-100">
+                        {getTargetGroupLabel(notif.targetGroup)}
                       </span>
+                      {notif.type !== 'SYSTEM' && (
+                        <span className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded border border-purple-100">
+                          {notif.type}
+                        </span>
+                      )}
                       <span>{new Date(notif.createdAt).toLocaleString("vi-VN")}</span>
-                      <span>bởi {notif.createdByEmail}</span>
+                      <span>bởi {notif.createdBy || 'Hệ thống'}</span>
                     </div>
                   </div>
                   <button
                     onClick={() => handleDelete(notif.id)}
                     className="shrink-0 px-3 py-1.5 bg-rose-100 text-rose-700 rounded-lg text-xs font-medium hover:bg-rose-200"
                   >
-                    Xóa
+                    Thu hồi
                   </button>
                 </div>
               </div>
             ))}
+            </div>
+            <Pagination 
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              onPageChange={goToPage}
+              onPageSizeChange={setPageSize}
+            />
           </div>
         )}
       </div>

@@ -128,14 +128,14 @@ public class AttendanceHandler implements ChatHandler {
         List<Map<String, Object>> recentAbsences = records.stream()
                 .filter(a -> AttendanceStatus.ABSENT_UNEXCUSED.equals(a.getStatus())
                         || AttendanceStatus.LATE.equals(a.getStatus()))
-                .sorted(Comparator.comparing(Attendance::getAttendanceDate, Comparator.reverseOrder()))
+                .sorted(Comparator.comparing(Attendance::getDate, Comparator.reverseOrder()))
                 .limit(5)
                 .map(a -> {
                     Map<String, Object> item = new LinkedHashMap<>();
-                    item.put("date", a.getAttendanceDate().toString());
+                    item.put("date", a.getDate().toString());
                     item.put("status", a.getStatus().name());
                     item.put("subject", "N/A");
-                    item.put("note", a.getNote() != null ? a.getNote() : "");
+                    item.put("note", a.getRemarks() != null ? a.getRemarks() : "");
                     return item;
                 })
                 .toList();

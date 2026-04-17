@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { usePagination } from "../../../hooks/usePagination";
+import Pagination from "../../../components/common/Pagination";
 import {
     schoolAdminService,
     type StudentDto,
@@ -49,6 +51,42 @@ const AccountManagement = () => {
         }
         return true;
     });
+
+    const {
+        paginatedData: paginatedUsers,
+        currentPage: usersPage,
+        totalPages: usersTotalPages,
+        goToPage: setUsersPage,
+        setPageSize: setUsersPageSize,
+        pageSize: usersPageSize
+    } = usePagination(filteredUsers, { dependencies: [statusFilter, roleFilter, activeTab] });
+
+    const {
+        paginatedData: paginatedStudents,
+        currentPage: studentsPage,
+        totalPages: studentsTotalPages,
+        goToPage: setStudentsPage,
+        setPageSize: setStudentsPageSize,
+        pageSize: studentsPageSize
+    } = usePagination(eligibleStudents, { dependencies: [activeTab] });
+
+    const {
+        paginatedData: paginatedTeachers,
+        currentPage: teachersPage,
+        totalPages: teachersTotalPages,
+        goToPage: setTeachersPage,
+        setPageSize: setTeachersPageSize,
+        pageSize: teachersPageSize
+    } = usePagination(eligibleTeachers, { dependencies: [activeTab] });
+
+    const {
+        paginatedData: paginatedGuardians,
+        currentPage: guardiansPage,
+        totalPages: guardiansTotalPages,
+        goToPage: setGuardiansPage,
+        setPageSize: setGuardiansPageSize,
+        pageSize: guardiansPageSize
+    } = usePagination(eligibleGuardians, { dependencies: [activeTab] });
 
     useEffect(() => {
         // Reset selection when tab changes
@@ -154,8 +192,14 @@ const AccountManagement = () => {
 
             setResult(response);
             setBulkResultModalOpen(true);
+            
             if (response.created > 0) {
+                showSuccess(`Đã tạo thành công ${response.created} tài khoản.`);
                 setSelectedIds(new Set());
+            } else if (response.errors && response.errors.length > 0) {
+                // If there are errors, we might not want to show a success toast, the modal will show errors.
+            } else {
+                showSuccess(`Hoàn tất. ${response.skipped} tài khoản đã bỏ qua.`);
             }
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tạo tài khoản.");
@@ -369,7 +413,7 @@ const AccountManagement = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {filteredUsers.map((user) => (
+                                {paginatedUsers.map((user) => (
                                     <tr key={user.id} className="hover:bg-blue-50 transition-colors group">
                                         <td className="px-6 py-4 text-sm text-gray-900">{user.email}</td>
                                         <td className="px-6 py-4 text-sm text-gray-700">{user.fullName}</td>
@@ -447,47 +491,99 @@ const AccountManagement = () => {
                             </tbody>
                         </table>
                     </div>
+                    {usersTotalPages > 1 && (
+                        <Pagination
+                            currentPage={usersPage}
+                            totalPages={usersTotalPages}
+                            onPageChange={setUsersPage}
+                            pageSize={usersPageSize}
+                            onPageSizeChange={setUsersPageSize}
+                            totalItems={filteredUsers.length}
+                        />
+                    )}
                 </div>
             ) : activeTab === 'create-student-accounts' ? (
-                <AccountCreationTable
-                    title="Học sinh chưa có tài khoản"
-                    subtitle="Chọn học sinh để tạo tài khoản đăng nhập"
-                    data={eligibleStudents}
-                    columns={studentColumns}
-                    selectedIds={selectedIds}
-                    onToggleSelect={toggleSelect}
-                    onToggleSelectAll={() => toggleSelectAll(eligibleStudents)}
-                    onCreate={handleCreateAccounts}
-                    creating={creating}
-                    emptyMessage={<>Không có học sinh nào đủ điều kiện tạo tài khoản.<br /><span className="text-xs">(Cần có email và chưa có tài khoản)</span></>}
-                />
+                <div className="flex flex-col">
+                    <AccountCreationTable
+                        title="Học sinh chưa có tài khoản"
+                        subtitle="Chọn học sinh để tạo tài khoản đăng nhập"
+                        data={paginatedStudents}
+                        columns={studentColumns}
+                        selectedIds={selectedIds}
+                        onToggleSelect={toggleSelect}
+                        onToggleSelectAll={() => toggleSelectAll(paginatedStudents)}
+                        onCreate={handleCreateAccounts}
+                        creating={creating}
+                        emptyMessage={<>Không có học sinh nào đủ điều kiện tạo tài khoản.<br /><span className="text-xs">(Cần có email và chưa có tài khoản)</span></>}
+                    />
+                    {studentsTotalPages > 1 && (
+                        <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                            <Pagination
+                                currentPage={studentsPage}
+                                totalPages={studentsTotalPages}
+                                onPageChange={setStudentsPage}
+                                pageSize={studentsPageSize}
+                                onPageSizeChange={setStudentsPageSize}
+                                totalItems={eligibleStudents.length}
+                            />
+                        </div>
+                    )}
+                </div>
             ) : activeTab === 'create-teacher-accounts' ? (
-                <AccountCreationTable
-                    title="Giáo viên chưa có tài khoản"
-                    subtitle="Chọn giáo viên để tạo tài khoản đăng nhập"
-                    data={eligibleTeachers}
-                    columns={teacherColumns}
-                    selectedIds={selectedIds}
-                    onToggleSelect={toggleSelect}
-                    onToggleSelectAll={() => toggleSelectAll(eligibleTeachers)}
-                    onCreate={handleCreateAccounts}
-                    creating={creating}
-                    emptyMessage={<>Không có giáo viên nào đủ điều kiện tạo tài khoản.<br /><span className="text-xs">(Cần có email và chưa có tài khoản)</span></>}
-                />
+                <div className="flex flex-col">
+                    <AccountCreationTable
+                        title="Giáo viên chưa có tài khoản"
+                        subtitle="Chọn giáo viên để tạo tài khoản đăng nhập"
+                        data={paginatedTeachers}
+                        columns={teacherColumns}
+                        selectedIds={selectedIds}
+                        onToggleSelect={toggleSelect}
+                        onToggleSelectAll={() => toggleSelectAll(paginatedTeachers)}
+                        onCreate={handleCreateAccounts}
+                        creating={creating}
+                        emptyMessage={<>Không có giáo viên nào đủ điều kiện tạo tài khoản.<br /><span className="text-xs">(Cần có email và chưa có tài khoản)</span></>}
+                    />
+                    {teachersTotalPages > 1 && (
+                        <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                            <Pagination
+                                currentPage={teachersPage}
+                                totalPages={teachersTotalPages}
+                                onPageChange={setTeachersPage}
+                                pageSize={teachersPageSize}
+                                onPageSizeChange={setTeachersPageSize}
+                                totalItems={eligibleTeachers.length}
+                            />
+                        </div>
+                    )}
+                </div>
             ) : (
-                <AccountCreationTable
-                    title="Phụ huynh chưa có tài khoản"
-                    subtitle="Chọn phụ huynh để tạo hoặc liên kết tài khoản"
-                    data={eligibleGuardians}
-                    columns={guardianColumns}
-                    selectedIds={selectedIds}
-                    onToggleSelect={toggleSelect}
-                    onToggleSelectAll={() => toggleSelectAll(eligibleGuardians)}
-                    onCreate={handleCreateAccounts}
-                    creating={creating}
-                    createButtonLabel={`Tạo/Liên kết tài khoản (${selectedIds.size})`}
-                    emptyMessage={<>Không có phụ huynh nào đủ điều kiện tạo tài khoản.<br /><span className="text-xs">(Cần có email và chưa có tài khoản)</span></>}
-                />
+                <div className="flex flex-col">
+                    <AccountCreationTable
+                        title="Phụ huynh chưa có tài khoản"
+                        subtitle="Chọn phụ huynh để tạo hoặc liên kết tài khoản"
+                        data={paginatedGuardians}
+                        columns={guardianColumns}
+                        selectedIds={selectedIds}
+                        onToggleSelect={toggleSelect}
+                        onToggleSelectAll={() => toggleSelectAll(paginatedGuardians)}
+                        onCreate={handleCreateAccounts}
+                        creating={creating}
+                        createButtonLabel={`Tạo/Liên kết tài khoản (${selectedIds.size})`}
+                        emptyMessage={<>Không có phụ huynh nào đủ điều kiện tạo tài khoản.<br /><span className="text-xs">(Cần có email và chưa có tài khoản)</span></>}
+                    />
+                    {guardiansTotalPages > 1 && (
+                        <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                            <Pagination
+                                currentPage={guardiansPage}
+                                totalPages={guardiansTotalPages}
+                                onPageChange={setGuardiansPage}
+                                pageSize={guardiansPageSize}
+                                onPageSizeChange={setGuardiansPageSize}
+                                totalItems={eligibleGuardians.length}
+                            />
+                        </div>
+                    )}
+                </div>
             )}
 
             <ConfirmationDialog />

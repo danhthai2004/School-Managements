@@ -11,6 +11,8 @@ import { PlusIcon } from "../SchoolAdminIcons";
 import { StatusBadge } from '../../../components/common/StatusBadge';
 import BatchDeleteModal from '../../../components/common/BatchDeleteModal';
 import { formatDate } from "../../../utils/dateHelpers";
+import { usePagination } from "../../../hooks/usePagination";
+import Pagination from "../../../components/common/Pagination";
 // ... (imports)
 import { useToast } from "../../../context/ToastContext";
 
@@ -64,10 +66,6 @@ const StudentManagement = () => {
     const [sortConfig, setSortConfig] = useState<{ key: keyof StudentDto | 'currentClassName'; direction: 'asc' | 'desc' } | null>(null);
 
 
-    // Pagination states
-    const [currentPage, setCurrentPage] = useState(1);
-    const pageSize = 20;
-
     // Computed filtered + sorted students
     const filteredStudents = useMemo(() => {
         let result = students.filter(stu => {
@@ -117,11 +115,6 @@ const StudentManagement = () => {
         return result;
     }, [students, searchTerm, gradeFilter, classFilter, statusFilter, sortConfig]);
 
-    // Reset to page 1 when filters change
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchTerm, gradeFilter, classFilter, statusFilter, sortConfig]);
-
     const handleSort = (key: keyof StudentDto | 'currentClassName') => {
         setSortConfig(current => {
             if (current?.key === key) {
@@ -151,12 +144,14 @@ const StudentManagement = () => {
         </th>
     );
 
-    // Pagination computed values
-    const totalPages = Math.ceil(filteredStudents.length / pageSize);
-    const paginatedStudents = filteredStudents.slice(
-        (currentPage - 1) * pageSize,
-        currentPage * pageSize
-    );
+    const {
+        paginatedData: paginatedStudents,
+        currentPage,
+        totalPages,
+        pageSize,
+        goToPage: handlePageChange,
+        setPageSize: handlePageSizeChange
+    } = usePagination(filteredStudents, { dependencies: [searchTerm, gradeFilter, classFilter, statusFilter, sortConfig] });
 
     useEffect(() => {
         fetchData();
@@ -176,13 +171,18 @@ const StudentManagement = () => {
     const fetchData = async (silent = false) => {
         try {
             if (!silent) setLoading(true);
-            const [studentsData, classesData, statsData, combinationsData] = await Promise.all([
-                schoolAdminService.listStudents(searchParams.get("classId") || undefined),
+
+            // Load students first (critical path - renders the table)
+            const studentsData = await schoolAdminService.listStudents(searchParams.get("classId") || undefined);
+            setStudents(studentsData);
+            if (!silent) setLoading(false); // Show table immediately
+
+            // Load supplementary data in background (non-blocking)
+            const [classesData, statsData, combinationsData] = await Promise.all([
                 schoolAdminService.listClasses(),
                 schoolAdminService.getStats(),
                 schoolAdminService.listCombinations()
             ]);
-            setStudents(studentsData);
             setClasses(classesData);
             setCombinations(combinationsData);
             if (statsData?.currentAcademicYear) {
@@ -190,7 +190,6 @@ const StudentManagement = () => {
             }
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tải dữ liệu.");
-        } finally {
             if (!silent) setLoading(false);
         }
     };
@@ -440,55 +439,15 @@ const StudentManagement = () => {
                 </table>
             </div>
 
-            {/* Pagination */}
             {totalPages > 1 && (
-                <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
-                    <span className="text-sm text-slate-500">
-                        Hiển thị {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, filteredStudents.length)} / {filteredStudents.length} học sinh
-                    </span>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                            disabled={currentPage === 1}
-                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            ← Trước
-                        </button>
-                        <div className="flex items-center gap-1">
-                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                let pageNum: number;
-                                if (totalPages <= 5) {
-                                    pageNum = i + 1;
-                                } else if (currentPage <= 3) {
-                                    pageNum = i + 1;
-                                } else if (currentPage >= totalPages - 2) {
-                                    pageNum = totalPages - 4 + i;
-                                } else {
-                                    pageNum = currentPage - 2 + i;
-                                }
-                                return (
-                                    <button
-                                        key={pageNum}
-                                        onClick={() => setCurrentPage(pageNum)}
-                                        className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === pageNum
-                                            ? 'bg-blue-600 text-white'
-                                            : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
-                                            }`}
-                                    >
-                                        {pageNum}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        <button
-                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                            disabled={currentPage === totalPages}
-                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Sau →
-                        </button>
-                    </div>
-                </div>
+                <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                    pageSize={pageSize}
+                    onPageSizeChange={handlePageSizeChange}
+                    totalItems={filteredStudents.length}
+                />
             )}
 
             <AddStudentModal

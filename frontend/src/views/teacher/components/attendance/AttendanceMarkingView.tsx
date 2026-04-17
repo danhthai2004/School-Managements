@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { format, startOfDay, isBefore, isEqual } from "date-fns";
+import { format, startOfDay, isBefore, isEqual, isAfter } from "date-fns";
 import { vi } from "date-fns/locale";
 import { attendanceService, AttendanceStatus } from "../../../../services/attendanceService";
 import type { AttendanceDto } from "../../../../services/attendanceService";
@@ -20,8 +20,20 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
     const [countdown, setCountdown] = useState<string>("");
     const [isSlotStarted, setIsSlotStarted] = useState(true);
 
-    // Lock attendance for past days (auto-lock after 23:59:59)
+    // Lock attendance for non-today days (past = auto-locked, future = not allowed)
     const isLocked = useMemo(() => {
+        const today = startOfDay(new Date());
+        const selectedDay = startOfDay(date);
+        return isBefore(selectedDay, today) || isAfter(selectedDay, today);
+    }, [date]);
+
+    const isFutureDay = useMemo(() => {
+        const today = startOfDay(new Date());
+        const selectedDay = startOfDay(date);
+        return isAfter(selectedDay, today);
+    }, [date]);
+
+    const isPastDay = useMemo(() => {
         const today = startOfDay(new Date());
         const selectedDay = startOfDay(date);
         return isBefore(selectedDay, today);
@@ -223,9 +235,15 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
             </div>
 
             {isLocked && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
-                    <span>🔒</span>
-                    <span className="font-medium">Điểm danh ngày này đã bị khóa tự động. Không thể chỉnh sửa.</span>
+                <div className={`mb-4 p-3 border rounded-lg flex items-center gap-2 ${isFutureDay ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                    <span>{isFutureDay ? '⏳' : '🔒'}</span>
+                    <span className="font-medium">
+                        {isFutureDay
+                            ? 'Không thể điểm danh cho ngày trong tương lai. Vui lòng chờ đến ngày hôm đó.'
+                            : isPastDay
+                                ? 'Điểm danh ngày này đã bị khóa tự động. Không thể chỉnh sửa.'
+                                : 'Điểm danh đã bị khóa.'}
+                    </span>
                 </div>
             )}
 

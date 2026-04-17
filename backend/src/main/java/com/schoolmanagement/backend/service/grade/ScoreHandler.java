@@ -11,7 +11,6 @@ import com.schoolmanagement.backend.domain.entity.auth.User;
 import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.entity.grade.Grade;
 import com.schoolmanagement.backend.domain.chat.ChatIntent;
-import com.schoolmanagement.backend.domain.auth.Role;
 import com.schoolmanagement.backend.dto.chat.ChatContext;
 import org.springframework.stereotype.Component;
 

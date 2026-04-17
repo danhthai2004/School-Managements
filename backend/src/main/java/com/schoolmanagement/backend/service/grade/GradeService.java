@@ -80,7 +80,7 @@ public class GradeService {
                 boolean canEdit = false;
                 if (teacher != null) {
                         Optional<TeacherAssignment> assignment = teacherAssignmentRepository
-                                        .findByClassRoomAndSubject(classRoom, subject);
+                                        .findFirstByClassRoomAndSubject(classRoom, subject);
                         canEdit = assignment.isPresent() && assignment.get().getTeacher() != null
                                         && assignment.get().getTeacher().getId().equals(teacher.getId());
                 }
@@ -189,21 +189,19 @@ public class GradeService {
 
                 // Verify teacher is assigned
                 Optional<TeacherAssignment> assignment = teacherAssignmentRepository
-                                .findByClassRoomAndSubject(classRoom, subject);
+                                .findFirstByClassRoomAndSubject(classRoom, subject);
                 if (assignment.isEmpty() || assignment.get().getTeacher() == null
                                 || !assignment.get().getTeacher().getId().equals(teacher.getId())) {
                         throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                                         "Bạn không được phân công dạy lớp này.");
                 }
 
-                AcademicYear academicYear = classRoom.getAcademicYear();
 
                 // Use target semester ID or fallback to active semester
                 Semester semesterEntity = semesterId != null
                                 ? semesterService.getSemester(UUID.fromString(semesterId))
                                 : semesterService.getActiveSemesterEntity(user.getSchool());
 
-                int activeSemesterNum = semesterEntity.getSemesterNumber();
 
                 if (semesterEntity.getStatus() == com.schoolmanagement.backend.domain.admin.SemesterStatus.CLOSED) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -307,6 +305,25 @@ public class GradeService {
                 return BigDecimal.valueOf(Math.round((total / weight) * 10.0) / 10.0);
         }
 
-        // getCurrentAcademicYear() removed — now using
-        // SemesterService.getActiveAcademicYearName()
+        // ==================== NEW GRADING FEATURES ====================
+
+        @Transactional
+        public Map<String, Object> addSubGradeColumn(String email, UUID classId, UUID subjectId, Integer semester, String category) {
+                // Feature explicitly disabled or to be implemented
+                throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Tính năng thêm cột điểm phụ chưa được hỗ trợ trong phiên bản mới.");
+        }
+
+        @Transactional
+        public void removeSubGradeColumn(String email, UUID classId, UUID subjectId, Integer semester, String category, Integer subIndex) {
+                 throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Tính năng xóa cột điểm phụ chưa được hỗ trợ trong phiên bản mới.");
+        }
+
+        @Transactional
+        public void resolveOverflow(String email, UUID classId, UUID subjectId, Integer semester, String strategy) {
+                 throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Tính năng xử lý thừa điểm chưa được hỗ trợ trong phiên bản mới.");
+        }
+
+        public com.schoolmanagement.backend.dto.grade.HomeroomGradeSummaryDto getHomeroomGradeSummary(String email, Integer semester) {
+                 throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Tính năng tổng hợp điểm chưa được hỗ trợ trong phiên bản mới.");
+        }
 }

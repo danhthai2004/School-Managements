@@ -10,7 +10,6 @@ import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.entity.classes.Combination;
 
-import com.schoolmanagement.backend.domain.classes.ClassDepartment;
 import com.schoolmanagement.backend.domain.classes.ClassRoomStatus;
 import com.schoolmanagement.backend.domain.student.Gender;
 import com.schoolmanagement.backend.domain.student.StudentStatus;
@@ -30,9 +29,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 
 @Service
 public class StudentImportService {
@@ -69,150 +73,177 @@ public class StudentImportService {
         }
 
         String filename = file.getOriginalFilename();
-        if (filename == null || (!filename.endsWith(".xlsx") && !filename.endsWith(".xls"))) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Vui lòng upload file Excel (.xlsx hoặc .xls)");
+        if (filename == null || (!filename.endsWith(".xlsx") && !filename.endsWith(".xls") && !filename.endsWith(".csv"))) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Vui lòng upload file Excel (.xlsx, .xls) hoặc CSV (.csv)");
         }
 
         List<ImportStudentResult.ImportError> errors = new ArrayList<>();
-        // Use a map to store student along with their combination for assignment
-        Map<Student, Combination> studentCombinationMap = new LinkedHashMap<>(); // Preserve order
+        Map<Student, Combination> studentCombinationMap = new LinkedHashMap<>();
         int totalRows = 0;
         int successCount = 0;
         int failedCount = 0;
 
-        try (InputStream is = file.getInputStream();
-                Workbook workbook = new XSSFWorkbook(is)) {
+        List<ParsedRow> parsedRows = new ArrayList<>();
 
-            Sheet sheet = workbook.getSheetAt(0);
-            if (sheet == null) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "File Excel không có sheet nào.");
-            }
-
-            // Get header row to map column names
-            Row headerRow = sheet.getRow(0);
-            if (headerRow == null) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "File Excel không có header row.");
-            }
-
-            Map<String, Integer> columnMap = new HashMap<>();
-            for (int i = 0; i < headerRow.getLastCellNum(); i++) {
-                Cell cell = headerRow.getCell(i);
-                if (cell != null) {
-                    String header = getCellStringValue(cell).toLowerCase().trim();
-                    columnMap.put(header, i);
+        try {
+            if (filename.toLowerCase().endsWith(".csv")) {
+                try (InputStreamReader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
+                     CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).build())) {
+                    
+                    List<String> headers = csvParser.getHeaderNames();
+                    for (CSVRecord record : csvParser) {
+                        Map<String, String> data = new HashMap<>();
+                        for (String h : headers) {
+                            if (h != null) data.put(h.toLowerCase().trim(), record.get(h));
+                        }
+                        parsedRows.add(new ParsedRow((int) record.getRecordNumber() + 1, data));
+                    }
+                }
+            } else {
+                try (InputStream is = file.getInputStream();
+                     Workbook workbook = new XSSFWorkbook(is)) {
+                    
+                    Sheet sheet = workbook.getSheetAt(0);
+                    if (sheet == null) throw new ApiException(HttpStatus.BAD_REQUEST, "File không có sheet nào.");
+                    
+                    Row headerRow = sheet.getRow(0);
+                    if (headerRow == null) throw new ApiException(HttpStatus.BAD_REQUEST, "File không có header row.");
+                    
+                    Map<Integer, String> colIndexToHeader = new HashMap<>();
+                    for (int i = 0; i < headerRow.getLastCellNum(); i++) {
+                        Cell cell = headerRow.getCell(i);
+                        if (cell != null) {
+                            colIndexToHeader.put(i, getCellStringValue(cell).toLowerCase().trim());
+                        }
+                    }
+                    
+                    for (int rowNum = 1; rowNum <= sheet.getLastRowNum(); rowNum++) {
+                        Row row = sheet.getRow(rowNum);
+                        if (row == null) continue;
+                        Map<String, String> data = new HashMap<>();
+                        for (Map.Entry<Integer, String> entry : colIndexToHeader.entrySet()) {
+                            Cell cell = row.getCell(entry.getKey());
+                            if (cell != null) {
+                                data.put(entry.getValue(), getCellStringValue(cell));
+                            }
+                        }
+                        parsedRows.add(new ParsedRow(rowNum + 1, data));
+                    }
                 }
             }
 
-            // Validate required columns
-            if (!columnMap.containsKey("fullname") && !columnMap.containsKey("họ tên")
-                    && !columnMap.containsKey("hoten")) {
-                throw new ApiException(HttpStatus.BAD_REQUEST,
-                        "File Excel phải có cột 'fullName' hoặc 'Họ tên'");
+            if (!parsedRows.isEmpty()) {
+                Set<String> headers = parsedRows.get(0).data.keySet();
+                if (!headers.contains("fullname") && !headers.contains("họ tên") && !headers.contains("hoten")) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "File phải có cột 'fullName' hoặc 'Họ tên'");
+                }
             }
+
+            // === PRE-LOAD lookup data ONCE (avoids N+1 queries) ===
+            List<Combination> allCombinations = combinations.findAllBySchool(school);
+            List<Guardian> allGuardians = guardians.findAll();
+            Map<String, Guardian> guardianEmailMap = new HashMap<>();
+            for (Guardian g : allGuardians) {
+                if (g.getEmail() != null) {
+                    guardianEmailMap.put(g.getEmail().toLowerCase(), g);
+                }
+            }
+            Set<String> existingGuardianEmails = guardianEmailMap.keySet();
+
+            List<User> allUsers = users.findAll();
+            Map<String, User> userEmailMap = new HashMap<>();
+            for (User u : allUsers) {
+                if (u.getEmail() != null) {
+                    userEmailMap.put(u.getEmail().toLowerCase(), u);
+                }
+            }
+
+            Set<String> existingStudentEmails = new HashSet<>();
+            for (Student s : students.findAllBySchoolOrderByFullNameAsc(school)) {
+                if (s.getEmail() != null) existingStudentEmails.add(s.getEmail().toLowerCase());
+            }
+
+            // Pre-compute student code counter (avoid N queries)
+            int nextCodeNumber = getNextStudentCodeNumber(school);
 
             // Process data rows
-            for (int rowNum = 1; rowNum <= sheet.getLastRowNum(); rowNum++) {
-                Row row = sheet.getRow(rowNum);
-                if (row == null || isRowEmpty(row)) {
-                    continue;
-                }
+            for (ParsedRow row : parsedRows) {
+                if (row.isEmpty()) continue;
 
                 totalRows++;
                 String studentName = "";
 
                 try {
-                    // Extract student data from row
-                    studentName = getValueFromRow(row, columnMap, "fullname", "họ tên", "hoten");
+                    studentName = row.getValue("fullname", "họ tên", "hoten");
                     if (studentName == null || studentName.isBlank()) {
-                        errors.add(new ImportStudentResult.ImportError(rowNum + 1, "", "Thiếu họ tên"));
+                        errors.add(new ImportStudentResult.ImportError(row.rowNum, "", "Thiếu họ tên"));
                         failedCount++;
                         continue;
                     }
 
-                    // Parse date of birth
-                    LocalDate dateOfBirth = parseDateFromRow(row, columnMap, "dateofbirth", "ngày sinh", "ngaysinh");
+                    LocalDate dateOfBirth = parseDateFromRow(row, "dateofbirth", "ngày sinh", "ngaysinh");
+                    Gender gender = parseGenderFromRow(row, "gender", "giới tính", "gioitinh");
+                    Combination combination = findCombinationFromList(row, allCombinations, "tổ hợp", "combination", "mã tổ hợp", "tohop");
 
-                    // Parse gender
-                    Gender gender = parseGenderFromRow(row, columnMap, "gender", "giới tính", "gioitinh");
-
-                    // Parse combination
-                    Combination combination = parseCombinationFromRow(row, columnMap, school, "tổ hợp", "combination",
-                            "mã tổ hợp", "tohop");
-
-                    // Other fields
-                    String birthPlace = getValueFromRow(row, columnMap, "birthplace", "nơi sinh", "noisinh");
-                    String address = getValueFromRow(row, columnMap, "address", "địa chỉ", "diachi");
-                    String email = getValueFromRow(row, columnMap, "email");
+                    String birthPlace = row.getValue("birthplace", "nơi sinh", "noisinh");
+                    String address = row.getValue("address", "địa chỉ", "diachi");
+                    String email = row.getValue("email");
                     if (email != null && !email.isBlank()) {
                         email = email.trim().toLowerCase();
                         // Validation: Email must not be used by Guardian or other Role
-                        if (guardians.findByEmailIgnoreCase(email).size() > 0) {
-                            errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
+                        if (existingGuardianEmails.contains(email)) {
+                            errors.add(new ImportStudentResult.ImportError(row.rowNum, studentName,
                                     "Email học sinh trùng với email Phụ huynh khác."));
                             failedCount++;
                             continue;
                         }
-                        if (users.existsByEmailIgnoreCase(email)) {
-                            // Check role? For now strict: if used by any user, be careful.
-                            // Actually, if it's a STUDENT user, it's a duplicate student check (handled by
-                            // unique constraint?).
-                            // If it's a GUARDIAN/TEACHER user -> Block.
-                            // Let's just block if any user exists to be safe and force unique new data,
-                            // OR check specific role collisions if we allow re-importing existing students.
-                            // Assuming new students:
-                            Optional<User> u = users.findByEmailIgnoreCase(email);
-                            if (u.isPresent()
-                                    && u.get().getRole() != Role.STUDENT) {
-                                errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
-                                        "Email đã được sử dụng bởi tài khoản " + u.get().getRole()));
-                                failedCount++;
-                                continue;
-                            }
+                        User existingUser = userEmailMap.get(email);
+                        if (existingUser != null && existingUser.getRole() != Role.STUDENT) {
+                            errors.add(new ImportStudentResult.ImportError(row.rowNum, studentName,
+                                    "Email đã được sử dụng bởi tài khoản " + existingUser.getRole()));
+                            failedCount++;
+                            continue;
                         }
                     }
 
-                    String phone = getValueFromRow(row, columnMap, "phone", "sđt", "số điện thoại", "sodienthoai");
+                    String phone = row.getValue("phone", "sđt", "số điện thoại", "sodienthoai");
 
-                    // Guardian info
-                    String guardianName = getValueFromRow(row, columnMap, "guardianname", "tên phụ huynh",
-                            "tenphuhuynh");
-                    String guardianPhone = getValueFromRow(row, columnMap, "guardianphone", "sđt phụ huynh",
-                            "sdtphuhuynh");
-                    String guardianRelationship = getValueFromRow(row, columnMap, "guardianrelationship",
-                            "quan hệ", "quanhe", "mối quan hệ");
+                    String guardianName = row.getValue("guardianname", "tên phụ huynh", "tenphuhuynh");
+                    String guardianPhone = row.getValue("guardianphone", "sđt phụ huynh", "sdtphuhuynh");
+                    String guardianRelationship = row.getValue("guardianrelationship", "quan hệ", "quanhe", "mối quan hệ");
 
-                    // Sanitize guardian email early for validation
                     String guardianEmail = null;
-                    String rawGuardianEmail = getValueFromRow(row, columnMap, "guardianemail", "email phụ huynh",
-                            "emailphuhuynh");
+                    String rawGuardianEmail = row.getValue("guardianemail", "email phụ huynh", "emailphuhuynh");
                     if (rawGuardianEmail != null && !rawGuardianEmail.isBlank()) {
                         guardianEmail = rawGuardianEmail.trim().toLowerCase();
                         // Validation: Guardian Email must not be used by Student
-                        if (students.existsByEmail(guardianEmail)) {
-                            errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
+                        if (existingStudentEmails.contains(guardianEmail)) {
+                            errors.add(new ImportStudentResult.ImportError(row.rowNum, studentName,
                                     "Email phụ huynh trùng với email của một Học sinh."));
                             failedCount++;
                             continue;
                         }
                         // Check collision with Student Email in THIS ROW
                         if (email != null && email.equals(guardianEmail)) {
-                            errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
+                            errors.add(new ImportStudentResult.ImportError(row.rowNum, studentName,
                                     "Email học sinh và phụ huynh không được trùng nhau."));
                             failedCount++;
                             continue;
                         }
 
-                        Optional<User> u = users.findByEmailIgnoreCase(guardianEmail);
-                        if (u.isPresent() && u.get().getRole() != Role.GUARDIAN) {
-                            errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
-                                    "Email phụ huynh đã được sử dụng bởi tài khoản " + u.get().getRole()));
+                        User existingUser = userEmailMap.get(guardianEmail);
+                        if (existingUser != null && existingUser.getRole() != Role.GUARDIAN) {
+                            errors.add(new ImportStudentResult.ImportError(row.rowNum, studentName,
+                                    "Email phụ huynh đã được sử dụng bởi tài khoản " + existingUser.getRole()));
                             failedCount++;
                             continue;
                         }
                     }
 
-                    // Generate student code
-                    String studentCode = generateNextStudentCode(school);
+                    // Generate student code from in-memory counter (no DB query)
+                    String studentCode = String.format("HS%04d", nextCodeNumber++);
+                    // Track new student email for intra-batch collision detection
+                    if (email != null) existingStudentEmails.add(email);
 
                     // Create student entity
                     Student student = Student.builder()
@@ -240,22 +271,10 @@ public class StudentImportService {
                     if (guardianName != null && !guardianName.isBlank()) {
                         Guardian guardian = null;
 
-                        // Sanitize email
-                        // String guardianEmail = null; // Already parsed above
-                        // String rawGuardianEmail = getValueFromRow(row, columnMap, "guardianemail",
-                        // "email phụ huynh",
-                        // "emailphuhuynh");
-                        // if (rawGuardianEmail != null && !rawGuardianEmail.isBlank()) {
-                        // guardianEmail = rawGuardianEmail.trim().toLowerCase();
-                        // }
-
                         if (guardianEmail != null) {
-                            // Case 1: Has Email -> Find or Create
-                            List<Guardian> existingGuardians = guardians.findByEmailIgnoreCase(guardianEmail);
-                            if (!existingGuardians.isEmpty()) {
-                                guardian = existingGuardians.get(0);
-                            } else {
-                                // Create new
+                            // Case 1: Has Email -> Find from cache or Create
+                            guardian = guardianEmailMap.get(guardianEmail);
+                            if (guardian == null) {
                                 guardian = Guardian.builder()
                                         .fullName(guardianName.trim())
                                         .phone(guardianPhone)
@@ -263,6 +282,7 @@ public class StudentImportService {
                                         .relationship(guardianRelationship)
                                         .build();
                                 guardian = guardians.save(guardian);
+                                guardianEmailMap.put(guardianEmail, guardian);
                             }
                         } else {
                             // Case 2: No Email -> Force Create (No User Account)
@@ -275,7 +295,7 @@ public class StudentImportService {
                             guardian = guardians.save(guardian);
                         }
 
-                        // Link directly to student
+                        // Link directly to student (single save below)
                         student.setGuardian(guardian);
                         students.save(student);
                     }
@@ -283,8 +303,7 @@ public class StudentImportService {
                     successCount++;
 
                 } catch (Exception e) {
-                    errors.add(new ImportStudentResult.ImportError(rowNum + 1, studentName,
-                            "Lỗi: " + e.getMessage()));
+                    errors.add(new ImportStudentResult.ImportError(row.rowNum, studentName, "Lỗi: " + e.getMessage()));
                     failedCount++;
                 }
             }
@@ -292,8 +311,7 @@ public class StudentImportService {
         } catch (ApiException ex) {
             throw ex;
         } catch (Exception ex) {
-            throw new ApiException(HttpStatus.BAD_REQUEST,
-                    "Không đọc được file Excel: " + ex.getMessage());
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Không đọc được file cấu trúc chung: " + ex.getMessage());
         }
 
         // Auto assign students to classes if requested
@@ -409,50 +427,31 @@ public class StudentImportService {
         };
     }
 
-    private boolean isRowEmpty(Row row) {
-        for (int i = 0; i < row.getLastCellNum(); i++) {
-            Cell cell = row.getCell(i);
-            if (cell != null && !getCellStringValue(cell).isBlank()) {
-                return false;
-            }
+    private static class ParsedRow {
+        final int rowNum;
+        final Map<String, String> data;
+
+        ParsedRow(int rowNum, Map<String, String> data) {
+            this.rowNum = rowNum;
+            this.data = data;
         }
-        return true;
+
+        String getValue(String... possibleNames) {
+            for (String name : possibleNames) {
+                String val = data.get(name.toLowerCase());
+                if (val != null && !val.isBlank()) return val.trim();
+            }
+            return null;
+        }
+
+        boolean isEmpty() {
+            return data.values().stream().allMatch(v -> v == null || v.isBlank());
+        }
     }
 
-    private String getValueFromRow(Row row, Map<String, Integer> columnMap, String... possibleNames) {
-        for (String name : possibleNames) {
-            Integer colIndex = columnMap.get(name.toLowerCase());
-            if (colIndex != null) {
-                Cell cell = row.getCell(colIndex);
-                if (cell != null) {
-                    String value = getCellStringValue(cell);
-                    if (!value.isBlank()) {
-                        return value.trim();
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    private LocalDate parseDateFromRow(Row row, Map<String, Integer> columnMap, String... possibleNames) {
-        for (String name : possibleNames) {
-            Integer colIndex = columnMap.get(name.toLowerCase());
-            if (colIndex != null) {
-                Cell cell = row.getCell(colIndex);
-                if (cell != null) {
-                    if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
-                        return cell.getLocalDateTimeCellValue().toLocalDate();
-                    } else {
-                        String dateStr = getCellStringValue(cell);
-                        if (!dateStr.isBlank()) {
-                            return parseDate(dateStr);
-                        }
-                    }
-                }
-            }
-        }
-        return null;
+    private LocalDate parseDateFromRow(ParsedRow row, String... possibleNames) {
+        String dateStr = row.getValue(possibleNames);
+        return parseDate(dateStr);
     }
 
     private LocalDate parseDate(String dateStr) {
@@ -473,10 +472,9 @@ public class StudentImportService {
         return null;
     }
 
-    private Gender parseGenderFromRow(Row row, Map<String, Integer> columnMap, String... possibleNames) {
-        String value = getValueFromRow(row, columnMap, possibleNames);
-        if (value == null)
-            return null;
+    private Gender parseGenderFromRow(ParsedRow row, String... possibleNames) {
+        String value = row.getValue(possibleNames);
+        if (value == null) return null;
 
         value = value.toLowerCase().trim();
         if (value.equals("nam") || value.equals("male") || value.equals("m")) {
@@ -489,15 +487,15 @@ public class StudentImportService {
         return null;
     }
 
-    private Combination parseCombinationFromRow(Row row, Map<String, Integer> columnMap, School school,
-            String... possibleNames) {
-        String value = getValueFromRow(row, columnMap, possibleNames);
+    /**
+     * Find combination from pre-loaded list (no DB query).
+     */
+    private Combination findCombinationFromList(ParsedRow row, List<Combination> allCombs, String... possibleNames) {
+        String value = row.getValue(possibleNames);
         if (value == null || value.isBlank())
             return null;
 
         String searchVal = value.toLowerCase().trim();
-        List<Combination> allCombs = combinations.findAllBySchool(school);
-
         for (Combination combinationItem : allCombs) {
             String code = combinationItem.getCode() != null ? combinationItem.getCode().toLowerCase().trim() : "";
             String name = combinationItem.getName() != null ? combinationItem.getName().toLowerCase().trim() : "";
@@ -509,28 +507,22 @@ public class StudentImportService {
         return null;
     }
 
-    // Copied from SchoolAdminService to be self-contained
-    private String generateNextStudentCode(School school) {
-        // Find the highest student code in the school
+    /**
+     * Get the next student code number for in-memory counter.
+     * Called ONCE before import loop, not per-row.
+     */
+    private int getNextStudentCodeNumber(School school) {
         Optional<Student> latestStudent = students.findTopBySchoolOrderByStudentCodeDesc(school);
-
-        if (latestStudent.isEmpty()) {
-            return "HS0001";
-        }
+        if (latestStudent.isEmpty()) return 1;
 
         String lastCode = latestStudent.get().getStudentCode();
-
         try {
             if (lastCode.startsWith("HS")) {
-                int lastNumber = Integer.parseInt(lastCode.substring(2));
-                int nextNumber = lastNumber + 1;
-                return String.format("HS%04d", nextNumber);
+                return Integer.parseInt(lastCode.substring(2)) + 1;
             }
         } catch (NumberFormatException e) {
-            // If parsing fails, fall through to default
+            // fall through
         }
-
-        long studentCount = students.countBySchool(school);
-        return String.format("HS%04d", studentCount + 1);
+        return (int) students.countBySchool(school) + 1;
     }
 }

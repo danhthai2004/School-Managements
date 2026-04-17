@@ -3,7 +3,6 @@ package com.schoolmanagement.backend.repo.teacher;
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.teacher.TeacherAssignment;
-import com.schoolmanagement.backend.domain.entity.auth.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -19,10 +18,17 @@ public interface TeacherAssignmentRepository extends JpaRepository<TeacherAssign
 
     List<TeacherAssignment> findAllByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
 
-    Optional<TeacherAssignment> findByClassRoomAndSubject(ClassRoom classRoom,
+    Optional<TeacherAssignment> findFirstByClassRoomAndSubject(ClassRoom classRoom,
+            com.schoolmanagement.backend.domain.entity.classes.Subject subject);
+
+    Optional<TeacherAssignment> findFirstByClassRoomAndSubjectAndTeacherIsNotNull(ClassRoom classRoom,
             com.schoolmanagement.backend.domain.entity.classes.Subject subject);
 
     void deleteAllByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
 
     boolean existsByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
+
+    void deleteByTeacherId(UUID teacherId);
+
+    List<TeacherAssignment> findAllBySubjectAndSchool(com.schoolmanagement.backend.domain.entity.classes.Subject subject, School school);
 }

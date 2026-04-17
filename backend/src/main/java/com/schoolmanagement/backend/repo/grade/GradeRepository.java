@@ -54,4 +54,8 @@ public interface GradeRepository extends JpaRepository<Grade, UUID> {
         void deleteAllByTeacher(@Param("teacher") com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
 
         boolean existsByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
+
+    @Modifying
+    @Query("DELETE FROM Grade g WHERE g.student.id = :studentId")
+    void deleteByStudentId(@Param("studentId") UUID studentId);
 }

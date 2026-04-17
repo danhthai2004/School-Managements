@@ -3,12 +3,24 @@ import { Link } from "react-router-dom";
 import { systemService, type UserListDto } from "../../services/systemService";
 import { useCountdown } from "../../utils/countdownUtils";
 import { extractErrorMessage } from "../../utils/errorUtils";
+import { usePagination } from "../../hooks/usePagination";
+import Pagination from "../../components/common/Pagination";
 
 export default function PendingDeletePage() {
   const [users, setUsers] = useState<UserListDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    paginatedData: paginatedUsers,
+    goToPage,
+    setPageSize,
+    totalItems
+  } = usePagination(users, 50);
 
   const loadData = async () => {
     try {
@@ -86,6 +98,7 @@ export default function PendingDeletePage() {
         ) : users.length === 0 ? (
           <div className="p-8 text-center text-slate-500">Không có tài khoản nào đang chờ xóa</div>
         ) : (
+          <>
           <table className="w-full">
             <thead className="bg-rose-50 border-b border-rose-200">
               <tr>
@@ -97,7 +110,7 @@ export default function PendingDeletePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {users.map((user) => (
+              {paginatedUsers.map((user) => (
                 <PendingUserRow
                   key={user.id}
                   user={user}
@@ -107,6 +120,15 @@ export default function PendingDeletePage() {
               ))}
             </tbody>
           </table>
+          <Pagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={goToPage}
+            onPageSizeChange={setPageSize}
+          />
+          </>
         )}
       </div>
     </div>

@@ -14,11 +14,12 @@ import {
     Settings2,
     SquareActivity,
     GraduationCap,
-    Search,
     Menu,
     LogOut,
     UserCircle,
-    Lock
+    Lock,
+    CheckSquare,
+    Camera
 } from "lucide-react";
 import NotificationBell from "../../components/layout/NotificationBell";
 
@@ -44,15 +45,13 @@ export default function SchoolAdminLayout() {
             ]
         },
         { path: "/school-admin/classes", label: "Quản lý lớp học", icon: <LayoutGrid size={20} strokeWidth={1.5} /> },
-        // { path: "/school-admin/subjects", label: "Quản lý Môn học & Tổ hợp", icon: <BookOpen size={20} strokeWidth={1.5} /> },
         { path: "/school-admin/rooms", label: "Quản lý phòng", icon: <Building2 size={20} strokeWidth={1.5} /> },
-        // { path: "/school-admin/schedule", label: "Thời khóa biểu", icon: <Calendar size={20} strokeWidth={1.5} /> },
         { path: "/school-admin/exam-sessions", label: "Kỳ thi & Phân bổ", icon: <CalendarClock size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/attendance", label: "Điểm danh", icon: <CheckSquare size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/face-photos", label: "Ảnh khuôn mặt", icon: <Camera size={20} strokeWidth={1.5} /> },
         { path: "/school-admin/notifications", label: "Thông báo", icon: <Bell size={20} strokeWidth={1.5} /> },
         { path: "/school-admin/reports", label: "Báo cáo & Thống kê", icon: <BarChart3 size={20} strokeWidth={1.5} /> },
-        { path: "/school-admin/risk-analytics", label: "AI Phân Tích Rủi Ro", icon: <SquareActivity size={20} strokeWidth={1.5} /> },
-        // { path: "/school-admin/accounts", label: "Quản lý tài khoản", icon: <UserCircle size={20} strokeWidth={1.5} /> },
-        // { path: "/school-admin/semesters", label: "Cấu hình Năm học & Học kỳ", icon: <Settings2 size={20} strokeWidth={1.5} /> },
+        { path: "/school-admin/risk-analytics", label: "AI Phân Tích Rủi Ro", icon: <SquareActivity size={20} strokeWidth={1.5} /> }
     ];
 
     // State for expanded menus (using labels as keys)
@@ -201,19 +200,7 @@ export default function SchoolAdminLayout() {
             <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
                 {/* Header */}
                 <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center sticky top-0 z-30">
-                    <div className="flex items-center justify-between w-full">
-                        {/* Search */}
-                        <div className="relative w-96">
-                            <input
-                                type="text"
-                                placeholder="Tìm kiếm..."
-                                className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-lg border-0 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all text-sm"
-                            />
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                <Search size={20} strokeWidth={1.5} />
-                            </div>
-                        </div>
-
+                    <div className="flex items-center justify-end w-full">
                         {/* Right side */}
                         <div className="flex items-center gap-4">
                             <NotificationBell />
@@ -239,20 +226,22 @@ export default function SchoolAdminLayout() {
                                             onClick={() => setProfileDropdownOpen(false)}
                                         />
                                         <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
-                                            <button
+                                            <Link
+                                                to="/school-admin/profile"
                                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                                 onClick={() => setProfileDropdownOpen(false)}
                                             >
                                                 <UserCircle size={20} strokeWidth={1.5} />
                                                 <span>Thông tin cá nhân</span>
-                                            </button>
-                                            <button
+                                            </Link>
+                                            <Link
+                                                to="/school-admin/profile"
                                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                                 onClick={() => setProfileDropdownOpen(false)}
                                             >
                                                 <Lock size={20} strokeWidth={1.5} />
                                                 <span>Đổi mật khẩu</span>
-                                            </button>
+                                            </Link>
                                             <div className="border-t border-gray-100 my-1" />
                                             <button
                                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"

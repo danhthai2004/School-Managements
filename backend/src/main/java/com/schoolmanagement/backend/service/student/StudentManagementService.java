@@ -1,21 +1,10 @@
 package com.schoolmanagement.backend.service.student;
-
 import com.schoolmanagement.backend.dto.student.StudentProfileDto;
 
 import com.schoolmanagement.backend.domain.auth.Role;
 
 import com.schoolmanagement.backend.service.common.FileStorageService;
 import com.schoolmanagement.backend.service.admin.BulkDeleteHelperService;
-
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.schoolmanagement.backend.domain.classes.ClassRoomStatus;
 import com.schoolmanagement.backend.domain.student.StudentStatus;
@@ -45,7 +34,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -244,6 +235,10 @@ public class StudentManagementService {
 
     @Transactional(readOnly = true)
     public List<StudentDto> listStudents(School school, UUID classId) {
+        // 1. Fetch academic year ONCE (not per-student)
+        AcademicYear currentYear = semesterService.getActiveAcademicYearSafe(school);
+
+        List<Student> studentList;
         if (classId != null) {
             ClassRoom classRoom = classRooms.findById(classId)
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học"));
@@ -252,13 +247,27 @@ public class StudentManagementService {
                 throw new ApiException(HttpStatus.FORBIDDEN, "Lớp học không thuộc trường này");
             }
 
-            return enrollments.findAllByClassRoom(classRoom).stream()
-                    .map(enrollment -> toStudentDto(enrollment.getStudent()))
+            studentList = enrollments.findAllByClassRoom(classRoom).stream()
+                    .map(ClassEnrollment::getStudent)
                     .toList();
+        } else {
+            studentList = students.findAllBySchoolOrderByFullNameAsc(school);
         }
 
-        return students.findAllBySchoolOrderByFullNameAsc(school).stream()
-                .map(this::toStudentDto)
+        // 2. Batch-fetch ALL enrollments in 1 query (fixes N+1)
+        Map<UUID, ClassEnrollment> enrollmentMap = new HashMap<>();
+        if (currentYear != null && !studentList.isEmpty()) {
+            List<ClassEnrollment> allEnrollments =
+                    enrollments.findAllByStudentInAndAcademicYear(studentList, currentYear);
+            for (ClassEnrollment e : allEnrollments) {
+                // Keep only the latest enrollment per student (list is ordered by enrolledAt DESC)
+                enrollmentMap.putIfAbsent(e.getStudent().getId(), e);
+            }
+        }
+
+        // 3. Map to DTOs without any DB queries
+        return studentList.stream()
+                .map(s -> toStudentDtoFast(s, enrollmentMap.get(s.getId())))
                 .toList();
     }
 
@@ -590,7 +599,10 @@ public class StudentManagementService {
         return String.format("HS%04d", studentCount + 1);
     }
 
-    private StudentDto toStudentDto(Student student) {
+    /**
+     * Fast DTO mapping — no DB queries. Used by listStudents() with pre-fetched data.
+     */
+    private StudentDto toStudentDtoFast(Student student, ClassEnrollment enrollment) {
         StudentGuardianDto guardianDto = null;
         if (student.getGuardian() != null) {
             guardianDto = new StudentGuardianDto(
@@ -601,21 +613,8 @@ public class StudentManagementService {
                     student.getGuardian().getRelationship());
         }
 
-        // Get current class enrollment
-        String currentClassName = null;
-        UUID currentClassId = null;
-        AcademicYear currentYear = semesterService.getActiveAcademicYearSafe(student.getSchool());
-        
-        Optional<ClassEnrollment> currentEnrollment = Optional.empty();
-        if (currentYear != null) {
-            currentEnrollment = enrollments.findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(
-                    student,
-                    currentYear);
-        }
-        if (currentEnrollment.isPresent()) {
-            currentClassName = currentEnrollment.get().getClassRoom().getName();
-            currentClassId = currentEnrollment.get().getClassRoom().getId();
-        }
+        String currentClassName = enrollment != null ? enrollment.getClassRoom().getName() : null;
+        UUID currentClassId = enrollment != null ? enrollment.getClassRoom().getId() : null;
 
         return new StudentDto(
                 student.getId(),
@@ -634,6 +633,19 @@ public class StudentManagementService {
                 currentClassId,
                 student.getUser() != null,
                 guardianDto);
+    }
+
+    /**
+     * Original DTO mapping with DB queries — used for single-student operations.
+     */
+    private StudentDto toStudentDto(Student student) {
+        AcademicYear currentYear = semesterService.getActiveAcademicYearSafe(student.getSchool());
+        ClassEnrollment enrollment = null;
+        if (currentYear != null) {
+            enrollment = enrollments.findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(
+                    student, currentYear).orElse(null);
+        }
+        return toStudentDtoFast(student, enrollment);
     }
 
     private void autoAssignStudentToClass(School school, Student student,
