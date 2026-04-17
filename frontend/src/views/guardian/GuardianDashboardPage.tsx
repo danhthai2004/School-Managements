@@ -59,7 +59,7 @@ export default function GuardianDashboardPage() {
 
             setGuardianProfile(profile);
             setAttendance(att);
-            
+
             // Calculate average score
             if (scores && scores.length > 0) {
                 const gradedScores = scores.filter(s => s.averageScore != null);
@@ -219,26 +219,25 @@ export default function GuardianDashboardPage() {
                             <h3 className="font-semibold text-gray-900">Sắp kiểm tra</h3>
                         </div>
                         <div className="p-4 space-y-3">
-                             {upcomingExams.length > 0 ? upcomingExams.map((exam, idx) => (
-                                 <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-blue-50 transition-colors cursor-pointer group">
+                            {upcomingExams.length > 0 ? upcomingExams.map((exam, idx) => (
+                                <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-blue-50 transition-colors cursor-pointer group">
                                     <div>
                                         <h4 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{exam.subjectName}</h4>
                                         <p className="text-xs text-gray-500">{exam.examType}</p>
                                     </div>
                                     <div className="text-right">
-                                        <span className={`text-xs px-2 py-1 rounded-full font-bold ${
-                                            formatDaysRemaining(exam.examDate).includes("Còn 1") || formatDaysRemaining(exam.examDate).includes("Hôm nay")
-                                            ? "bg-red-100 text-red-600"
-                                            : "bg-blue-100 text-blue-600"
-                                        }`}>
+                                        <span className={`text-xs px-2 py-1 rounded-full font-bold ${formatDaysRemaining(exam.examDate).includes("Còn 1") || formatDaysRemaining(exam.examDate).includes("Hôm nay")
+                                                ? "bg-red-100 text-red-600"
+                                                : "bg-blue-100 text-blue-600"
+                                            }`}>
                                             {formatDaysRemaining(exam.examDate)}
                                         </span>
                                         <p className="text-xs text-gray-400 mt-1">{new Date(exam.examDate).toLocaleDateString('vi-VN')}</p>
                                     </div>
                                 </div>
-                             )) : (
+                            )) : (
                                 <p className="text-center text-sm text-gray-400 py-4">Không có lịch kiểm tra sắp tới</p>
-                             )}
+                            )}
                             <Link to="/guardian/examschedule" className="block text-center py-2">
                                 <p className="text-xs text-blue-600 hover:underline italic font-medium">Xem lịch kiểm tra chi tiết</p>
                             </Link>
@@ -252,8 +251,8 @@ export default function GuardianDashboardPage() {
                             {notifications.some(n => !n.isRead) && <span className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>}
                         </div>
                         <div className="p-4 space-y-3">
-                             {notifications.length > 0 ? notifications.map((notif, idx) => (
-                                 <div key={idx} className="flex items-start gap-3 p-2.5 hover:bg-gray-50 rounded-xl transition-all cursor-pointer group border border-transparent hover:border-gray-100">
+                            {notifications.length > 0 ? notifications.map((notif, idx) => (
+                                <div key={idx} className="flex items-start gap-3 p-2.5 hover:bg-gray-50 rounded-xl transition-all cursor-pointer group border border-transparent hover:border-gray-100">
                                     <div className={`w-9 h-9 ${notif.isRead ? 'bg-gray-50 text-gray-400' : 'bg-blue-50 text-blue-500'} rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
                                         <Bell className="w-4 h-4" />
                                     </div>
@@ -266,9 +265,9 @@ export default function GuardianDashboardPage() {
                                         </div>
                                     </div>
                                 </div>
-                             )) : (
+                            )) : (
                                 <p className="text-center text-sm text-gray-400 py-4">Không có thông báo mới</p>
-                             )}
+                            )}
                             <Link to="/guardian/notification" className="w-full text-center text-[11px] font-bold text-blue-600 hover:bg-blue-50 py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 border border-blue-50">
                                 Xem tất cả <ChevronRight className="w-4 h-4" />
                             </Link>

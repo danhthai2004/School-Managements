@@ -3,8 +3,8 @@ import { teacherService, type TimetableDetail } from "../../../services/teacherS
 import { AlertCircle, Calendar, Clock } from "lucide-react";
 
 const SLOTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-const DAYS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
-const ENGLISH_DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+const DAYS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"];
+const ENGLISH_DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
 
 export default function SchedulePage() {
     const [schedule, setSchedule] = useState<TimetableDetail[]>([]);

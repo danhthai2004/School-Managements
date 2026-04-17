@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import com.schoolmanagement.backend.domain.entity.admin.Semester;
+import com.schoolmanagement.backend.domain.entity.teacher.Teacher;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -54,7 +56,7 @@ public interface ExamInvigilatorRepository extends JpaRepository<ExamInvigilator
                         "ORDER BY es.examDate ASC, es.startTime ASC")
         List<ExamInvigilator> findByTeacherAndSemesterOrderByExamDate(
                         @Param("teacherId") UUID teacherId,
-                        @Param("semester") com.schoolmanagement.backend.domain.entity.admin.Semester semester);
+                        @Param("semester") Semester semester);
 
-        boolean existsByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
+        boolean existsByTeacher(Teacher teacher);
 }

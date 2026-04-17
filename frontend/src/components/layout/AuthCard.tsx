@@ -6,32 +6,14 @@ function Brand() {
     <div className="flex flex-col items-center gap-3">
       <div className="h-14 w-14 rounded-2xl bg-blue-600 grid place-items-center shadow-sm">
         {/* book icon */}
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M7 4.5h8.5A2.5 2.5 0 0 1 18 7v13.5"
-            stroke="white"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
-          <path
-            d="M7 4.5A2.5 2.5 0 0 0 4.5 7v13.5A2.5 2.5 0 0 1 7 18h11"
-            stroke="white"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
-          <path
-            d="M7 8h8"
-            stroke="white"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            opacity="0.9"
-          />
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
         </svg>
       </div>
 
       <div className="text-center">
-        <div className="text-2xl font-semibold tracking-tight">ISS</div>
-        <div className="text-sm text-slate-500">Cổng thông tin học sinh</div>
+        <div className="text-2xl font-bold tracking-tight text-slate-900">ISS</div>
+        <div className="text-sm text-slate-500">Hệ thống quản lý giáo dục</div>
       </div>
     </div>
   );
@@ -85,7 +67,7 @@ export default function AuthCard({
                   <path d="M9 10V6a3 3 0 0 1 6 0v4" stroke="#64748b" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </span>
-              <span>Dành cho học sinh từ lớp 10 đến lớp 12</span>
+              <span>Dành cho các trường THPT</span>
             </div>
           </div>
         </div>

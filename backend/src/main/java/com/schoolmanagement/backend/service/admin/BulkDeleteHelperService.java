@@ -14,6 +14,10 @@ import com.schoolmanagement.backend.repo.timetable.TimetableDetailRepository;
 
 import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.entity.teacher.Teacher;
+import com.schoolmanagement.backend.domain.entity.auth.User;
+import com.schoolmanagement.backend.domain.entity.student.Guardian;
+import com.schoolmanagement.backend.exception.ApiException;
+import org.springframework.http.HttpStatus;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -55,13 +59,13 @@ public class BulkDeleteHelperService {
 
         // 2. BLOCK if active data exists (Smart Delete)
         if (gradeRepo.existsByStudent(student)) {
-            throw new com.schoolmanagement.backend.exception.ApiException(
-                    org.springframework.http.HttpStatus.BAD_REQUEST,
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
                     "Không thể xóa do học sinh đã có dữ liệu điểm số.");
         }
         if (attendanceRepo.existsByStudent(student)) {
-            throw new com.schoolmanagement.backend.exception.ApiException(
-                    org.springframework.http.HttpStatus.BAD_REQUEST,
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
                     "Không thể xóa do học sinh đã có dữ liệu điểm danh.");
         }
 
@@ -71,8 +75,8 @@ public class BulkDeleteHelperService {
         enrollmentRepo.deleteAllByStudent(student);
 
         // Smart Guardian Cleanup (Many-to-One Refactor)
-        com.schoolmanagement.backend.domain.entity.student.Guardian guardian = student.getGuardian();
-        com.schoolmanagement.backend.domain.entity.auth.User guardianUser = null;
+        Guardian guardian = student.getGuardian();
+        User guardianUser = null;
         boolean shouldDeleteGuardian = false;
 
         if (guardian != null) {
@@ -92,7 +96,7 @@ public class BulkDeleteHelperService {
         }
 
         // Remove User account for student if exists
-        com.schoolmanagement.backend.domain.entity.auth.User studentUser = student.getUser();
+        User studentUser = student.getUser();
 
         // 4. Delete Student
         student.setGuardian(null); // Unlink first
@@ -127,8 +131,8 @@ public class BulkDeleteHelperService {
         log.info("Processing isolated deletion for teacher: {}", teacherId);
 
         Teacher teacher = teacherRepo.findById(teacherId)
-                .orElseThrow(() -> new com.schoolmanagement.backend.exception.ApiException(
-                        org.springframework.http.HttpStatus.NOT_FOUND, "Giáo viên không tồn tại: " + teacherId));
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND, "Giáo viên không tồn tại: " + teacherId));
 
         // Validation steps
         validateNoHomeroom(teacher);
@@ -139,7 +143,7 @@ public class BulkDeleteHelperService {
         validateNoExamInvigilation(teacher);
 
         // Cleanup and Delete
-        com.schoolmanagement.backend.domain.entity.auth.User user = teacher.getUser();
+        User user = teacher.getUser();
         teacherRepo.delete(teacher);
 
         if (user != null) {
@@ -152,8 +156,8 @@ public class BulkDeleteHelperService {
         if (teacher.getUser() != null) {
             var classRoomOpt = classRepo.findByHomeroomTeacher(teacher.getUser());
             if (classRoomOpt.isPresent()) {
-                throw new com.schoolmanagement.backend.exception.ApiException(
-                        org.springframework.http.HttpStatus.BAD_REQUEST,
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
                         "Giáo viên " + teacher.getFullName() + " đang chủ nhiệm lớp " + classRoomOpt.get().getName()
                                 + ". Vui lòng gỡ bỏ quyền chủ nhiệm trước khi xóa.");
             }
@@ -162,8 +166,8 @@ public class BulkDeleteHelperService {
 
     private void validateNoAssignments(Teacher teacher) {
         if (assignmentRepo.existsByTeacher(teacher)) {
-            throw new com.schoolmanagement.backend.exception.ApiException(
-                    org.springframework.http.HttpStatus.BAD_REQUEST,
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
                     "Giáo viên " + teacher.getFullName()
                             + " đang được phân công giảng dạy các môn học. Vui lòng gỡ bỏ phân công trước khi xóa.");
         }
@@ -171,8 +175,8 @@ public class BulkDeleteHelperService {
 
     private void validateNoTimetable(Teacher teacher) {
         if (timetableRepo.existsByTeacher(teacher)) {
-            throw new com.schoolmanagement.backend.exception.ApiException(
-                    org.springframework.http.HttpStatus.BAD_REQUEST,
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
                     "Giáo viên " + teacher.getFullName()
                             + " đang có lịch giảng dạy trong thời khóa biểu. Vui lòng cập nhật thời khóa biểu trước khi xóa.");
         }
@@ -180,8 +184,8 @@ public class BulkDeleteHelperService {
 
     private void validateNoGrades(Teacher teacher) {
         if (gradeRepo.existsByTeacher(teacher)) {
-            throw new com.schoolmanagement.backend.exception.ApiException(
-                    org.springframework.http.HttpStatus.BAD_REQUEST,
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
                     "Giáo viên " + teacher.getFullName()
                             + " đã ghi nhận điểm cho học sinh. Không thể xóa dữ liệu này để đảm bảo tính toàn vẹn hồ sơ.");
         }
@@ -189,8 +193,8 @@ public class BulkDeleteHelperService {
 
     private void validateNoAttendance(Teacher teacher) {
         if (attendanceRepo.existsByTeacher(teacher)) {
-            throw new com.schoolmanagement.backend.exception.ApiException(
-                    org.springframework.http.HttpStatus.BAD_REQUEST,
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
                     "Giáo viên " + teacher.getFullName()
                             + " đã ghi nhận thông tin điểm danh. Không thể xóa dữ liệu này.");
         }
@@ -198,8 +202,8 @@ public class BulkDeleteHelperService {
 
     private void validateNoExamInvigilation(Teacher teacher) {
         if (examInvigilatorRepo.existsByTeacher(teacher)) {
-            throw new com.schoolmanagement.backend.exception.ApiException(
-                    org.springframework.http.HttpStatus.BAD_REQUEST,
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
                     "Giáo viên " + teacher.getFullName()
                             + " đang được phân công giám thị trong các kỳ thi. Vui lòng gỡ bỏ phân công trước khi xóa.");
         }

@@ -11,8 +11,8 @@ import {
 import { PlusIcon } from "../SchoolAdminIcons";
 import AddClassModal from "../components/class/AddClassModal";
 import EditClassModal from "../components/class/EditClassModal";
-import DeleteConfirmModal from "../components/class/DeleteConfirmModal";
 import PromotionModal from "../components/class/PromotionModal";
+import { useConfirmation } from "../../../hooks/useConfirmation";
 import { NoAcademicYearState } from "../../../components/common/EmptyState";
 import { useNavigate } from "react-router-dom";
 
@@ -31,10 +31,9 @@ const ClassManagement = () => {
     // Modal states
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const { confirm, ConfirmationDialog } = useConfirmation();
 
     const [editingClass, setEditingClass] = useState<ClassRoomDto | null>(null);
-    const [deletingClass, setDeletingClass] = useState<ClassRoomDto | null>(null);
     const [promotingClass, setPromotingClass] = useState<ClassRoomDto | null>(null);
     const [showPromotionModal, setShowPromotionModal] = useState(false);
     const [currentAcademicYear, setCurrentAcademicYear] = useState<string>("");
@@ -176,7 +175,29 @@ const ClassManagement = () => {
                                             </button>
                                         )}
                                         <button
-                                            onClick={() => { setDeletingClass(cls); setShowDeleteModal(true); }}
+                                            onClick={() => {
+                                                confirm({
+                                                    title: "Xóa lớp học?",
+                                                    message: (
+                                                        <div>
+                                                            <p>Bạn có chắc muốn xóa lớp <strong>"{cls.name}"</strong>?</p>
+                                                            <p className="mt-2 text-xs text-red-700 leading-relaxed bg-red-50 p-2 rounded border border-red-100 italic">
+                                                                Hành động này KHÔNG THỂ hoàn tác. Hệ thống sẽ ngăn chặn nếu đã có dữ liệu Điểm hoặc Học sinh.
+                                                            </p>
+                                                        </div>
+                                                    ),
+                                                    variant: "danger",
+                                                    confirmText: "Xác nhận xóa",
+                                                    onConfirm: async () => {
+                                                        try {
+                                                            await schoolAdminService.deleteClass(cls.id);
+                                                            fetchData();
+                                                        } catch (err: any) {
+                                                            setError(err?.response?.data?.message || "Không thể xóa lớp học.");
+                                                        }
+                                                    }
+                                                });
+                                            }}
                                             className="text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors"
                                             title="Xóa lớp học"
                                         >
@@ -215,15 +236,7 @@ const ClassManagement = () => {
                 combinations={combinations}
                 rooms={rooms}
             />
-            <DeleteConfirmModal
-                isOpen={showDeleteModal}
-                classData={deletingClass}
-                onClose={() => {
-                    setShowDeleteModal(false);
-                    setDeletingClass(null);
-                }}
-                onSuccess={fetchData}
-            />
+            <ConfirmationDialog />
             <PromotionModal
                 isOpen={showPromotionModal}
                 onClose={() => {

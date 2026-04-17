@@ -5,6 +5,7 @@ import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.security.UserPrincipal;
 import com.schoolmanagement.backend.service.admin.SemesterService;
 import com.schoolmanagement.backend.service.auth.UserLookupService;
+import com.schoolmanagement.backend.domain.entity.auth.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -110,7 +111,7 @@ public class SemesterController {
 
     // ==================== HELPER ====================
 
-    private com.schoolmanagement.backend.domain.entity.auth.User requireUserWithSchool(UserPrincipal principal) {
+    private User requireUserWithSchool(UserPrincipal principal) {
         var user = userLookup.requireById(principal.getId());
         if (user.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Người dùng chưa được gán trường.");
@@ -118,7 +119,7 @@ public class SemesterController {
         return user;
     }
 
-    private com.schoolmanagement.backend.domain.entity.auth.User requireSchoolAdmin(UserPrincipal principal) {
+    private User requireSchoolAdmin(UserPrincipal principal) {
         var admin = requireUserWithSchool(principal);
         // Additional check for admin role if needed, but and security config already
         // handles this.
