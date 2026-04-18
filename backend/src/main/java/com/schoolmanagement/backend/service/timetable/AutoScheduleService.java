@@ -109,6 +109,9 @@ public class AutoScheduleService {
         java.util.Collections.shuffle(allClasses);
         scheduleSpecializedSubjects(timetable, allClasses, context);
 
+        // Step 5: Compaction Pass (Push lessons up to fill gaps)
+        compactTimetable(timetable, context);
+
         log.info("Auto-generation completed for Timetable ID: {}", timetableId);
     }
 
@@ -195,7 +198,7 @@ public class AutoScheduleService {
 
         // Fallback to any slot if still not fully assigned
         if (assigned < lessonsToAssign) {
-            scheduleSubject(timetable, classroom, subject, teacher, true, context);
+            scheduleSubjectWithPenalty(timetable, classroom, subject, teacher, context);
         }
     }
 
@@ -220,95 +223,272 @@ public class AutoScheduleService {
         String[] highFreqCodes = { "TOAN", "VAN", "ANH" };
 
         for (var classroom : allClasses) {
-
+            java.util.List<Subject> subjects = new java.util.ArrayList<>();
             for (String code : highFreqCodes) {
-                var subjectOpt = subjectRepository.findByCode(code);
-                if (subjectOpt.isEmpty())
-                    continue;
+                subjectRepository.findByCode(code).ifPresent(subjects::add);
+            }
 
-                Subject subject = subjectOpt.get();
-                var assignmentOpt = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject);
-                Teacher teacher = assignmentOpt
+            // Sort by total lessons descending
+            subjects.sort((a, b) -> b.getTotalLessons() - a.getTotalLessons());
+
+            for (Subject subject : subjects) {
+                Teacher teacher = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject)
                         .map(TeacherAssignment::getTeacher).orElse(null);
 
-                // Use the shared scheduling method with randomization enabled
-                scheduleSubject(timetable, classroom, subject, teacher, true, context);
+                scheduleSubjectWithPenalty(timetable, classroom, subject, teacher, context);
             }
         }
     }
 
     /**
-     * Generic method to schedule a subject with constraints:
-     * - Max 2 lessons/day if total >= 3, else Max 1/day.
-     * - Avoid consecutive lessons (interleaving).
-     * - Optional randomization of days/slots.
+     * Enhanced scheduling with Soft Constraints (Penalty based).
      */
-    private void scheduleSubject(Timetable timetable, ClassRoom classroom, Subject subject,
-            Teacher teacher, boolean randomize, ScheduleContext context) {
-        int lessonsToAssign = subject.getTotalLessons();
-        int assignedCount = (int) timetableDetailRepository.countByTimetableAndClassRoomAndSubject(
-                timetable, classroom, subject);
+    private void scheduleSubjectWithPenalty(Timetable timetable, ClassRoom classroom, Subject subject,
+            Teacher teacher, ScheduleContext context) {
 
-        if (assignedCount >= lessonsToAssign)
+        int totalNeeded = subject.getTotalLessons();
+        int alreadyAssigned = (int) timetableDetailRepository.countByTimetableAndClassRoomAndSubject(timetable,
+                classroom, subject);
+        int needed = totalNeeded - alreadyAssigned;
+
+        if (needed <= 0)
             return;
 
-        int limitPerDay = (lessonsToAssign >= 3) ? 2 : 1;
+        // Find all possible valid slots for this subject/teacher
+        java.util.List<SlotCandidate> allValidSlots = findValidSlots(timetable, classroom, teacher, context);
 
-        java.util.List<DayOfWeek> days = new java.util.ArrayList<>(java.util.List.of(DayOfWeek.values()));
-        if (randomize)
-            java.util.Collections.shuffle(days);
+        if (allValidSlots.isEmpty()) {
+            log.warn("No valid slots found for {} in Class {}", subject.getCode(), classroom.getName());
+            return;
+        }
 
-        // Track local assignedToday for this specific function call
-        java.util.Map<DayOfWeek, Integer> dailyCount = new java.util.HashMap<>();
+        // Try to pick the best 'needed' slots using a simple greedy approach with
+        // penalty lookahead
+        // or just try several random combinations and pick the best.
 
-        for (DayOfWeek day : days) {
-            if (day == DayOfWeek.SUNDAY)
-                continue;
-            if (assignedCount >= lessonsToAssign)
+        java.util.List<SlotCandidate> bestCombination = null;
+        long minPenalty = Long.MAX_VALUE;
+
+        // Sample 20 random combinations of 'needed' slots
+        int samples = 50;
+        for (int i = 0; i < samples; i++) {
+            java.util.Collections.shuffle(allValidSlots);
+            if (allValidSlots.size() < needed)
                 break;
 
-            int assignedToday = dailyCount.getOrDefault(day, 0);
-            if (assignedToday >= limitPerDay)
+            java.util.List<SlotCandidate> candidate = allValidSlots.subList(0, needed);
+            long penalty = calculatePenalty(classroom, subject, candidate, timetable, context);
+
+            if (penalty < minPenalty) {
+                minPenalty = penalty;
+                bestCombination = new java.util.ArrayList<>(candidate);
+            }
+            if (penalty == 0)
+                break; // Perfect score
+        }
+
+        if (bestCombination != null) {
+            for (SlotCandidate slot : bestCombination) {
+                createAndSaveDetail(timetable, classroom, subject, slot.day, slot.slot, teacher, context);
+            }
+        }
+
+        // Fallback to backtracking if still incomplete
+        int finalAssigned = (int) timetableDetailRepository.countByTimetableAndClassRoomAndSubject(timetable, classroom,
+                subject);
+        if (finalAssigned < totalNeeded) {
+            attemptBacktrackingSwap(timetable, classroom, subject, teacher, context, finalAssigned, totalNeeded);
+        }
+    }
+
+    private static class SlotCandidate {
+        DayOfWeek day;
+        int slot;
+
+        SlotCandidate(DayOfWeek d, int s) {
+            this.day = d;
+            this.slot = s;
+        }
+    }
+
+    private java.util.List<SlotCandidate> findValidSlots(Timetable timetable, ClassRoom classroom, Teacher teacher,
+            ScheduleContext context) {
+        java.util.List<SlotCandidate> list = new java.util.ArrayList<>();
+        SessionType classSession = classroom.getSession();
+
+        for (DayOfWeek day : DayOfWeek.values()) {
+            if (day == DayOfWeek.SUNDAY)
                 continue;
 
-            // Prioritize contiguous slots
-            // Saturday has only 4 periods (T1-T4), with T4 reserved for HDTN if not already
-            // assigned
-            // Other days have 10 slots (T1-T10)
-            java.util.List<Integer> slots = new java.util.ArrayList<>();
-            if (day == DayOfWeek.SATURDAY) {
-                slots.addAll(java.util.List.of(1, 2, 3));
-            } else {
-                slots.addAll(java.util.List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
-            }
-
-            for (int slot : slots) {
-                if (assignedCount >= lessonsToAssign)
-                    break;
-                if (assignedToday >= limitPerDay)
-                    break;
-
-                // 1. Check Context (In-Memory)
+            // Limit slots to 10. Saturday is usually only morning (1-5)
+            int max = (day == DayOfWeek.SATURDAY) ? 5 : 10;
+            for (int slot = 1; slot <= max; slot++) {
                 if (context.isClassOccupied(classroom.getId(), day, slot))
                     continue;
                 if (context.isTeacherOccupied(teacher != null ? teacher.getId() : null, day, slot))
                     continue;
 
-                // 2. Assign
-                createAndSaveDetail(timetable, classroom, subject, day, slot, teacher, context);
-                assignedCount++;
-                assignedToday++;
-                dailyCount.put(day, assignedToday);
+                list.add(new SlotCandidate(day, slot));
+            }
+        }
+        return list;
+    }
+
+    private long calculatePenalty(ClassRoom classroom, Subject subject, java.util.List<SlotCandidate> proposed,
+            Timetable timetable, ScheduleContext context) {
+        long penalty = 0;
+        int totalLessons = subject.getTotalLessons();
+        boolean isMajor = totalLessons >= 3;
+        SessionType classSession = classroom.getSession();
+
+        java.util.Map<DayOfWeek, java.util.List<Integer>> daySlots = new java.util.HashMap<>();
+        for (SlotCandidate s : proposed) {
+            daySlots.computeIfAbsent(s.day, k -> new java.util.ArrayList<>()).add(s.slot);
+        }
+
+        // 1. Spreading & Session Conflict
+        for (DayOfWeek day : daySlots.keySet()) {
+            java.util.List<Integer> slots = daySlots.get(day);
+            int count = slots.size();
+
+            // Penalty for multiple lessons of same subject in one day
+            if (count > 1) {
+                // If it's 2 on one day, and total is 3 or 4, that's okay but not ideal
+                penalty += (isMajor ? 200 : 50) * (count - 1);
+            }
+
+            for (int slot : slots) {
+                // GLOBAL MORNING PREFERENCE: Prefer morning (1-5) even if no ca sang/chieu
+                // Exception: GDTC and GDQP often study in the afternoon
+                boolean isSpecialSubject = subject.getCode().equals("GDTC") || subject.getCode().equals("GDQP");
+                if (!isSpecialSubject) {
+                    if (slot > 5) {
+                        penalty += 500; // Prefer morning
+                    }
+                }
+
+                // TOP-DOWN PREFERENCE: Prefer T1 > T2 > T3 ...
+                penalty += slot * 10;
             }
         }
 
-        if (assignedCount < lessonsToAssign) {
-            log.warn("Could only assign {}/{} lessons for {} in Class {}. Attempting SWAP...",
-                    assignedCount, lessonsToAssign, subject.getCode(), classroom.getName());
+        // 2. Gap Detection (Simplified: check if slots in 'proposed' create gaps with
+        // 'context')
+        for (DayOfWeek day : DayOfWeek.values()) {
+            if (day == DayOfWeek.SUNDAY)
+                continue;
 
-            // Step 5: Backtracking / Swap Logic
-            attemptBacktrackingSwap(timetable, classroom, subject, teacher, context, assignedCount, lessonsToAssign);
+            // Check session 1 (1-5) or session 2 (6-10)
+            penalty += calculateSessionGapPenalty(classroom, day, 1, 5,
+                    daySlots.getOrDefault(day, java.util.Collections.emptyList()), context);
+            penalty += calculateSessionGapPenalty(classroom, day, 6, 10,
+                    daySlots.getOrDefault(day, java.util.Collections.emptyList()), context);
         }
+
+        // 3. Morning Priority for Major (Even if class is CHIEU? No, only if SANG)
+        if (isMajor && classSession == SessionType.SANG) {
+            for (SlotCandidate s : proposed) {
+                if (s.slot >= 4)
+                    penalty += 20; // Prefer earlier slots T1, T2, T3
+            }
+        }
+
+        return penalty;
+    }
+
+    /**
+     * Final pass to eliminate gaps and push lessons to the earliest possible slots.
+     */
+    private void compactTimetable(Timetable timetable, ScheduleContext context) {
+        log.info("Starting compaction pass to fill gaps and push lessons up...");
+        var allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(timetable.getSchool());
+
+        for (var classroom : allClasses) {
+            if (!classroom.getAcademicYear().equals(timetable.getSemester().getAcademicYear()))
+                continue;
+
+            for (DayOfWeek day : DayOfWeek.values()) {
+                if (day == DayOfWeek.SUNDAY)
+                    continue;
+
+                boolean changed = true;
+                while (changed) {
+                    changed = false;
+                    // Try to push lessons from slot 2-10 up to an earlier empty slot
+                    for (int slot = 2; slot <= 10; slot++) {
+                        // If current slot is occupied
+                        var detailOpt = timetableDetailRepository.findByTimetableAndClassRoomAndDayOfWeekAndSlotIndex(
+                                timetable, classroom, day, slot);
+
+                        if (detailOpt.isPresent()) {
+                            var detail = detailOpt.get();
+                            // Try to find the earliest empty slot before this one
+                            for (int targetSlot = 1; targetSlot < slot; targetSlot++) {
+                                // Target slot must be empty for CLASS and TEACHER must be free at target
+                                if (!context.isClassOccupied(classroom.getId(), day, targetSlot)) {
+                                    Teacher teacher = detail.getTeacher();
+                                    if (teacher == null
+                                            || !context.isTeacherOccupied(teacher.getId(), day, targetSlot)) {
+                                        // Valid move!
+                                        context.freeSlot(classroom.getId(), teacher != null ? teacher.getId() : null,
+                                                day, slot);
+
+                                        detail.setSlotIndex(targetSlot);
+                                        timetableDetailRepository.save(detail);
+
+                                        context.markOccupied(classroom.getId(),
+                                                teacher != null ? teacher.getId() : null, day, targetSlot);
+                                        changed = true;
+                                        log.debug("Compacted: Moved {} from {} to {} for class {}",
+                                                detail.getSubject().getCode(), slot, targetSlot, classroom.getName());
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        timetableDetailRepository.flush();
+    }
+
+    private long calculateSessionGapPenalty(ClassRoom classroom, DayOfWeek day, int start, int end,
+            java.util.List<Integer> proposedSlots, ScheduleContext context) {
+        long gapPenalty = 0;
+        java.util.List<Integer> occupied = new java.util.ArrayList<>();
+
+        for (int s = start; s <= end; s++) {
+            if (context.isClassOccupied(classroom.getId(), day, s) || proposedSlots.contains(s)) {
+                occupied.add(s);
+            }
+        }
+
+        if (occupied.size() <= 1) {
+            // If there's only 1 lesson and it's NOT at the start of session (T1 or T6), add
+            // penalty
+            if (!occupied.isEmpty() && occupied.get(0) != start) {
+                gapPenalty += 500; // Penalty for starting late in the session
+            }
+            return gapPenalty;
+        }
+
+        // Find if there's an empty slot between the first and last occupied slots
+        int min = occupied.get(0);
+        int max = occupied.get(occupied.size() - 1);
+
+        // LEADING GAP: Penalty if session doesn't start at 'start'
+        if (min > start) {
+            gapPenalty += 500;
+        }
+
+        for (int s = min + 1; s < max; s++) {
+            if (!context.isClassOccupied(classroom.getId(), day, s) && !proposedSlots.contains(s)) {
+                gapPenalty += 300; // High penalty for gaps within a session
+            }
+        }
+
+        return gapPenalty;
     }
 
     private void attemptBacktrackingSwap(Timetable timetable, ClassRoom classroom, Subject subjectArg,
@@ -455,7 +635,11 @@ public class AutoScheduleService {
                 subjectsToSchedule.addAll(classroom.getCombination().getSubjects());
             }
 
-            for (Subject subject : subjectsToSchedule) {
+            // Order subjects by total lessons descending
+            java.util.List<Subject> subjects = new java.util.ArrayList<>(subjectsToSchedule);
+            subjects.sort((a, b) -> b.getTotalLessons() - a.getTotalLessons());
+
+            for (Subject subject : subjects) {
                 if (isSkippedSubject(subject.getCode()))
                     continue;
 
@@ -465,7 +649,7 @@ public class AutoScheduleService {
                 var assignmentOpt = teacherAssignmentRepository.findByClassRoomAndSubject(classroom, subject);
                 Teacher teacher = assignmentOpt.map(TeacherAssignment::getTeacher).orElse(null);
 
-                scheduleSubject(timetable, classroom, subject, teacher, true, context);
+                scheduleSubjectWithPenalty(timetable, classroom, subject, teacher, context);
             }
         }
     }
@@ -509,7 +693,7 @@ public class AutoScheduleService {
                     }
                 }
 
-                scheduleSubject(timetable, classroom, subject, teacher, true, context);
+                scheduleSubjectWithPenalty(timetable, classroom, subject, teacher, context);
             }
         }
     }
