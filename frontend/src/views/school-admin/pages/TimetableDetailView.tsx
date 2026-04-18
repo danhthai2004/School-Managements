@@ -148,7 +148,7 @@ export default function TimetableDetailView() {
                 <div className="flex gap-3">
                     <button
                         onClick={() => navigate(`/school-admin/schedule/${id}/adjust`)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-medium hover:shadow-lg transition-all"
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-xl font-medium hover:shadow-lg transition-all"
                     >
                         <SlidersHorizontal size={18} />
                         <span>Tinh chỉnh</span>
@@ -156,7 +156,7 @@ export default function TimetableDetailView() {
 
                     <button
                         onClick={handleExport}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-500 text-white rounded-xl font-medium hover:shadow-lg transition-all"
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-medium hover:shadow-lg transition-all"
                     >
                         <Download size={18} />
                         <span>Xuất Excel</span>
@@ -281,7 +281,7 @@ export default function TimetableDetailView() {
                                             </td>
                                         </tr>
                                         {AFTERNOON_SLOTS.map((slot: number) => (
-                                            <tr key={`${cls}-${slot}`} className={`border-b border-gray-100 hover:bg-slate-50/50 transition-colors ${slot === 10 ? 'border-b-2 border-gray-200' : ''}`}>
+                                            <tr key={`${cls}-${slot}`} className={`border-b border-gray-100 hover:bg-slate-50/50 transition-colors ${slot === 9 ? 'border-b-4 border-gray-200' : ''}`}>
                                                 {/* Slot Number */}
                                                 <td className="p-2 text-center text-xs font-semibold text-slate-500 border-r border-gray-100 bg-white sticky left-[100px] z-10">
                                                     T{slot}
