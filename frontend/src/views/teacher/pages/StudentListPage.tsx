@@ -3,12 +3,13 @@ import { useOutletContext, useNavigate } from "react-router-dom";
 import { teacherService, type HomeroomStudent, type TeacherProfile } from "../../../services/teacherService";
 import { StatusBadge } from "../../../components/common/StatusBadge";
 import { vietnameseNameSort } from "../../../utils/sortUtils";
+import { usePagination } from "../../../hooks/usePagination";
+import Pagination from "../../../components/common/Pagination";
+import { Lock } from "lucide-react";
 
 type OutletContextType = {
     teacherProfile: TeacherProfile | null;
 };
-
-// Helper to remove translate status warnings since it's now handled by the backend.
 
 // Statistics Card Component (Updated with hover effects from TeacherDashboard)
 const StatCard = ({ icon, label, value, subValue, colorClass, delay = 0 }: {
@@ -35,7 +36,6 @@ const StatCard = ({ icon, label, value, subValue, colorClass, delay = 0 }: {
         </div>
     </div>
 );
-
 
 export default function StudentListPage() {
     const { teacherProfile } = useOutletContext<OutletContextType>();
@@ -91,6 +91,15 @@ export default function StudentListPage() {
         });
     }, [students, searchQuery, statusFilter, sortBy]);
 
+    const {
+        paginatedData: paginatedStudents,
+        currentPage,
+        totalPages,
+        pageSize,
+        goToPage: handlePageChange,
+        setPageSize: handlePageSizeChange
+    } = usePagination(filteredStudents, { dependencies: [searchQuery, statusFilter] });
+
     // Calculate statistics
     const stats = useMemo(() => {
         const total = students.length;
@@ -116,7 +125,11 @@ export default function StudentListPage() {
     if (!teacherProfile?.isHomeroomTeacher) {
         return (
             <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-100 text-center">
-                <div className="text-5xl mb-4">🔒</div>
+                <div className="flex justify-center mb-4">
+                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+                        <Lock className="w-8 h-8 text-slate-400" />
+                    </div>
+                </div>
                 <h2 className="text-xl font-bold text-gray-900 mb-2">Không có quyền truy cập</h2>
                 <p className="text-gray-500">Chỉ giáo viên chủ nhiệm mới có thể xem danh sách học sinh lớp.</p>
             </div>
@@ -279,7 +292,7 @@ export default function StudentListPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 bg-white">
-                            {filteredStudents.map((student) => (
+                            {paginatedStudents.map((student) => (
                                 <tr key={student.id} className="hover:bg-blue-50 transition-colors group">
                                     {/* Student Name + Avatar */}
                                     <td className="px-6 py-4">
@@ -367,6 +380,18 @@ export default function StudentListPage() {
                         </tbody>
                     </table>
                 </div>
+                {totalPages > 1 && (
+                    <div className="border-t border-gray-100">
+                        <Pagination
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={handlePageChange}
+                            pageSize={pageSize}
+                            onPageSizeChange={handlePageSizeChange}
+                            totalItems={filteredStudents.length}
+                        />
+                    </div>
+                )}
             </div>
 
         </div >

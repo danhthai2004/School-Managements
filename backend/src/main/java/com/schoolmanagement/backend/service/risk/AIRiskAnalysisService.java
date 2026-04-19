@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.risk.RiskAssessmentHistory;
 import com.schoolmanagement.backend.domain.entity.risk.RiskMetricsSnapshot;
-import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.risk.RiskCategory;
 import com.schoolmanagement.backend.domain.risk.RiskTrend;
 import com.schoolmanagement.backend.dto.risk.AIRiskResponse;
@@ -21,7 +20,6 @@ import reactor.util.retry.Retry;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Service gọi LLM API (qua WebClient thuần) để phân tích rủi ro từ batch dữ liệu snapshot.

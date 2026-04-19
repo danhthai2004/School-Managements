@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Send, Bell, Clock, ChevronDown, CheckCircle, AlertCircle } from "lucide-react";
+import { Send, Bell, Clock, ChevronDown, CheckCircle, AlertCircle, ClipboardList, Calendar } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface TeacherProfile {
@@ -115,7 +115,7 @@ export default function NotificationsPage() {
                 body: JSON.stringify({
                     title: title.trim(),
                     content: content.trim(),
-                    type: "MANUAL",
+                    type: "OTHER",
                     targetGroup: "CLASS",
                     referenceId: selectedClassId,
                 }),
@@ -276,7 +276,12 @@ export default function NotificationsPage() {
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-start gap-3 flex-1 min-w-0">
                                         <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                                            <Bell className="w-5 h-5 text-blue-600" />
+                                            {(() => {
+                                                const iconClass = "w-5 h-5 text-blue-600";
+                                                if (notification.type === "EXAM") return <ClipboardList className={iconClass} />;
+                                                if (notification.type === "SCHEDULE") return <Calendar className={iconClass} />;
+                                                return <Bell className={iconClass} />;
+                                            })()}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <h4 className="text-sm font-semibold text-gray-900">

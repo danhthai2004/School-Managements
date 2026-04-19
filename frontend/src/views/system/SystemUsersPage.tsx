@@ -13,6 +13,8 @@ import {
   SchoolIcon,
   ClockIcon,
 } from "../../components/layout/SystemIcons";
+import { usePagination } from "../../hooks/usePagination";
+import Pagination from "../../components/common/Pagination";
 
 export default function SystemUsersPage() {
   const [users, setUsers] = useState<UserListDto[]>([]);
@@ -25,6 +27,16 @@ export default function SystemUsersPage() {
   const [roleFilter, setRoleFilter] = useState<string>("");
   const [schoolFilter, setSchoolFilter] = useState<string>("");
   const [enabledFilter, setEnabledFilter] = useState<string>("");
+
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    paginatedData: paginatedUsers,
+    goToPage,
+    setPageSize,
+    totalItems
+  } = usePagination(users, 50);
 
   const loadData = async () => {
     try {
@@ -203,7 +215,7 @@ export default function SystemUsersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {users.map((user) => (
+                {paginatedUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-6 py-4">
                       <div>
@@ -285,6 +297,14 @@ export default function SystemUsersPage() {
                 ))}
               </tbody>
             </table>
+            <Pagination 
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              onPageChange={goToPage}
+              onPageSizeChange={setPageSize}
+            />
           </div>
         )}
       </div>

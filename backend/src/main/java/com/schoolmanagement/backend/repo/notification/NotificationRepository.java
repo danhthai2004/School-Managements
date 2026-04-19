@@ -31,4 +31,6 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
             @Param("status") NotificationStatus status,
             @Param("search") String search,
             Pageable pageable);
+
+    void deleteByCreatedById(UUID userId);
 }

@@ -135,7 +135,7 @@ public class AttendanceHandler implements ChatHandler {
                     item.put("date", a.getAttendanceDate().toString());
                     item.put("status", a.getStatus().name());
                     item.put("subject", "N/A");
-                    item.put("note", a.getNote() != null ? a.getNote() : "");
+                    item.put("note", a.getRemarks() != null ? a.getRemarks() : "");
                     return item;
                 })
                 .toList();

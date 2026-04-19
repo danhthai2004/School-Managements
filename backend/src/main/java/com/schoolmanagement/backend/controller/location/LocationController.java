@@ -2,6 +2,7 @@ package com.schoolmanagement.backend.controller.location;
 
 import com.schoolmanagement.backend.domain.entity.admin.SchoolLevel;
 import com.schoolmanagement.backend.dto.location.ProvinceDto;
+import com.schoolmanagement.backend.dto.location.WardDto;
 import com.schoolmanagement.backend.dto.admin.SchoolRegistryDto;
 import com.schoolmanagement.backend.service.location.LocationService;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +22,11 @@ public class LocationController {
     @GetMapping("/provinces")
     public List<ProvinceDto> getProvinces() {
         return locationService.getProvinces();
+    }
+
+    @GetMapping("/provinces/{code}/wards")
+    public List<WardDto> getWardsByProvince(@PathVariable Integer code) {
+        return locationService.getWardsByProvince(code);
     }
 
     @GetMapping("/schools/registry")

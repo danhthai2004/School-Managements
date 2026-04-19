@@ -15,6 +15,7 @@ export type SchoolDto = {
   schoolLevel: SchoolLevel | null;
   address: string | null;
   enrollmentArea: string | null;
+  pendingDeleteAt: string | null;
 };
 
 export type UserListDto = {
@@ -33,19 +34,28 @@ export type SchoolDetailDto = {
   id: string;
   name: string;
   code: string;
+  provinceCode: number | null;
+  provinceName: string | null;
+  wardCode: number | null;
+  wardName: string | null;
+  enrollmentArea: string | null;
+  address: string | null;
   admins: UserListDto[];
+  pendingDeleteAt: string | null;
 };
 
 export type NotificationDto = {
   id: string;
   title: string;
-  message: string;
-  scope: "ALL" | "SCHOOL" | "ROLE";
-  targetSchoolId: string | null;
-  targetSchoolName: string | null;
-  targetRole: string | null;
-  createdByEmail: string;
+  content: string;
+  type: string;
+  targetGroup: string;
+  referenceId: string | null;
+  actionUrl: string | null;
+  status: string;
+  createdBy: string;
   createdAt: string;
+  isRead: boolean;
 };
 
 export type ActivityLogDto = {
@@ -59,7 +69,10 @@ export type ActivityLogDto = {
 
 export type CreateSchoolRequest = {
   schoolName: string;
+  schoolCode: string;
   provinceCode: number;
+  wardCode?: number;
+  enrollmentArea?: string;
   address?: string;
 };
 
@@ -76,16 +89,24 @@ export type CreateSchoolAdminForSchoolRequest = {
 };
 
 export type UpdateSchoolRequest = {
-  wardCode?: number;
-  address?: string;
   name?: string;
   code?: string;
+  provinceCode?: number;
+  wardCode?: number;
+  enrollmentArea?: string;
+  address?: string;
 };
 
 export type ProvinceDto = {
   code: number;
   name: string;
   codename: string;
+};
+
+export type WardDto = {
+  code: number;
+  name: string;
+  provinceCode: number;
 };
 
 export type SchoolRegistryDto = {
@@ -98,10 +119,11 @@ export type SchoolRegistryDto = {
 
 export type CreateNotificationRequest = {
   title: string;
-  message: string;
-  scope: "ALL" | "SCHOOL" | "ROLE";
-  targetSchoolId?: string;
-  targetRole?: string;
+  content: string;
+  type: string;
+  targetGroup: string;
+  referenceId?: string;
+  actionUrl?: string;
 };
 
 export type PageResponse<T> = {
@@ -134,6 +156,23 @@ export const systemService = {
   updateSchool: async (id: string, req: UpdateSchoolRequest): Promise<SchoolDto> => {
     const res = await api.put<SchoolDto>(`/system/schools/${id}`, req);
     return res.data;
+  },
+
+  deleteSchool: async (id: string): Promise<void> => {
+    await api.delete(`/system/schools/${id}`);
+  },
+
+  listPendingDeleteSchools: async (): Promise<SchoolDto[]> => {
+    const res = await api.get<SchoolDto[]>("/system/schools/pending");
+    return res.data;
+  },
+
+  restoreSchool: async (id: string): Promise<void> => {
+    await api.post(`/system/schools/${id}/restore`);
+  },
+
+  permanentDeleteSchool: async (id: string): Promise<void> => {
+    await api.delete(`/system/schools/${id}/permanent`);
   },
 
   createSchoolAdminForSchool: async (schoolId: string, req: CreateSchoolAdminForSchoolRequest): Promise<void> => {
@@ -183,8 +222,8 @@ export const systemService = {
 
   // Notifications
   listNotifications: async (): Promise<NotificationDto[]> => {
-    const res = await api.get<NotificationDto[]>("/system/notifications");
-    return res.data;
+    const res = await api.get<PageResponse<NotificationDto>>("/system/notifications");
+    return res.data.content || [];
   },
 
   createNotification: async (req: CreateNotificationRequest): Promise<NotificationDto> => {
@@ -207,6 +246,11 @@ export const systemService = {
   // Locations
   getProvinces: async (): Promise<ProvinceDto[]> => {
     const res = await api.get<ProvinceDto[]>("/v1/locations/provinces");
+    return res.data;
+  },
+
+  getWardsByProvince: async (provinceCode: number): Promise<WardDto[]> => {
+    const res = await api.get<WardDto[]>(`/v1/locations/provinces/${provinceCode}/wards`);
     return res.data;
   },
 

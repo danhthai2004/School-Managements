@@ -9,7 +9,6 @@ import com.schoolmanagement.backend.service.chat.ChatHandler;
 import com.schoolmanagement.backend.repo.auth.UserRepository;
 import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.classes.ClassEnrollmentRepository;
-import com.schoolmanagement.backend.repo.attendance.AttendanceSessionRepository;
 import com.schoolmanagement.backend.repo.attendance.AttendanceRepository;
 
 import com.schoolmanagement.backend.domain.chat.ChatIntent;
@@ -36,18 +35,15 @@ public class HomeroomHandler implements ChatHandler {
     private final UserRepository userRepository;
     private final ClassRoomRepository classRoomRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
-    private final AttendanceSessionRepository attendanceSessionRepository;
     private final AttendanceRepository attendanceRepository;
 
     public HomeroomHandler(UserRepository userRepository,
             ClassRoomRepository classRoomRepository,
             ClassEnrollmentRepository classEnrollmentRepository,
-            AttendanceSessionRepository attendanceSessionRepository,
             AttendanceRepository attendanceRepository) {
         this.userRepository = userRepository;
         this.classRoomRepository = classRoomRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
-        this.attendanceSessionRepository = attendanceSessionRepository;
         this.attendanceRepository = attendanceRepository;
     }
 
@@ -91,7 +87,7 @@ public class HomeroomHandler implements ChatHandler {
                 }
                 case LATE -> lateToday++;
                 case ABSENT_EXCUSED -> excusedToday++;
-                case ABSENT -> absentToday++; // Handle legacy ABSENT
+
                 case PRESENT -> {
                 }
             }

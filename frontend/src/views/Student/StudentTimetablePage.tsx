@@ -3,6 +3,7 @@ import { studentService, type StudentTimetableDto, type TimetableSlotDto } from 
 import { CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { useSemester } from "../../context/SemesterContext";
 import SemesterSelector from "../../components/common/SemesterSelector";
+import { formatDate } from "../../utils/dateHelpers";
 
 const days = [
     { value: 2, label: "Thứ 2" },
@@ -11,6 +12,7 @@ const days = [
     { value: 5, label: "Thứ 5" },
     { value: 6, label: "Thứ 6" },
     { value: 7, label: "Thứ 7" },
+    { value: 8, label: "Chủ Nhật" },
 ];
 
 
@@ -35,12 +37,7 @@ function getWeekNumber(date: Date) {
     return Math.ceil((daysVal + startDate.getDay() + 1) / 7);
 }
 
-function formatDate(date: Date) {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-}
+
 
 export default function StudentTimetablePage() {
     const { activeSemester, loading: isContextLoading } = useSemester();
@@ -119,10 +116,10 @@ export default function StudentTimetablePage() {
                             Tuần {weekNumber} ({formatDate(monday)} - {formatDate(sunday)})
                         </p>
                     </div>
-                    <SemesterSelector 
-                        value={selectedSemesterId} 
+                    <SemesterSelector
+                        value={selectedSemesterId}
                         onChange={setSelectedSemesterId}
-                        label="" 
+                        label=""
                     />
                 </div>
                 <div className="flex items-center gap-2">
@@ -163,9 +160,8 @@ export default function StudentTimetablePage() {
                                         return (
                                             <th
                                                 key={day.value}
-                                                className={`p-4 text-center text-sm border-b border-r border-gray-100 transition-colors ${
-                                                    highlightToday ? "text-blue-700 font-bold bg-blue-50/50" : "text-blue-600 font-medium bg-white"
-                                                }`}
+                                                className={`p-4 text-center text-sm border-b border-r border-gray-100 transition-colors ${highlightToday ? "text-blue-700 font-bold bg-blue-50/50" : "text-blue-600 font-medium bg-white"
+                                                    }`}
                                             >
                                                 {day.label}
                                                 {highlightToday && <span className="block text-[10px] text-blue-400 mt-0.5">Hôm nay</span>}

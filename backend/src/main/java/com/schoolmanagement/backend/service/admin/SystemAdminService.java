@@ -89,7 +89,7 @@ public class SystemAdminService {
     }
 
     public List<SchoolDto> listSchools() {
-        return schools.findAll().stream()
+        return schools.findByPendingDeleteAtIsNull().stream()
                 .map(this::toSchoolDto)
                 .toList();
     }
@@ -102,13 +102,33 @@ public class SystemAdminService {
                 .map(this::toUserListDto)
                 .toList();
 
-        return new SchoolDetailDto(school.getId(), school.getName(), school.getCode(), admins);
+        return new SchoolDetailDto(
+                school.getId(),
+                school.getName(),
+                school.getCode(),
+                school.getProvinceCode(),
+                school.getProvince() != null ? school.getProvince().getName() : null,
+                school.getWard() != null ? school.getWard().getCode() : null,
+                school.getWard() != null ? school.getWard().getName() : null,
+                school.getAddress(),
+                school.getEnrollmentArea(),
+                school.getPendingDeleteAt(),
+                admins);
     }
 
     public SchoolDto updateSchool(UUID schoolId, UpdateSchoolRequest req, User performedBy) {
         School school = schools.findById(schoolId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Trường không tồn tại."));
 
+        if (req.name() != null && !req.name().isBlank()) {
+            school.setName(req.name());
+        }
+        if (req.provinceCode() != null) {
+            school.setProvinceCode(req.provinceCode());
+        }
+        if (req.wardCode() != null) {
+            school.setWardCode(req.wardCode());
+        }
         if (req.address() != null) {
             school.setAddress(req.address());
         }
@@ -126,7 +146,49 @@ public class SystemAdminService {
                 s.getProvince() != null ? s.getProvince().getName() : null,
                 s.getSchoolLevel(),
                 s.getAddress(),
-                s.getEnrollmentArea());
+                s.getEnrollmentArea(),
+                s.getWard() != null ? s.getWard().getCode() : null,
+                s.getWard() != null ? s.getWard().getName() : null,
+                s.getPendingDeleteAt());
+    }
+
+    public List<SchoolDto> listPendingDeleteSchools() {
+        return schools.findByPendingDeleteAtIsNotNull().stream()
+                .map(this::toSchoolDto)
+                .toList();
+    }
+
+    @Transactional
+    public void deleteSchool(UUID schoolId, User performedBy) {
+        School school = schools.findById(schoolId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Trường không tồn tại."));
+        if (school.getPendingDeleteAt() != null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Trường đã đang chờ xóa.");
+        }
+        school.setPendingDeleteAt(Instant.now());
+        schools.save(school);
+        activityLog.log("SCHOOL_PENDING_DELETE", performedBy, null, "School marked for deletion: " + school.getCode());
+    }
+
+    @Transactional
+    public void restoreSchool(UUID schoolId, User performedBy) {
+        School school = schools.findById(schoolId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Trường không tồn tại."));
+        if (school.getPendingDeleteAt() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Trường không đang chờ xóa.");
+        }
+        school.setPendingDeleteAt(null);
+        schools.save(school);
+        activityLog.log("SCHOOL_RESTORED", performedBy, null, "School restored: " + school.getCode());
+    }
+
+    @Transactional
+    public void permanentDeleteSchool(UUID schoolId, User performedBy) {
+        School school = schools.findById(schoolId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Trường không tồn tại."));
+        
+        schools.delete(school);
+        activityLog.log("SCHOOL_PERMANENT_DELETED", performedBy, null, "School permanently deleted: " + school.getCode());
     }
 
     // ========== USER MANAGEMENT ==========

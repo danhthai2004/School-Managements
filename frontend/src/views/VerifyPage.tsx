@@ -113,12 +113,12 @@ export default function VerifyPage() {
           type="button"
           disabled={resending}
           onClick={resend}
-          className="w-full text-sm text-slate-600 hover:text-slate-900 disabled:opacity-60"
+          className="w-full text-sm text-slate-600 hover:text-slate-900 disabled:opacity-60 mt-4"
         >
           Gửi lại mã xác minh
         </button>
 
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
           <div className="flex items-start gap-2">
             <WarnIcon />
             <span>Mã xác minh có hiệu lực trong 5 phút. Nếu không nhận được email, vui lòng kiểm tra hộp thư spam.</span>

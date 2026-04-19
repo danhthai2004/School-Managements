@@ -227,6 +227,24 @@ public class AuthService {
         return toDto(user);
     }
 
+    @org.springframework.transaction.annotation.Transactional
+    public com.schoolmanagement.backend.dto.auth.UserDto updateProfile(UUID userId, com.schoolmanagement.backend.dto.request.auth.UpdateProfileRequest req) {
+         throw new ApiException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public com.schoolmanagement.backend.dto.chat.MessageResponse changePassword(UUID userId, String oldPassword, String newPassword) {
+         throw new ApiException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+    }
+
+    public void logoutCurrentDevice(jakarta.servlet.http.HttpServletRequest request) {
+         // JWT token is stateless, client side will clear it
+    }
+
+    public void logoutOtherDevices(UUID userId, jakarta.servlet.http.HttpServletRequest request) {
+         // Token blacklisting not implemented yet, just return
+    }
+
     private boolean requiresFirstLoginFlow(User user) {
         return user.getRole() != Role.SYSTEM_ADMIN && user.isFirstLogin();
     }
@@ -289,7 +307,6 @@ public class AuthService {
         long days = totalSeconds / 86400;
         long hours = (totalSeconds % 86400) / 3600;
         long minutes = (totalSeconds % 3600) / 60;
-        long seconds = totalSeconds % 60;
 
         String countdown;
         if (days > 0) {

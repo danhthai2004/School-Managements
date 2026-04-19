@@ -1,10 +1,14 @@
 package com.schoolmanagement.backend;
 
+import com.schoolmanagement.backend.security.JwtProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.EnableAsync;
+
 @SpringBootApplication
+@EnableConfigurationProperties(JwtProperties.class)
 @EnableScheduling
 @EnableAsync
 public class IssApplication {

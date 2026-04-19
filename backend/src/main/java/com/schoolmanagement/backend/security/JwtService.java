@@ -35,10 +35,16 @@ public class JwtService {
         this.resetTtl = Duration.ofSeconds(resetTtlSeconds);
     }
 
+    /** Convenience overload — generates a random jti automatically */
     public String issueAccessToken(User user) {
+        return issueAccessToken(user, UUID.randomUUID().toString());
+    }
+
+    public String issueAccessToken(User user, String jti) {
         Instant now = Instant.now();
         Instant exp = now.plus(accessTtl);
         return Jwts.builder()
+                .id(jti)
                 .setSubject(user.getId().toString())
                 .setIssuedAt(Date.from(now))
                 .setExpiration(Date.from(exp))

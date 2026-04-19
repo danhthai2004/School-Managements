@@ -11,7 +11,6 @@ import com.schoolmanagement.backend.service.teacher.TeacherManagementService;
 import com.schoolmanagement.backend.service.auth.UserLookupService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,7 +18,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/school")
-@Transactional(readOnly = true)
 public class AccountController {
 
     private final StudentAccountService studentAccountService;
@@ -52,7 +50,6 @@ public class AccountController {
     /**
      * Create accounts for multiple students (bulk)
      */
-    @Transactional
     @PostMapping("/students/accounts")
     public BulkAccountCreationResponse createStudentAccounts(
             @AuthenticationPrincipal UserPrincipal principal,
@@ -83,7 +80,6 @@ public class AccountController {
     /**
      * Create accounts for multiple teachers (bulk)
      */
-    @Transactional
     @PostMapping("/teachers/accounts")
     public BulkAccountCreationResponse createTeacherAccounts(
             @AuthenticationPrincipal UserPrincipal principal,

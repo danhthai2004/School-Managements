@@ -94,7 +94,7 @@ public class GradeImportService {
 
         // 3. Verify teacher is assigned to this class-subject
         Optional<TeacherAssignment> assignment = teacherAssignmentRepository
-                .findByClassRoomAndSubject(classRoom, subject);
+                .findFirstByClassRoomAndSubject(classRoom, subject);
         if (assignment.isEmpty() || assignment.get().getTeacher() == null
                 || !assignment.get().getTeacher().getId().equals(teacher.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,

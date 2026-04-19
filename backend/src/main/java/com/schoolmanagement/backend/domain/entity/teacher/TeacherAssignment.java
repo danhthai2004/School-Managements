@@ -1,9 +1,8 @@
 package com.schoolmanagement.backend.domain.entity.teacher;
 
+import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.classes.Subject;
 import com.schoolmanagement.backend.domain.entity.admin.School;
-
-import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -27,7 +26,7 @@ public class TeacherAssignment {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "classroom_id", nullable = false)
+    @JoinColumn(name = "classroom_id", nullable = true)
     private ClassRoom classRoom;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -44,4 +43,8 @@ public class TeacherAssignment {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "school_id", nullable = false)
     private School school;
+
+    @Builder.Default
+    @Column(name = "is_head_of_department", nullable = false, columnDefinition = "boolean not null default false")
+    private boolean headOfDepartment = false;
 }

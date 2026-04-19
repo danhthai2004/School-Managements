@@ -1,12 +1,12 @@
 package com.schoolmanagement.backend.repo.student;
 
 import com.schoolmanagement.backend.domain.entity.student.Guardian;
-import com.schoolmanagement.backend.domain.entity.auth.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import com.schoolmanagement.backend.domain.entity.admin.School;
-import org.springframework.stereotype.Repository;
+import com.schoolmanagement.backend.domain.entity.student.Student;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.UUID;
@@ -14,19 +14,18 @@ import java.util.UUID;
 @Repository
 public interface GuardianRepository extends JpaRepository<Guardian, UUID> {
 
-    java.util.Optional<Guardian> findByUser(User user);
+    @Query("SELECT g FROM Guardian g JOIN g.students s WHERE s = :student")
+    List<Guardian> findAllByStudent(@Param("student") Student student);
 
-    List<Guardian> findByEmail(String email);
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM Guardian g WHERE g.id IN (SELECT g2.id FROM Guardian g2 JOIN g2.students s WHERE s = :student)")
+    void deleteAllByStudent(@Param("student") Student student);
 
-    java.util.List<Guardian> findByEmailIgnoreCase(String email);
+    void deleteByUserId(UUID userId);
 
-    long countByUser(User user);
+    List<Guardian> findByEmailIgnoreCase(String email);
 
-    /**
-     * Find guardians that have no associated students (Orphans).
-     */
-    @Query("SELECT g FROM Guardian g WHERE g.user IS NULL AND g.students IS EMPTY")
-    List<Guardian> findOrphanGuardians();
+    java.util.Optional<Guardian> findByUser(com.schoolmanagement.backend.domain.entity.auth.User user);
 
     /**
      * Find guardians associated with a specific school who do not have a user
