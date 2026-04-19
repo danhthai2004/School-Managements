@@ -30,6 +30,8 @@ import org.apache.commons.csv.CSVRecord;
 @Service
 public class TeacherImportService {
 
+    private static final int BATCH_SIZE = 50;
+
     private final TeacherRepository teachers;
     private final com.schoolmanagement.backend.repo.classes.SubjectRepository subjects;
     private final UserRepository users;
@@ -49,10 +51,10 @@ public class TeacherImportService {
     }
 
     /**
-     * Import teachers from Excel file
-     * Required columns: fullName/Họ tên
-     * Optional columns: dateOfBirth/Ngày sinh, gender/Giới tính, address/Địa chỉ,
-     * email, phone/SĐT, specialization/Chuyên môn, degree/Bằng cấp
+     * Import teachers from Excel file.
+     * Optimized with batch processing: all teachers are validated and collected
+     * in-memory first, then saved in bulk using saveAll() to minimize DB
+     * round-trips.
      */
     @Transactional
     public ImportTeacherResult importTeachersFromExcel(School school, MultipartFile file) {
@@ -61,8 +63,10 @@ public class TeacherImportService {
         }
 
         String filename = file.getOriginalFilename();
-        if (filename == null || (!filename.endsWith(".xlsx") && !filename.endsWith(".xls") && !filename.endsWith(".csv"))) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Vui lòng upload file Excel (.xlsx, .xls) hoặc CSV (.csv)");
+        if (filename == null
+                || (!filename.endsWith(".xlsx") && !filename.endsWith(".xls") && !filename.endsWith(".csv"))) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Vui lòng upload file Excel (.xlsx, .xls) hoặc CSV (.csv)");
         }
 
         List<ImportTeacherResult.ImportError> errors = new ArrayList<>();
@@ -73,29 +77,34 @@ public class TeacherImportService {
         List<ParsedRow> parsedRows = new ArrayList<>();
 
         try {
+            // ==================== PHASE 1: Parse file into rows ====================
             if (filename.toLowerCase().endsWith(".csv")) {
                 try (InputStreamReader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
-                     CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).build())) {
-                     
-                     List<String> headers = csvParser.getHeaderNames();
-                     for (CSVRecord record : csvParser) {
-                         Map<String, String> data = new HashMap<>();
-                         for (String h : headers) {
-                             if (h != null) data.put(h.toLowerCase().trim(), record.get(h));
-                         }
-                         parsedRows.add(new ParsedRow((int) record.getRecordNumber() + 1, data));
-                     }
+                        CSVParser csvParser = new CSVParser(reader,
+                                CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).build())) {
+
+                    List<String> headers = csvParser.getHeaderNames();
+                    for (CSVRecord record : csvParser) {
+                        Map<String, String> data = new HashMap<>();
+                        for (String h : headers) {
+                            if (h != null)
+                                data.put(h.toLowerCase().trim(), record.get(h));
+                        }
+                        parsedRows.add(new ParsedRow((int) record.getRecordNumber() + 1, data));
+                    }
                 }
             } else {
                 try (InputStream is = file.getInputStream();
-                     Workbook workbook = new XSSFWorkbook(is)) {
-                     
+                        Workbook workbook = new XSSFWorkbook(is)) {
+
                     Sheet sheet = workbook.getSheetAt(0);
-                    if (sheet == null) throw new ApiException(HttpStatus.BAD_REQUEST, "File không có sheet nào.");
-                    
+                    if (sheet == null)
+                        throw new ApiException(HttpStatus.BAD_REQUEST, "File không có sheet nào.");
+
                     Row headerRow = sheet.getRow(0);
-                    if (headerRow == null) throw new ApiException(HttpStatus.BAD_REQUEST, "File không có header row.");
-                    
+                    if (headerRow == null)
+                        throw new ApiException(HttpStatus.BAD_REQUEST, "File không có header row.");
+
                     Map<Integer, String> colIndexToHeader = new HashMap<>();
                     for (int i = 0; i < headerRow.getLastCellNum(); i++) {
                         Cell cell = headerRow.getCell(i);
@@ -103,10 +112,11 @@ public class TeacherImportService {
                             colIndexToHeader.put(i, getCellStringValue(cell).toLowerCase().trim());
                         }
                     }
-                    
+
                     for (int rowNum = 1; rowNum <= sheet.getLastRowNum(); rowNum++) {
                         Row row = sheet.getRow(rowNum);
-                        if (row == null) continue;
+                        if (row == null)
+                            continue;
                         Map<String, String> data = new HashMap<>();
                         for (Map.Entry<Integer, String> entry : colIndexToHeader.entrySet()) {
                             Cell cell = row.getCell(entry.getKey());
@@ -126,26 +136,31 @@ public class TeacherImportService {
                 }
             }
 
-            // === PRE-LOAD lookup data ONCE (avoids N+1 queries) ===
+            // ==================== PHASE 2: Pre-load lookup data ONCE ====================
             // Teachers
             Set<String> existingTeacherEmails = new HashSet<>();
             for (Teacher t : teachers.findAllBySchoolOrderByFullNameAsc(school)) {
-                if (t.getEmail() != null) existingTeacherEmails.add(t.getEmail().toLowerCase());
+                if (t.getEmail() != null)
+                    existingTeacherEmails.add(t.getEmail().toLowerCase());
             }
             // Students
             Set<String> existingStudentEmails = new HashSet<>();
-            for (com.schoolmanagement.backend.domain.entity.student.Student s : students.findAllBySchoolOrderByFullNameAsc(school)) {
-                if (s.getEmail() != null) existingStudentEmails.add(s.getEmail().toLowerCase());
+            for (com.schoolmanagement.backend.domain.entity.student.Student s : students
+                    .findAllBySchoolOrderByFullNameAsc(school)) {
+                if (s.getEmail() != null)
+                    existingStudentEmails.add(s.getEmail().toLowerCase());
             }
             // Guardians
             Set<String> existingGuardianEmails = new HashSet<>();
             for (com.schoolmanagement.backend.domain.entity.student.Guardian g : guardians.findAll()) {
-                if (g.getEmail() != null) existingGuardianEmails.add(g.getEmail().toLowerCase());
+                if (g.getEmail() != null)
+                    existingGuardianEmails.add(g.getEmail().toLowerCase());
             }
             // Users
             Map<String, User> userEmailMap = new HashMap<>();
             for (User u : users.findAll()) {
-                if (u.getEmail() != null) userEmailMap.put(u.getEmail().toLowerCase(), u);
+                if (u.getEmail() != null)
+                    userEmailMap.put(u.getEmail().toLowerCase(), u);
             }
             // Subjects
             List<com.schoolmanagement.backend.domain.entity.classes.Subject> allSubjects = subjects.findAll();
@@ -156,9 +171,13 @@ public class TeacherImportService {
             // Teacher code counter
             int nextCodeNumber = getNextTeacherCodeNumber(school);
 
-            // Process data rows
+            // ==================== PHASE 3: Validate & collect entities in-memory
+            // ====================
+            List<Teacher> teachersToSave = new ArrayList<>();
+
             for (ParsedRow row : parsedRows) {
-                if (row.isEmpty()) continue;
+                if (row.isEmpty())
+                    continue;
 
                 totalRows++;
                 String teacherName = "";
@@ -216,6 +235,8 @@ public class TeacherImportService {
                             failedCount++;
                             continue;
                         }
+                        // Track new email for intra-batch collision detection
+                        existingTeacherEmails.add(emailLower);
                     }
 
                     // Find subjects from pre-loaded map
@@ -225,7 +246,8 @@ public class TeacherImportService {
                         for (String part : parts) {
                             String subName = part.trim().toLowerCase();
                             if (!subName.isEmpty()) {
-                                com.schoolmanagement.backend.domain.entity.classes.Subject found = subjectNameMap.get(subName);
+                                com.schoolmanagement.backend.domain.entity.classes.Subject found = subjectNameMap
+                                        .get(subName);
                                 if (found != null) {
                                     subjectEntities.add(found);
                                 }
@@ -235,10 +257,8 @@ public class TeacherImportService {
 
                     // Generate teacher code from in-memory counter
                     String teacherCode = String.format("GV%04d", nextCodeNumber++);
-                    // Track new email for intra-batch collision detection
-                    if (email != null && !email.isBlank()) existingTeacherEmails.add(email.trim().toLowerCase());
 
-                    // Create teacher entity
+                    // Create teacher entity (in-memory, no DB save yet)
                     Teacher teacher = Teacher.builder()
                             .teacherCode(teacherCode)
                             .fullName(teacherName.trim())
@@ -253,12 +273,20 @@ public class TeacherImportService {
                             .subjects(subjectEntities)
                             .build();
 
-                    teachers.save(teacher);
+                    teachersToSave.add(teacher);
                     successCount++;
 
                 } catch (Exception e) {
                     errors.add(new ImportTeacherResult.ImportError(row.rowNum, teacherName, "Lỗi: " + e.getMessage()));
                     failedCount++;
+                }
+            }
+
+            // ==================== PHASE 4: Batch save to DB ====================
+            if (!teachersToSave.isEmpty()) {
+                for (int i = 0; i < teachersToSave.size(); i += BATCH_SIZE) {
+                    int end = Math.min(i + BATCH_SIZE, teachersToSave.size());
+                    teachers.saveAll(teachersToSave.subList(i, end));
                 }
             }
 
@@ -313,7 +341,8 @@ public class TeacherImportService {
         String getValue(String... possibleNames) {
             for (String name : possibleNames) {
                 String val = data.get(name.toLowerCase());
-                if (val != null && !val.isBlank()) return val.trim();
+                if (val != null && !val.isBlank())
+                    return val.trim();
             }
             return null;
         }
@@ -348,7 +377,8 @@ public class TeacherImportService {
 
     private Gender parseGenderFromRow(ParsedRow row, String... possibleNames) {
         String value = row.getValue(possibleNames);
-        if (value == null) return null;
+        if (value == null)
+            return null;
 
         value = value.toLowerCase().trim();
         if (value.equals("nam") || value.equals("male") || value.equals("m")) {
@@ -363,7 +393,8 @@ public class TeacherImportService {
 
     private int getNextTeacherCodeNumber(School school) {
         Optional<Teacher> latestTeacher = teachers.findTopBySchoolOrderByTeacherCodeDesc(school);
-        if (latestTeacher.isEmpty()) return 1;
+        if (latestTeacher.isEmpty())
+            return 1;
         String lastCode = latestTeacher.get().getTeacherCode();
         try {
             if (lastCode.startsWith("GV")) {
