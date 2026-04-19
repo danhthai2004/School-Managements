@@ -17,8 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,34 +35,97 @@ public class TeacherAssignmentService {
      * Initialize empty assignments for all classes based on their combinations.
      * Call this when a Class is created or Combination is changed, or
      * manually/periodically.
+     *
+     * Optimized: pre-loads existing assignments into a Set for O(1) lookup,
+     * deduplicates subjects per combination to prevent cartesian product issues.
      */
     @Transactional
     public void initializeAssignments(School school) {
         List<ClassRoom> classes = classRooms.findAllBySchoolOrderByGradeAscNameAsc(school);
+
+        // Step 1: Remove existing duplicates first
+        removeDuplicateAssignments(school);
+
+        // Step 2: Pre-load ALL existing assignments into a Set for O(1) lookup
+        List<TeacherAssignment> existingAssignments = assignments.findAllBySchool(school);
+        Set<String> existingKeys = new HashSet<>();
+        for (TeacherAssignment a : existingAssignments) {
+            existingKeys.add(a.getClassRoom().getId() + "_" + a.getSubject().getId());
+        }
+
+        // Step 3: Collect new assignments in-memory, then batch save
+        List<TeacherAssignment> newAssignments = new ArrayList<>();
 
         for (ClassRoom cls : classes) {
             Combination combo = cls.getCombination();
             if (combo == null)
                 continue;
 
+            // Deduplicate subjects within this combination (prevents EAGER fetch
+            // duplication)
+            Set<UUID> seenSubjectIds = new HashSet<>();
+
             for (Subject subject : combo.getSubjects()) {
-                // Check if assignment already exists
-                if (assignments.findFirstByClassRoomAndSubject(cls, subject).isEmpty()) {
+                // Skip if we've already processed this subject for this class
+                if (!seenSubjectIds.add(subject.getId())) {
+                    continue;
+                }
+
+                String key = cls.getId() + "_" + subject.getId();
+                if (!existingKeys.contains(key)) {
                     TeacherAssignment assignment = TeacherAssignment.builder()
                             .classRoom(cls)
                             .subject(subject)
                             .school(school)
-                            .teacher(null) // Initially no teacher assigned
-                            .lessonsPerWeek(subject.getTotalLessons() != null ? subject.getTotalLessons() : 2) // Default
-                                                                                                               // from
-                                                                                                               // subject
-                                                                                                               // or
-                                                                                                               // fallback
-                                                                                                               // to 2
+                            .teacher(null)
+                            .lessonsPerWeek(subject.getTotalLessons() != null ? subject.getTotalLessons() : 2)
                             .build();
-                    assignments.save(assignment);
+                    newAssignments.add(assignment);
+                    existingKeys.add(key); // prevent intra-batch duplicates
                 }
             }
+        }
+
+        // Batch save all new assignments at once
+        if (!newAssignments.isEmpty()) {
+            assignments.saveAll(newAssignments);
+        }
+    }
+
+    /**
+     * Remove duplicate TeacherAssignment records (same classRoom + subject).
+     * Keeps the one with a teacher assigned if possible, otherwise keeps the first.
+     */
+    private void removeDuplicateAssignments(School school) {
+        List<TeacherAssignment> all = assignments.findAllBySchool(school);
+        Map<String, List<TeacherAssignment>> grouped = new LinkedHashMap<>();
+
+        for (TeacherAssignment a : all) {
+            String key = a.getClassRoom().getId() + "_" + a.getSubject().getId();
+            grouped.computeIfAbsent(key, k -> new ArrayList<>()).add(a);
+        }
+
+        List<TeacherAssignment> toDelete = new ArrayList<>();
+        for (List<TeacherAssignment> group : grouped.values()) {
+            if (group.size() <= 1)
+                continue;
+
+            // Keep the one with a teacher assigned, or the first one
+            TeacherAssignment keeper = group.stream()
+                    .filter(a -> a.getTeacher() != null)
+                    .findFirst()
+                    .orElse(group.get(0));
+
+            for (TeacherAssignment a : group) {
+                if (!a.getId().equals(keeper.getId())) {
+                    toDelete.add(a);
+                }
+            }
+        }
+
+        if (!toDelete.isEmpty()) {
+            assignments.deleteAll(toDelete);
+            assignments.flush();
         }
     }
 

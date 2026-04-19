@@ -19,6 +19,8 @@ import java.util.UUID;
         @Index(name = "idx_assignment_class", columnList = "classroom_id"),
         @Index(name = "idx_assignment_teacher", columnList = "teacher_id"),
         @Index(name = "idx_assignment_subject", columnList = "subject_id")
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "uk_assignment_class_subject", columnNames = { "classroom_id", "subject_id" })
 })
 public class TeacherAssignment {
     @Id
