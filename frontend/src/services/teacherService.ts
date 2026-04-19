@@ -173,7 +173,7 @@ export type GradeBook = {
     subjectName: string;
     className: string;
     academicYear: string;
-    semester: number;
+    semesterId?: string;
     regularAssessmentCount: number; // 2, 3, or 4
     canEdit: boolean;
     subGradeColumns?: SubGradeColumn[];
@@ -183,7 +183,7 @@ export type GradeBook = {
 export type SaveGradeRequest = {
     classId: string;
     subjectId: string;
-    semester: number;
+    semesterId: string;
     students: StudentGrade[];
 };
 
@@ -335,9 +335,9 @@ export const teacherService = {
     },
 
     // Get grade book
-    getGradeBook: async (classId: string, subjectId: string, semester: number = 1): Promise<GradeBook> => {
+    getGradeBook: async (classId: string, subjectId: string, semesterId: string): Promise<GradeBook> => {
         const res = await api.get<GradeBook>("/teacher/grades", {
-            params: { classId, subjectId, semester }
+            params: { classId, subjectId, semesterId }
         });
         return res.data;
     },

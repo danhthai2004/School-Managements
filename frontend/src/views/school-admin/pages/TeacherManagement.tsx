@@ -14,12 +14,9 @@ import EditTeacherModal from "../components/teacher/EditTeacherModal";
 import ImportTeacherExcelModal from "../components/teacher/ImportTeacherExcelModal";
 import ImportTeacherResultModal from "../components/teacher/ImportTeacherResultModal";
 import { useToast } from "../../../context/ToastContext";
-<<<<<<< HEAD
 import { vietnameseNameSort } from "../../../utils/sortUtils";
-=======
 import { usePagination } from "../../../hooks/usePagination";
 import Pagination from "../../../components/common/Pagination";
->>>>>>> c19d40b (fix: merging module sa&teacher)
 
 
 

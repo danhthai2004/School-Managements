@@ -90,8 +90,6 @@ public class QuickStatsHandler implements ChatHandler {
                 case ABSENT_UNEXCUSED -> absentToday++;
                 case LATE -> lateToday++;
                 case ABSENT_EXCUSED -> excusedToday++;
-                case EXCUSED -> excusedToday++; // Legacy excused
-                case ABSENT -> absentToday++; // Handle legacy ABSENT
                 case PRESENT -> presentToday++;
             }
         }

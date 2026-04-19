@@ -69,6 +69,7 @@ services:
       - postgres
     networks:
       - school_net
+    env_file: .env
 
   frontend:
     build:
@@ -89,41 +90,27 @@ services:
       - backend
     networks:
       - school_net
+    env_file: .env
 
-  face-recognition:
-    build: ./backend/services/face-recognition
-    container_name: school_face_recognition
-    ports:
-      - "8001:8000"
-    environment:
-      # Dùng Supabase URL — lấy từ .env
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/school_db
-    volumes:
-      - insightface_models:/root/.insightface
-    depends_on:
-      - postgres
-    networks:
-      - school_net
+#   face-recognition:
+#     build: ./backend/services/face-recognition
+#     container_name: school_face_recognition
+#     ports:
+#       - "8001:8000"
+#     environment:
+#       # Dùng Supabase URL — lấy từ .env
+#       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/school_db
+#     volumes:
+#       - insightface_models:/root/.insightface
+#     depends_on:
+#       - postgres
+#     networks:
+#       - school_net
 
 volumes:
   postgres_data:
   insightface_models:
-  fuuko_test_postgres_data:
 
-services:
-  postgres:
-    image: postgres:15
-    container_name: school_postgres
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: school_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - school_net
 
 networks:
   school_net:

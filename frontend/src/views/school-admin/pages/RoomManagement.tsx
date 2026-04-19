@@ -33,6 +33,11 @@ export default function RoomManagement() {
         if (aValue === null || aValue === undefined) aValue = "";
         if (bValue === null || bValue === undefined) bValue = "";
 
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+            const cmp = aValue.localeCompare(bValue, undefined, { numeric: true, sensitivity: 'base' });
+            return direction === 'asc' ? cmp : -cmp;
+        }
+
         if (aValue < bValue) return direction === 'asc' ? -1 : 1;
         if (aValue > bValue) return direction === 'asc' ? 1 : -1;
         return 0;
@@ -366,10 +371,8 @@ export default function RoomManagement() {
                     </div>
                 </div>
             )}
-<<<<<<< HEAD
             {/* Confirmation Dialog */}
             <ConfirmationDialog />
-=======
 
             {/* Bulk Add Modal */}
             {bulkOpen && (
@@ -473,7 +476,6 @@ export default function RoomManagement() {
                     </div>
                 </div>
             )}
->>>>>>> 1e231c6 (fix after merging dev 09/04)
         </div>
     );
 }

@@ -1,7 +1,7 @@
 package com.schoolmanagement.backend.repo.notification;
 
+import com.schoolmanagement.backend.domain.entity.auth.User;
 import com.schoolmanagement.backend.domain.entity.notification.Notification;
-<<<<<<< HEAD
 import com.schoolmanagement.backend.domain.notification.NotificationStatus;
 import com.schoolmanagement.backend.domain.notification.NotificationType;
 import com.schoolmanagement.backend.domain.notification.TargetGroup;
@@ -11,16 +11,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-=======
-import org.springframework.data.jpa.repository.JpaRepository;
->>>>>>> c19d40b (fix: merging module sa&teacher)
 
 import java.util.UUID;
 
+@Repository
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
-    org.springframework.data.domain.Page<Notification> findAllByOrderByCreatedAtDesc(org.springframework.data.domain.Pageable pageable);
+    Page<Notification> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
-<<<<<<< HEAD
     Page<Notification> findByCreatedByOrderByCreatedAtDesc(User createdBy, Pageable pageable);
 
     @Query("SELECT n FROM Notification n WHERE " +
@@ -34,11 +31,6 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
             @Param("status") NotificationStatus status,
             @Param("search") String search,
             Pageable pageable);
-=======
-    void deleteByCreatedById(UUID userId);
 
-    org.springframework.data.domain.Page<Notification> findByCreatedByOrderByCreatedAtDesc(
-            com.schoolmanagement.backend.domain.entity.auth.User user,
-            org.springframework.data.domain.Pageable pageable);
->>>>>>> c19d40b (fix: merging module sa&teacher)
+    void deleteByCreatedById(UUID userId);
 }

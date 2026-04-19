@@ -114,7 +114,8 @@ public class TimetableAdjustmentService {
 
         // Rule 2: Sau khi swap, giáo viên nguồn có trùng lịch ở vị trí đích không?
         if (source.getTeacher() != null) {
-            // Tìm xem GV nguồn đã có tiết ở (target.day, target.slot) chưa (ngoại trừ chính target)
+            // Tìm xem GV nguồn đã có tiết ở (target.day, target.slot) chưa (ngoại trừ chính
+            // target)
             boolean teacherClash = hasTeacherClashExcluding(
                     timetable, source.getTeacher().getId(),
                     target.getDayOfWeek(), target.getSlotIndex(),
@@ -190,20 +191,26 @@ public class TimetableAdjustmentService {
                 source.getSubject().getName(), source.getDayOfWeek(), source.getSlotIndex(),
                 target.getSubject().getName(), target.getDayOfWeek(), target.getSlotIndex());
 
-        // Lưu tạm vị trí nguồn
-        DayOfWeek tempDay = source.getDayOfWeek();
-        int tempSlot = source.getSlotIndex();
+        // Lưu tạm vị trí nguồn và đích
+        DayOfWeek sourceDay = source.getDayOfWeek();
+        int sourceSlot = source.getSlotIndex();
+        DayOfWeek targetDay = target.getDayOfWeek();
+        int targetSlot = target.getSlotIndex();
 
-        // Đổi source → vị trí target
-        source.setDayOfWeek(target.getDayOfWeek());
-        source.setSlotIndex(target.getSlotIndex());
+        // 1. Dời target tạm ra ngoài (slot -1) để tránh vi phạm Unique Constraint khi
+        // cập nhật source
+        target.setSlotIndex(-1);
+        detailRepo.saveAndFlush(target);
 
-        // Đổi target → vị trí source (cũ)
-        target.setDayOfWeek(tempDay);
-        target.setSlotIndex(tempSlot);
+        // 2. Đổi source → vị trí target
+        source.setDayOfWeek(targetDay);
+        source.setSlotIndex(targetSlot);
+        detailRepo.saveAndFlush(source);
 
-        detailRepo.save(source);
-        detailRepo.save(target);
+        // 3. Đổi target → vị trí source ban đầu
+        target.setDayOfWeek(sourceDay);
+        target.setSlotIndex(sourceSlot);
+        detailRepo.saveAndFlush(target);
     }
 
     // ──────────────────────────────────────────────────────────
@@ -231,11 +238,12 @@ public class TimetableAdjustmentService {
     }
 
     /**
-     * Kiểm tra giáo viên có tiết dạy khác tại (day, slot), ngoại trừ 1 detail cụ thể.
+     * Kiểm tra giáo viên có tiết dạy khác tại (day, slot), ngoại trừ 1 detail cụ
+     * thể.
      * Dùng cho validation Swap: khi swap A↔B, cần loại trừ chính B khi check A.
      */
     private boolean hasTeacherClashExcluding(Timetable timetable, UUID teacherId,
-                                              DayOfWeek day, int slot, UUID excludeDetailId) {
+            DayOfWeek day, int slot, UUID excludeDetailId) {
         List<TimetableDetail> allAtSlot = detailRepo
                 .findAllByTimetableAndDayOfWeek(timetable, day);
 

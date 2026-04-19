@@ -50,12 +50,13 @@ public class RoomServiceImpl implements RoomService {
     @Transactional
     public RoomDto createRoom(RoomDto roomDto, UUID schoolId) {
         boolean exists = roomDto.getBuilding() != null && !roomDto.getBuilding().isBlank()
-                ? roomRepository.existsByNameIgnoreCaseAndBuildingIgnoreCaseAndSchoolId(roomDto.getName(), roomDto.getBuilding(), schoolId)
+                ? roomRepository.existsByNameIgnoreCaseAndBuildingIgnoreCaseAndSchoolId(roomDto.getName(),
+                        roomDto.getBuilding(), schoolId)
                 : roomRepository.existsByNameIgnoreCaseAndBuildingIsNullAndSchoolId(roomDto.getName(), schoolId);
 
         if (exists) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Tên phòng học đã tồn tại trong " + 
-                (roomDto.getBuilding() != null ? "tòa nhà này" : "trường này"));
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Tên phòng học đã tồn tại trong " +
+                    (roomDto.getBuilding() != null ? "tòa nhà này" : "trường này"));
         }
 
         School school = schoolRepository.findById(schoolId)
@@ -74,21 +75,53 @@ public class RoomServiceImpl implements RoomService {
 
     @Override
     @Transactional
+    public List<RoomDto> createBulkRooms(List<RoomDto> roomDtos, UUID schoolId) {
+        School school = schoolRepository.findById(schoolId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy trường học"));
+
+        List<Room> roomsToSave = roomDtos.stream().map(dto -> {
+            boolean exists = dto.getBuilding() != null && !dto.getBuilding().isBlank()
+                    ? roomRepository.existsByNameIgnoreCaseAndBuildingIgnoreCaseAndSchoolId(dto.getName(),
+                            dto.getBuilding(), schoolId)
+                    : roomRepository.existsByNameIgnoreCaseAndBuildingIsNullAndSchoolId(dto.getName(), schoolId);
+
+            if (exists) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Phòng học " + dto.getName() +
+                        (dto.getBuilding() != null ? " tại tòa nhà " + dto.getBuilding() : "") + " đã tồn tại.");
+            }
+
+            return Room.builder()
+                    .name(dto.getName())
+                    .capacity(dto.getCapacity() != null ? dto.getCapacity() : 40)
+                    .building(dto.getBuilding())
+                    .status(dto.getStatus() != null ? dto.getStatus() : RoomStatus.ACTIVE)
+                    .school(school)
+                    .build();
+        }).collect(Collectors.toList());
+
+        return roomRepository.saveAll(roomsToSave).stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
     public RoomDto updateRoom(UUID id, RoomDto roomDto, UUID schoolId) {
         Room room = roomRepository.findByIdAndSchoolId(id, schoolId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy phòng học"));
 
-        if (!room.getName().equalsIgnoreCase(roomDto.getName()) || 
-            (room.getBuilding() != null && !room.getBuilding().equalsIgnoreCase(roomDto.getBuilding())) ||
-            (room.getBuilding() == null && roomDto.getBuilding() != null)) {
-            
+        if (!room.getName().equalsIgnoreCase(roomDto.getName()) ||
+                (room.getBuilding() != null && !room.getBuilding().equalsIgnoreCase(roomDto.getBuilding())) ||
+                (room.getBuilding() == null && roomDto.getBuilding() != null)) {
+
             boolean exists = roomDto.getBuilding() != null && !roomDto.getBuilding().isBlank()
-                    ? roomRepository.existsByNameIgnoreCaseAndBuildingIgnoreCaseAndSchoolId(roomDto.getName(), roomDto.getBuilding(), schoolId)
+                    ? roomRepository.existsByNameIgnoreCaseAndBuildingIgnoreCaseAndSchoolId(roomDto.getName(),
+                            roomDto.getBuilding(), schoolId)
                     : roomRepository.existsByNameIgnoreCaseAndBuildingIsNullAndSchoolId(roomDto.getName(), schoolId);
 
             if (exists) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Tên phòng học đã tồn tại trong " + 
-                    (roomDto.getBuilding() != null ? "tòa nhà này" : "trường này"));
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Tên phòng học đã tồn tại trong " +
+                        (roomDto.getBuilding() != null ? "tòa nhà này" : "trường này"));
             }
         }
 

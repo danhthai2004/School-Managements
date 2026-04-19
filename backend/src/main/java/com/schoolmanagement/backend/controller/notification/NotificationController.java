@@ -8,9 +8,14 @@ import com.schoolmanagement.backend.repo.auth.UserRepository;
 import com.schoolmanagement.backend.service.notification.NotificationService;
 import com.schoolmanagement.backend.security.UserPrincipal;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import com.schoolmanagement.backend.domain.notification.NotificationStatus;
+import com.schoolmanagement.backend.domain.notification.NotificationType;
+import com.schoolmanagement.backend.domain.notification.TargetGroup;
 
 import java.util.UUID;
 
@@ -27,9 +32,14 @@ public class NotificationController {
     }
 
     @GetMapping
-    public org.springframework.data.domain.Page<NotificationDto> list(@RequestParam(defaultValue = "0") int page,
-                                                                      @RequestParam(defaultValue = "20") int size) {
-        return notificationService.getAdminNotificationHistory(page, size);
+    public Page<NotificationDto> list(
+            @RequestParam(required = false) NotificationType type,
+            @RequestParam(required = false) TargetGroup targetGroup,
+            @RequestParam(required = false) NotificationStatus status,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return notificationService.getAdminNotificationHistory(type, targetGroup, status, search, page, size);
     }
 
     @PostMapping

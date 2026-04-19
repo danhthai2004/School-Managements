@@ -18,11 +18,18 @@ public interface TeacherAssignmentRepository extends JpaRepository<TeacherAssign
 
         List<TeacherAssignment> findAllByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
 
+        Optional<TeacherAssignment> findByClassRoomAndSubject(ClassRoom classRoom,
+                        com.schoolmanagement.backend.domain.entity.classes.Subject subject);
+
         Optional<TeacherAssignment> findFirstByClassRoomAndSubject(ClassRoom classRoom,
+                        com.schoolmanagement.backend.domain.entity.classes.Subject subject);
+
+        Optional<TeacherAssignment> findFirstByClassRoomAndSubjectAndTeacherIsNotNull(ClassRoom classRoom,
                         com.schoolmanagement.backend.domain.entity.classes.Subject subject);
 
         void deleteAllByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
 
         boolean existsByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
 
+        void deleteByTeacherId(UUID teacherId);
 }

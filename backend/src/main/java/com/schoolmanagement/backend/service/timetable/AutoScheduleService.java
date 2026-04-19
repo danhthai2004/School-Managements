@@ -1,6 +1,7 @@
 package com.schoolmanagement.backend.service.timetable;
 
 import com.schoolmanagement.backend.domain.exam.SessionType;
+import com.schoolmanagement.backend.domain.classes.SubjectType;
 
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.classes.Subject;
