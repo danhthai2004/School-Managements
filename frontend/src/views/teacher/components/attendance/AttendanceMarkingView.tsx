@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { format, startOfDay, isBefore, isEqual } from "date-fns";
+import { format, startOfDay, isBefore, isEqual, isAfter } from "date-fns";
 import { vi } from "date-fns/locale";
 import { attendanceService, AttendanceStatus } from "../../../../services/attendanceService";
 import type { AttendanceDto } from "../../../../services/attendanceService";
+import { Clock, Lock } from "lucide-react";
 
 import { useToast } from "../../../../context/ToastContext";
 
@@ -23,8 +24,20 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
     const [countdown, setCountdown] = useState<string>("");
     const [isSlotStarted, setIsSlotStarted] = useState(true);
 
-    // Lock attendance for past days (auto-lock after 23:59:59)
+    // Lock attendance for non-today days (past = auto-locked, future = not allowed)
     const isLocked = useMemo(() => {
+        const today = startOfDay(new Date());
+        const selectedDay = startOfDay(date);
+        return isBefore(selectedDay, today) || isAfter(selectedDay, today);
+    }, [date]);
+
+    const isFutureDay = useMemo(() => {
+        const today = startOfDay(new Date());
+        const selectedDay = startOfDay(date);
+        return isAfter(selectedDay, today);
+    }, [date]);
+
+    const isPastDay = useMemo(() => {
         const today = startOfDay(new Date());
         const selectedDay = startOfDay(date);
         return isBefore(selectedDay, today);
@@ -50,7 +63,7 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
             const now = new Date();
             const slotStart = new Date();
             slotStart.setHours(hours, minutes, 0, 0);
-            
+
             if (now >= slotStart) {
                 setIsSlotStarted(true);
                 setCountdown("");
@@ -104,13 +117,13 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
     }, [loadData]);
 
     const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
-        setStudents(prev => prev.map(s => 
+        setStudents(prev => prev.map(s =>
             s.studentId === studentId ? { ...s, status } : s
         ));
     };
 
     const handleRemarksChange = (studentId: string, remarks: string) => {
-        setStudents(prev => prev.map(s => 
+        setStudents(prev => prev.map(s =>
             s.studentId === studentId ? { ...s, remarks } : s
         ));
     };
@@ -132,7 +145,7 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
             onClose();
         } catch (error: any) {
             console.error("Failed to save attendance:", error);
-            
+
             // Extract the most meaningful message
             const status = error.response?.status;
             const data = error.response?.data;
@@ -226,8 +239,8 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
                         Quay lại
                     </button>
                     {canEdit && (
-                        <button 
-                            onClick={handleSave} 
+                        <button
+                            onClick={handleSave}
                             disabled={saving}
                             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                         >
@@ -238,9 +251,15 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
             </div>
 
             {isLocked && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
-                    <span>🔒</span>
-                    <span className="font-medium">Điểm danh ngày này đã bị khóa tự động. Không thể chỉnh sửa.</span>
+                <div className={`mb-4 p-3 border rounded-lg flex items-center gap-2 ${isFutureDay ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                    {isFutureDay ? <Clock size={20} strokeWidth={2} /> : <Lock size={20} strokeWidth={2} />}
+                    <span className="font-medium">
+                        {isFutureDay
+                            ? 'Không thể điểm danh cho ngày trong tương lai. Vui lòng chờ đến ngày hôm đó.'
+                            : isPastDay
+                                ? 'Điểm danh ngày này đã bị khóa tự động. Không thể chỉnh sửa.'
+                                : 'Điểm danh đã bị khóa.'}
+                    </span>
                 </div>
             )}
 
@@ -269,8 +288,8 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
                                                 onClick={() => handleStatusChange(student.studentId, option.value)}
                                                 disabled={!canEdit}
                                                 className={`px-3 py-1 rounded-full text-xs font-medium transition-all
-                                                    ${student.status === option.value 
-                                                        ? option.color + " ring-2 ring-offset-1 ring-blue-500" 
+                                                    ${student.status === option.value
+                                                        ? option.color + " ring-2 ring-offset-1 ring-blue-500"
                                                         : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                                                     }
                                                     ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}

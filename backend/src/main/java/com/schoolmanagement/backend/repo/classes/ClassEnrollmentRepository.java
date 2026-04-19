@@ -44,4 +44,23 @@ public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment
             @Param("academicYear") com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
     long countByAcademicYear(com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+
+    /**
+     * Batch-fetch enrollments for multiple students in one query (fixes N+1).
+     * JOIN FETCH ensures classRoom is loaded eagerly.
+     */
+    @Query("""
+                SELECT ce FROM ClassEnrollment ce
+                JOIN FETCH ce.classRoom
+                WHERE ce.student IN :students
+                AND ce.academicYear = :academicYear
+                ORDER BY ce.enrolledAt DESC
+            """)
+    List<ClassEnrollment> findAllByStudentInAndAcademicYear(
+            @Param("students") List<Student> students,
+            @Param("academicYear") com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM ClassEnrollment c WHERE c.student.id = :studentId")
+    void deleteByStudentId(@Param("studentId") UUID studentId);
 }

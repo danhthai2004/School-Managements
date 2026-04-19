@@ -39,4 +39,24 @@ export const authService = {
   logout: async (): Promise<void> => {
     await api.post("/auth/logout");
   },
+
+  updateProfile: async (data: {
+    fullName?: string;
+    phone?: string;
+    dateOfBirth?: string;
+    address?: string;
+    bio?: string;
+  }): Promise<UserDto> => {
+    const res = await api.put<UserDto>("/auth/profile", data);
+    return res.data;
+  },
+
+  changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
+    await api.put("/auth/change-password", { currentPassword, newPassword });
+  },
+
+  logoutOtherDevices: async (): Promise<void> => {
+    await api.post("/auth/logout-other-devices");
+  },
+
 };

@@ -81,7 +81,7 @@ public class GradeService {
                 boolean canEdit = false;
                 if (teacher != null) {
                         Optional<TeacherAssignment> assignment = teacherAssignmentRepository
-                                        .findByClassRoomAndSubject(classRoom, subject);
+                                        .findFirstByClassRoomAndSubject(classRoom, subject);
                         canEdit = assignment.isPresent() && assignment.get().getTeacher() != null
                                         && assignment.get().getTeacher().getId().equals(teacher.getId());
                 }
@@ -191,21 +191,17 @@ public class GradeService {
 
                 // Verify teacher is assigned
                 Optional<TeacherAssignment> assignment = teacherAssignmentRepository
-                                .findByClassRoomAndSubject(classRoom, subject);
+                                .findFirstByClassRoomAndSubject(classRoom, subject);
                 if (assignment.isEmpty() || assignment.get().getTeacher() == null
                                 || !assignment.get().getTeacher().getId().equals(teacher.getId())) {
                         throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                                         "Bạn không được phân công dạy lớp này.");
                 }
 
-                AcademicYear academicYear = classRoom.getAcademicYear();
-
                 // Use target semester ID or fallback to active semester
                 Semester semesterEntity = semesterId != null
                                 ? semesterService.getSemester(UUID.fromString(semesterId))
                                 : semesterService.getActiveSemesterEntity(user.getSchool());
-
-                int activeSemesterNum = semesterEntity.getSemesterNumber();
 
                 if (semesterEntity.getStatus() == com.schoolmanagement.backend.domain.admin.SemesterStatus.CLOSED) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -309,6 +305,4 @@ public class GradeService {
                 return BigDecimal.valueOf(Math.round((total / weight) * 10.0) / 10.0);
         }
 
-        // getCurrentAcademicYear() removed — now using
-        // SemesterService.getActiveAcademicYearName()
 }

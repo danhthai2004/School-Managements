@@ -2,7 +2,6 @@ package com.schoolmanagement.backend.repo.attendance;
 
 import com.schoolmanagement.backend.domain.attendance.AttendanceStatus;
 import com.schoolmanagement.backend.domain.entity.attendance.Attendance;
-import com.schoolmanagement.backend.domain.entity.attendance.AttendanceSession;
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.student.Student;
@@ -92,8 +91,10 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
         /**
          * Find attendance records for a school in a date range.
          */
-        List<Attendance> findBySchoolAndAttendanceDateBetween(
-                        School school, LocalDate startDate, LocalDate endDate);
+        @Query("SELECT a FROM Attendance a WHERE a.student.school = :school AND a.attendanceDate BETWEEN :startDate AND :endDate")
+        List<Attendance> findBySchoolAndDateBetween(
+                        @Param("school") School school, @Param("startDate") LocalDate startDate,
+                        @Param("endDate") LocalDate endDate);
 
         List<Attendance> findByClassRoom_SchoolAndAttendanceDateBetween(
                         School school, LocalDate startDate, LocalDate endDate);
@@ -111,7 +112,8 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
                         @Param("date") LocalDate date,
                         @Param("slotIndex") int slotIndex);
 
-        @Query("SELECT a FROM Attendance a WHERE a.student = :student AND a.attendanceDate = :date AND a.slotIndex = :slotIndex")
+        @Query("SELECT a FROM Attendance a WHERE a.student = :student " +
+                        "AND a.attendanceDate = :date AND a.slotIndex = :slotIndex")
         Optional<Attendance> findByStudentAndDateAndSlotIndex(
                         @Param("student") Student student,
                         @Param("date") LocalDate date,

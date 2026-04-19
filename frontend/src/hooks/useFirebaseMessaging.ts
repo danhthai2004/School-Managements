@@ -65,7 +65,7 @@ export function useFirebaseMessaging() {
 
     useEffect(() => {
         if (!VAPID_KEY) {
-            console.warn("VITE_FIREBASE_VAPID_KEY is not set. Push notifications disabled.");
+            // Push notifications disabled when no VAPID_KEY is provided
             return;
         }
 

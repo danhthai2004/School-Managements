@@ -37,7 +37,7 @@ public class ClassRoom {
     private com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear;
 
     @Column(nullable = false)
-    private int maxCapacity; // Sĩ số (1-35)
+    private int maxCapacity; // Sĩ số (1-40)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "room_id")

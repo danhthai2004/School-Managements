@@ -305,4 +305,34 @@ public class SchoolAdminService {
         users.delete(user);
     }
 
+    // ==================== NEW/PENDING FEATURES ====================
+
+    public List<com.schoolmanagement.backend.dto.auth.UserListDto> listUsersWithStatus(School school) {
+        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+    }
+
+    public List<com.schoolmanagement.backend.dto.auth.UserListDto> listPendingDeleteUsersInSchool(School school) {
+        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+    }
+
+    public void enableUser(School school, UUID userId, User admin) {
+        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+    }
+
+    public void disableUser(School school, UUID userId, User admin) {
+        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+    }
+
+    public void markPendingDelete(School school, UUID userId, User admin) {
+        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+    }
+
+    public void restoreUser(School school, UUID userId, User admin) {
+        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+    }
+
+    public void permanentDeleteUser(School school, UUID userId, User admin) {
+        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+    }
+
 }

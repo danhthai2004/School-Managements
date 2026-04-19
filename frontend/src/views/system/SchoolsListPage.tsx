@@ -4,9 +4,13 @@ import {
   systemService,
   type SchoolDto,
   type ProvinceDto,
+  type WardDto,
 } from "../../services/systemService";
 import { extractErrorMessage } from "../../utils/errorUtils";
 import { SchoolIcon, PlusIcon, ArrowRightIcon } from "../../components/layout/SystemIcons";
+import { X as XIcon } from "lucide-react";
+import { usePagination } from "../../hooks/usePagination";
+import Pagination from "../../components/common/Pagination";
 
 export default function SchoolsListPage() {
   const [schools, setSchools] = useState<SchoolDto[]>([]);
@@ -20,11 +24,24 @@ export default function SchoolsListPage() {
 
   // Dropdown data
   const [provinces, setProvinces] = useState<ProvinceDto[]>([]);
+  const [wards, setWards] = useState<WardDto[]>([]);
+  const [loadingWards, setLoadingWards] = useState(false);
 
   // Form values
   const [provinceCode, setProvinceCode] = useState<number | null>(null);
+  const [wardCode, setWardCode] = useState<number | null>(null);
   const [schoolName, setSchoolName] = useState("");
   const [address, setAddress] = useState("");
+
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    paginatedData: paginatedSchools,
+    goToPage,
+    setPageSize,
+    totalItems
+  } = usePagination(schools, 50);
 
   const loadData = async () => {
     try {
@@ -51,6 +68,21 @@ export default function SchoolsListPage() {
     loadProvinces();
   }, []);
 
+  // Load wards when province changes
+  useEffect(() => {
+    if (provinceCode) {
+      setLoadingWards(true);
+      setWardCode(null);
+      systemService.getWardsByProvince(provinceCode)
+        .then(setWards)
+        .catch(e => console.error("Failed to load wards", e))
+        .finally(() => setLoadingWards(false));
+    } else {
+      setWards([]);
+      setWardCode(null);
+    }
+  }, [provinceCode]);
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!schoolName || !provinceCode) {
@@ -63,7 +95,9 @@ export default function SchoolsListPage() {
     try {
       await systemService.createSchool({
         schoolName: schoolName.trim(),
+        schoolCode: "AUTO",
         provinceCode,
+        wardCode: wardCode || undefined,
         address: address.trim() || undefined,
       });
       setSuccess("Đã tạo trường thành công");
@@ -79,24 +113,44 @@ export default function SchoolsListPage() {
 
   const resetForm = () => {
     setProvinceCode(null);
+    setWardCode(null);
     setSchoolName("");
     setAddress("");
+    setWards([]);
   };
 
   return (
     <div className="max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Danh sách trường học</h1>
-          <p className="text-sm text-gray-500 mt-1">Quản lý tất cả trường trong hệ thống</p>
+          <h1 className="text-2xl font-bold text-slate-900">Danh sách trường học</h1>
+          <p className="text-slate-500 mt-1">Quản lý tất cả trường trong hệ thống</p>
         </div>
-        <button
-          onClick={() => setShowCreate(!showCreate)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
-        >
-          <PlusIcon size={20} />
-          {showCreate ? "Đóng form" : "Tạo trường mới"}
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/system/schools/pending"
+            className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-700 rounded-xl font-medium hover:bg-amber-200 transition-colors"
+          >
+            ⏳ Trường chờ xóa
+          </Link>
+          {showCreate ? (
+            <button
+              onClick={() => setShowCreate(false)}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors shadow-sm hover:shadow"
+            >
+              <XIcon size={20} />
+              Đóng form
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
+            >
+              <PlusIcon size={20} />
+              Tạo trường mới
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Messages */}
@@ -116,25 +170,29 @@ export default function SchoolsListPage() {
         <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-8 shadow-sm animate-fade-in-up">
           <h2 className="text-lg font-bold text-slate-900 mb-6">Tạo trường mới</h2>
           <form onSubmit={handleCreate} className="space-y-6">
-            {/* Row 1: Name & Province */}
+            {/* Row 1: Name */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Tên trường <span className="text-rose-500">*</span>
+                <span className="text-slate-400 font-normal ml-1">(tự động thêm "THPT" vào đầu)</span>
+              </label>
+              <input
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400"
+                value={schoolName}
+                onChange={(e) => setSchoolName(e.target.value)}
+                placeholder="VD: Việt Đức"
+                required
+              />
+            </div>
+
+            {/* Row 2: Province & Ward */}
             <div className="grid grid-cols-2 gap-6">
-              <div className="col-span-1">
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Tên trường học <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400"
-                  value={schoolName}
-                  onChange={(e) => setSchoolName(e.target.value)}
-                  placeholder="Nhập tên trường học..."
-                  required
-                />
-              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Tỉnh/Thành phố <span className="text-rose-500">*</span>
                 </label>
                 <select
+                  aria-label="Tỉnh/Thành phố"
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                   value={provinceCode ?? ""}
                   onChange={(e) => setProvinceCode(e.target.value ? Number(e.target.value) : null)}
@@ -148,13 +206,36 @@ export default function SchoolsListPage() {
                   ))}
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Phường/Xã
+                </label>
+                <select
+                  aria-label="Phường/Xã"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  value={wardCode ?? ""}
+                  onChange={(e) => setWardCode(e.target.value ? Number(e.target.value) : null)}
+                  disabled={!provinceCode || loadingWards}
+                >
+                  <option value="" disabled>
+                    {loadingWards ? "Đang tải..." : provinceCode ? "-- Chọn phường/xã --" : "-- Chọn tỉnh trước --"}
+                  </option>
+                  {wards.map((w) => (
+                    <option key={w.code} value={w.code}>
+                      {w.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {/* Row 2: Address */}
+
+
+            {/* Row 4: Address */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Địa chỉ chi tiết</label>
               <input
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="VD: Số 123, Đường ABC..."
@@ -162,7 +243,7 @@ export default function SchoolsListPage() {
             </div>
 
             <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3 text-sm text-blue-800">
-              <span className="font-semibold">Lưu ý:</span> Trường sẽ được tạo với cấp học mặc định là <strong>THPT (Cấp 3)</strong>.
+              <span className="font-semibold">Lưu ý:</span> Tên trường sẽ được tự động thêm tiền tố <strong>"THPT "</strong> khi lưu.
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -208,9 +289,10 @@ export default function SchoolsListPage() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {schools.map((school) => (
-            <Link
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+            {paginatedSchools.map((school) => (
+              <Link
               key={school.id}
               to={`/system/schools/${school.id}`}
               className="block bg-white rounded-2xl border border-slate-200 p-6 hover:border-blue-300 hover:shadow-md transition-all group"
@@ -221,7 +303,7 @@ export default function SchoolsListPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-slate-900 truncate">{school.name}</h3>
-                  <p className="text-sm text-slate-500 mt-0.5 truncate">{school.code}</p>
+
                   {school.provinceName && (
                     <div className="mt-2 flex items-center gap-1.5">
                       <span className="px-2 py-0.5 rounded-md bg-slate-100 text-xs font-medium text-slate-600">
@@ -237,6 +319,15 @@ export default function SchoolsListPage() {
               </div>
             </Link>
           ))}
+          </div>
+          <Pagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={goToPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       )}
     </div>

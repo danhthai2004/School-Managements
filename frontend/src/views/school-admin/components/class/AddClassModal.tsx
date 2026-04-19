@@ -24,7 +24,7 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, roo
     const [name, setName] = useState("");
     const [grade, setGrade] = useState(10);
     const [academicYear, setAcademicYear] = useState(defaultAcademicYear);
-    const [maxCapacity, setMaxCapacity] = useState(35);
+    const [maxCapacity, setMaxCapacity] = useState(40);
     const [roomId, setRoomId] = useState("");
     const [combinationId, setCombinationId] = useState("");
     const [homeroomTeacherId, setHomeroomTeacherId] = useState("");
@@ -81,7 +81,7 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, roo
             await schoolAdminService.createClass(req);
             setName("");
             setGrade(10);
-            setMaxCapacity(35);
+            setMaxCapacity(40);
             setRoomId("");
             setCombinationId("");
             setHomeroomTeacherId("");
@@ -189,11 +189,11 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, roo
                                         value={maxCapacity}
                                         onChange={(e) => setMaxCapacity(Number(e.target.value))}
                                         min={1}
-                                        max={35}
+                                        max={40}
                                         required
                                         className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm"
                                     />
-                                    <p className="text-xs text-gray-500 mt-1">Tối đa 35 học sinh/lớp</p>
+                                    <p className="text-xs text-gray-500 mt-1">Tối đa 40 học sinh/lớp</p>
                                 </div>
                             </div>
                         </div>

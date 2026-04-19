@@ -11,5 +11,9 @@ public record SchoolDto(
         String provinceName,
         SchoolLevel schoolLevel,
         String address,
-        String enrollmentArea) {
+        String enrollmentArea,
+        Integer wardCode,
+        String wardName,
+        java.time.Instant pendingDeleteAt) {
 }
+

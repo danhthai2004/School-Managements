@@ -1,8 +1,10 @@
 package com.schoolmanagement.backend.controller.teacher;
 
+import com.schoolmanagement.backend.dto.HomeroomNotificationDto;
 import com.schoolmanagement.backend.dto.attendance.*;
 import com.schoolmanagement.backend.dto.common.*;
 import com.schoolmanagement.backend.dto.exam.ExamScheduleDto;
+import com.schoolmanagement.backend.dto.request.CreateHomeroomNotificationRequest;
 import com.schoolmanagement.backend.dto.student.HomeroomStudentDto;
 import com.schoolmanagement.backend.dto.student.StudentRiskAnalysisDto;
 import com.schoolmanagement.backend.dto.student.StudentProfileDto;
@@ -11,7 +13,13 @@ import com.schoolmanagement.backend.dto.teacher.TeacherDashboardStatsDto;
 import com.schoolmanagement.backend.dto.teacher.TeacherProfileDto;
 
 import com.schoolmanagement.backend.service.teacher.HomeroomStudentExportService;
+import com.schoolmanagement.backend.dto.teacher.ClassSeatMapDto;
+import com.schoolmanagement.backend.dto.teacher.SaveClassSeatMapRequest;
+import com.schoolmanagement.backend.service.ClassSeatMapService;
+import com.schoolmanagement.backend.service.HomeroomNotificationService;
 import com.schoolmanagement.backend.service.teacher.TeacherPortalService;
+
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +29,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Controller for Teacher Portal API endpoints.
@@ -35,6 +44,8 @@ public class TeacherPortalController {
     private final TeacherPortalService teacherPortalService;
     private final com.schoolmanagement.backend.service.attendance.AttendanceService attendanceService;
     private final HomeroomStudentExportService homeroomStudentExportService;
+    private final HomeroomNotificationService homeroomNotificationService;
+    private final ClassSeatMapService classSeatMapService;
 
     @GetMapping("/profile")
     public ResponseEntity<TeacherProfileDto> getProfile(
@@ -180,5 +191,73 @@ public class TeacherPortalController {
                 java.time.LocalDate.parse(endDate),
                 status);
         return ResponseEntity.ok(detail);
+    }
+
+    /**
+     * // ========================= HOMEROOM NOTIFICATIONS =========================
+     * 
+     * /**
+     * Create a notification for the homeroom class.
+     */
+    @PostMapping("/notifications")
+    public ResponseEntity<HomeroomNotificationDto> createNotification(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody CreateHomeroomNotificationRequest request) {
+        HomeroomNotificationDto dto = homeroomNotificationService.create(request, userDetails.getUsername());
+        return ResponseEntity.ok(dto);
+    }
+
+    /**
+     * List notifications created by the current teacher.
+     */
+    @GetMapping("/notifications")
+    public ResponseEntity<List<HomeroomNotificationDto>> listNotifications(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(homeroomNotificationService.listByTeacher(userDetails.getUsername()));
+    }
+
+    /**
+     * Delete a notification created by the current teacher.
+     */
+    @DeleteMapping("/notifications/{id}")
+    public ResponseEntity<Void> deleteNotification(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id) {
+        homeroomNotificationService.delete(id, userDetails.getUsername());
+        return ResponseEntity.ok().build();
+    }
+
+    // ========================= CLASS SEAT MAP =========================
+
+    /**
+     * Get seating chart for a class (any teacher can view)
+     */
+    @GetMapping("/class-map/{classId}")
+    public ResponseEntity<ClassSeatMapDto> getClassSeatMap(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID classId) {
+        return ResponseEntity.ok(classSeatMapService.getClassSeatMap(userDetails.getUsername(), classId));
+    }
+
+    /**
+     * Save seating chart for a class (GVCN only)
+     */
+    @PostMapping("/class-map/{classId}")
+    public ResponseEntity<ClassSeatMapDto> saveClassSeatMap(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID classId,
+            @Valid @RequestBody SaveClassSeatMapRequest request) {
+        return ResponseEntity.ok(classSeatMapService.saveClassSeatMap(userDetails.getUsername(), classId, request));
+    }
+
+    /**
+     * Delete/reset seating chart for a class (GVCN only)
+     */
+    @DeleteMapping("/class-map/{classId}")
+    public ResponseEntity<Void> deleteClassSeatMap(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID classId) {
+        classSeatMapService.deleteClassSeatMap(userDetails.getUsername(), classId);
+        return ResponseEntity.ok().build();
     }
 }

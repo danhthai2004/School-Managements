@@ -367,7 +367,7 @@ public class NotificationService {
         Notification notification = Notification.builder()
                 .title(request.title())
                 .content(request.content())
-                .type(request.type() != null ? request.type() : NotificationType.MANUAL)
+                .type(request.type() != null ? request.type() : NotificationType.OTHER)
                 .targetGroup(TargetGroup.CLASS)
                 .referenceId(request.referenceId())
                 .actionUrl(request.actionUrl())
@@ -552,7 +552,7 @@ public class NotificationService {
      */
     private NotificationDto toDto(Notification n, boolean isRead) {
         String createdByName = "Hệ thống";
-        if (n.getType() == NotificationType.MANUAL && n.getCreatedBy() != null) {
+        if (n.getType() == NotificationType.OTHER && n.getCreatedBy() != null) {
             createdByName = n.getCreatedBy().getFullName();
         }
 

@@ -14,7 +14,6 @@ import com.schoolmanagement.backend.repo.attendance.AttendanceRepository;
 
 import com.schoolmanagement.backend.domain.chat.ChatIntent;
 import com.schoolmanagement.backend.domain.auth.Role;
-import com.schoolmanagement.backend.domain.attendance.AttendanceStatus;
 
 import com.schoolmanagement.backend.dto.chat.ChatContext;
 
@@ -78,7 +77,7 @@ public class QuickStatsHandler implements ChatHandler {
 
         // Điểm danh hôm nay
         LocalDate today = LocalDate.now();
-        List<Attendance> attendances = attendanceRepository.findBySchoolAndAttendanceDateBetween(school, today, today);
+        List<Attendance> attendances = attendanceRepository.findBySchoolAndDateBetween(school, today, today);
 
         long totalAttendanceRecords = attendances.size();
         long absentToday = 0;
@@ -91,7 +90,6 @@ public class QuickStatsHandler implements ChatHandler {
                 case ABSENT_UNEXCUSED -> absentToday++;
                 case LATE -> lateToday++;
                 case ABSENT_EXCUSED -> excusedToday++;
-                case ABSENT -> absentToday++; // Handle legacy ABSENT
                 case PRESENT -> presentToday++;
             }
         }
