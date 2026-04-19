@@ -11,7 +11,6 @@ import com.schoolmanagement.backend.domain.entity.auth.User;
 import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.entity.grade.Grade;
 import com.schoolmanagement.backend.domain.chat.ChatIntent;
-import com.schoolmanagement.backend.domain.auth.Role;
 import com.schoolmanagement.backend.dto.chat.ChatContext;
 import org.springframework.stereotype.Component;
 
@@ -139,19 +138,21 @@ public class ScoreHandler implements ChatHandler {
         // Lọc theo môn học nếu message có nhắc đến tên môn cụ thể
         String lowerMsg = message.toLowerCase();
         List<Map<String, Object>> gradeList = new ArrayList<>();
-        
+
         for (Grade g : grades) {
             String subjectName = g.getSubject() != null ? g.getSubject().getName() : "N/A";
-            
+
             // Nếu người dùng hỏi môn cụ thể (văn, toán, lý...) thì chỉ lấy điểm môn đó
-            // Hoặc nếu không hỏi môn cụ thể thì lấy bế cả (message không chứa "môn" hoặc tên môn nào)
+            // Hoặc nếu không hỏi môn cụ thể thì lấy bế cả (message không chứa "môn" hoặc
+            // tên môn nào)
             boolean shouldInclude = true;
-            
+
             // Danh sách các môn phổ biến để nhận diện (có thể mở rộng)
-            List<String> commonSubjects = List.of("toán", "văn", "anh", "vật lý", "hóa học", "sinh học", "lịch sử", "địa lý", "gdcd", "công nghệ", "tin học", "thể dục");
-            
+            List<String> commonSubjects = List.of("toán", "văn", "anh", "vật lý", "hóa học", "sinh học", "lịch sử",
+                    "địa lý", "gdcd", "công nghệ", "tin học", "thể dục");
+
             boolean userAskedSpecificSubject = commonSubjects.stream().anyMatch(lowerMsg::contains);
-            
+
             if (userAskedSpecificSubject) {
                 shouldInclude = lowerMsg.contains(subjectName.toLowerCase());
             }
@@ -160,10 +161,13 @@ public class ScoreHandler implements ChatHandler {
                 Map<String, Object> item = new LinkedHashMap<>();
                 item.put("subject", subjectName);
                 item.put("semester", g.getSemester() != null ? g.getSemester().getSemesterNumber() : "");
-                item.put("academicYear", g.getSemester() != null && g.getSemester().getAcademicYear() != null ? g.getSemester().getAcademicYear().getName() : "");
-            item.put("oralScore", formatScore(g.getOralScore()));
-            item.put("test15min", formatScore(g.getTest15minScore()));
-            item.put("test45min", formatScore(g.getTest45minScore()));
+                item.put("academicYear",
+                        g.getSemester() != null && g.getSemester().getAcademicYear() != null
+                                ? g.getSemester().getAcademicYear().getName()
+                                : "");
+                item.put("oralScore", formatScore(g.getOralScore()));
+                item.put("test15min", formatScore(g.getTest15minScore()));
+                item.put("test45min", formatScore(g.getTest45minScore()));
                 item.put("midterm", formatScore(g.getMidtermScore()));
                 item.put("final", formatScore(g.getFinalScore()));
                 item.put("average", formatScore(g.getAverageScore()));

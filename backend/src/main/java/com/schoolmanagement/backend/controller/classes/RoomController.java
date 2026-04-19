@@ -70,6 +70,14 @@ public class RoomController {
     }
 
     @Transactional
+    @PostMapping("/rooms/bulk")
+    public List<RoomDto> createBulkRooms(
+            @Valid @RequestBody List<RoomDto> roomDtos,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return roomService.createBulkRooms(roomDtos, getSchoolId(principal));
+    }
+
+    @Transactional
     @PutMapping("/rooms/{id}")
     public RoomDto updateRoom(
             @PathVariable UUID id,

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import DatePicker from "react-datepicker";
+import { vi } from "date-fns/locale";
 import "react-datepicker/dist/react-datepicker.css";
 import {
     schoolAdminService,
@@ -47,6 +48,19 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
         e.preventDefault();
         setLoading(true);
         setError(null);
+
+        // Age validation: teacher must be at least 18
+        if (dateOfBirth) {
+            const today = new Date();
+            let age = today.getFullYear() - dateOfBirth.getFullYear();
+            const mDiff = today.getMonth() - dateOfBirth.getMonth();
+            if (mDiff < 0 || (mDiff === 0 && today.getDate() < dateOfBirth.getDate())) age--;
+            if (age < 18) {
+                setError("Giáo viên phải đủ 18 tuổi trở lên.");
+                setLoading(false);
+                return;
+            }
+        }
 
         try {
             let dateOfBirthStr: string | undefined = undefined;
@@ -156,6 +170,7 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
                                         onChangeRaw={(e) => {
                                             if (!e) return;
                                             const target = e.target as HTMLInputElement;
+                                            if (target.value == null) return;
                                             const nativeEvent = e.nativeEvent as unknown as InputEvent;
                                             const isDeleting = nativeEvent.inputType?.startsWith('delete') || false;
                                             const formatted = formatDateInput(target.value, isDeleting);
@@ -169,11 +184,12 @@ function AddTeacherModal({ isOpen, onClose, onSuccess }: AddTeacherModalProps) {
                                             }
                                         }}
                                         dateFormat="dd/MM/yyyy"
+                                        locale={vi}
                                         placeholderText="VD: 20/01/1990"
                                         showYearDropdown
                                         scrollableYearDropdown
                                         yearDropdownItemNumber={100}
-                                        maxDate={new Date()}
+                                        maxDate={new Date(new Date().getFullYear() - 18, new Date().getMonth(), new Date().getDate())}
                                         wrapperClassName="w-full block"
                                         customInput={
                                             <CustomDateInput

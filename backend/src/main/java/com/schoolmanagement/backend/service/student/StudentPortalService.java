@@ -14,8 +14,6 @@ import com.schoolmanagement.backend.domain.exam.ExamStatus;
 
 import com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail;
 import com.schoolmanagement.backend.domain.entity.exam.ExamSchedule;
-import com.schoolmanagement.backend.domain.entity.grade.Score;
-import com.schoolmanagement.backend.domain.grade.ScoreType;
 import com.schoolmanagement.backend.domain.entity.attendance.Attendance;
 import com.schoolmanagement.backend.dto.attendance.AttendanceRecordDto;
 
@@ -24,11 +22,9 @@ import com.schoolmanagement.backend.repo.student.StudentRepository;
 import com.schoolmanagement.backend.repo.classes.ClassEnrollmentRepository;
 import com.schoolmanagement.backend.repo.timetable.TimetableRepository;
 import com.schoolmanagement.backend.repo.timetable.TimetableDetailRepository;
-import com.schoolmanagement.backend.repo.grade.ScoreRepository;
 import com.schoolmanagement.backend.repo.attendance.AttendanceRepository;
 import com.schoolmanagement.backend.repo.student.ExamStudentRepository;
 import com.schoolmanagement.backend.dto.timetable.StudentTimetableDto;
-import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.timetable.Timetable;
 import com.schoolmanagement.backend.dto.timetable.TimetableSlotDto;
 import com.schoolmanagement.backend.dto.grade.ScoreDto;
@@ -363,9 +359,7 @@ public class StudentPortalService {
                                 .filter(a -> a.getStatus() == AttendanceStatus.PRESENT).count();
                 long absentDays = attendances.stream()
                                 .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED
-                                                || a.getStatus() == AttendanceStatus.ABSENT_EXCUSED
-                                                || a.getStatus() == AttendanceStatus.ABSENT
-                                                || a.getStatus() == AttendanceStatus.EXCUSED)
+                                                || a.getStatus() == AttendanceStatus.ABSENT_EXCUSED)
                                 .count();
                 long lateDays = attendances.stream()
                                 .filter(a -> a.getStatus() == AttendanceStatus.LATE).count();
@@ -647,7 +641,7 @@ public class StudentPortalService {
                 return AttendanceRecordDto.builder()
                                 .date(attendance.getAttendanceDate().toString())
                                 .status(attendance.getStatus().name())
-                                .note(attendance.getNote())
+                                .note(attendance.getRemarks())
                                 .build();
         }
 }

@@ -52,6 +52,12 @@ export async function requestFCMToken(vapidKey: string): Promise<string | null> 
         const messaging = await getFirebaseMessaging();
         if (!messaging) return null;
 
+        // Check current permission state first to avoid triggering the blocked prompt repeatedly
+        if (Notification.permission === "denied") {
+            // Permission was previously denied — don't request again
+            return null;
+        }
+
         const permission = await Notification.requestPermission();
         if (permission !== "granted") {
             console.warn("Notification permission denied.");

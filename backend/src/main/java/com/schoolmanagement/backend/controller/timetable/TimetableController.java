@@ -46,7 +46,8 @@ public class TimetableController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TimetableDto> getTimetable(@AuthenticationPrincipal UserPrincipal principal, @PathVariable UUID id) {
+    public ResponseEntity<TimetableDto> getTimetable(@AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID id) {
         var admin = userLookup.requireById(principal.getId());
         return ResponseEntity.ok(timetableService.getTimetable(admin.getSchool(), id));
     }
@@ -82,15 +83,17 @@ public class TimetableController {
             @PathVariable UUID id,
             @RequestParam(required = false) Integer grade,
             @RequestParam(required = false) String className) {
-                    
+
         try {
             byte[] content = timetableService.exportTimetableToExcel(id, grade, className);
-            org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(content);
+            org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(
+                    content);
 
-                            
             return ResponseEntity.ok()
-                    .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=timetable.xlsx")
-                    .contentType(org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=timetable.xlsx")
+                    .contentType(org.springframework.http.MediaType
+                            .parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                     .body(resource);
         } catch (java.io.IOException e) {
             return ResponseEntity.internalServerError().build();

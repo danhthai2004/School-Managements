@@ -19,7 +19,7 @@ public class GuardianService {
       throw new IllegalArgumentException("GuardianService: Email is null or empty");
     }
 
-    Guardian guardian = guardianRepository.findByEmail(email).stream()
+    Guardian guardian = guardianRepository.findByEmailIgnoreCase(email).stream()
         .findFirst()
         .orElseThrow(() -> new EntityNotFoundException("GuardianService: Guardian not found"));
     return convertToGuardianDto(guardian);

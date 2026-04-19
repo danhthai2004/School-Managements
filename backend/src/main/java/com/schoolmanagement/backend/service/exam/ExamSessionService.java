@@ -145,7 +145,7 @@ public class ExamSessionService {
                 // 3. Delete exam rooms (depend on exam_schedules)
                 examRoomRepo.deleteBySessionId(id);
                 // 4. Delete exam schedules (depend on exam_session)
-                examScheduleRepo.deleteBySessionId(id);
+                examScheduleRepo.deleteByExamSession_Id(id);
                 // 5. Finally delete the session itself
                 examSessionRepo.delete(session);
 

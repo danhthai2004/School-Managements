@@ -1,9 +1,11 @@
 package com.schoolmanagement.backend.domain.entity.admin;
 
 import com.schoolmanagement.backend.domain.entity.location.Province;
+import com.schoolmanagement.backend.domain.entity.location.Ward;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
@@ -45,6 +47,17 @@ public class School {
     @JoinColumn(name = "province_code", insertable = false, updatable = false)
     private Province province;
 
-    // Ward relationship removed
+    @Column(name = "ward_code")
+    private Integer wardCode;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ward_code", insertable = false, updatable = false)
+    private Ward ward;
+
+    /**
+     * When set, school is marked for pending deletion.
+     */
+    @Column(name = "pending_delete_at")
+    private Instant pendingDeleteAt;
 
 }

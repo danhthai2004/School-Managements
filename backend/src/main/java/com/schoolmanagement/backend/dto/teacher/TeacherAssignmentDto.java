@@ -10,5 +10,7 @@ public record TeacherAssignmentDto(
         String subjectName,
         UUID teacherId,
         String teacherName,
-        int lessonsPerWeek) {
+        int lessonsPerWeek,
+        boolean isHeadOfDepartment) {
 }
+

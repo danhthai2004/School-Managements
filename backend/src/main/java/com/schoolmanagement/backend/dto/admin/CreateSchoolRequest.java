@@ -6,6 +6,11 @@ import jakarta.validation.constraints.NotNull;
 public record CreateSchoolRequest(
         @NotBlank String schoolName,
         @NotNull Integer provinceCode,
-        String address // Optional
+        String address, // Optional
+
+        @NotBlank String schoolCode,
+        Integer wardCode,
+        String enrollmentArea
 ) {
 }
+

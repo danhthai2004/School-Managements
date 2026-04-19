@@ -11,4 +11,5 @@ import java.util.UUID;
 @Repository
 public interface CombinationRepository extends JpaRepository<Combination, UUID> {
     List<Combination> findAllBySchool(School school);
+    void deleteBySchoolId(UUID schoolId);
 }

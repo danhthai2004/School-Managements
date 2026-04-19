@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Bell, X, Clock, ArrowLeft, CheckCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import api from "../../services/api";
 
 interface NotificationDto {
     id: string;
@@ -24,8 +25,6 @@ interface NotificationPageResponse {
     currentPage: number;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || "";
-
 const renderFormattedContent = (content: string) => {
     if (!content) return null;
     const parts = content.split(/(\*\*.*?\*\*)/g);
@@ -46,22 +45,14 @@ export default function NotificationBell() {
     const [selectedNotification, setSelectedNotification] = useState<NotificationDto | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    const getToken = () => localStorage.getItem("accessToken");
-
     const fetchNotifications = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const token = getToken();
-            const res = await fetch(`${API_BASE}/v1/notifications?page=0&size=15`, {
-                headers: { Authorization: `Bearer ${token}` },
+            const res = await api.get<NotificationPageResponse>("/v1/notifications", {
+                params: { page: 0, size: 15 }
             });
-            if (res.ok) {
-                const json: NotificationPageResponse = await res.json();
-                setData(json);
-            } else {
-                setError(`Lỗi ${res.status}`);
-            }
+            setData(res.data);
         } catch {
             setError("Không thể tải thông báo");
         } finally {
@@ -69,21 +60,23 @@ export default function NotificationBell() {
         }
     }, []);
 
-    // Fetch unread count periodically
+    // Fetch unread count periodically (and on mount)
     useEffect(() => {
         fetchNotifications();
         const interval = setInterval(fetchNotifications, 60000);
         return () => clearInterval(interval);
     }, [fetchNotifications]);
 
-    // Reload when dropdown opens
+    // Reload when dropdown opens, reset detail view when it closes
     useEffect(() => {
         if (isOpen) {
             fetchNotifications();
-        } else {
+        }
+        if (!isOpen) {
             setSelectedNotification(null);
         }
-    }, [isOpen, fetchNotifications]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -100,11 +93,7 @@ export default function NotificationBell() {
 
     const markAsRead = async (notificationId: string) => {
         try {
-            const token = getToken();
-            await fetch(`${API_BASE}/v1/notifications/${notificationId}/read`, {
-                method: "PATCH",
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            await api.patch(`/v1/notifications/${notificationId}/read`);
             // Update local state
             setData(prev => {
                 if (!prev) return prev;
@@ -123,11 +112,7 @@ export default function NotificationBell() {
 
     const markAllAsRead = async () => {
         try {
-            const token = getToken();
-            await fetch(`${API_BASE}/v1/notifications/read-all`, {
-                method: "PATCH",
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            await api.patch("/v1/notifications/read-all");
             setData(prev => {
                 if (!prev) return prev;
                 return {

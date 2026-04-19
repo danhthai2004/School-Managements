@@ -14,12 +14,21 @@ import java.util.List;
 public class LocationService {
 
     private final ProvinceRepository provinces;
+    private final com.schoolmanagement.backend.repo.location.WardRepository wards;
     private final SchoolRegistryRepository schoolRegistry;
 
     public LocationService(ProvinceRepository provinces,
+            com.schoolmanagement.backend.repo.location.WardRepository wards,
             SchoolRegistryRepository schoolRegistry) {
         this.provinces = provinces;
+        this.wards = wards;
         this.schoolRegistry = schoolRegistry;
+    }
+
+    public List<com.schoolmanagement.backend.dto.location.WardDto> getWardsByProvince(Integer provinceCode) {
+        return wards.findByProvinceCodeOrderByNameAsc(provinceCode).stream()
+                .map(w -> new com.schoolmanagement.backend.dto.location.WardDto(w.getCode(), w.getName(), w.getProvinceCode()))
+                .toList();
     }
 
     public List<ProvinceDto> getProvinces() {

@@ -299,8 +299,8 @@ const SemesterConfigPage: React.FC = () => {
                         <div
                             key={year.id}
                             className={`group border rounded-2xl p-6 cursor-pointer transition-all duration-300 ${selectedYearId === year.id
-                                    ? 'border-blue-500 shadow-lg shadow-blue-500/10 ring-1 ring-blue-500 bg-blue-50/10'
-                                    : 'border-gray-100 hover:border-blue-200 hover:shadow-md bg-white'
+                                ? 'border-blue-500 shadow-lg shadow-blue-500/10 ring-1 ring-blue-500 bg-blue-50/10'
+                                : 'border-gray-100 hover:border-blue-200 hover:shadow-md bg-white'
                                 }`}
                             onClick={() => setSelectedYearId(year.id)}
                         >
@@ -473,7 +473,7 @@ const SemesterConfigPage: React.FC = () => {
                                         )}
                                     </div>
                                 </div>
-                                <button onClick={() => setShowYearModal(false)} className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
+                                <button onClick={() => setShowYearModal(false)} className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all" aria-label="Đóng">
                                     <XIcon />
                                 </button>
                             </div>
@@ -603,7 +603,7 @@ const SemesterConfigPage: React.FC = () => {
                                         <p className="text-blue-100 text-sm">{editingSemester.name}</p>
                                     </div>
                                 </div>
-                                <button onClick={() => setShowSemesterModal(false)} className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
+                                <button onClick={() => setShowSemesterModal(false)} className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all" aria-label="Đóng">
                                     <XIcon />
                                 </button>
                             </div>
