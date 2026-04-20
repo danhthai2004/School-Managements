@@ -183,10 +183,10 @@ export default function ExamSessionManagement() {
         try {
             const [subs, tchs] = await Promise.all([
                 schoolAdminService.listSubjects(),
-                schoolAdminService.listTeacherProfiles(),
+                schoolAdminService.listTeacherProfiles(0, 1000),
             ]);
             setSubjects(subs.filter(s => s.type !== "ACTIVITY" && s.code !== "CC" && s.code !== "SHL"));
-            setTeachers(tchs);
+            setTeachers(tchs.content);
             if (subs.length > 0) setSelectedSubject(subs[0].id);
         } catch {
             toast.error("Lỗi tải dữ liệu");

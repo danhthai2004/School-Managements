@@ -27,6 +27,7 @@ import java.util.UUID;
 
 @Slf4j
 @Service
+@org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class AuthService {
 
     private static final int OTP_MAX_ATTEMPTS = 5;
@@ -53,6 +54,7 @@ public class AuthService {
         this.googleIdTokenService = googleIdTokenService;
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public AuthResponse login(String email, String password) {
         var user = users.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng."));
@@ -81,6 +83,7 @@ public class AuthService {
         return authenticatedResponse(user);
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public AuthResponse loginWithGoogle(String idTokenString) {
         var payload = googleIdTokenService.verify(idTokenString);
         String email = payload.getEmail();
@@ -116,6 +119,7 @@ public class AuthService {
         return authenticatedResponse(user);
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public AuthResponse forgotPassword(String email) {
         var user = users.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Email không tồn tại trong hệ thống."));
@@ -134,6 +138,7 @@ public class AuthService {
                 "Vui lòng nhập mã xác minh.");
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public void resendOtp(UUID challengeId) {
         var existing = challenges.findById(challengeId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Yêu cầu xác minh không tồn tại."));
@@ -145,6 +150,7 @@ public class AuthService {
         createOtpChallenge(user, existing.getType());
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public VerifyResponse verifyOtp(UUID challengeId, String code) {
         var now = Instant.now();
         var challenge = challenges.findById(challengeId)
@@ -174,6 +180,7 @@ public class AuthService {
         return new VerifyResponse(resetToken);
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public AuthResponse setPassword(String resetToken, String newPassword) {
         try {
             if (jwt.getKind(resetToken) != TokenKind.RESET) {
@@ -228,21 +235,23 @@ public class AuthService {
     }
 
     @org.springframework.transaction.annotation.Transactional
-    public com.schoolmanagement.backend.dto.auth.UserDto updateProfile(UUID userId, com.schoolmanagement.backend.dto.request.auth.UpdateProfileRequest req) {
-         throw new ApiException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+    public com.schoolmanagement.backend.dto.auth.UserDto updateProfile(UUID userId,
+            com.schoolmanagement.backend.dto.request.auth.UpdateProfileRequest req) {
+        throw new ApiException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
     }
 
     @org.springframework.transaction.annotation.Transactional
-    public com.schoolmanagement.backend.dto.chat.MessageResponse changePassword(UUID userId, String oldPassword, String newPassword) {
-         throw new ApiException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+    public com.schoolmanagement.backend.dto.chat.MessageResponse changePassword(UUID userId, String oldPassword,
+            String newPassword) {
+        throw new ApiException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
     }
 
     public void logoutCurrentDevice(jakarta.servlet.http.HttpServletRequest request) {
-         // JWT token is stateless, client side will clear it
+        // JWT token is stateless, client side will clear it
     }
 
     public void logoutOtherDevices(UUID userId, jakarta.servlet.http.HttpServletRequest request) {
-         // Token blacklisting not implemented yet, just return
+        // Token blacklisting not implemented yet, just return
     }
 
     private boolean requiresFirstLoginFlow(User user) {

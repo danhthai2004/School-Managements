@@ -14,7 +14,7 @@ import EditTeacherModal from "../components/teacher/EditTeacherModal";
 import ImportTeacherExcelModal from "../components/teacher/ImportTeacherExcelModal";
 import ImportTeacherResultModal from "../components/teacher/ImportTeacherResultModal";
 import { useToast } from "../../../context/ToastContext";
-import { usePagination } from "../../../hooks/usePagination";
+import { vietnameseNameSort } from "../../../utils/sortUtils";
 import Pagination from "../../../components/common/Pagination";
 
 
@@ -33,6 +33,13 @@ const TeacherManagement = () => {
     const [selectedTeacher, setSelectedTeacher] = useState<TeacherDto | null>(null);
     const [editingTeacher, setEditingTeacher] = useState<TeacherDto | null>(null);
 
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(0);
+    const [pageSize, setPageSize] = useState(50);
+    const [totalItems, setTotalItems] = useState(0);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+
     // Bulk selection
     const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
     const [selectedTeacherIds, setSelectedTeacherIds] = useState<Set<string>>(new Set());
@@ -47,17 +54,29 @@ const TeacherManagement = () => {
     const [sortConfig, setSortConfig] = useState<{ key: keyof TeacherDto | 'subjectName'; direction: 'asc' | 'desc' } | null>(null);
 
     useEffect(() => {
-        fetchData();
         fetchSubjects();
-        setSelectedTeacherIds(new Set());
     }, []);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+            setCurrentPage(0); // Reset page on search
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    useEffect(() => {
+        fetchData();
+        setSelectedTeacherIds(new Set());
+    }, [currentPage, pageSize, debouncedSearch]);
 
 
     const fetchData = async (silent = false) => {
         try {
             if (!silent) setLoading(true);
-            const data = await schoolAdminService.listTeacherProfiles();
-            setTeachers(data);
+            const data = await schoolAdminService.listTeacherProfiles(currentPage, pageSize, debouncedSearch);
+            setTeachers(data.content);
+            setTotalItems(data.totalElements);
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tải dữ liệu.");
         } finally {
@@ -76,7 +95,7 @@ const TeacherManagement = () => {
 
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
-            const allIds = filteredTeachers.map(t => t.id);
+            const allIds = teachers.map(t => t.id);
             setSelectedTeacherIds(new Set(allIds));
         } else {
             setSelectedTeacherIds(new Set());
@@ -115,23 +134,12 @@ const TeacherManagement = () => {
 
 
     // Filter & Sort Logic
-    const filteredTeachers = React.useMemo(() => {
+    const sortedTeachers = React.useMemo(() => {
         let result = [...teachers];
 
-        // 1. Filter by Subject
+        // 1. Local Filter by Subject (if needed)
         if (filterSubjectId) {
-            const filterSubject = subjects.find(s => s.id === filterSubjectId);
-            if (filterSubject) {
-                result = result.filter(t => {
-                    if (t.subjects && t.subjects.some(s => s.id === filterSubjectId)) {
-                        return true;
-                    }
-                    if (t.subjects) {
-                        return false;
-                    }
-                    return false;
-                });
-            }
+            result = result.filter(t => t.subjects && t.subjects.some(s => s.id === filterSubjectId));
         }
 
         // 2. Sort
@@ -140,17 +148,20 @@ const TeacherManagement = () => {
                 let aValue: any = sortConfig.key === 'subjectName' ? (a.subjectNames || '') : a[sortConfig.key as keyof TeacherDto];
                 let bValue: any = sortConfig.key === 'subjectName' ? (b.subjectNames || '') : b[sortConfig.key as keyof TeacherDto];
 
-                // Handle null/undefined
                 if (!aValue) aValue = "";
                 if (!bValue) bValue = "";
 
                 if (typeof aValue === 'string') {
+                    if (sortConfig.key === 'fullName') {
+                        return sortConfig.direction === 'asc'
+                            ? vietnameseNameSort(aValue, bValue as string)
+                            : vietnameseNameSort(bValue as string, aValue);
+                    }
                     return sortConfig.direction === 'asc'
-                        ? aValue.localeCompare(bValue as string)
-                        : (bValue as string).localeCompare(aValue);
+                        ? aValue.localeCompare(bValue as string, 'vi')
+                        : (bValue as string).localeCompare(aValue, 'vi');
                 }
 
-                // Fallback for non-string
                 if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
                 if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
                 return 0;
@@ -160,14 +171,7 @@ const TeacherManagement = () => {
         return result;
     }, [teachers, filterSubjectId, sortConfig]);
 
-    const {
-        paginatedData: paginatedTeachers,
-        currentPage,
-        totalPages,
-        pageSize,
-        goToPage: handlePageChange,
-        setPageSize: handlePageSizeChange
-    } = usePagination(filteredTeachers, { dependencies: [filterSubjectId, sortConfig] });
+    // const { ... } = usePagination(...) -> Removed in favor of server-side pagination state
 
     const handleSort = (key: keyof TeacherDto | 'subjectName') => {
         setSortConfig(current => {
@@ -203,6 +207,18 @@ const TeacherManagement = () => {
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">Danh sách giáo viên</h2>
                 <div className="flex gap-2">
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="Tìm kiếm giáo viên..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-gray-50 hover:bg-white transition-colors"
+                        />
+                        <svg className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
                     <select
                         value={filterSubjectId}
                         onChange={(e) => setFilterSubjectId(e.target.value)}
@@ -256,7 +272,7 @@ const TeacherManagement = () => {
                                     <input
                                         type="checkbox"
                                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                        checked={filteredTeachers.length > 0 && Array.from(selectedTeacherIds).length === filteredTeachers.length && filteredTeachers.every(t => selectedTeacherIds.has(t.id))}
+                                        checked={teachers.length > 0 && teachers.every(t => selectedTeacherIds.has(t.id))}
                                         onChange={handleSelectAll}
                                     />
                                 </th>
@@ -271,7 +287,7 @@ const TeacherManagement = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {paginatedTeachers.map((teacher) => (
+                            {sortedTeachers.map((teacher) => (
                                 <tr key={teacher.id} className="hover:bg-blue-50 transition-colors cursor-pointer" onClick={() => setSelectedTeacher(teacher)}>
                                     <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                                         <input
@@ -326,15 +342,15 @@ const TeacherManagement = () => {
                 </div>
             )}
 
-            {totalPages > 1 && !loading && !error && (
+            {totalItems > pageSize && !loading && !error && (
                 <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                     <Pagination
                         currentPage={currentPage}
-                        totalPages={totalPages}
-                        onPageChange={handlePageChange}
+                        totalPages={Math.ceil(totalItems / pageSize)}
+                        onPageChange={setCurrentPage}
                         pageSize={pageSize}
-                        onPageSizeChange={handlePageSizeChange}
-                        totalItems={filteredTeachers.length}
+                        onPageSizeChange={setPageSize}
+                        totalItems={totalItems}
                     />
                 </div>
             )}
@@ -380,17 +396,16 @@ const TeacherManagement = () => {
                 onClose={() => setShowImportModal(false)}
                 onSuccess={fetchData}
                 onImportComplete={(result) => {
-                    if (result.failedCount === 0) {
-                        showSuccess(`Import thành công ${result.successCount} giáo viên!`);
-                        setImportResult(null);
-                    } else {
-                        setImportResult(result);
-                    }
+                    setImportResult(result);
                 }}
             />
             <ImportTeacherResultModal
                 result={importResult}
                 onClose={() => setImportResult(null)}
+                onRetry={() => {
+                    setImportResult(null);
+                    setShowImportModal(true);
+                }}
             />
 
         </div>

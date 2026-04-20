@@ -19,6 +19,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -44,13 +48,13 @@ public class SystemAdminController {
     }
 
     @GetMapping("/schools")
-    public List<SchoolDto> listSchools() {
-        return systemAdmin.listSchools();
+    public Page<SchoolDto> listSchools(@PageableDefault(size = 20) Pageable pageable) {
+        return systemAdmin.listSchools(pageable);
     }
 
     @GetMapping("/schools/pending")
-    public List<SchoolDto> listPendingDeleteSchools() {
-        return systemAdmin.listPendingDeleteSchools();
+    public Page<SchoolDto> listPendingDeleteSchools(@PageableDefault(size = 20) Pageable pageable) {
+        return systemAdmin.listPendingDeleteSchools(pageable);
     }
 
     @GetMapping("/schools/{id}")
@@ -113,17 +117,18 @@ public class SystemAdminController {
     // ========== USERS ==========
 
     @GetMapping("/users")
-    public List<UserListDto> listUsers(
+    public Page<UserListDto> listUsers(
             @RequestParam(required = false) Role role,
             @RequestParam(required = false) UUID schoolId,
             @RequestParam(required = false) Boolean enabled,
-            @RequestParam(defaultValue = "false") boolean pendingDelete) {
-        return systemAdmin.listUsers(role, schoolId, enabled, pendingDelete);
+            @RequestParam(defaultValue = "false") boolean pendingDelete,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return systemAdmin.listUsers(role, schoolId, enabled, pendingDelete, pageable);
     }
 
     @GetMapping("/users/pending")
-    public List<UserListDto> listPendingDeleteUsers() {
-        return systemAdmin.listPendingDeleteUsers();
+    public Page<UserListDto> listPendingDeleteUsers(@PageableDefault(size = 20) Pageable pageable) {
+        return systemAdmin.listPendingDeleteUsers(pageable);
     }
 
     @PutMapping("/users/{id}/enable")

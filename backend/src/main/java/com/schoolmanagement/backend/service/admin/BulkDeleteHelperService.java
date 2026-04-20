@@ -21,7 +21,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -113,6 +114,128 @@ public class BulkDeleteHelperService {
                 userRepo.delete(guardianUser);
             }
         }
+    }
+
+    /**
+     * Batch delete multiple students in a single transaction.
+     * Highly optimized for production latency.
+     */
+    @Transactional
+    public com.schoolmanagement.backend.dto.admin.BulkDeleteResponse deleteBatchStudents(
+            com.schoolmanagement.backend.domain.entity.admin.School school,
+            List<UUID> ids) {
+        log.info("Starting batch deletion for {} students", ids.size());
+
+        // 1. Fetch all students in 1 query
+        List<Student> allStudents = studentRepo.findAllById(ids);
+
+        // 2. Filter valid students belonging to the school
+        List<Student> schoolStudents = allStudents.stream()
+                .filter(s -> s.getSchool().getId().equals(school.getId()))
+                .collect(Collectors.toList());
+
+        Set<UUID> foundIds = schoolStudents.stream().map(Student::getId).collect(Collectors.toSet());
+        List<String> errors = new ArrayList<>();
+        int failed = 0;
+
+        for (UUID id : ids) {
+            if (!foundIds.contains(id)) {
+                failed++;
+                errors.add("Không tìm thấy học sinh ID " + id + " hoặc không thuộc trường.");
+            }
+        }
+
+        if (foundIds.isEmpty()) {
+            return new com.schoolmanagement.backend.dto.admin.BulkDeleteResponse(0, failed, errors);
+        }
+
+        // 3. Batch check for integrity constraints (2 SQL queries total)
+        Set<UUID> withGrades = studentRepo.findStudentIdsWithGrades(foundIds);
+        Set<UUID> withAttendance = studentRepo.findStudentIdsWithAttendance(foundIds);
+
+        List<Student> deletable = new ArrayList<>();
+        for (Student s : schoolStudents) {
+            if (withGrades.contains(s.getId())) {
+                failed++;
+                errors.add(s.getFullName() + ": có dữ liệu điểm số");
+            } else if (withAttendance.contains(s.getId())) {
+                failed++;
+                errors.add(s.getFullName() + ": có dữ liệu điểm danh");
+            } else {
+                deletable.add(s);
+            }
+        }
+
+        if (deletable.isEmpty()) {
+            return new com.schoolmanagement.backend.dto.admin.BulkDeleteResponse(0, failed, errors);
+        }
+
+        List<UUID> deletableIds = deletable.stream().map(Student::getId).collect(Collectors.toList());
+
+        // 4. Cleanup Garbage Data in batches (2 SQL queries)
+        studentRepo.deleteBiometricsByStudentIds(deletableIds);
+        studentRepo.deleteAllByStudentIds(deletableIds); // Enrollments
+
+        // 5. Collect related entities and check orphan guardians BEFORE deleting
+        // students
+        // (guardian.getStudents() is lazy-loaded and only works while students still
+        // exist)
+        Set<User> usersToDelete = new HashSet<>();
+        Set<Guardian> guardiansToCleanup = new HashSet<>();
+
+        for (Student s : deletable) {
+            if (s.getUser() != null) {
+                usersToDelete.add(s.getUser());
+            }
+            if (s.getGuardian() != null) {
+                guardiansToCleanup.add(s.getGuardian());
+            }
+        }
+
+        // 6. Determine orphan guardians BEFORE deleting students (lazy collections
+        // still valid)
+        Set<UUID> deletableIdSet = new HashSet<>(deletableIds);
+        List<Guardian> orphansToRemove = new ArrayList<>();
+        for (Guardian g : guardiansToCleanup) {
+            boolean hasOtherStudents = g.getStudents().stream()
+                    .anyMatch(s -> !deletableIdSet.contains(s.getId()));
+
+            if (!hasOtherStudents) {
+                orphansToRemove.add(g);
+                if (g.getUser() != null) {
+                    usersToDelete.add(g.getUser());
+                }
+            }
+        }
+
+        // 7. Unlink FKs in-memory before batch delete
+        for (Student s : deletable) {
+            s.setGuardian(null);
+            s.setUser(null);
+        }
+
+        // 8. Flush unlinks then delete students
+        studentRepo.saveAll(deletable); // Persist null FK references
+        studentRepo.deleteAllInBatch(deletable);
+
+        // 9. Delete orphan guardians (must happen before user deletion due to FK
+        // guardian->user)
+        if (!orphansToRemove.isEmpty()) {
+            log.info("Deleting {} orphan guardians", orphansToRemove.size());
+            for (Guardian g : orphansToRemove) {
+                g.setUser(null); // Unlink guardian->user FK
+            }
+            guardianRepo.saveAll(orphansToRemove);
+            guardianRepo.deleteAllInBatch(orphansToRemove);
+        }
+
+        // 10. Delete associated user accounts (students + orphan guardians)
+        if (!usersToDelete.isEmpty()) {
+            log.info("Deleting {} associated user accounts", usersToDelete.size());
+            userRepo.deleteAllInBatch(usersToDelete);
+        }
+
+        return new com.schoolmanagement.backend.dto.admin.BulkDeleteResponse(deletable.size(), failed, errors);
     }
 
     // Inject Repos needed for checks

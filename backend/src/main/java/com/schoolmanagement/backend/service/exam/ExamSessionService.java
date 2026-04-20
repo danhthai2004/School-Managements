@@ -47,6 +47,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional(readOnly = true)
 public class ExamSessionService {
 
         private final ExamSessionRepository examSessionRepo;
@@ -67,8 +68,10 @@ public class ExamSessionService {
 
         public List<ExamSessionDto> listSessions(UUID schoolId, String academicYear, Integer semester) {
                 return examSessionRepo.findBySchoolIdOrderByStartDateDesc(schoolId).stream()
-                                .filter(s -> (academicYear == null || (s.getAcademicYear() != null && s.getAcademicYear().getName().equals(academicYear))))
-                                .filter(s -> (semester == null || (s.getSemester() != null && s.getSemester().getSemesterNumber() == semester)))
+                                .filter(s -> (academicYear == null || (s.getAcademicYear() != null
+                                                && s.getAcademicYear().getName().equals(academicYear))))
+                                .filter(s -> (semester == null || (s.getSemester() != null
+                                                && s.getSemester().getSemesterNumber() == semester)))
                                 .map(this::toDto)
                                 .collect(Collectors.toList());
         }
@@ -111,7 +114,8 @@ public class ExamSessionService {
                 ExamSession session = examSessionRepo.findByIdAndSchoolId(id, schoolId)
                                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy kỳ thi"));
 
-                AcademicYear academicYear = academicYearRepo.findBySchoolAndName(session.getSchool(), dto.getAcademicYear())
+                AcademicYear academicYear = academicYearRepo
+                                .findBySchoolAndName(session.getSchool(), dto.getAcademicYear())
                                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy năm học"));
 
                 // Resolve Semester entity
@@ -213,10 +217,11 @@ public class ExamSessionService {
                                         allConflicts.addAll(conflictService.checkTeacherExamConflicts(
                                                         teacherId, req.getExamDate(), req.getStartTime(),
                                                         req.getEndTime()));
-                                        
+
                                         // Resolve Semester Entity
-                                        com.schoolmanagement.backend.domain.entity.admin.Semester sem = session.getSemester();
-                                                
+                                        com.schoolmanagement.backend.domain.entity.admin.Semester sem = session
+                                                        .getSemester();
+
                                         allConflicts.addAll(conflictService.checkTeacherTimetableConflicts(
                                                         teacherId, school, sem,
                                                         req.getExamDate(), req.getStartTime(), req.getEndTime()));
@@ -240,8 +245,8 @@ public class ExamSessionService {
                                 .duration((int) java.time.Duration.between(req.getStartTime(), req.getEndTime())
                                                 .toMinutes())
                                 .examType(ExamType.MIDTERM) // Fallback for DB
-                                                                                                // backward
-                                                                                                // compatibility
+                                                            // backward
+                                                            // compatibility
                                 .status(ExamStatus.UPCOMING)
                                 .academicYear(session.getAcademicYear())
                                 .semester(session.getSemester())
@@ -347,8 +352,12 @@ public class ExamSessionService {
                 return ExamSessionDto.builder()
                                 .id(examSession.getId())
                                 .name(examSession.getName())
-                                .academicYear(examSession.getAcademicYear() != null ? examSession.getAcademicYear().getName() : "")
-                                .semester(examSession.getSemester() != null ? examSession.getSemester().getSemesterNumber() : 1)
+                                .academicYear(examSession.getAcademicYear() != null
+                                                ? examSession.getAcademicYear().getName()
+                                                : "")
+                                .semester(examSession.getSemester() != null
+                                                ? examSession.getSemester().getSemesterNumber()
+                                                : 1)
                                 .startDate(examSession.getStartDate())
                                 .endDate(examSession.getEndDate())
                                 .status(examSession.getStatus())

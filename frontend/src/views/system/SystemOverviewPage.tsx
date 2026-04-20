@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { systemService, type SchoolDto, type UserListDto } from "../../services/systemService";
+import { systemService } from "../../services/systemService";
 import {
   SchoolIcon,
   UsersIcon,
@@ -9,19 +9,22 @@ import {
 } from "../../components/layout/SystemIcons";
 
 export default function SystemOverviewPage() {
-  const [schools, setSchools] = useState<SchoolDto[]>([]);
-  const [users, setUsers] = useState<UserListDto[]>([]);
+  const [totalSchools, setTotalSchools] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalStudents, setTotalStudents] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [schoolsData, usersData] = await Promise.all([
-          systemService.listSchools(),
-          systemService.listUsers(),
+        const [schoolsPage, usersPage, studentsPage] = await Promise.all([
+          systemService.listSchools(0, 1),
+          systemService.listUsers({ page: 0, size: 1 }),
+          systemService.listUsers({ role: "STUDENT", page: 0, size: 1 }),
         ]);
-        setSchools(schoolsData);
-        setUsers(usersData);
+        setTotalSchools(schoolsPage.totalElements);
+        setTotalUsers(usersPage.totalElements);
+        setTotalStudents(studentsPage.totalElements);
       } catch (e) {
         console.error(e);
       } finally {
@@ -30,7 +33,7 @@ export default function SystemOverviewPage() {
     })();
   }, []);
 
-  const studentCount = users.filter((u) => u.role === "STUDENT").length;
+  // const studentCount = users.filter((u) => u.role === "STUDENT").length; // replaced by direct fetch above
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -61,19 +64,19 @@ export default function SystemOverviewPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <StatCard
           title="Tổng số trường"
-          value={schools.length}
+          value={totalSchools}
           icon={<SchoolIcon className="w-6 h-6" />}
           color="blue"
         />
         <StatCard
           title="Tổng số tài khoản"
-          value={users.length}
+          value={totalUsers}
           icon={<UsersIcon className="w-6 h-6" />}
           color="emerald"
         />
         <StatCard
           title="Số học sinh"
-          value={studentCount}
+          value={totalStudents}
           icon={<StudentIcon className="w-6 h-6" />}
           color="purple"
         />

@@ -63,12 +63,10 @@ public class TeacherManagementService {
     // ==================== TEACHER ACCOUNT MANAGEMENT ====================
 
     @Transactional(readOnly = true)
-    public List<TeacherDto> getTeachersEligibleForAccount(School school) {
-        return teachers.findAllBySchoolOrderByTeacherCodeAsc(school).stream()
-                .filter(t -> "ACTIVE".equals(t.getStatus()) && t.getEmail() != null && !t.getEmail().isBlank()
-                        && t.getUser() == null)
-                .map(this::toTeacherDto)
-                .toList();
+    public org.springframework.data.domain.Page<TeacherDto> getTeachersEligibleForAccount(School school,
+            org.springframework.data.domain.Pageable pageable) {
+        return teachers.findEligibleForAccount(school, pageable)
+                .map(this::toTeacherDto);
     }
 
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
@@ -238,10 +236,27 @@ public class TeacherManagementService {
     }
 
     @Transactional(readOnly = true)
-    public List<TeacherDto> listTeachersProfile(School school) {
-        return teachers.findAllBySchoolOrderByTeacherCodeAsc(school).stream()
-                .map(this::toTeacherDto)
-                .toList();
+    public org.springframework.data.domain.Page<TeacherDto> listTeacherProfiles(School school, String search,
+            org.springframework.data.domain.Pageable pageable) {
+        org.springframework.data.domain.Page<Teacher> teacherPage;
+        if (search != null && !search.isBlank()) {
+            teacherPage = teachers.findBySchoolAndFullNameContainingIgnoreCase(school, search, pageable);
+        } else {
+            teacherPage = teachers.findAllBySchoolOrderByTeacherCodeAsc(school, pageable);
+        }
+
+        // Fetch all homeroom classes for this school to avoid N+1
+        java.util.List<com.schoolmanagement.backend.domain.entity.classes.ClassRoom> schoolClasses = classRooms
+                .findAllBySchoolAndHomeroomTeacherIsNotNull(school);
+        java.util.Map<UUID, com.schoolmanagement.backend.domain.entity.classes.ClassRoom> homeroomMap = schoolClasses
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        c -> c.getHomeroomTeacher().getId(),
+                        c -> c,
+                        (existing, replacement) -> existing // In case of duplicates, though shouldn't happen per year
+                ));
+
+        return teacherPage.map(t -> toTeacherDto(t, homeroomMap));
     }
 
     @Transactional
@@ -363,15 +378,27 @@ public class TeacherManagementService {
     }
 
     private TeacherDto toTeacherDto(Teacher teacher) {
+        return toTeacherDto(teacher, null);
+    }
+
+    private TeacherDto toTeacherDto(Teacher teacher,
+            java.util.Map<UUID, com.schoolmanagement.backend.domain.entity.classes.ClassRoom> homeroomMap) {
         // Find homeroom class for this teacher
         UUID homeroomClassId = null;
         String homeroomClassName = null;
 
         if (teacher.getUser() != null) {
-            var homeroomClass = classRooms.findByHomeroomTeacher(teacher.getUser());
-            if (homeroomClass.isPresent()) {
-                homeroomClassId = homeroomClass.get().getId();
-                homeroomClassName = homeroomClass.get().getName();
+            if (homeroomMap != null && homeroomMap.containsKey(teacher.getUser().getId())) {
+                var homeroomClass = homeroomMap.get(teacher.getUser().getId());
+                homeroomClassId = homeroomClass.getId();
+                homeroomClassName = homeroomClass.getName();
+            } else if (homeroomMap == null) {
+                // Fallback for single record mapping
+                var homeroomClass = classRooms.findByHomeroomTeacher(teacher.getUser());
+                if (homeroomClass.isPresent()) {
+                    homeroomClassId = homeroomClass.get().getId();
+                    homeroomClassName = homeroomClass.get().getName();
+                }
             }
         }
 

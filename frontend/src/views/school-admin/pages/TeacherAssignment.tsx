@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { schoolAdminService, type ClassRoomDto } from "../../../services/schoolAdminService";
 import type { TeacherAssignmentDto } from "../../../services/dtos/TeacherAssignmentDto";
-import { RefreshCw, CheckCircle, AlertCircle, UserPlus, X, Filter as FilterIcon } from "lucide-react";
+import { RefreshCw, CheckCircle, Filter as FilterIcon } from "lucide-react";
 import { useToast } from "../../../context/ToastContext";
 import { useConfirmation } from "../../../hooks/useConfirmation";
 
@@ -18,10 +17,8 @@ export default function TeacherAssignment() {
     const [loading, setLoading] = useState(false);
 
 
-    // Modal State
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [currentAssignment, setCurrentAssignment] = useState<TeacherAssignmentDto | null>(null);
-    const [selectedTeacherId, setSelectedTeacherId] = useState<string>("");
+    const [isSaving, setIsSaving] = useState(false);
+    const [pendingAssignments, setPendingAssignments] = useState<Record<string, string>>({});
 
     useEffect(() => {
         fetchClasses();
@@ -51,9 +48,9 @@ export default function TeacherAssignment() {
 
     const fetchTeachers = async () => {
         try {
-            // Need a list of ALL teachers to assign, with profile details (subjectId)
-            const data = await schoolAdminService.listTeacherProfiles();
-            setTeachers(data);
+            // Fetch a large-ish page for the dropdowns
+            const data = await schoolAdminService.listTeacherProfiles(0, 1000);
+            setTeachers(data.content);
         } catch (error) {
             console.error(error);
         }
@@ -64,6 +61,12 @@ export default function TeacherAssignment() {
         try {
             const data = await schoolAdminService.listAssignments(classId);
             setAssignments(data);
+
+            const pending: Record<string, string> = {};
+            data.forEach(a => {
+                pending[a.id] = a.teacherId || "";
+            });
+            setPendingAssignments(pending);
 
             // If explicit init required
             if (data.length === 0) {
@@ -106,22 +109,31 @@ export default function TeacherAssignment() {
         });
     };
 
-    const handleOpenAssign = (assignment: TeacherAssignmentDto) => {
-        setCurrentAssignment(assignment);
-        setSelectedTeacherId(assignment.teacherId || "");
-        setIsModalOpen(true);
+    const hasChanges = () => {
+        return assignments.some(a => (a.teacherId || "") !== pendingAssignments[a.id]);
     };
 
-    const handleSaveAssignment = async () => {
-        if (!currentAssignment) return;
+    const handleSaveAll = async () => {
+        if (!hasChanges()) return;
+        setIsSaving(true);
         try {
-            await schoolAdminService.assignTeacher(currentAssignment.id, selectedTeacherId || null);
-            showSuccess("Đã cập nhật giáo viên phụ trách");
-            setIsModalOpen(false);
-            fetchAssignments(selectedClassId);
+            const updates = assignments
+                .filter(a => (a.teacherId || "") !== pendingAssignments[a.id])
+                .map(a => ({
+                    assignmentId: a.id,
+                    teacherId: pendingAssignments[a.id] ? pendingAssignments[a.id] : null
+                }));
+
+            if (updates.length > 0) {
+                await schoolAdminService.bulkAssignTeachers(updates);
+                showSuccess("Đã lưu tất cả thay đổi thành công!");
+                fetchAssignments(selectedClassId);
+            }
         } catch (error) {
             console.error(error);
-            toast.error("Lỗi cập nhật phân công");
+            toast.error("Lỗi khi lưu phân công");
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -137,6 +149,21 @@ export default function TeacherAssignment() {
 
     const filteredClasses = classes.filter(c => gradeFilter === "ALL" || c.grade.toString() === gradeFilter);
 
+    const filterTeachersForSubject = (subjectId?: string, subjectName?: string) => {
+        return teachers.filter(t => {
+            if (!subjectId) return true;
+            if (t.subjects && t.subjects.some((s: any) => s.id === subjectId)) {
+                return true;
+            }
+            if (t.subjects && subjectName) {
+                return t.subjects.some((s: any) => {
+                    return subjectName.includes(s.name);
+                });
+            }
+            return false;
+        });
+    };
+
     return (
         <div className="space-y-6 p-4">
             <div className="flex justify-between items-center">
@@ -144,13 +171,25 @@ export default function TeacherAssignment() {
                     <h1 className="text-2xl font-bold text-gray-900">Phân công Chuyên môn</h1>
                     <p className="text-gray-500">Gán giáo viên phụ trách cho từng môn học của lớp</p>
                 </div>
-                <button
-                    onClick={handleInit}
-                    className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-                >
-                    <RefreshCw className="w-5 h-5" />
-                    Khởi tạo lại Dữ liệu
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        onClick={handleInit}
+                        className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+                    >
+                        <RefreshCw className="w-5 h-5" />
+                        Khởi tạo lại Dữ liệu
+                    </button>
+                    {hasChanges() && (
+                        <button
+                            onClick={handleSaveAll}
+                            disabled={isSaving}
+                            className="bg-blue-600 border border-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
+                        >
+                            <CheckCircle className="w-5 h-5" />
+                            {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Filters */}
@@ -240,114 +279,31 @@ export default function TeacherAssignment() {
                                         {assign.lessonsPerWeek} tiết
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        {assign.teacherId ? (
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                <CheckCircle className="w-3 h-3 mr-1" />
-                                                {assign.teacherName}
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                                <AlertCircle className="w-3 h-3 mr-1" />
-                                                Chưa gán
-                                            </span>
-                                        )}
+                                        <select
+                                            value={pendingAssignments[assign.id] || ""}
+                                            onChange={(e) => setPendingAssignments({
+                                                ...pendingAssignments,
+                                                [assign.id]: e.target.value
+                                            })}
+                                            className={`w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm ${pendingAssignments[assign.id] ? 'border-gray-300' : 'border-orange-300 bg-orange-50'
+                                                }`}
+                                        >
+                                            <option value="">-- Chưa gán --</option>
+                                            {filterTeachersForSubject(assign.subjectId, assign.subjectName).map(t => (
+                                                <option key={t.id} value={t.id}>{t.fullName} ({t.email})</option>
+                                            ))}
+                                        </select>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <button
-                                            onClick={() => handleOpenAssign(assign)}
-                                            className="text-blue-600 hover:text-blue-900 flex items-center gap-1 ml-auto"
-                                        >
-                                            <UserPlus className="w-4 h-4" />
-                                            {assign.teacherId ? 'Thay đổi' : 'Gán GV'}
-                                        </button>
+                                        {pendingAssignments[assign.id] !== (assign.teacherId || "") && (
+                                            <span className="text-orange-500 text-xs italic">Chưa lưu</span>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
-            )}
-
-            {/* Assign Modal */}
-            {isModalOpen && currentAssignment && createPortal(
-                <div className="fixed inset-0 z-[100] flex items-center justify-center">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] flex flex-col z-[100]">
-                        <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 flex-none z-[110]">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-lg font-bold text-white">
-                                    Phân công: {currentAssignment.subjectName}
-                                </h3>
-                                <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white">
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="p-6 space-y-4 overflow-y-auto">
-                            <p className="text-sm text-gray-500 mb-2">Lớp: {currentAssignment.className}</p>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Chọn Giáo viên</label>
-                            <select
-                                value={selectedTeacherId}
-                                onChange={(e) => setSelectedTeacherId(e.target.value)}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="">-- Chưa gán --</option>
-                                {teachers
-                                    .filter(t => {
-                                        if (!currentAssignment?.subjectId) return true;
-                                        // Exact match using subjects array
-                                        if (t.subjects && t.subjects.some((s: any) => s.id === currentAssignment.subjectId)) {
-                                            return true;
-                                        }
-
-                                        // Specialized subject match (e.g. "CD_TOAN" checking against subject codes or names)
-                                        // If strict match failed, maybe check names? 
-                                        // For now, let's trust the ID match. The backend allows specialization matching, 
-                                        // but frontend list should probably be strict or check all subjects.
-
-                                        // Also check if any of teacher's subjects is a "parent" of the assignment subject
-                                        // e.g. Assignment is "Chuyên đề Toán" (CD_TOAN), Teacher has "Toán" (TOAN)
-                                        // The backend logic: if (assignmentCode.contains(teacherSubjectCode))
-
-                                        // We don't have codes easily here unless SubjectDto has it. 
-                                        // SubjectDto has 'code'. teacher.subjects is SubjectDto[].
-
-                                        if (t.subjects && currentAssignment.subjectName) {
-                                            return t.subjects.some((s: any) => {
-                                                // Name match fallback (e.g. "Toán" in "Chuyên đề Toán")
-                                                return currentAssignment.subjectName.includes(s.name);
-                                            });
-                                        }
-
-                                        return false;
-                                    })
-                                    .map(t => (
-                                        <option key={t.id} value={t.id}>{t.fullName} ({t.email})</option>
-                                    ))}
-                            </select>
-                            <p className="text-xs text-gray-500 mt-2">
-                                * Chỉ hiển thị giáo viên giảng dạy môn {currentAssignment.subjectName}
-                            </p>
-                        </div>
-
-                        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 flex-none">
-                            <button
-                                onClick={() => setIsModalOpen(false)}
-                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-white font-medium"
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                onClick={handleSaveAssignment}
-                                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg hover:shadow-lg font-medium"
-                            >
-                                Lưu thay đổi
-                            </button>
-                        </div>
-                    </div>
-                </div>,
-                document.body
             )}
 
             {/* Confirmation Dialog */}

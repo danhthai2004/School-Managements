@@ -34,6 +34,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import com.schoolmanagement.backend.repo.auth.AuthChallengeRepository;
 
 /**
@@ -80,11 +82,9 @@ public class StudentAccountService {
      * - No user linked yet
      */
     @Transactional(readOnly = true)
-    public List<StudentDto> getStudentsEligibleForAccount(School school) {
-        return students.findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(school, StudentStatus.ACTIVE)
-                .stream()
-                .map(this::toStudentDto)
-                .toList();
+    public Page<StudentDto> getStudentsEligibleForAccount(School school, Pageable pageable) {
+        return students.findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(school, StudentStatus.ACTIVE, pageable)
+                .map(this::toStudentDto);
     }
 
     /**
@@ -207,10 +207,10 @@ public class StudentAccountService {
     // ==================== GUARDIAN ACCOUNT MANAGEMENT ====================
 
     @Transactional(readOnly = true)
-    public List<GuardianDto> getGuardiansEligibleForAccount(School school) {
+    public Page<GuardianDto> getGuardiansEligibleForAccount(School school, Pageable pageable) {
         AcademicYear currentAcademicYear = semesterService.getActiveAcademicYear(school);
 
-        return guardians.findGuardiansWithoutAccount(school).stream()
+        return guardians.findGuardiansWithoutAccount(school, pageable)
                 .map(g -> {
                     // Try to find one student for this guardian to display info
                     // We pick the first one for simplicity in the list view (Many-to-One Refactor)
@@ -239,8 +239,7 @@ public class StudentAccountService {
                             relationship,
                             studentName,
                             className);
-                })
-                .toList();
+                });
     }
 
     // @Transactional - Removed

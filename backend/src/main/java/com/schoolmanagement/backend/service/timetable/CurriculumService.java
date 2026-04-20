@@ -24,6 +24,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class CurriculumService {
 
     private final SubjectRepository subjects;
@@ -68,7 +69,8 @@ public class CurriculumService {
         }
         for (Subject subject : electives) {
             if (subject.getType() != SubjectType.ELECTIVE) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Môn " + subject.getName() + " không phải là môn lựa chọn.");
+                throw new ApiException(HttpStatus.BAD_REQUEST,
+                        "Môn " + subject.getName() + " không phải là môn lựa chọn.");
             }
             if (subject.getStream() != req.stream()) {
                 throw new ApiException(HttpStatus.BAD_REQUEST,
@@ -84,7 +86,8 @@ public class CurriculumService {
         }
         for (Subject subject : specialized) {
             if (subject.getType() != SubjectType.SPECIALIZED) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Môn " + subject.getName() + " không phải là chuyên đề.");
+                throw new ApiException(HttpStatus.BAD_REQUEST,
+                        "Môn " + subject.getName() + " không phải là chuyên đề.");
             }
             // Relaxed validation: Allow any specialized subject regardless of stream
         }
@@ -131,7 +134,8 @@ public class CurriculumService {
         }
         for (Subject subject : electives) {
             if (subject.getType() != SubjectType.ELECTIVE) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Môn " + subject.getName() + " không phải là môn lựa chọn.");
+                throw new ApiException(HttpStatus.BAD_REQUEST,
+                        "Môn " + subject.getName() + " không phải là môn lựa chọn.");
             }
             if (subject.getStream() != req.stream()) {
                 throw new ApiException(HttpStatus.BAD_REQUEST,
@@ -147,7 +151,8 @@ public class CurriculumService {
         }
         for (Subject subject : specialized) {
             if (subject.getType() != SubjectType.SPECIALIZED) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Môn " + subject.getName() + " không phải là chuyên đề.");
+                throw new ApiException(HttpStatus.BAD_REQUEST,
+                        "Môn " + subject.getName() + " không phải là chuyên đề.");
             }
         }
 
