@@ -29,9 +29,8 @@ COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8081
 # EXPOSE 5005 (Bỏ qua debug ở prod)
 ENTRYPOINT ["java", \
-    "-XX:+UseG1GC", \
     "-XX:MaxGCPauseMillis=200", \
     "-XX:+UseStringDeduplication", \
-    "-Xms256m", \
-    "-Xmx512m", \
+    "-Xmx400m", \
     "-jar", "app.jar"]
+
