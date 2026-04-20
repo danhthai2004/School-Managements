@@ -21,6 +21,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import com.schoolmanagement.backend.util.RandomUtil;
 
 import java.time.Instant;
@@ -88,10 +90,9 @@ public class SystemAdminService {
         return "SCH-" + randomNum;
     }
 
-    public List<SchoolDto> listSchools() {
-        return schools.findByPendingDeleteAtIsNull().stream()
-                .map(this::toSchoolDto)
-                .toList();
+    public Page<SchoolDto> listSchools(Pageable pageable) {
+        return schools.findByPendingDeleteAtIsNull(pageable)
+                .map(this::toSchoolDto);
     }
 
     public SchoolDetailDto getSchoolWithAdmins(UUID schoolId) {
@@ -152,10 +153,9 @@ public class SystemAdminService {
                 s.getPendingDeleteAt());
     }
 
-    public List<SchoolDto> listPendingDeleteSchools() {
-        return schools.findByPendingDeleteAtIsNotNull().stream()
-                .map(this::toSchoolDto)
-                .toList();
+    public Page<SchoolDto> listPendingDeleteSchools(Pageable pageable) {
+        return schools.findByPendingDeleteAtIsNotNull(pageable)
+                .map(this::toSchoolDto);
     }
 
     @Transactional
@@ -186,9 +186,10 @@ public class SystemAdminService {
     public void permanentDeleteSchool(UUID schoolId, User performedBy) {
         School school = schools.findById(schoolId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Trường không tồn tại."));
-        
+
         schools.delete(school);
-        activityLog.log("SCHOOL_PERMANENT_DELETED", performedBy, null, "School permanently deleted: " + school.getCode());
+        activityLog.log("SCHOOL_PERMANENT_DELETED", performedBy, null,
+                "School permanently deleted: " + school.getCode());
     }
 
     // ========== USER MANAGEMENT ==========
@@ -222,16 +223,15 @@ public class SystemAdminService {
                 school.getCode(), user.isEnabled());
     }
 
-    public List<UserListDto> listUsers(Role role, UUID schoolId, Boolean enabled, boolean pendingDelete) {
-        return users.findWithFilters(role, schoolId, enabled, pendingDelete).stream()
-                .map(this::toUserListDto)
-                .toList();
+    public Page<UserListDto> listUsers(Role role, UUID schoolId, Boolean enabled, boolean pendingDelete,
+            Pageable pageable) {
+        return users.findWithFilters(role, schoolId, enabled, pendingDelete, pageable)
+                .map(this::toUserListDto);
     }
 
-    public List<UserListDto> listPendingDeleteUsers() {
-        return users.findByPendingDeleteAtIsNotNull().stream()
-                .map(this::toUserListDto)
-                .toList();
+    public Page<UserListDto> listPendingDeleteUsers(Pageable pageable) {
+        return users.findByPendingDeleteAtIsNotNull(pageable)
+                .map(this::toUserListDto);
     }
 
     @Transactional

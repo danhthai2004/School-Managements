@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.util.*;
@@ -31,6 +32,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class FacePhotoStorageService {
 
     @Value("${face.recognition.service.url:http://localhost:8000}")
@@ -51,7 +53,8 @@ public class FacePhotoStorageService {
             log.warn(">>> faceServiceUrl was empty, defaulting to http://localhost:8000");
         }
 
-        // Use JDK HttpClient resolver instead of Netty's default (which fails in Docker)
+        // Use JDK HttpClient resolver instead of Netty's default (which fails in
+        // Docker)
         reactor.netty.http.client.HttpClient httpClient = reactor.netty.http.client.HttpClient.create()
                 .resolver(io.netty.resolver.DefaultAddressResolverGroup.INSTANCE);
 
@@ -81,7 +84,8 @@ public class FacePhotoStorageService {
 
         for (ClassRoom cls : classes) {
             var enrollments = classEnrollmentRepository.findAllByClassRoom(cls);
-            if (enrollments.isEmpty()) continue;
+            if (enrollments.isEmpty())
+                continue;
 
             List<String> studentIds = enrollments.stream()
                     .map(e -> e.getStudent().getId().toString())
@@ -102,8 +106,7 @@ public class FacePhotoStorageService {
                         enrollments.size(),
                         registered,
                         enrollments.size() - registered,
-                        cls.getHomeroomTeacher() != null ? cls.getHomeroomTeacher().getFullName() : null
-                ));
+                        cls.getHomeroomTeacher() != null ? cls.getHomeroomTeacher().getFullName() : null));
             } catch (Exception e) {
                 log.warn("Failed to get face status for class {}: {}", cls.getName(), e.getMessage());
                 classStatuses.add(new ClassFaceStatusDto(
@@ -113,8 +116,7 @@ public class FacePhotoStorageService {
                         enrollments.size(),
                         0,
                         enrollments.size(),
-                        cls.getHomeroomTeacher() != null ? cls.getHomeroomTeacher().getFullName() : null
-                ));
+                        cls.getHomeroomTeacher() != null ? cls.getHomeroomTeacher().getFullName() : null));
             }
         }
 
@@ -123,8 +125,7 @@ public class FacePhotoStorageService {
                 totalRegistered,
                 totalStudents - totalRegistered,
                 totalStudents > 0 ? Math.round((double) totalRegistered / totalStudents * 100.0) : 0,
-                classStatuses
-        );
+                classStatuses);
     }
 
     /**
@@ -149,8 +150,7 @@ public class FacePhotoStorageService {
                 .collect(Collectors.toMap(
                         e -> e.getStudent().getId().toString(),
                         ClassEnrollment::getStudent,
-                        (a, b) -> a
-                ));
+                        (a, b) -> a));
 
         List<StudentFaceStatusDto> students = new ArrayList<>();
 
@@ -171,8 +171,7 @@ public class FacePhotoStorageService {
                                     student != null ? student.getAvatarUrl() : null,
                                     Boolean.TRUE.equals(s.get("is_registered")),
                                     s.get("image_count") != null ? ((Number) s.get("image_count")).intValue() : 0,
-                                    (String) s.get("last_updated")
-                            ));
+                                    (String) s.get("last_updated")));
                         }
                     }
                 }
@@ -186,8 +185,7 @@ public class FacePhotoStorageService {
                             student.getStudentCode(),
                             student.getFullName(),
                             student.getAvatarUrl(),
-                            false, 0, null
-                    ));
+                            false, 0, null));
                 }
             }
         }
@@ -205,8 +203,7 @@ public class FacePhotoStorageService {
                 students,
                 students.size(),
                 registered,
-                students.size() - registered
-        );
+                students.size() - registered);
     }
 
     // ─── Student Photos ──────────────────────────────────
@@ -225,7 +222,8 @@ public class FacePhotoStorageService {
             Map<String, Object> response = webClient().get()
                     .uri("/student-photos/" + studentId.toString())
                     .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
+                    })
                     .block();
 
             List<PhotoDto> photos = new ArrayList<>();
@@ -238,8 +236,7 @@ public class FacePhotoStorageService {
                                 p.get("id") != null ? ((Number) p.get("id")).intValue() : 0,
                                 (String) p.get("image_url"),
                                 p.get("quality_score") != null ? ((Number) p.get("quality_score")).doubleValue() : null,
-                                (String) p.get("created_at")
-                        ));
+                                (String) p.get("created_at")));
                     }
                 }
             }
@@ -250,8 +247,7 @@ public class FacePhotoStorageService {
                     student.getFullName(),
                     student.getAvatarUrl(),
                     photos,
-                    photos.size()
-            );
+                    photos.size());
         } catch (Exception e) {
             log.error("Failed to get student photos", e);
             return new StudentPhotosDto(
@@ -260,8 +256,7 @@ public class FacePhotoStorageService {
                     student.getFullName(),
                     student.getAvatarUrl(),
                     List.of(),
-                    0
-            );
+                    0);
         }
     }
 
@@ -300,8 +295,7 @@ public class FacePhotoStorageService {
                     return file.getOriginalFilename();
                 }
             }).contentType(MediaType.parseMediaType(
-                    file.getContentType() != null ? file.getContentType() : "image/jpeg"
-            ));
+                    file.getContentType() != null ? file.getContentType() : "image/jpeg"));
 
             @SuppressWarnings("unchecked")
             Map<String, Object> result = webClient().post()
@@ -315,7 +309,8 @@ public class FacePhotoStorageService {
             boolean success = result != null && Boolean.TRUE.equals(result.get("success"));
             String message = result != null ? (String) result.get("message") : "Không có phản hồi";
             int count = result != null && result.get("embedding_count") != null
-                    ? ((Number) result.get("embedding_count")).intValue() : 0;
+                    ? ((Number) result.get("embedding_count")).intValue()
+                    : 0;
 
             return new UploadFacePhotoResult(success, message, imageUrl, count);
         } catch (IOException e) {
@@ -403,10 +398,12 @@ public class FacePhotoStorageService {
     }
 
     private void tryDeleteFromCloudinary(String imageUrl) {
-        if (imageUrl == null || imageUrl.isBlank()) return;
+        if (imageUrl == null || imageUrl.isBlank())
+            return;
         try {
             // Extract public ID from Cloudinary URL
-            // URL format: https://res.cloudinary.com/{cloud}/image/upload/v{version}/{folder}/{file}
+            // URL format:
+            // https://res.cloudinary.com/{cloud}/image/upload/v{version}/{folder}/{file}
             String publicId = extractCloudinaryPublicId(imageUrl);
             if (publicId != null) {
                 fileStorageService.deleteFile(publicId);
@@ -420,7 +417,8 @@ public class FacePhotoStorageService {
         try {
             // Pattern: .../upload/v1234567/face-photos/school-id/student-id/filename
             int uploadIdx = url.indexOf("/upload/");
-            if (uploadIdx < 0) return null;
+            if (uploadIdx < 0)
+                return null;
             String afterUpload = url.substring(uploadIdx + 8); // skip "/upload/"
             // Remove version prefix (v1234567/)
             if (afterUpload.startsWith("v")) {
@@ -447,8 +445,8 @@ public class FacePhotoStorageService {
             long totalRegistered,
             long totalUnregistered,
             long registrationPercentage,
-            List<ClassFaceStatusDto> classes
-    ) {}
+            List<ClassFaceStatusDto> classes) {
+    }
 
     public record ClassFaceStatusDto(
             String classId,
@@ -457,8 +455,8 @@ public class FacePhotoStorageService {
             int totalStudents,
             int registered,
             int unregistered,
-            String homeroomTeacherName
-    ) {}
+            String homeroomTeacherName) {
+    }
 
     public record ClassFaceDetailResponse(
             String classId,
@@ -467,8 +465,8 @@ public class FacePhotoStorageService {
             List<StudentFaceStatusDto> students,
             int totalStudents,
             int totalRegistered,
-            int totalUnregistered
-    ) {}
+            int totalUnregistered) {
+    }
 
     public record StudentFaceStatusDto(
             String studentId,
@@ -477,8 +475,8 @@ public class FacePhotoStorageService {
             String avatarUrl,
             boolean isRegistered,
             int imageCount,
-            String lastUpdated
-    ) {}
+            String lastUpdated) {
+    }
 
     public record StudentPhotosDto(
             String studentId,
@@ -486,20 +484,20 @@ public class FacePhotoStorageService {
             String studentName,
             String avatarUrl,
             List<PhotoDto> photos,
-            int totalPhotos
-    ) {}
+            int totalPhotos) {
+    }
 
     public record PhotoDto(
             int id,
             String imageUrl,
             Double qualityScore,
-            String createdAt
-    ) {}
+            String createdAt) {
+    }
 
     public record UploadFacePhotoResult(
             boolean success,
             String message,
             String imageUrl,
-            int embeddingCount
-    ) {}
+            int embeddingCount) {
+    }
 }

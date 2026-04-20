@@ -208,6 +208,16 @@ export type BulkDeleteResponse = {
     errors: string[];
 };
 
+export type PageResponse<T> = {
+    content: T[];
+    page: number;
+    size: number;
+    totalElements: number;
+    totalPages: number;
+};
+
+export type StudentPageResponse = PageResponse<StudentDto>;
+
 export type RoomDto = {
     id: string;
     name: string;
@@ -274,8 +284,9 @@ export const schoolAdminService = {
         return res.data;
     },
 
-    listTeacherProfiles: async (): Promise<TeacherDto[]> => {
-        const res = await api.get<TeacherDto[]>("/school/teachers/profiles");
+    listTeacherProfiles: async (page = 0, size = 50, search?: string): Promise<PageResponse<TeacherDto>> => {
+        const params = { page, size, search };
+        const res = await api.get<PageResponse<TeacherDto>>("/school/teachers/profiles", { params });
         return res.data;
     },
 
@@ -332,9 +343,17 @@ export const schoolAdminService = {
     },
 
     // Students
-    listStudents: async (classId?: string): Promise<StudentDto[]> => {
-        const params = classId ? { classId } : {};
-        const res = await api.get<StudentDto[]>("/school/students", { params });
+    listStudents: async (params: {
+        page?: number;
+        size?: number;
+        classId?: string;
+        search?: string;
+        grade?: number;
+        status?: string;
+        sortBy?: string;
+        sortDir?: string;
+    } = {}): Promise<StudentPageResponse> => {
+        const res = await api.get<StudentPageResponse>("/school/students", { params });
         return res.data;
     },
 
@@ -428,8 +447,10 @@ export const schoolAdminService = {
     },
 
     // Student Account Management
-    getStudentsEligibleForAccount: async (): Promise<StudentDto[]> => {
-        const res = await api.get<StudentDto[]>("/school/students/no-account");
+    getStudentsEligibleForAccount: async (page = 0, size = 50): Promise<PageResponse<StudentDto>> => {
+        const res = await api.get<PageResponse<StudentDto>>("/school/students/no-account", {
+            params: { page, size }
+        });
         return res.data;
     },
 
@@ -443,8 +464,10 @@ export const schoolAdminService = {
     },
 
     // Teacher Account Management
-    getTeachersEligibleForAccount: async (): Promise<TeacherDto[]> => {
-        const res = await api.get<TeacherDto[]>("/school/teachers/no-account");
+    getTeachersEligibleForAccount: async (page = 0, size = 50): Promise<PageResponse<TeacherDto>> => {
+        const res = await api.get<PageResponse<TeacherDto>>("/school/teachers/no-account", {
+            params: { page, size }
+        });
         return res.data;
     },
 
@@ -454,8 +477,10 @@ export const schoolAdminService = {
     },
 
     // Guardian Account Management
-    getGuardiansEligibleForAccount: async (): Promise<GuardianDto[]> => {
-        const res = await api.get<GuardianDto[]>("/school/guardians/eligible-for-account");
+    getGuardiansEligibleForAccount: async (page = 0, size = 50): Promise<PageResponse<GuardianDto>> => {
+        const res = await api.get<PageResponse<GuardianDto>>("/school/guardians/eligible-for-account", {
+            params: { page, size }
+        });
         return res.data;
     },
 

@@ -18,6 +18,8 @@ public interface AcademicYearRepository extends JpaRepository<AcademicYear, UUID
 
     Optional<AcademicYear> findBySchoolAndStatus(School school, AcademicYearStatus status);
 
+    Optional<AcademicYear> findBySchoolIdAndStatus(UUID schoolId, AcademicYearStatus status);
+
     Optional<AcademicYear> findBySchoolAndName(School school, String name);
 
     List<AcademicYear> findBySchoolAndStatusIn(School school, List<AcademicYearStatus> statuses);

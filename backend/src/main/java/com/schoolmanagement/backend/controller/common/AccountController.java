@@ -39,12 +39,14 @@ public class AccountController {
      * (ACTIVE, has email, no user linked)
      */
     @GetMapping("/students/no-account")
-    public List<StudentDto> getStudentsEligibleForAccount(@AuthenticationPrincipal UserPrincipal principal) {
+    public org.springframework.data.domain.Page<StudentDto> getStudentsEligibleForAccount(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @org.springframework.data.web.PageableDefault(size = 50) org.springframework.data.domain.Pageable pageable) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return studentAccountService.getStudentsEligibleForAccount(admin.getSchool());
+        return studentAccountService.getStudentsEligibleForAccount(admin.getSchool(), pageable);
     }
 
     /**
@@ -68,13 +70,14 @@ public class AccountController {
      * (ACTIVE, has email, no user linked)
      */
     @GetMapping("/teachers/no-account")
-    public List<TeacherDto> getTeachersEligibleForAccount(
-            @AuthenticationPrincipal UserPrincipal principal) {
+    public org.springframework.data.domain.Page<TeacherDto> getTeachersEligibleForAccount(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @org.springframework.data.web.PageableDefault(size = 50) org.springframework.data.domain.Pageable pageable) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return teacherManagementService.getTeachersEligibleForAccount(admin.getSchool());
+        return teacherManagementService.getTeachersEligibleForAccount(admin.getSchool(), pageable);
     }
 
     /**
@@ -94,13 +97,14 @@ public class AccountController {
     // ==================== GUARDIAN ACCOUNT MANAGEMENT ====================
 
     @GetMapping("/guardians/eligible-for-account")
-    public List<GuardianDto> getGuardiansEligibleForAccount(
-            @AuthenticationPrincipal UserPrincipal principal) {
+    public org.springframework.data.domain.Page<GuardianDto> getGuardiansEligibleForAccount(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @org.springframework.data.web.PageableDefault(size = 50) org.springframework.data.domain.Pageable pageable) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return studentAccountService.getGuardiansEligibleForAccount(admin.getSchool());
+        return studentAccountService.getGuardiansEligibleForAccount(admin.getSchool(), pageable);
     }
 
     @PostMapping("/guardians/accounts")

@@ -30,6 +30,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class TimetableService {
 
   private final TimetableRepository timetables;

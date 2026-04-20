@@ -17,43 +17,47 @@ import java.util.UUID;
 @Repository
 public interface GradeRepository extends JpaRepository<Grade, UUID> {
 
-        List<Grade> findAllByStudent(Student student);
+    List<Grade> findAllByStudent(Student student);
 
-        List<Grade> findAllByStudentAndSemester(Student student, com.schoolmanagement.backend.domain.entity.admin.Semester semester);
+    List<Grade> findAllByStudentAndSemester(Student student,
+            com.schoolmanagement.backend.domain.entity.admin.Semester semester);
 
-        boolean existsByStudent(Student student);
+    boolean existsByStudent(Student student);
 
-        @Modifying
-        @Query("DELETE FROM Grade e WHERE e.student = :student")
-        void deleteAllByStudent(@Param("student") Student student);
+    @Modifying
+    @Query("DELETE FROM Grade e WHERE e.student = :student")
+    void deleteAllByStudent(@Param("student") Student student);
 
-        List<Grade> findAllByClassRoomAndSemester(ClassRoom classRoom, com.schoolmanagement.backend.domain.entity.admin.Semester semester);
+    List<Grade> findAllByClassRoomAndSemester(ClassRoom classRoom,
+            com.schoolmanagement.backend.domain.entity.admin.Semester semester);
 
-        List<Grade> findAllByClassRoomAndSubjectAndSemester(ClassRoom classRoom, Subject subject, com.schoolmanagement.backend.domain.entity.admin.Semester semester);
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "student", "regularScores" })
+    List<Grade> findAllByClassRoomAndSubjectAndSemester(ClassRoom classRoom, Subject subject,
+            com.schoolmanagement.backend.domain.entity.admin.Semester semester);
 
-        List<Grade> findAllBySubject(Subject subject);
+    List<Grade> findAllBySubject(Subject subject);
 
-        @Query("SELECT g FROM Grade g WHERE g.classRoom.school = :school")
-        List<Grade> findAllBySchool(@Param("school") School school);
+    @Query("SELECT g FROM Grade g WHERE g.classRoom.school = :school")
+    List<Grade> findAllBySchool(@Param("school") School school);
 
-        @Query("SELECT g FROM Grade g WHERE g.classRoom.school = :school AND g.semester.academicYear = :academicYear")
-        List<Grade> findAllBySchoolAndAcademicYear(@Param("school") School school,
-                        @Param("academicYear") com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+    @Query("SELECT g FROM Grade g WHERE g.classRoom.school = :school AND g.semester.academicYear = :academicYear")
+    List<Grade> findAllBySchoolAndAcademicYear(@Param("school") School school,
+            @Param("academicYear") com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
-        @Query("SELECT g FROM Grade g WHERE g.classRoom.school = :school AND g.semester = :semester")
-        List<Grade> findAllBySchoolAndSemester(
-                        @Param("school") School school,
-                        @Param("semester") com.schoolmanagement.backend.domain.entity.admin.Semester semester);
+    @Query("SELECT g FROM Grade g WHERE g.classRoom.school = :school AND g.semester = :semester")
+    List<Grade> findAllBySchoolAndSemester(
+            @Param("school") School school,
+            @Param("semester") com.schoolmanagement.backend.domain.entity.admin.Semester semester);
 
-        long countByClassRoom(ClassRoom classRoom);
+    long countByClassRoom(ClassRoom classRoom);
 
-        List<Grade> findAllByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
+    List<Grade> findAllByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
 
-        @Modifying
-        @Query("DELETE FROM Grade e WHERE e.teacher = :teacher")
-        void deleteAllByTeacher(@Param("teacher") com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
+    @Modifying
+    @Query("DELETE FROM Grade e WHERE e.teacher = :teacher")
+    void deleteAllByTeacher(@Param("teacher") com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
 
-        boolean existsByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
+    boolean existsByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
 
     @Modifying
     @Query("DELETE FROM Grade g WHERE g.student.id = :studentId")
