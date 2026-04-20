@@ -29,6 +29,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional(readOnly = true)
 public class TimetableAdjustmentService {
 
     private final TimetableDetailRepository detailRepo;

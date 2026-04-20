@@ -138,8 +138,10 @@ export type PageResponse<T> = {
 
 export const systemService = {
   // Schools
-  listSchools: async (): Promise<SchoolDto[]> => {
-    const res = await api.get<SchoolDto[]>("/system/schools");
+  listSchools: async (page = 0, size = 20): Promise<PageResponse<SchoolDto>> => {
+    const res = await api.get<PageResponse<SchoolDto>>("/system/schools", {
+      params: { page, size },
+    });
     return res.data;
   },
 
@@ -162,8 +164,10 @@ export const systemService = {
     await api.delete(`/system/schools/${id}`);
   },
 
-  listPendingDeleteSchools: async (): Promise<SchoolDto[]> => {
-    const res = await api.get<SchoolDto[]>("/system/schools/pending");
+  listPendingDeleteSchools: async (page = 0, size = 20): Promise<PageResponse<SchoolDto>> => {
+    const res = await api.get<PageResponse<SchoolDto>>("/system/schools/pending", {
+      params: { page, size },
+    });
     return res.data;
   },
 
@@ -190,13 +194,17 @@ export const systemService = {
     schoolId?: string;
     enabled?: boolean;
     pendingDelete?: boolean;
-  }): Promise<UserListDto[]> => {
-    const res = await api.get<UserListDto[]>("/system/users", { params });
+    page?: number;
+    size?: number;
+  }): Promise<PageResponse<UserListDto>> => {
+    const res = await api.get<PageResponse<UserListDto>>("/system/users", { params });
     return res.data;
   },
 
-  listPendingDeleteUsers: async (): Promise<UserListDto[]> => {
-    const res = await api.get<UserListDto[]>("/system/users/pending");
+  listPendingDeleteUsers: async (page = 0, size = 20): Promise<PageResponse<UserListDto>> => {
+    const res = await api.get<PageResponse<UserListDto>>("/system/users/pending", {
+      params: { page, size }
+    });
     return res.data;
   },
 

@@ -47,13 +47,23 @@ public class StudentController {
     }
 
     @GetMapping("/students")
-    public List<StudentDto> listStudents(@AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(required = false) UUID classId) {
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public com.schoolmanagement.backend.dto.student.StudentPageResponse listStudents(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) UUID classId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Integer grade,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "fullName") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return studentManagementService.listStudents(admin.getSchool(), classId);
+        return studentManagementService.listStudents(
+                admin.getSchool(), classId, page, size, search, grade, status, sortBy, sortDir);
     }
 
     @GetMapping("/students/{id}")

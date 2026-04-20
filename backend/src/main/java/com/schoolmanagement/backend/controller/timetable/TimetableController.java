@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.transaction.annotation.Transactional;
 import com.schoolmanagement.backend.security.UserPrincipal;
 import com.schoolmanagement.backend.service.auth.UserLookupService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
