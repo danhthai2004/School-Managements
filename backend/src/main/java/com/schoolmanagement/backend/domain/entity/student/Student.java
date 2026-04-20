@@ -18,8 +18,10 @@ import java.util.UUID;
 @Entity
 @Table(name = "students", indexes = {
         @Index(name = "idx_student_school", columnList = "school_id"),
-        @Index(name = "idx_student_code", columnList = "student_code, school_id", unique = true)
+        @Index(name = "idx_student_code", columnList = "student_code, school_id", unique = true),
+        @Index(name = "idx_student_email", columnList = "email")
 })
+
 public class Student {
 
     @Id

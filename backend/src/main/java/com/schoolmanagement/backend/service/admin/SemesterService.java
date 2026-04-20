@@ -248,6 +248,11 @@ public class SemesterService {
                 .orElse(null);
     }
 
+    public AcademicYear getActiveAcademicYearSafe(UUID schoolId) {
+        return academicYearRepository.findBySchoolIdAndStatus(schoolId, AcademicYearStatus.ACTIVE)
+                .orElse(null);
+    }
+
     public AcademicYear getAcademicYearByName(School school, String name) {
         return academicYearRepository.findBySchoolAndName(school, name)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Năm học không tồn tại: " + name));
@@ -438,7 +443,8 @@ public class SemesterService {
     }
 
     /**
-     * Tìm năm học tương ứng với một ngày cụ thể. Fallback về Active nếu không tìm thấy.
+     * Tìm năm học tương ứng với một ngày cụ thể. Fallback về Active nếu không tìm
+     * thấy.
      */
     public AcademicYear getAcademicYearByDate(School school, LocalDate date) {
         return academicYearRepository.findCurrentBySchoolAndDate(school, date)

@@ -24,24 +24,29 @@ public interface ClassRoomRepository extends JpaRepository<ClassRoom, UUID> {
                 List<ClassRoom> list = findAllBySchool(school);
                 list.sort((c1, c2) -> {
                         int gradeCmp = Integer.compare(c1.getGrade(), c2.getGrade());
-                        if (gradeCmp != 0) return gradeCmp;
-                        
+                        if (gradeCmp != 0)
+                                return gradeCmp;
+
                         String s1 = c1.getName() != null ? c1.getName() : "";
                         String s2 = c2.getName() != null ? c2.getName() : "";
-                        
+
                         String p1 = s1.replaceAll("\\d+$", "");
                         String n1 = s1.substring(p1.length());
-                        
+
                         String p2 = s2.replaceAll("\\d+$", "");
                         String n2 = s2.substring(p2.length());
-                        
+
                         int pCmp = p1.compareTo(p2);
-                        if (pCmp != 0) return pCmp;
-                        
-                        if (n1.isEmpty() && n2.isEmpty()) return 0;
-                        if (n1.isEmpty()) return -1;
-                        if (n2.isEmpty()) return 1;
-                        
+                        if (pCmp != 0)
+                                return pCmp;
+
+                        if (n1.isEmpty() && n2.isEmpty())
+                                return 0;
+                        if (n1.isEmpty())
+                                return -1;
+                        if (n2.isEmpty())
+                                return 1;
+
                         return Integer.compare(Integer.parseInt(n1), Integer.parseInt(n2));
                 });
                 return list;
@@ -55,9 +60,11 @@ public interface ClassRoomRepository extends JpaRepository<ClassRoom, UUID> {
 
         boolean existsBySchoolAndName(School school, String name);
 
-        boolean existsBySchoolAndNameAndAcademicYear(School school, String name, com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+        boolean existsBySchoolAndNameAndAcademicYear(School school, String name,
+                        com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
-        boolean existsByHomeroomTeacherAndAcademicYear(User homeroomTeacher, com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+        boolean existsByHomeroomTeacherAndAcademicYear(User homeroomTeacher,
+                        com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
         Optional<ClassRoom> findFirstBySchoolOrderByAcademicYearDesc(School school);
 
@@ -78,12 +85,15 @@ public interface ClassRoomRepository extends JpaRepository<ClassRoom, UUID> {
 
         Optional<ClassRoom> findByHomeroomTeacher(User homeroomTeacher);
 
+        List<ClassRoom> findAllBySchoolAndHomeroomTeacherIsNotNull(School school);
+
         // Find classrooms by school and list of grades
         List<ClassRoom> findBySchoolAndGradeIn(School school, List<Integer> grades);
 
         // --- Methods added for Teacher Portal (fuuko branch) ---
 
-        Optional<ClassRoom> findByHomeroomTeacher_IdAndAcademicYear(UUID teacherId, com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+        Optional<ClassRoom> findByHomeroomTeacher_IdAndAcademicYear(UUID teacherId,
+                        com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
         Optional<ClassRoom> findTopByHomeroomTeacher_IdOrderByAcademicYear_StartDateDesc(UUID teacherId);
 

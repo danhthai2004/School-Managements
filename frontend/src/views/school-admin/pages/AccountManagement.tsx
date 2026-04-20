@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { usePagination } from "../../../hooks/usePagination";
+import { useEffect, useState, useMemo } from "react";
 import Pagination from "../../../components/common/Pagination";
 import {
     schoolAdminService,
@@ -42,52 +41,34 @@ const AccountManagement = () => {
     const { showSuccess } = useToast();
     const { confirm, ConfirmationDialog } = useConfirmation();
 
-    const filteredUsers = users.filter(user => {
-        if (statusFilter !== 'ALL') {
-            const isActive = statusFilter === 'ACTIVE';
-            if (user.enabled !== isActive) return false;
-        }
-        if (roleFilter !== 'ALL') {
-            if (user.role !== roleFilter) return false;
-        }
-        return true;
-    }).sort((a, b) => vietnameseNameSort(a.fullName, b.fullName));
+    const filteredUsers = useMemo(() => {
+        return users.filter(user => {
+            if (statusFilter !== 'ALL') {
+                const isActive = statusFilter === 'ACTIVE';
+                if (user.enabled !== isActive) return false;
+            }
+            if (roleFilter !== 'ALL') {
+                if (user.role !== roleFilter) return false;
+            }
+            return true;
+        }).sort((a, b) => vietnameseNameSort(a.fullName, b.fullName));
+    }, [users, statusFilter, roleFilter]);
 
-    const {
-        paginatedData: paginatedUsers,
-        currentPage: usersPage,
-        totalPages: usersTotalPages,
-        goToPage: setUsersPage,
-        setPageSize: setUsersPageSize,
-        pageSize: usersPageSize
-    } = usePagination(filteredUsers, { dependencies: [statusFilter, roleFilter, activeTab] });
+    const [totalUsers, setTotalUsers] = useState(0);
+    const [usersPage, setUsersPage] = useState(0);
+    const [usersPageSize, setUsersPageSize] = useState(50);
 
-    const {
-        paginatedData: paginatedStudents,
-        currentPage: studentsPage,
-        totalPages: studentsTotalPages,
-        goToPage: setStudentsPage,
-        setPageSize: setStudentsPageSize,
-        pageSize: studentsPageSize
-    } = usePagination(eligibleStudents, { dependencies: [activeTab] });
+    const [totalStudents, setTotalStudents] = useState(0);
+    const [studentsPage, setStudentsPage] = useState(0);
+    const [studentsPageSize, setStudentsPageSize] = useState(50);
 
-    const {
-        paginatedData: paginatedTeachers,
-        currentPage: teachersPage,
-        totalPages: teachersTotalPages,
-        goToPage: setTeachersPage,
-        setPageSize: setTeachersPageSize,
-        pageSize: teachersPageSize
-    } = usePagination(eligibleTeachers, { dependencies: [activeTab] });
+    const [totalTeachers, setTotalTeachers] = useState(0);
+    const [teachersPage, setTeachersPage] = useState(0);
+    const [teachersPageSize, setTeachersPageSize] = useState(50);
 
-    const {
-        paginatedData: paginatedGuardians,
-        currentPage: guardiansPage,
-        totalPages: guardiansTotalPages,
-        goToPage: setGuardiansPage,
-        setPageSize: setGuardiansPageSize,
-        pageSize: guardiansPageSize
-    } = usePagination(eligibleGuardians, { dependencies: [activeTab] });
+    const [totalGuardians, setTotalGuardians] = useState(0);
+    const [guardiansPage, setGuardiansPage] = useState(0);
+    const [guardiansPageSize, setGuardiansPageSize] = useState(50);
 
     useEffect(() => {
         // Reset selection when tab changes
@@ -103,13 +84,20 @@ const AccountManagement = () => {
         } else if (activeTab === 'create-guardian-accounts') {
             fetchEligibleGuardians();
         }
-    }, [activeTab]);
+    }, [activeTab, usersPage, usersPageSize, studentsPage, studentsPageSize, teachersPage, teachersPageSize, guardiansPage, guardiansPageSize]);
 
     const fetchUsers = async () => {
         try {
             setLoading(true);
             const data = await schoolAdminService.listUsers();
-            setUsers(data);
+            // Since listUsers hasn't been updated to return PageResponse yet, we handle both
+            if (Array.isArray(data)) {
+                setUsers(data);
+                setTotalUsers(data.length);
+            } else {
+                setUsers((data as any).content);
+                setTotalUsers((data as any).totalElements);
+            }
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tải danh sách người dùng.");
         } finally {
@@ -120,8 +108,9 @@ const AccountManagement = () => {
     const fetchEligibleStudents = async () => {
         try {
             setLoading(true);
-            const data = await schoolAdminService.getStudentsEligibleForAccount();
-            setEligibleStudents(data.sort((a, b) => vietnameseNameSort(a.fullName, b.fullName)));
+            const data = await schoolAdminService.getStudentsEligibleForAccount(studentsPage, studentsPageSize);
+            setEligibleStudents(data.content);
+            setTotalStudents(data.totalElements);
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tải danh sách học sinh.");
         } finally {
@@ -132,8 +121,9 @@ const AccountManagement = () => {
     const fetchEligibleTeachers = async () => {
         try {
             setLoading(true);
-            const data = await schoolAdminService.getTeachersEligibleForAccount();
-            setEligibleTeachers(data.sort((a, b) => vietnameseNameSort(a.fullName, b.fullName)));
+            const data = await schoolAdminService.getTeachersEligibleForAccount(teachersPage, teachersPageSize);
+            setEligibleTeachers(data.content);
+            setTotalTeachers(data.totalElements);
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tải danh sách giáo viên.");
         } finally {
@@ -144,8 +134,9 @@ const AccountManagement = () => {
     const fetchEligibleGuardians = async () => {
         try {
             setLoading(true);
-            const data = await schoolAdminService.getGuardiansEligibleForAccount();
-            setEligibleGuardians(data.sort((a, b) => vietnameseNameSort(a.fullName, b.fullName)));
+            const data = await schoolAdminService.getGuardiansEligibleForAccount(guardiansPage, guardiansPageSize);
+            setEligibleGuardians(data.content);
+            setTotalGuardians(data.totalElements);
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tải danh sách phụ huynh.");
         } finally {
@@ -193,7 +184,7 @@ const AccountManagement = () => {
 
             setResult(response);
             setBulkResultModalOpen(true);
-            
+
             if (response.created > 0) {
                 showSuccess(`Đã tạo thành công ${response.created} tài khoản.`);
                 setSelectedIds(new Set());
@@ -414,7 +405,7 @@ const AccountManagement = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {paginatedUsers.map((user) => (
+                                {filteredUsers.map((user) => (
                                     <tr key={user.id} className="hover:bg-blue-50 transition-colors group">
                                         <td className="px-6 py-4 text-sm text-gray-900">{user.email}</td>
                                         <td className="px-6 py-4 text-sm text-gray-700">{user.fullName}</td>
@@ -492,14 +483,14 @@ const AccountManagement = () => {
                             </tbody>
                         </table>
                     </div>
-                    {usersTotalPages > 1 && (
+                    {totalUsers > usersPageSize && (
                         <Pagination
                             currentPage={usersPage}
-                            totalPages={usersTotalPages}
+                            totalPages={Math.ceil(totalUsers / usersPageSize)}
                             onPageChange={setUsersPage}
                             pageSize={usersPageSize}
                             onPageSizeChange={setUsersPageSize}
-                            totalItems={filteredUsers.length}
+                            totalItems={totalUsers}
                         />
                     )}
                 </div>
@@ -508,24 +499,24 @@ const AccountManagement = () => {
                     <AccountCreationTable
                         title="Học sinh chưa có tài khoản"
                         subtitle="Chọn học sinh để tạo tài khoản đăng nhập"
-                        data={paginatedStudents}
+                        data={eligibleStudents}
                         columns={studentColumns}
                         selectedIds={selectedIds}
                         onToggleSelect={toggleSelect}
-                        onToggleSelectAll={() => toggleSelectAll(paginatedStudents)}
+                        onToggleSelectAll={() => toggleSelectAll(eligibleStudents)}
                         onCreate={handleCreateAccounts}
                         creating={creating}
                         emptyMessage={<>Không có học sinh nào đủ điều kiện tạo tài khoản.<br /><span className="text-xs">(Cần có email và chưa có tài khoản)</span></>}
                     />
-                    {studentsTotalPages > 1 && (
+                    {totalStudents > studentsPageSize && (
                         <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                             <Pagination
                                 currentPage={studentsPage}
-                                totalPages={studentsTotalPages}
+                                totalPages={Math.ceil(totalStudents / studentsPageSize)}
                                 onPageChange={setStudentsPage}
                                 pageSize={studentsPageSize}
                                 onPageSizeChange={setStudentsPageSize}
-                                totalItems={eligibleStudents.length}
+                                totalItems={totalStudents}
                             />
                         </div>
                     )}
@@ -535,24 +526,24 @@ const AccountManagement = () => {
                     <AccountCreationTable
                         title="Giáo viên chưa có tài khoản"
                         subtitle="Chọn giáo viên để tạo tài khoản đăng nhập"
-                        data={paginatedTeachers}
+                        data={eligibleTeachers}
                         columns={teacherColumns}
                         selectedIds={selectedIds}
                         onToggleSelect={toggleSelect}
-                        onToggleSelectAll={() => toggleSelectAll(paginatedTeachers)}
+                        onToggleSelectAll={() => toggleSelectAll(eligibleTeachers)}
                         onCreate={handleCreateAccounts}
                         creating={creating}
                         emptyMessage={<>Không có giáo viên nào đủ điều kiện tạo tài khoản.<br /><span className="text-xs">(Cần có email và chưa có tài khoản)</span></>}
                     />
-                    {teachersTotalPages > 1 && (
+                    {totalTeachers > teachersPageSize && (
                         <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                             <Pagination
                                 currentPage={teachersPage}
-                                totalPages={teachersTotalPages}
+                                totalPages={Math.ceil(totalTeachers / teachersPageSize)}
                                 onPageChange={setTeachersPage}
                                 pageSize={teachersPageSize}
                                 onPageSizeChange={setTeachersPageSize}
-                                totalItems={eligibleTeachers.length}
+                                totalItems={totalTeachers}
                             />
                         </div>
                     )}
@@ -562,25 +553,25 @@ const AccountManagement = () => {
                     <AccountCreationTable
                         title="Phụ huynh chưa có tài khoản"
                         subtitle="Chọn phụ huynh để tạo hoặc liên kết tài khoản"
-                        data={paginatedGuardians}
+                        data={eligibleGuardians}
                         columns={guardianColumns}
                         selectedIds={selectedIds}
                         onToggleSelect={toggleSelect}
-                        onToggleSelectAll={() => toggleSelectAll(paginatedGuardians)}
+                        onToggleSelectAll={() => toggleSelectAll(eligibleGuardians)}
                         onCreate={handleCreateAccounts}
                         creating={creating}
                         createButtonLabel={`Tạo/Liên kết tài khoản (${selectedIds.size})`}
                         emptyMessage={<>Không có phụ huynh nào đủ điều kiện tạo tài khoản.<br /><span className="text-xs">(Cần có email và chưa có tài khoản)</span></>}
                     />
-                    {guardiansTotalPages > 1 && (
+                    {totalGuardians > guardiansPageSize && (
                         <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                             <Pagination
                                 currentPage={guardiansPage}
-                                totalPages={guardiansTotalPages}
+                                totalPages={Math.ceil(totalGuardians / guardiansPageSize)}
                                 onPageChange={setGuardiansPage}
                                 pageSize={guardiansPageSize}
                                 onPageSizeChange={setGuardiansPageSize}
-                                totalItems={eligibleGuardians.length}
+                                totalItems={totalGuardians}
                             />
                         </div>
                     )}

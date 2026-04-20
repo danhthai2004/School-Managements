@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import { systemService, type UserListDto } from "../../services/systemService";
 import { useCountdown } from "../../utils/countdownUtils";
 import { extractErrorMessage } from "../../utils/errorUtils";
-import { usePagination } from "../../hooks/usePagination";
 import Pagination from "../../components/common/Pagination";
+
 
 export default function PendingDeletePage() {
   const [users, setUsers] = useState<UserListDto[]>([]);
@@ -12,22 +12,20 @@ export default function PendingDeletePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const {
-    currentPage,
-    pageSize,
-    totalPages,
-    paginatedData: paginatedUsers,
-    goToPage,
-    setPageSize,
-    totalItems
-  } = usePagination(users, 50);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalItems, setTotalItems] = useState(0);
 
   const loadData = async () => {
     try {
-      const data = await systemService.listPendingDeleteUsers();
-      setUsers(data);
+      setLoading(true);
+      const data = await systemService.listPendingDeleteUsers(currentPage, pageSize);
+      setUsers(data.content);
+      setTotalItems(data.totalElements);
     } catch (e) {
       console.error(e);
+      setError("Không thể tải danh sách tài khoản chờ xóa");
     } finally {
       setLoading(false);
     }
@@ -35,7 +33,7 @@ export default function PendingDeletePage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [currentPage, pageSize]);
 
   const handleRestore = async (id: string) => {
     setError(null);
@@ -99,35 +97,35 @@ export default function PendingDeletePage() {
           <div className="p-8 text-center text-slate-500">Không có tài khoản nào đang chờ xóa</div>
         ) : (
           <>
-          <table className="w-full">
-            <thead className="bg-rose-50 border-b border-rose-200">
-              <tr>
-                <th className="text-left px-4 py-3 text-sm font-medium text-rose-700">Email</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-rose-700">Họ tên</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-rose-700">Vai trò</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-rose-700">Thời gian còn lại</th>
-                <th className="text-right px-4 py-3 text-sm font-medium text-rose-700">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {paginatedUsers.map((user) => (
-                <PendingUserRow
-                  key={user.id}
-                  user={user}
-                  onRestore={handleRestore}
-                  onPermanentDelete={handlePermanentDelete}
-                />
-              ))}
-            </tbody>
-          </table>
-          <Pagination 
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={totalItems}
-            pageSize={pageSize}
-            onPageChange={goToPage}
-            onPageSizeChange={setPageSize}
-          />
+            <table className="w-full">
+              <thead className="bg-rose-50 border-b border-rose-200">
+                <tr>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-rose-700">Email</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-rose-700">Họ tên</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-rose-700">Vai trò</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-rose-700">Thời gian còn lại</th>
+                  <th className="text-right px-4 py-3 text-sm font-medium text-rose-700">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {users.map((user) => (
+                  <PendingUserRow
+                    key={user.id}
+                    user={user}
+                    onRestore={handleRestore}
+                    onPermanentDelete={handlePermanentDelete}
+                  />
+                ))}
+              </tbody>
+            </table>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(totalItems / pageSize)}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           </>
         )}
       </div>

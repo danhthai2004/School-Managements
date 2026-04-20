@@ -47,12 +47,12 @@ const ClassDetailView = () => {
         setLoading(true);
         setError(null);
         try {
-            const [clsData, studentsData] = await Promise.all([
+            const [clsData, studentsResponse] = await Promise.all([
                 schoolAdminService.getClass(classId),
-                schoolAdminService.listStudents(classId)
+                schoolAdminService.listStudents({ classId, size: 1000 })
             ]);
             setClassData(clsData);
-            setStudents(studentsData);
+            setStudents(studentsResponse.content);
         } catch (err: any) {
             console.error("Failed to fetch class details", err);
             setError(err?.response?.data?.message || "Không thể tải thông tin lớp học.");

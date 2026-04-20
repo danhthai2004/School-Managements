@@ -8,7 +8,16 @@ import java.util.UUID;
 
 public interface SchoolRepository extends JpaRepository<School, UUID> {
     Optional<School> findByCodeIgnoreCase(String code);
+
     boolean existsByCodeIgnoreCase(String code);
+
     java.util.List<School> findByPendingDeleteAtIsNotNull();
+
     java.util.List<School> findByPendingDeleteAtIsNull();
+
+    org.springframework.data.domain.Page<School> findByPendingDeleteAtIsNotNull(
+            org.springframework.data.domain.Pageable pageable);
+
+    org.springframework.data.domain.Page<School> findByPendingDeleteAtIsNull(
+            org.springframework.data.domain.Pageable pageable);
 }

@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -36,13 +35,17 @@ public class TeacherController {
     }
 
     @GetMapping("/teachers/profiles")
-    public List<TeacherDto> listTeacherProfiles(
-            @AuthenticationPrincipal UserPrincipal principal) {
+    public org.springframework.data.domain.Page<TeacherDto> listTeacherProfiles(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String search) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return teacherManagementService.listTeachersProfile(admin.getSchool());
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        return teacherManagementService.listTeacherProfiles(admin.getSchool(), search, pageable);
     }
 
     @Transactional

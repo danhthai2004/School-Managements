@@ -48,9 +48,9 @@ export default function TeacherAssignment() {
 
     const fetchTeachers = async () => {
         try {
-            // Need a list of ALL teachers to assign, with profile details (subjectId)
-            const data = await schoolAdminService.listTeacherProfiles();
-            setTeachers(data);
+            // Fetch a large-ish page for the dropdowns
+            const data = await schoolAdminService.listTeacherProfiles(0, 1000);
+            setTeachers(data.content);
         } catch (error) {
             console.error(error);
         }
@@ -61,7 +61,7 @@ export default function TeacherAssignment() {
         try {
             const data = await schoolAdminService.listAssignments(classId);
             setAssignments(data);
-            
+
             const pending: Record<string, string> = {};
             data.forEach(a => {
                 pending[a.id] = a.teacherId || "";
@@ -123,7 +123,7 @@ export default function TeacherAssignment() {
                     assignmentId: a.id,
                     teacherId: pendingAssignments[a.id] ? pendingAssignments[a.id] : null
                 }));
-            
+
             if (updates.length > 0) {
                 await schoolAdminService.bulkAssignTeachers(updates);
                 showSuccess("Đã lưu tất cả thay đổi thành công!");
@@ -285,9 +285,8 @@ export default function TeacherAssignment() {
                                                 ...pendingAssignments,
                                                 [assign.id]: e.target.value
                                             })}
-                                            className={`w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
-                                                pendingAssignments[assign.id] ? 'border-gray-300' : 'border-orange-300 bg-orange-50'
-                                            }`}
+                                            className={`w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm ${pendingAssignments[assign.id] ? 'border-gray-300' : 'border-orange-300 bg-orange-50'
+                                                }`}
                                         >
                                             <option value="">-- Chưa gán --</option>
                                             {filterTeachersForSubject(assign.subjectId, assign.subjectName).map(t => (

@@ -37,8 +37,8 @@ function PromotionModal({ isOpen, onClose, onSuccess, classData, allClasses }: P
             fetchAcademicYears();
             if (classData) {
                 setLoadingStudents(true);
-                schoolAdminService.listStudents(classData.id).then(data => {
-                    setStudents(data.filter(s => s.status === 'ACTIVE'));
+                schoolAdminService.listStudents({ classId: classData.id, size: 1000 }).then(response => {
+                    setStudents(response.content.filter((s: StudentDto) => s.status === 'ACTIVE'));
                     setLoadingStudents(false);
                 }).catch(() => setLoadingStudents(false));
 

@@ -28,19 +28,21 @@ import com.schoolmanagement.backend.repo.student.GuardianRepository;
 import com.schoolmanagement.backend.repo.student.StudentRepository;
 import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
 import com.schoolmanagement.backend.service.admin.SemesterService;
-import com.schoolmanagement.backend.util.StudentSortUtils;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.*;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -241,46 +243,86 @@ public class StudentManagementService {
     }
 
     @Transactional(readOnly = true)
-    public List<StudentDto> listStudents(School school, UUID classId) {
-        // 1. Fetch academic year ONCE (not per-student)
-        AcademicYear currentYear = semesterService.getActiveAcademicYearSafe(school);
+    public com.schoolmanagement.backend.dto.student.StudentPageResponse listStudents(
+            School school, UUID classId, int page, int size,
+            String search, Integer grade, String status,
+            String sortBy, String sortDir) {
 
-        List<Student> studentList;
-        if (classId != null) {
-            ClassRoom classRoom = classRooms.findById(classId)
-                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học"));
+        AcademicYear currentYear = semesterService.getActiveAcademicYearSafe(school.getId());
+        Sort.Direction direction = "desc".equalsIgnoreCase(sortDir) ? Sort.Direction.DESC : Sort.Direction.ASC;
 
-            if (!classRoom.getSchool().getId().equals(school.getId())) {
-                throw new ApiException(HttpStatus.FORBIDDEN, "Lớp học không thuộc trường này");
+        // Map FE sort keys to DB field names
+        String sortField = sortBy;
+        if ("currentClassName".equals(sortBy))
+            sortField = "fullName"; // Fallback for related field
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortField));
+
+        Specification<Student> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("school").get("id"), school.getId()));
+
+            if (search != null && !search.isBlank()) {
+                String pattern = "%" + search.toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("fullName")), pattern),
+                        cb.like(cb.lower(root.get("studentCode")), pattern)));
             }
 
-            studentList = enrollments.findAllByClassRoom(classRoom).stream()
-                    .map(ClassEnrollment::getStudent)
-                    .toList();
-        } else {
-            studentList = students.findAllBySchoolOrderByFullNameAsc(school);
-        }
+            if (status != null && !status.isBlank()) {
+                try {
+                    predicates.add(cb.equal(root.get("status"), StudentStatus.valueOf(status)));
+                } catch (Exception ignored) {
+                }
+            }
 
-        // 2. Batch-fetch ALL enrollments in 1 query (fixes N+1)
+            // Grade and ClassId filters require join with ClassEnrollment for currentYear
+            if (classId != null || grade != null) {
+                // We use a subquery to find students with an active enrollment matching these
+                // criteria
+                Subquery<UUID> subquery = query.subquery(UUID.class);
+                Root<ClassEnrollment> enrollmentRoot = subquery.from(ClassEnrollment.class);
+                subquery.select(enrollmentRoot.get("student").get("id"));
+
+                List<Predicate> subPredicates = new ArrayList<>();
+                subPredicates.add(cb.equal(enrollmentRoot.get("academicYear"), currentYear));
+
+                if (classId != null) {
+                    subPredicates.add(cb.equal(enrollmentRoot.get("classRoom").get("id"), classId));
+                }
+                if (grade != null) {
+                    subPredicates.add(cb.equal(enrollmentRoot.get("classRoom").get("grade"), grade));
+                }
+
+                subquery.where(subPredicates.toArray(new Predicate[0]));
+                predicates.add(root.get("id").in(subquery));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<Student> studentPage = students.findAll(spec, pageable);
+
+        // 2. Batch-fetch enrollments ONLY for current page (fixes N+1)
         Map<UUID, ClassEnrollment> enrollmentMap = new HashMap<>();
-        if (currentYear != null && !studentList.isEmpty()) {
-            List<ClassEnrollment> allEnrollments = enrollments.findAllByStudentInAndAcademicYear(studentList,
-                    currentYear);
-            for (ClassEnrollment e : allEnrollments) {
-                // Keep only the latest enrollment per student
+        if (currentYear != null && !studentPage.isEmpty()) {
+            List<ClassEnrollment> pageEnrollments = enrollments.findAllByStudentInAndAcademicYear(
+                    studentPage.getContent(), currentYear);
+            for (ClassEnrollment e : pageEnrollments) {
                 enrollmentMap.putIfAbsent(e.getStudent().getId(), e);
             }
         }
 
-        // 3. Map to DTOs and sort by Vietnamese name
-        List<StudentDto> studentDtos = new ArrayList<>(studentList.stream()
+        List<StudentDto> content = studentPage.getContent().stream()
                 .map(s -> toStudentDtoFast(s, enrollmentMap.get(s.getId())))
-                .toList());
+                .collect(Collectors.toList());
 
-        studentDtos.sort((a, b) -> StudentSortUtils.vietnameseNameComparator()
-                .compare(a.fullName(), b.fullName()));
-
-        return studentDtos;
+        return new com.schoolmanagement.backend.dto.student.StudentPageResponse(
+                content,
+                studentPage.getNumber(),
+                studentPage.getSize(),
+                studentPage.getTotalElements(),
+                studentPage.getTotalPages());
     }
 
     @Transactional(readOnly = true)
@@ -339,58 +381,13 @@ public class StudentManagementService {
         }
     }
 
-    // @Transactional - REMOVED to allow partial success (each delete is its own
-    // transaction)
+    /**
+     * Delete multiple students in a single high-performance batch operation.
+     */
     public com.schoolmanagement.backend.dto.admin.BulkDeleteResponse deleteStudents(School school,
             com.schoolmanagement.backend.dto.admin.BulkDeleteRequest request) {
-        log.info("Starting bulk delete for {} students", request.ids().size());
-
-        int deleted = 0;
-        int failed = 0;
-        List<String> errors = new ArrayList<>();
-
-        for (UUID id : request.ids()) {
-            Student student = null;
-            try {
-                // Ensure student belongs to school first
-                student = students.findById(id)
-                        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
-                if (!student.getSchool().getId().equals(school.getId())) {
-                    throw new ApiException(HttpStatus.FORBIDDEN, "Học sinh không thuộc trường này");
-                }
-
-                if (student.getUser() != null) {
-                    // Automatically delete account if exists
-                    try {
-                        studentAccountService.deleteAccountForStudent(school, student.getId());
-                    } catch (Exception e) {
-                        log.warn("Failed to delete account for student {}: {}", id, e.getMessage());
-                        // Continue to try deleting student, or maybe throw?
-                        // If account deletion fails, student deletion will likely fail too due to FK.
-                        throw new ApiException(HttpStatus.BAD_REQUEST,
-                                "Không thể xóa tài khoản của học sinh: " + e.getMessage());
-                    }
-                }
-
-                // Call helper for isolated transaction deletion
-                bulkDeleteHelper.deleteSingleStudent(id);
-                deleted++;
-            } catch (ApiException e) {
-                failed++;
-                errors.add(e.getMessage());
-            } catch (org.springframework.dao.DataIntegrityViolationException e) {
-                failed++;
-                String name = (student != null) ? student.getFullName() : "ID " + id;
-                errors.add("Không thể xóa học sinh (" + name + ") do dữ liệu liên quan.");
-                log.error("Data integrity violation deleting student {}", id, e);
-            } catch (Exception e) {
-                failed++;
-                errors.add("Lỗi hệ thống: " + e.getMessage());
-                log.error("Error deleting student {}", id, e);
-            }
-        }
-
-        return new com.schoolmanagement.backend.dto.admin.BulkDeleteResponse(deleted, failed, errors);
+        log.info("Processing bulk delete for {} students using batch optimization", request.ids().size());
+        return bulkDeleteHelper.deleteBatchStudents(school, request.ids());
     }
 
     @Transactional

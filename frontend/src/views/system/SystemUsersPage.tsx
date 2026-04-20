@@ -13,7 +13,6 @@ import {
   SchoolIcon,
   ClockIcon,
 } from "../../components/layout/SystemIcons";
-import { usePagination } from "../../hooks/usePagination";
 import Pagination from "../../components/common/Pagination";
 
 export default function SystemUsersPage() {
@@ -28,29 +27,27 @@ export default function SystemUsersPage() {
   const [schoolFilter, setSchoolFilter] = useState<string>("");
   const [enabledFilter, setEnabledFilter] = useState<string>("");
 
-  const {
-    currentPage,
-    pageSize,
-    totalPages,
-    paginatedData: paginatedUsers,
-    goToPage,
-    setPageSize,
-    totalItems
-  } = usePagination(users, 50);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalItems, setTotalItems] = useState(0);
 
   const loadData = async () => {
     try {
+      setLoading(true);
       const [usersData, schoolsData] = await Promise.all([
         systemService.listUsers({
           role: roleFilter || undefined,
           schoolId: schoolFilter || undefined,
           enabled: enabledFilter === "" ? undefined : enabledFilter === "true",
           pendingDelete: false,
+          page: currentPage,
+          size: pageSize,
         }),
-        systemService.listSchools(),
+        systemService.listSchools(0, 1000), // Get all schools for filter
       ]);
-      setUsers(usersData);
-      setSchools(schoolsData);
+      setUsers(usersData.content);
+      setTotalItems(usersData.totalElements);
+      setSchools(schoolsData.content);
     } catch (e) {
       console.error(e);
     } finally {
@@ -60,6 +57,11 @@ export default function SystemUsersPage() {
 
   useEffect(() => {
     loadData();
+  }, [roleFilter, schoolFilter, enabledFilter, currentPage, pageSize]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(0);
   }, [roleFilter, schoolFilter, enabledFilter]);
 
   const handleEnable = async (id: string) => {
@@ -215,7 +217,7 @@ export default function SystemUsersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {paginatedUsers.map((user) => (
+                {users.map((user) => (
                   <tr key={user.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-6 py-4">
                       <div>
@@ -297,12 +299,12 @@ export default function SystemUsersPage() {
                 ))}
               </tbody>
             </table>
-            <Pagination 
+            <Pagination
               currentPage={currentPage}
-              totalPages={totalPages}
+              totalPages={Math.ceil(totalItems / pageSize)}
               totalItems={totalItems}
               pageSize={pageSize}
-              onPageChange={goToPage}
+              onPageChange={setCurrentPage}
               onPageSizeChange={setPageSize}
             />
           </div>

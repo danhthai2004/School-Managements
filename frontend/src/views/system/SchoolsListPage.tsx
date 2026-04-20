@@ -9,7 +9,6 @@ import {
 import { extractErrorMessage } from "../../utils/errorUtils";
 import { SchoolIcon, PlusIcon, ArrowRightIcon } from "../../components/layout/SystemIcons";
 import { X as XIcon } from "lucide-react";
-import { usePagination } from "../../hooks/usePagination";
 import Pagination from "../../components/common/Pagination";
 
 export default function SchoolsListPage() {
@@ -33,20 +32,16 @@ export default function SchoolsListPage() {
   const [schoolName, setSchoolName] = useState("");
   const [address, setAddress] = useState("");
 
-  const {
-    currentPage,
-    pageSize,
-    totalPages,
-    paginatedData: paginatedSchools,
-    goToPage,
-    setPageSize,
-    totalItems
-  } = usePagination(schools, 50);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalItems, setTotalItems] = useState(0);
 
   const loadData = async () => {
     try {
-      const data = await systemService.listSchools();
-      setSchools(data);
+      setLoading(true);
+      const data = await systemService.listSchools(currentPage, pageSize);
+      setSchools(data.content);
+      setTotalItems(data.totalElements);
     } catch (e) {
       console.error(e);
     } finally {
@@ -65,6 +60,9 @@ export default function SchoolsListPage() {
 
   useEffect(() => {
     loadData();
+  }, [currentPage, pageSize]);
+
+  useEffect(() => {
     loadProvinces();
   }, []);
 
@@ -291,41 +289,41 @@ export default function SchoolsListPage() {
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
-            {paginatedSchools.map((school) => (
+            {schools.map((school) => (
               <Link
-              key={school.id}
-              to={`/system/schools/${school.id}`}
-              className="block bg-white rounded-2xl border border-slate-200 p-6 hover:border-blue-300 hover:shadow-md transition-all group"
-            >
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-blue-50 grid place-items-center text-blue-600 group-hover:scale-110 transition-transform">
-                  <SchoolIcon size={24} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-slate-900 truncate">{school.name}</h3>
+                key={school.id}
+                to={`/system/schools/${school.id}`}
+                className="block bg-white rounded-2xl border border-slate-200 p-6 hover:border-blue-300 hover:shadow-md transition-all group"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-blue-50 grid place-items-center text-blue-600 group-hover:scale-110 transition-transform">
+                    <SchoolIcon size={24} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-slate-900 truncate">{school.name}</h3>
 
-                  {school.provinceName && (
-                    <div className="mt-2 flex items-center gap-1.5">
-                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-xs font-medium text-slate-600">
-                        {school.provinceName}
-                      </span>
-                    </div>
-                  )}
+                    {school.provinceName && (
+                      <div className="mt-2 flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-xs font-medium text-slate-600">
+                          {school.provinceName}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-sm">
-                <span className="text-slate-500 group-hover:text-blue-600 transition-colors">Xem chi tiết</span>
-                <ArrowRightIcon size={16} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
-              </div>
-            </Link>
-          ))}
+                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-sm">
+                  <span className="text-slate-500 group-hover:text-blue-600 transition-colors">Xem chi tiết</span>
+                  <ArrowRightIcon size={16} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                </div>
+              </Link>
+            ))}
           </div>
-          <Pagination 
+          <Pagination
             currentPage={currentPage}
-            totalPages={totalPages}
+            totalPages={Math.ceil(totalItems / pageSize)}
             totalItems={totalItems}
             pageSize={pageSize}
-            onPageChange={goToPage}
+            onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}
           />
         </div>
