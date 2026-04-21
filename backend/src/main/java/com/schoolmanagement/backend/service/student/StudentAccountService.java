@@ -83,8 +83,23 @@ public class StudentAccountService {
      */
     @Transactional(readOnly = true)
     public Page<StudentDto> getStudentsEligibleForAccount(School school, Pageable pageable) {
-        return students.findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(school, StudentStatus.ACTIVE, pageable)
-                .map(this::toStudentDto);
+        Page<Student> studentPage = students.findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(school,
+                StudentStatus.ACTIVE, pageable);
+        List<Student> studentList = studentPage.getContent();
+
+        AcademicYear currentYear = semesterService.getActiveAcademicYear(school);
+        java.util.Map<UUID, ClassEnrollment> enrollmentMap = new java.util.HashMap<>();
+
+        if (!studentList.isEmpty()) {
+            List<ClassEnrollment> enrollmentList = enrollments.findAllByStudentInAndAcademicYear(studentList,
+                    currentYear);
+            // Latest enrollment is first due to ORDER BY in repository
+            for (ClassEnrollment ce : enrollmentList) {
+                enrollmentMap.putIfAbsent(ce.getStudent().getId(), ce);
+            }
+        }
+
+        return studentPage.map(s -> toStudentDto(s, enrollmentMap.get(s.getId())));
     }
 
     /**
@@ -208,38 +223,48 @@ public class StudentAccountService {
 
     @Transactional(readOnly = true)
     public Page<GuardianDto> getGuardiansEligibleForAccount(School school, Pageable pageable) {
-        AcademicYear currentAcademicYear = semesterService.getActiveAcademicYear(school);
+        AcademicYear currentYear = semesterService.getActiveAcademicYear(school);
+        Page<Guardian> guardianPage = guardians.findGuardiansWithoutAccount(school, pageable);
+        List<Guardian> guardianList = guardianPage.getContent();
 
-        return guardians.findGuardiansWithoutAccount(school, pageable)
-                .map(g -> {
-                    // Try to find one student for this guardian to display info
-                    // We pick the first one for simplicity in the list view (Many-to-One Refactor)
-                    // Updated to use g.getStudents() instead of studentGuardianRepo
-                    List<Student> students = g.getStudents();
-                    String studentName = students.isEmpty() ? "N/A" : students.get(0).getFullName();
-                    // Relationship is no longer stored in link table. Hardcode or generic?
-                    // In Many-to-One, guardian is parent.
-                    String relationship = g.getRelationship();
+        // Bulk fetch enrollments for all students of these guardians
+        java.util.Map<UUID, ClassEnrollment> enrollmentMap = new java.util.HashMap<>();
+        if (!guardianList.isEmpty()) {
+            List<Student> allStudents = guardianList.stream()
+                    .flatMap(g -> g.getStudents().stream())
+                    .toList();
 
-                    Student student = students.isEmpty() ? null : students.get(0);
-                    String className = "N/A";
+            if (!allStudents.isEmpty()) {
+                List<ClassEnrollment> enrollmentList = enrollments.findAllByStudentInAndAcademicYear(allStudents,
+                        currentYear);
+                for (ClassEnrollment ce : enrollmentList) {
+                    enrollmentMap.putIfAbsent(ce.getStudent().getId(), ce);
+                }
+            }
+        }
 
-                    if (student != null) {
-                        className = enrollments
-                                .findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(student, currentAcademicYear)
-                                .map(e -> e.getClassRoom().getName())
-                                .orElse("N/A");
-                    }
+        return guardianPage.map(g -> {
+            List<Student> guardianStudents = g.getStudents();
+            String studentName = guardianStudents.isEmpty() ? "N/A" : guardianStudents.get(0).getFullName();
+            String className = "N/A";
 
-                    return new GuardianDto(
-                            g.getId(),
-                            g.getFullName(),
-                            g.getEmail(),
-                            g.getPhone(),
-                            relationship,
-                            studentName,
-                            className);
-                });
+            if (!guardianStudents.isEmpty()) {
+                Student firstStudent = guardianStudents.get(0);
+                ClassEnrollment ce = enrollmentMap.get(firstStudent.getId());
+                if (ce != null) {
+                    className = ce.getClassRoom().getName();
+                }
+            }
+
+            return new GuardianDto(
+                    g.getId(),
+                    g.getFullName(),
+                    g.getEmail(),
+                    g.getPhone(),
+                    g.getRelationship(),
+                    studentName,
+                    className);
+        });
     }
 
     // @Transactional - Removed
@@ -339,7 +364,7 @@ public class StudentAccountService {
         return user;
     }
 
-    private StudentDto toStudentDto(Student student) {
+    private StudentDto toStudentDto(Student student, ClassEnrollment enrollment) {
         StudentGuardianDto guardianDto = null;
         if (student.getGuardian() != null) {
             guardianDto = new StudentGuardianDto(
@@ -350,17 +375,12 @@ public class StudentAccountService {
                     student.getGuardian().getRelationship());
         }
 
-        // Get current class enrollment
         String currentClassName = null;
         UUID currentClassId = null;
-        AcademicYear currentYear = semesterService.getActiveAcademicYear(student.getSchool());
 
-        Optional<ClassEnrollment> currentEnrollment = enrollments.findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(
-                student,
-                currentYear);
-        if (currentEnrollment.isPresent()) {
-            currentClassName = currentEnrollment.get().getClassRoom().getName();
-            currentClassId = currentEnrollment.get().getClassRoom().getId();
+        if (enrollment != null) {
+            currentClassName = enrollment.getClassRoom().getName();
+            currentClassId = enrollment.getClassRoom().getId();
         }
 
         return new StudentDto(
@@ -381,4 +401,13 @@ public class StudentAccountService {
                 student.getUser() != null,
                 guardianDto);
     }
+
+    private StudentDto toStudentDto(Student student) {
+        AcademicYear currentYear = semesterService.getActiveAcademicYear(student.getSchool());
+        ClassEnrollment enrollment = enrollments
+                .findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(student, currentYear)
+                .orElse(null);
+        return toStudentDto(student, enrollment);
+    }
+
 }

@@ -31,6 +31,15 @@ export type SaveAttendanceRequest = {
     records: AttendanceRecord[];
 };
 
+export type SaveAttendanceResultDto = {
+    savedCount: number;
+    skippedStudents: {
+        studentId: string;
+        reason: string;
+    }[];
+};
+
+
 export type StudentDailyAttendance = {
     studentId: string;
     studentName: string;
@@ -91,8 +100,9 @@ export const attendanceService = {
     },
 
     // Save attendance for a specific slot
-    saveAttendance: async (request: SaveAttendanceRequest): Promise<void> => {
-        await api.post("/teacher/attendance/slot", request);
+    saveAttendance: async (request: SaveAttendanceRequest): Promise<SaveAttendanceResultDto> => {
+        const res = await api.post<SaveAttendanceResultDto>("/teacher/attendance/slot", request);
+        return res.data;
     },
 
     // Get daily attendance summary (Homeroom)

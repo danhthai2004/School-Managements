@@ -145,11 +145,11 @@ public class TeacherPortalController {
     }
 
     @PostMapping("/attendance/slot")
-    public ResponseEntity<Void> saveAttendance(
+    public ResponseEntity<SaveAttendanceResultDto> saveAttendance(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody SaveAttendanceRequest request) {
-        attendanceService.saveAttendance(userDetails.getUsername(), request);
-        return ResponseEntity.ok().build();
+        SaveAttendanceResultDto result = attendanceService.saveAttendance(userDetails.getUsername(), request);
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/attendance/daily-summary")

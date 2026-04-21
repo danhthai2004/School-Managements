@@ -14,6 +14,7 @@ import com.schoolmanagement.backend.repo.attendance.AttendanceRepository;
 import com.schoolmanagement.backend.domain.chat.ChatIntent;
 
 import com.schoolmanagement.backend.dto.chat.ChatContext;
+import com.schoolmanagement.backend.service.admin.SemesterService;
 
 import org.springframework.stereotype.Component;
 
@@ -36,15 +37,18 @@ public class HomeroomHandler implements ChatHandler {
     private final ClassRoomRepository classRoomRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final AttendanceRepository attendanceRepository;
+    private final SemesterService semesterService;
 
     public HomeroomHandler(UserRepository userRepository,
             ClassRoomRepository classRoomRepository,
             ClassEnrollmentRepository classEnrollmentRepository,
-            AttendanceRepository attendanceRepository) {
+            AttendanceRepository attendanceRepository,
+            SemesterService semesterService) {
         this.userRepository = userRepository;
         this.classRoomRepository = classRoomRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.attendanceRepository = attendanceRepository;
+        this.semesterService = semesterService;
     }
 
     @Override
@@ -59,7 +63,7 @@ public class HomeroomHandler implements ChatHandler {
         }
 
         // Tìm lớp chủ nhiệm
-        ClassRoom classRoom = classRoomRepository.findByHomeroomTeacher(user).orElse(null);
+        ClassRoom classRoom = findActiveHomeroom(user).orElse(null);
         if (classRoom == null) {
             return ChatContext.denied(ChatIntent.ASK_HOMEROOM_CLASS,
                     "Bạn hiện không chủ nhiệm lớp nào.");
@@ -113,5 +117,22 @@ public class HomeroomHandler implements ChatHandler {
         data.put("hasAttendanceToday", !attendances.isEmpty());
 
         return ChatContext.ok(ChatIntent.ASK_HOMEROOM_CLASS, data);
+    }
+
+    private Optional<ClassRoom> findActiveHomeroom(User teacher) {
+        if (teacher == null)
+            return Optional.empty();
+
+        if (teacher.getSchool() != null) {
+            com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = semesterService
+                    .getActiveAcademicYearSafe(teacher.getSchool());
+            if (currentAcademicYear != null) {
+                Optional<ClassRoom> found = classRoomRepository.findByHomeroomTeacher_IdAndAcademicYear(teacher.getId(),
+                        currentAcademicYear);
+                if (found.isPresent())
+                    return found;
+            }
+        }
+        return classRoomRepository.findTopByHomeroomTeacher_IdOrderByAcademicYear_StartDateDesc(teacher.getId());
     }
 }

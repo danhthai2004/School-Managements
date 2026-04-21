@@ -13,4 +13,6 @@ public class AttendanceSummaryDto {
     private int lateDays;
     private double attendanceRate;
     private List<AttendanceRecordDto> records;
+    private java.util.Map<String, java.util.Map<Integer, AttendanceRecordDto>> attendanceGrid;
+    private List<com.schoolmanagement.backend.dto.timetable.TimetableSlotDto> classroomTimetable;
 }

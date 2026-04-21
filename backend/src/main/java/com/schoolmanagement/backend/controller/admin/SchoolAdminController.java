@@ -21,6 +21,7 @@ import com.schoolmanagement.backend.service.notification.NotificationService;
 import com.schoolmanagement.backend.service.student.StudentExportService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -117,21 +118,29 @@ public class SchoolAdminController {
     }
 
     @GetMapping("/users")
-    public List<UserDto> listUsers(@AuthenticationPrincipal UserPrincipal principal) {
+    public org.springframework.data.domain.Page<UserDto> listUsers(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return schoolAdminService.listUsersInSchool(admin.getSchool());
+        return schoolAdminService.listUsersInSchool(admin.getSchool(),
+                org.springframework.data.domain.PageRequest.of(page, size));
     }
 
     @GetMapping("/teachers")
-    public List<UserDto> listTeachers(@AuthenticationPrincipal UserPrincipal principal) {
+    public org.springframework.data.domain.Page<UserDto> listTeachers(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        return schoolAdminService.listTeachersInSchool(admin.getSchool());
+        return schoolAdminService.listTeachersInSchool(admin.getSchool(),
+                org.springframework.data.domain.PageRequest.of(page, size));
     }
 
     /**
@@ -366,7 +375,7 @@ public class SchoolAdminController {
      */
     @Transactional
     @PostMapping("/attendance/slot")
-    public void saveAttendance(
+    public ResponseEntity<com.schoolmanagement.backend.dto.attendance.SaveAttendanceResultDto> saveAttendance(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam UUID classRoomId,
             @RequestBody com.schoolmanagement.backend.dto.attendance.SaveAttendanceRequest request) {
@@ -374,7 +383,7 @@ public class SchoolAdminController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        attendanceService.saveAttendanceAsAdmin(admin.getSchool(), classRoomId, request);
+        return ResponseEntity.ok(attendanceService.saveAttendanceAsAdmin(admin.getSchool(), classRoomId, request));
     }
 
     /**

@@ -89,21 +89,16 @@ const AccountManagement = () => {
     const fetchUsers = async () => {
         try {
             setLoading(true);
-            const data = await schoolAdminService.listUsers();
-            // Since listUsers hasn't been updated to return PageResponse yet, we handle both
-            if (Array.isArray(data)) {
-                setUsers(data);
-                setTotalUsers(data.length);
-            } else {
-                setUsers((data as any).content);
-                setTotalUsers((data as any).totalElements);
-            }
+            const data = await schoolAdminService.listUsers(usersPage, usersPageSize);
+            setUsers(data.content);
+            setTotalUsers(data.totalElements);
         } catch (err: any) {
             setError(err?.response?.data?.message || "Không thể tải danh sách người dùng.");
         } finally {
             setLoading(false);
         }
     };
+
 
     const fetchEligibleStudents = async () => {
         try {

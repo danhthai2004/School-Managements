@@ -20,6 +20,7 @@ const SemesterConfigPage: React.FC = () => {
     const [semesters, setSemesters] = useState<SemesterDto[]>([]);
     const [selectedYearId, setSelectedYearId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
 
     // Modal states
     const [showYearModal, setShowYearModal] = useState(false);
@@ -77,6 +78,7 @@ const SemesterConfigPage: React.FC = () => {
             return;
         }
         try {
+            setIsSaving(true);
             await semesterService.createAcademicYear(yearForm);
             toast.success('Tạo năm học thành công! Học kỳ 1 và Học kỳ 2 đã được tự động tạo.');
             setShowYearModal(false);
@@ -85,6 +87,8 @@ const SemesterConfigPage: React.FC = () => {
             refreshSemesters();
         } catch (err: any) {
             toast.error(err?.response?.data?.message || 'Lỗi tạo năm học');
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -95,6 +99,7 @@ const SemesterConfigPage: React.FC = () => {
             return;
         }
         try {
+            setIsSaving(true);
             await semesterService.updateAcademicYear(editingYear.id, yearForm);
             toast.success('Cập nhật năm học thành công!');
             setShowYearModal(false);
@@ -102,6 +107,8 @@ const SemesterConfigPage: React.FC = () => {
             loadData();
         } catch (err: any) {
             toast.error(err?.response?.data?.message || 'Lỗi cập nhật năm học');
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -164,6 +171,7 @@ const SemesterConfigPage: React.FC = () => {
     const handleUpdateSemester = async () => {
         if (!editingSemester) return;
         try {
+            setIsSaving(true);
             await semesterService.updateSemester(editingSemester.id, semesterForm);
             toast.success('Cập nhật học kỳ thành công!');
             setShowSemesterModal(false);
@@ -172,6 +180,8 @@ const SemesterConfigPage: React.FC = () => {
             refreshSemesters();
         } catch (err: any) {
             toast.error(err?.response?.data?.message || 'Lỗi cập nhật học kỳ');
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -574,10 +584,23 @@ const SemesterConfigPage: React.FC = () => {
                                 </button>
                                 <button
                                     onClick={editingYear ? handleUpdateYear : handleCreateYear}
-                                    className="flex-1 px-5 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all flex items-center justify-center gap-2"
+                                    disabled={isSaving}
+                                    className="flex-1 px-5 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
-                                    <CheckCircle className="w-5 h-5" />
-                                    {editingYear ? 'Lưu thay đổi' : 'Tạo mới'}
+                                    {isSaving ? (
+                                        <>
+                                            <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span>Đang lưu...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle className="w-5 h-5" />
+                                            {editingYear ? 'Lưu thay đổi' : 'Tạo mới'}
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </div>
@@ -736,10 +759,23 @@ const SemesterConfigPage: React.FC = () => {
                                 </button>
                                 <button
                                     onClick={handleUpdateSemester}
-                                    className="flex-1 px-5 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all flex items-center justify-center gap-2"
+                                    disabled={isSaving}
+                                    className="flex-1 px-5 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
-                                    <CheckCircle className="w-5 h-5" />
-                                    Lưu thay đổi
+                                    {isSaving ? (
+                                        <>
+                                            <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span>Đang lưu...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle className="w-5 h-5" />
+                                            Lưu thay đổi
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </div>

@@ -16,6 +16,9 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificationExecutor<User> {
         Optional<User> findByEmailIgnoreCase(String email);
 
+        @Query("SELECT u FROM User u LEFT JOIN FETCH u.school WHERE LOWER(u.email) = LOWER(:email)")
+        Optional<User> findByEmailIgnoreCaseWithSchool(@Param("email") String email);
+
         boolean existsByEmailIgnoreCase(String email);
 
         List<User> findBySchoolId(UUID schoolId);
@@ -23,6 +26,12 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
         List<User> findByRole(Role role);
 
         List<User> findBySchoolIdAndRole(UUID schoolId, Role role);
+
+        org.springframework.data.domain.Page<User> findBySchoolIdAndRole(UUID schoolId, Role role,
+                        org.springframework.data.domain.Pageable pageable);
+
+        org.springframework.data.domain.Page<User> findBySchoolIdAndRoleNot(UUID schoolId, Role role,
+                        org.springframework.data.domain.Pageable pageable);
 
         List<User> findByPendingDeleteAtIsNotNull();
 
