@@ -163,7 +163,7 @@ export default function CombinationManagement() {
                 {/* Header title removed to avoid duplication when embedded */}
                 <button
                     onClick={() => { resetForm(); setIsModalOpen(true); }}
-                    className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium hover:shadow-lg transition-all"
+                    className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium hover:shadow-lg hover:shadow-blue-500/25 transition-all shadow-sm"
                 >
                     <Plus className="w-5 h-5" />
                     Tạo Tổ hợp mới
@@ -406,19 +406,26 @@ export default function CombinationManagement() {
                         <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 flex-none">
                             <button
                                 onClick={() => setIsModalOpen(false)}
-                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-white font-medium"
+                                className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                             >
                                 Hủy bỏ
                             </button>
                             <button
                                 onClick={handleSubmit}
                                 disabled={submitting || formData.electiveSubjectIds.length !== 4 || formData.specializedSubjectIds.length !== 3}
-                                className={`px-6 py-2 rounded-lg text-white font-medium flex items-center gap-2 ${submitting || formData.electiveSubjectIds.length !== 4 || formData.specializedSubjectIds.length !== 3
-                                    ? 'bg-blue-300 cursor-not-allowed'
-                                    : 'bg-gradient-to-r from-blue-600 to-blue-500 hover:shadow-lg'
-                                    }`}
+                                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-medium hover:shadow-lg hover:shadow-blue-500/25 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                             >
-                                {submitting ? 'Đang xử lý...' : (editingId ? 'Cập nhật' : 'Tạo Tổ hợp')}
+                                {submitting ? (
+                                    <>
+                                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span>Đang lưu...</span>
+                                    </>
+                                ) : (
+                                    <span>{editingId ? 'Cập nhật' : 'Tạo Tổ hợp'}</span>
+                                )}
                             </button>
                         </div>
                     </div>

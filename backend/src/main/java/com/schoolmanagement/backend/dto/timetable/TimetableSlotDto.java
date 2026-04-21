@@ -8,8 +8,8 @@ import lombok.Data;
 public class TimetableSlotDto {
     private String id;
     private int dayOfWeek; // 2-7 (Mon-Sat, Vietnamese convention)
-    private int period;
+    private int slotIndex;
     private String subjectName;
     private String teacherName;
-    private String room;
+    private String roomName;
 }

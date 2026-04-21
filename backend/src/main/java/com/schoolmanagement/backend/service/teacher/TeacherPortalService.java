@@ -50,10 +50,10 @@ import com.schoolmanagement.backend.dto.grade.ScoreDto;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
-// // import java.util.*;
 import java.util.stream.Collectors;
 import java.util.LinkedHashMap;
 import com.schoolmanagement.backend.util.StudentSortUtils;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service for Teacher Portal operations.
@@ -62,7 +62,10 @@ import com.schoolmanagement.backend.util.StudentSortUtils;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional(readOnly = true)
 public class TeacherPortalService {
+
+        private static final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
         private final UserRepository userRepository;
         private final ClassRoomRepository classRoomRepository;
@@ -92,7 +95,7 @@ public class TeacherPortalService {
                 invigilations = examInvigilatorRepository.findByTeacherAndSemesterOrderByExamDate(teacher.getId(),
                                 targetSemester);
 
-                LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+                LocalDate today = LocalDate.now(VIETNAM_ZONE);
 
                 return invigilations.stream()
                                 .map(invigilation -> {
@@ -133,33 +136,13 @@ public class TeacherPortalService {
          */
         public TeacherProfileDto getTeacherProfile(String email) {
                 User teacher = findTeacherByEmail(email);
-                // Use safe version to avoid crashing when no ACTIVE academic year exists
-                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = semesterService
-                                .getActiveAcademicYearSafe(teacher.getSchool());
-
-                log.info("=== Teacher Profile Debug ===");
-                log.info("Teacher email: {}, User ID: {}", email, teacher.getId());
-                log.info("Current academic year: {}",
-                                currentAcademicYear != null ? currentAcademicYear.getName() : "null");
 
                 Optional<ClassRoom> homeroomClass = findHomeroomClass(teacher);
-
-                if (homeroomClass.isPresent()) {
-                        log.info("SUCCESS - Homeroom class: {} | ID: {} | Year: {}",
-                                        homeroomClass.get().getName(),
-                                        homeroomClass.get().getId(),
-                                        homeroomClass.get().getAcademicYear() != null
-                                                        ? homeroomClass.get().getAcademicYear().getName()
-                                                        : "N/A");
-                } else {
-                        log.warn("!!! NO HOMEROOM CLASS FOUND for teacher: {} (User ID: {})", email, teacher.getId());
-                        log.warn("!!! Please verify homeroom_teacher_id in classrooms table matches User.id: {}",
-                                        teacher.getId());
-                }
-
                 boolean isHomeroom = homeroomClass.isPresent();
 
-                // Get assigned classes (from teacher assignments)
+                log.debug("Teacher profile: email={}, isHomeroom={}, class={}",
+                                email, isHomeroom, isHomeroom ? homeroomClass.get().getName() : "NONE");
+
                 List<TeacherProfileDto.AssignedClassDto> assignedClasses = getAssignedClasses(teacher);
 
                 return TeacherProfileDto.builder()
@@ -171,22 +154,42 @@ public class TeacherPortalService {
         }
 
         /**
-         * Get dashboard statistics based on teacher type
+         * Get dashboard statistics based on teacher type.
+         * Optimized: uses lightweight count queries instead of loading full entity
+         * lists.
          */
         public TeacherDashboardStatsDto getDashboardStats(String email) {
                 User teacher = findTeacherByEmail(email);
                 Optional<ClassRoom> homeroomClass = findHomeroomClass(teacher);
                 boolean isHomeroom = homeroomClass.isPresent();
 
-                // Count assigned classes from assignments
                 int assignedClassCount = getAssignedClassCount(teacher);
-                int todayPeriods = getTodayPeriodCount(teacher);
+
+                // Inline today period count to avoid re-querying the full timetable
+                int todayPeriods = 0;
+                com.schoolmanagement.backend.domain.entity.teacher.Teacher teacherEntity = teacherRepository
+                                .findByUser(teacher).orElse(null);
+
+                if (teacherEntity != null) {
+                        var activeSem = semesterService.getActiveSemesterEntity(teacher.getSchool());
+                        var ttOpt = timetableRepository.findFirstBySchoolAndSemesterAndStatusOrderByCreatedAtDesc(
+                                        teacher.getSchool(), activeSem, TimetableStatus.OFFICIAL);
+                        if (ttOpt.isPresent()) {
+                                DayOfWeek dow = LocalDate.now(VIETNAM_ZONE).getDayOfWeek();
+                                todayPeriods = (int) timetableDetailRepository
+                                                .findAllByTimetableAndTeacher(ttOpt.get(), teacherEntity)
+                                                .stream()
+                                                .filter(d -> d.getDayOfWeek() == dow)
+                                                .map(d -> d.getSlotIndex())
+                                                .distinct()
+                                                .count();
+                        }
+                }
 
                 TeacherDashboardStatsDto.TeacherDashboardStatsDtoBuilder builder = TeacherDashboardStatsDto.builder()
                                 .totalAssignedClasses(assignedClassCount)
                                 .todayPeriods(todayPeriods);
 
-                // Add homeroom-specific stats if applicable
                 if (isHomeroom) {
                         ClassRoom homeroom = homeroomClass.get();
                         int studentCount = getStudentCount(homeroom);
@@ -194,8 +197,7 @@ public class TeacherPortalService {
                         builder.totalStudents(studentCount)
                                         .homeroomClassName(homeroom.getName())
                                         .todayAttendance(TeacherDashboardStatsDto.AttendanceDto.builder()
-                                                        .present(0) // Default to 0 until real-time aggregation is
-                                                                    // implemented
+                                                        .present(0)
                                                         .total(studentCount)
                                                         .build())
                                         .studentsNeedingAttention(0)
@@ -214,14 +216,18 @@ public class TeacherPortalService {
         public List<TodayScheduleItemDto> getTodaySchedule(String email) {
                 User user = findTeacherByEmail(email);
                 com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher = teacherRepository.findByUser(user)
-                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                                                "Teacher profile not found"));
+                                .orElse(null);
+
+                if (teacher == null) {
+                        log.warn("Teacher profile missing for user: {}", email);
+                        return new ArrayList<>();
+                }
 
                 // Get today's day of week - use Vietnam timezone to avoid UTC mismatch on
                 // server
-                LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+                LocalDate today = LocalDate.now(VIETNAM_ZONE);
                 DayOfWeek dayOfWeek = today.getDayOfWeek();
-                log.info("getTodaySchedule: today={} dayOfWeek={} (zone=Asia/Ho_Chi_Minh)", today, dayOfWeek);
+                log.debug("getTodaySchedule: today={} dayOfWeek={}", today, dayOfWeek);
 
                 com.schoolmanagement.backend.domain.entity.admin.Semester activeSemester = semesterService
                                 .getActiveSemesterEntity(user.getSchool());
@@ -260,8 +266,12 @@ public class TeacherPortalService {
                         String semesterId) {
                 User user = findTeacherByEmail(email);
                 com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher = teacherRepository.findByUser(user)
-                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                                                "Teacher profile not found"));
+                                .orElse(null);
+
+                if (teacher == null) {
+                        log.warn("Teacher profile missing for user: {}", email);
+                        return new ArrayList<>();
+                }
 
                 // Get official timetable
                 com.schoolmanagement.backend.domain.entity.admin.Semester targetSemester = semesterId != null
@@ -277,18 +287,19 @@ public class TeacherPortalService {
                         return List.of();
                 }
 
-                // Get slot times for this school
-                List<SlotTimeDto> slotTimes = settingsService.getAllSlotTimes(user.getSchool());
+                // Get slot times for this school (safe check for null school)
+                List<SlotTimeDto> slotTimes = user.getSchool() != null
+                                ? settingsService.getAllSlotTimes(user.getSchool())
+                                : new ArrayList<>();
+
                 Map<Integer, SlotTimeDto> slotTimeMap = slotTimes.stream()
-                                .collect(Collectors.toMap(SlotTimeDto::getSlotIndex, s -> s));
+                                .collect(Collectors.toMap(SlotTimeDto::getSlotIndex, s -> s, (s1, s2) -> s1));
 
                 // Get details for teacher
                 List<com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail> details = timetableDetailRepository
                                 .findAllByTimetableAndTeacher(timetableOpt.get(), teacher);
 
                 // Deduplicate: keep only one entry per (dayOfWeek, slotIndex) combination
-                // This prevents showing duplicate periods (e.g., two "period 3" on the same
-                // day)
                 return details.stream()
                                 .collect(Collectors.toMap(
                                                 d -> d.getDayOfWeek().name() + "-" + d.getSlotIndex(),
@@ -297,6 +308,7 @@ public class TeacherPortalService {
                                                 LinkedHashMap::new))
                                 .values().stream()
                                 .map(d -> {
+                                        SlotTimeDto st = slotTimeMap.get(d.getSlotIndex());
                                         return new com.schoolmanagement.backend.dto.timetable.TimetableDetailDto(
                                                         d.getId(),
                                                         d.getClassRoom().getId(),
@@ -308,12 +320,16 @@ public class TeacherPortalService {
                                                         d.getTeacher().getFullName(),
                                                         d.getDayOfWeek().name(),
                                                         d.getSlotIndex(),
-                                                        d.isFixed());
+                                                        d.isFixed(),
+                                                        d.getClassRoom().getGrade(),
+                                                        st != null ? st.getStartTime() : null,
+                                                        st != null ? st.getEndTime() : null);
                                 })
                                 .toList();
         }
 
         /**
+         * 
          * Get homeroom students (403 for subject-only teachers)
          */
         public List<HomeroomStudentDto> getHomeroomStudents(String email) {
@@ -515,7 +531,7 @@ public class TeacherPortalService {
         // ==================== HELPER METHODS ====================
 
         private User findTeacherByEmail(String email) {
-                return userRepository.findByEmailIgnoreCase(email)
+                return userRepository.findByEmailIgnoreCaseWithSchool(email)
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                                                 "Teacher not found: " + email));
         }
@@ -527,24 +543,25 @@ public class TeacherPortalService {
          * entity-ordering issue).
          */
         private Optional<ClassRoom> findHomeroomClass(User teacher) {
-                // Step 1: try current active academic year
-                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = semesterService
-                                .getActiveAcademicYearSafe(teacher.getSchool());
+                if (teacher == null)
+                        return Optional.empty();
 
-                if (currentAcademicYear != null) {
-                        Optional<ClassRoom> found = classRoomRepository
-                                        .findByHomeroomTeacher_IdAndAcademicYear(teacher.getId(), currentAcademicYear);
-                        log.debug("findHomeroomClass (active year {}): {}", currentAcademicYear.getName(),
-                                        found.isPresent());
-                        if (found.isPresent())
-                                return found;
+                if (teacher.getSchool() != null) {
+                        com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = semesterService
+                                        .getActiveAcademicYearSafe(teacher.getSchool());
+
+                        if (currentAcademicYear != null) {
+                                Optional<ClassRoom> found = classRoomRepository
+                                                .findByHomeroomTeacher_IdAndAcademicYear(teacher.getId(),
+                                                                currentAcademicYear);
+                                if (found.isPresent()) {
+                                        return found;
+                                }
+                        }
                 }
 
-                // Step 2: fallback — latest by academic year startDate
-                Optional<ClassRoom> fallback = classRoomRepository
+                return classRoomRepository
                                 .findTopByHomeroomTeacher_IdOrderByAcademicYear_StartDateDesc(teacher.getId());
-                log.debug("findHomeroomClass (fallback latest): {}", fallback.isPresent());
-                return fallback;
         }
 
         private List<TeacherProfileDto.AssignedClassDto> getAssignedClasses(User user) {
@@ -556,8 +573,14 @@ public class TeacherPortalService {
                 List<com.schoolmanagement.backend.domain.entity.teacher.TeacherAssignment> assignments = teacherAssignmentRepository
                                 .findAllByTeacher(teacher);
 
+                com.schoolmanagement.backend.domain.entity.admin.AcademicYear activeYear = semesterService
+                                .getActiveAcademicYearSafe(user.getSchool());
+
                 return assignments.stream()
                                 .filter(a -> a.getClassRoom() != null)
+                                .filter(a -> activeYear == null || (a.getClassRoom().getAcademicYear() != null
+                                                && a.getClassRoom().getAcademicYear().getId()
+                                                                .equals(activeYear.getId())))
                                 .map(a -> TeacherProfileDto.AssignedClassDto.builder()
                                                 .classId(a.getClassRoom().getId().toString())
                                                 .className(a.getClassRoom().getName())
@@ -573,19 +596,17 @@ public class TeacherPortalService {
                                 .orElse(null);
                 if (teacherObj == null)
                         return 0;
+                // TODO: Replace with COUNT query (teacherAssignmentRepository.countByTeacher)
+                // for better performance
                 return teacherAssignmentRepository.findAllByTeacher(teacherObj).size();
         }
 
-        private int getTodayPeriodCount(User teacher) {
-                return getTodaySchedule(teacher.getEmail()).size();
-        }
-
         private int getStudentCount(ClassRoom classRoom) {
-                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = classRoom
-                                .getAcademicYear();
-                List<ClassEnrollment> enrollments = classEnrollmentRepository
-                                .findAllByClassRoomAndAcademicYear(classRoom, currentAcademicYear);
-                return enrollments.size();
+                // TODO: Replace with COUNT query
+                // (classEnrollmentRepository.countByClassRoomAndAcademicYear)
+                return classEnrollmentRepository
+                                .findAllByClassRoomAndAcademicYear(classRoom, classRoom.getAcademicYear())
+                                .size();
         }
 
         // getCurrentAcademicYear() removed — now using

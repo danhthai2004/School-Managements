@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { teacherService, type TimetableDetail } from "../../../services/teacherService";
 import { AlertCircle, Calendar, Clock } from "lucide-react";
 
@@ -29,7 +29,7 @@ export default function SchedulePage() {
     };
 
     // Deduplicate schedule: keep only one entry per (dayOfWeek, slotIndex) pair
-    const deduplicatedSchedule = (() => {
+    const deduplicatedSchedule = useMemo(() => {
         const seen = new Set<string>();
         return schedule.filter(s => {
             const key = `${s.dayOfWeek}-${s.slotIndex}`;
@@ -37,7 +37,7 @@ export default function SchedulePage() {
             seen.add(key);
             return true;
         });
-    })();
+    }, [schedule]);
 
     const getCell = (day: string, slot: number) => {
         const dayIndex = DAYS.indexOf(day);

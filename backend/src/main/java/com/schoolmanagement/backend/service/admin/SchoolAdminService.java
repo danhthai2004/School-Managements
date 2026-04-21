@@ -127,22 +127,19 @@ public class SchoolAdminService {
     }
 
     @Transactional(readOnly = true)
-    public List<UserDto> listUsersInSchool(School school) {
-        return users.findBySchoolId(school.getId()).stream()
-                .filter(u -> u.getRole() != Role.SYSTEM_ADMIN)
+    public org.springframework.data.domain.Page<UserDto> listUsersInSchool(School school,
+            org.springframework.data.domain.Pageable pageable) {
+        return users.findBySchoolIdAndRoleNot(school.getId(), Role.SYSTEM_ADMIN, pageable)
                 .map(u -> new UserDto(u.getId(), u.getEmail(), u.getFullName(), u.getRole(), school.getId(),
-                        school.getCode(), u.isEnabled()))
-                .toList();
+                        school.getCode(), u.isEnabled()));
     }
 
     @Transactional(readOnly = true)
-    public List<UserDto> listTeachersInSchool(School school) {
-        return users.findAll().stream()
-                .filter(u -> u.getSchool() != null && u.getSchool().getId().equals(school.getId())
-                        && u.getRole() == Role.TEACHER)
+    public org.springframework.data.domain.Page<UserDto> listTeachersInSchool(School school,
+            org.springframework.data.domain.Pageable pageable) {
+        return users.findBySchoolIdAndRole(school.getId(), Role.TEACHER, pageable)
                 .map(u -> new UserDto(u.getId(), u.getEmail(), u.getFullName(), u.getRole(), school.getId(),
-                        school.getCode(), u.isEnabled()))
-                .toList();
+                        school.getCode(), u.isEnabled()));
     }
 
     public BulkImportResponse importCsv(School school, MultipartFile file, Role defaultRole) {
@@ -308,31 +305,38 @@ public class SchoolAdminService {
     // ==================== NEW/PENDING FEATURES ====================
 
     public List<com.schoolmanagement.backend.dto.auth.UserListDto> listUsersWithStatus(School school) {
-        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED,
+                "Not implemented yet");
     }
 
     public List<com.schoolmanagement.backend.dto.auth.UserListDto> listPendingDeleteUsersInSchool(School school) {
-        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED,
+                "Not implemented yet");
     }
 
     public void enableUser(School school, UUID userId, User admin) {
-        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED,
+                "Not implemented yet");
     }
 
     public void disableUser(School school, UUID userId, User admin) {
-        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED,
+                "Not implemented yet");
     }
 
     public void markPendingDelete(School school, UUID userId, User admin) {
-        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED,
+                "Not implemented yet");
     }
 
     public void restoreUser(School school, UUID userId, User admin) {
-        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED,
+                "Not implemented yet");
     }
 
     public void permanentDeleteUser(School school, UUID userId, User admin) {
-        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_IMPLEMENTED,
+                "Not implemented yet");
     }
 
 }

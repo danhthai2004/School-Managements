@@ -7,6 +7,7 @@ import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.repo.auth.UserRepository;
 import com.schoolmanagement.backend.repo.classes.ClassEnrollmentRepository;
 import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
+import com.schoolmanagement.backend.service.admin.SemesterService;
 import com.schoolmanagement.backend.util.StudentSortUtils;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
@@ -26,6 +27,7 @@ public class HomeroomStudentExportService {
 
     private final UserRepository userRepository;
     private final ClassRoomRepository classRoomRepository;
+    private final SemesterService semesterService;
     private final ClassEnrollmentRepository classEnrollmentRepository;
 
     // --- Custom colors (RGB) ---
@@ -38,7 +40,7 @@ public class HomeroomStudentExportService {
         User teacher = userRepository.findByEmailIgnoreCase(teacherEmail)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        Optional<ClassRoom> homeroomClass = classRoomRepository.findByHomeroomTeacher(teacher);
+        Optional<ClassRoom> homeroomClass = findActiveHomeroom(teacher);
         if (homeroomClass.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only homeroom teachers can access student list");
         }
@@ -217,5 +219,22 @@ public class HomeroomStudentExportService {
         Cell cell = row.createCell(col);
         cell.setCellValue(value);
         cell.setCellStyle(style);
+    }
+
+    private Optional<ClassRoom> findActiveHomeroom(User teacher) {
+        if (teacher == null)
+            return Optional.empty();
+
+        if (teacher.getSchool() != null) {
+            com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = semesterService
+                    .getActiveAcademicYearSafe(teacher.getSchool());
+            if (currentAcademicYear != null) {
+                Optional<ClassRoom> found = classRoomRepository.findByHomeroomTeacher_IdAndAcademicYear(teacher.getId(),
+                        currentAcademicYear);
+                if (found.isPresent())
+                    return found;
+            }
+        }
+        return classRoomRepository.findTopByHomeroomTeacher_IdOrderByAcademicYear_StartDateDesc(teacher.getId());
     }
 }

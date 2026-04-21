@@ -106,6 +106,7 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
 
         // --- Methods added for Teacher Portal (fuuko branch) ---
 
+        @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "student" })
         @Query("SELECT a FROM Attendance a WHERE a.classRoom = :classRoom AND a.attendanceDate = :date AND a.slotIndex = :slotIndex")
         List<Attendance> findAllByClassRoomAndDateAndSlotIndex(
                         @Param("classRoom") ClassRoom classRoom,
@@ -119,6 +120,7 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
                         @Param("date") LocalDate date,
                         @Param("slotIndex") int slotIndex);
 
+        @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "student" })
         @Query("SELECT a FROM Attendance a WHERE a.classRoom = :classRoom AND a.attendanceDate = :date")
         List<Attendance> findAllByClassRoomAndDate(
                         @Param("classRoom") ClassRoom classRoom,

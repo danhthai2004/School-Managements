@@ -17,6 +17,7 @@ import java.util.UUID;
 
 @Repository
 public interface TimetableDetailRepository extends JpaRepository<TimetableDetail, UUID> {
+        @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "classRoom", "subject", "teacher" })
         List<TimetableDetail> findAllByTimetable(Timetable timetable);
 
         List<TimetableDetail> findAllByTimetableAndClassRoom(Timetable timetable, ClassRoom classRoom);
@@ -48,7 +49,8 @@ public interface TimetableDetailRepository extends JpaRepository<TimetableDetail
                         com.schoolmanagement.backend.domain.entity.classes.Subject subject);
 
         Optional<TimetableDetail> findByTimetableAndClassRoomAndDayOfWeekAndSlotIndex(Timetable timetable,
-                        com.schoolmanagement.backend.domain.entity.classes.ClassRoom classRoom, java.time.DayOfWeek dayOfWeek,
+                        com.schoolmanagement.backend.domain.entity.classes.ClassRoom classRoom,
+                        java.time.DayOfWeek dayOfWeek,
                         int slotIndex);
 
         @Modifying
@@ -57,7 +59,9 @@ public interface TimetableDetailRepository extends JpaRepository<TimetableDetail
 
         @Modifying
         @Query("UPDATE TimetableDetail t SET t.teacher = :teacher WHERE t.classRoom = :classRoom AND t.subject = :subject")
-        void updateTeacherForClassAndSubject(@Param("classRoom") ClassRoom classRoom, @Param("subject") com.schoolmanagement.backend.domain.entity.classes.Subject subject, @Param("teacher") Teacher teacher);
+        void updateTeacherForClassAndSubject(@Param("classRoom") ClassRoom classRoom,
+                        @Param("subject") com.schoolmanagement.backend.domain.entity.classes.Subject subject,
+                        @Param("teacher") Teacher teacher);
 
         boolean existsByTeacher(Teacher teacher);
 
@@ -74,7 +78,8 @@ public interface TimetableDetailRepository extends JpaRepository<TimetableDetail
 
         List<TimetableDetail> findAllByTimetableAndDayOfWeek(Timetable timetable, DayOfWeek dayOfWeek);
 
-        List<TimetableDetail> findAllByTimetableAndClassRoomAndDayOfWeek(Timetable timetable, ClassRoom classRoom, DayOfWeek dayOfWeek);
+        List<TimetableDetail> findAllByTimetableAndClassRoomAndDayOfWeek(Timetable timetable, ClassRoom classRoom,
+                        DayOfWeek dayOfWeek);
 
         void deleteByTimetableAndIsFixedFalse(Timetable timetable);
 

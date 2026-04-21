@@ -2,6 +2,7 @@ package com.schoolmanagement.backend.repo.student;
 
 import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.student.Student;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -45,9 +46,11 @@ public interface StudentRepository extends JpaRepository<Student, UUID>,
 
         // Find students eligible for account creation: ACTIVE, has email, no user
         // linked
+        @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "guardian", "user" })
         List<Student> findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(School school,
                         com.schoolmanagement.backend.domain.student.StudentStatus status);
 
+        @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "guardian", "user" })
         org.springframework.data.domain.Page<Student> findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(
                         School school,
                         com.schoolmanagement.backend.domain.student.StudentStatus status,
