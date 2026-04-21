@@ -22,13 +22,15 @@ import java.time.LocalDate;
 import java.util.*;
 
 /**
- * Service gọi LLM API (qua WebClient thuần) để phân tích rủi ro từ batch dữ liệu snapshot.
+ * Service gọi LLM API (qua WebClient thuần) để phân tích rủi ro từ batch dữ
+ * liệu snapshot.
  *
  * Quy trình:
  * 1. Nhận danh sách RiskMetricsSnapshot (đã tổng hợp sẵn).
  * 2. Ẩn danh: Tạo Map<UUID thật, UUID giả> để không gửi PII lên LLM.
  * 3. Gửi batch (~40 HS) với System Prompt ép JSON tối giản.
- * 4. Parse response, map ngược UUID giả -> UUID thật, lưu vào RiskAssessmentHistory.
+ * 4. Parse response, map ngược UUID giả -> UUID thật, lưu vào
+ * RiskAssessmentHistory.
  * 5. Nếu score > 80 → đánh dấu để gửi thông báo.
  */
 @Slf4j
@@ -45,8 +47,8 @@ public class AIRiskAnalysisService {
     private static final int BATCH_SIZE = 40;
 
     public AIRiskAnalysisService(@Qualifier("riskAiWebClient") WebClient llmWebClient,
-                                  ObjectMapper objectMapper,
-                                  RiskAssessmentHistoryRepository historyRepository) {
+            ObjectMapper objectMapper,
+            RiskAssessmentHistoryRepository historyRepository) {
         this.llmWebClient = llmWebClient;
         this.objectMapper = objectMapper;
         this.historyRepository = historyRepository;
@@ -108,6 +110,7 @@ public class AIRiskAnalysisService {
             row.put("gpa", snap.getCurrentGpa());
             row.put("prev_gpa", snap.getPreviousGpa());
             row.put("failing_subjects", snap.getFailingSubjectsCount());
+            row.put("failing_subjects_detail", snap.getFailingSubjectsDetail()); // Thêm chi tiết tên môn
             row.put("conduct_violations_30d", snap.getConductViolations30d());
             return row;
         }).toList();
@@ -129,7 +132,8 @@ public class AIRiskAnalysisService {
         try {
             // Trích xuất JSON array từ response (có thể được bọc trong markdown code block)
             String jsonContent = extractJsonArray(llmResponse);
-            responses = objectMapper.readValue(jsonContent, new TypeReference<>() {});
+            responses = objectMapper.readValue(jsonContent, new TypeReference<>() {
+            });
         } catch (Exception e) {
             log.error("[AIRisk] Lỗi parse JSON response từ LLM: {}", e.getMessage());
             log.debug("[AIRisk] Raw response: {}", llmResponse);
@@ -181,15 +185,16 @@ public class AIRiskAnalysisService {
     private String buildSystemPrompt() {
         return """
                 You are a school risk analyst AI. Analyze the provided student metrics and return a JSON array.
-                
+
                 RULES:
                 - Return ONLY a JSON array, no other text.
                 - Each element: {"id":"<same id from input>","score":<0-100>,"reason":"<max 100 chars, Vietnamese>","advice":"<max 150 chars, friendly Vietnamese advice for student>","category":"<ACADEMIC|BEHAVIOR|ATTENDANCE|MIXED>"}
                 - score: 0=safe, 100=critical risk
                 - Higher absent_unexcused_7d and lower gpa increase risk
-                - Consider attendance_rate_30d, failing_subjects and conduct_violations_30d
-                - reason: explain briefly WHY the score is given
-                - advice: encouraging, positive tone for the student to improve
+                - Use 'failing_subjects_detail' to MENTION SPECIFIC SUBJECT NAMES in 'reason' and 'advice' if they contribute to risk.
+                - Example reason: "Học sinh có dấu hiệu sa sút nghiêm trọng ở môn Toán và Vật lý."
+                - reason: explain briefly WHY the score is given, be specific about subjects if available.
+                - advice: encouraging, positive tone for the student to improve, suggest focusing on specific subjects.
                 - Keep JSON minimal, no extra fields
                 """;
     }
@@ -199,8 +204,7 @@ public class AIRiskAnalysisService {
         requestBody.put("model", modelId);
         requestBody.put("messages", List.of(
                 Map.of("role", "system", "content", systemPrompt),
-                Map.of("role", "user", "content", userPrompt)
-        ));
+                Map.of("role", "user", "content", userPrompt)));
         requestBody.put("temperature", 0.2);
         requestBody.put("max_tokens", 4000);
 
@@ -216,8 +220,8 @@ public class AIRiskAnalysisService {
                             return msg != null && (msg.contains("429") || msg.contains("500")
                                     || msg.contains("502") || msg.contains("503"));
                         })
-                        .onRetryExhaustedThrow((spec, signal) ->
-                                new RuntimeException("LLM API đã retry hết lần mà vẫn lỗi.", signal.failure())))
+                        .onRetryExhaustedThrow((spec, signal) -> new RuntimeException(
+                                "LLM API đã retry hết lần mà vẫn lỗi.", signal.failure())))
                 .block(Duration.ofSeconds(60));
     }
 
@@ -225,7 +229,8 @@ public class AIRiskAnalysisService {
      * Trích xuất JSON array từ response (LLM có thể bọc trong ```json ... ```)
      */
     private String extractJsonArray(String raw) {
-        if (raw == null) return "[]";
+        if (raw == null)
+            return "[]";
         // Thử parse trực tiếp từ response OpenRouter format
         try {
             var tree = objectMapper.readTree(raw);
@@ -234,12 +239,14 @@ public class AIRiskAnalysisService {
                 String content = choices.get(0).get("message").get("content").asText();
                 return extractPureJson(content);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         return extractPureJson(raw);
     }
 
     private String extractPureJson(String content) {
-        if (content == null) return "[]";
+        if (content == null)
+            return "[]";
         content = content.trim();
         // Loại bỏ markdown code block nếu có
         if (content.startsWith("```")) {
@@ -259,7 +266,8 @@ public class AIRiskAnalysisService {
     }
 
     private String truncate(String s, int max) {
-        if (s == null) return null;
+        if (s == null)
+            return null;
         return s.length() <= max ? s : s.substring(0, max);
     }
 

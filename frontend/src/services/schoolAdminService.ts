@@ -1,4 +1,5 @@
 import api from "./api";
+import type { SaveAttendanceResultDto } from "./attendanceService";
 
 // ==================== TYPES ====================
 
@@ -323,10 +324,13 @@ export const schoolAdminService = {
 
 
     // Users
-    listUsers: async (): Promise<UserDto[]> => {
-        const res = await api.get<UserDto[]>("/school/users");
+    listUsers: async (page = 0, size = 50): Promise<import("./systemService").PageResponse<UserDto>> => {
+        const res = await api.get<import("./systemService").PageResponse<UserDto>>("/school/users", {
+            params: { page, size }
+        });
         return res.data;
     },
+
 
     resetPassword: async (userId: string): Promise<void> => {
         await api.post(`/school/users/${userId}/reset-password`);
@@ -608,10 +612,11 @@ export const schoolAdminService = {
         return res.data;
     },
 
-    saveAttendance: async (classRoomId: string, request: AdminSaveAttendanceRequest): Promise<void> => {
-        await api.post("/school/attendance/slot", request, {
+    saveAttendance: async (classRoomId: string, request: AdminSaveAttendanceRequest): Promise<SaveAttendanceResultDto> => {
+        const res = await api.post<SaveAttendanceResultDto>("/school/attendance/slot", request, {
             params: { classRoomId }
         });
+        return res.data;
     },
 };
 

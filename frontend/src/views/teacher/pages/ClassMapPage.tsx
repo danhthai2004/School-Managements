@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useOutletContext } from "react-router-dom";
 import type { TeacherProfile, HomeroomStudent, ClassSeatMapConfig, SeatPosition, ClassObject } from "../../../services/teacherService";
 import { teacherService } from "../../../services/teacherService";
@@ -135,16 +136,26 @@ function ConfigModal({
     const totalDesks = rows * desksPerRow;
     const totalSeats = totalDesks * seatsPerDesk;
 
-    return (
+    return createPortal(
         <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', zIndex: 1000
-        }}>
-            <div style={{
-                backgroundColor: '#fff', borderRadius: '16px', padding: '32px',
-                width: '460px', maxWidth: '90vw', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)'
-            }}>
+            backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(4px)'
+        }} onClick={onClose}>
+            <div
+                style={{
+                    backgroundColor: '#fff', borderRadius: '16px', padding: '32px',
+                    width: '460px', maxWidth: '90vw', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+                    position: 'relative', animation: 'modalSlideUp 0.3s ease-out'
+                }}
+                onClick={e => e.stopPropagation()}
+            >
+                <style>{`
+                    @keyframes modalSlideUp {
+                        from { transform: translateY(20px); opacity: 0; }
+                        to { transform: translateY(0); opacity: 1; }
+                    }
+                `}</style>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <GridIcon />
@@ -219,7 +230,8 @@ function ConfigModal({
                     }}><GridIcon /> Tạo sơ đồ</button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 
@@ -626,88 +638,88 @@ export default function ClassMapPage() {
             <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
                 {/* Left sidebar - students (homeroom only) */}
                 {isHomeroom && (
-                <div style={{ width: '280px', flexShrink: 0 }}>
-                    <div style={{
-                        backgroundColor: '#fff', borderRadius: '12px', padding: '16px',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #f3f4f6'
-                    }}>
-                        <h3 style={{
-                            fontSize: '14px', fontWeight: 600, color: '#374151', margin: '0 0 12px',
-                            display: 'flex', alignItems: 'center', gap: '6px'
-                        }}>
-                            <UsersIcon /> Học sinh chưa xếp ({unassignedStudents.length})
-                        </h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '400px', overflowY: 'auto' }}>
-                            {unassignedStudents.map((s, idx) => (
-                                <div
-                                    key={s.id}
-                                    draggable={isHomeroom}
-                                    onDragStart={() => handleDragStart('student', s)}
-                                    style={{
-                                        display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px',
-                                        borderRadius: '8px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb',
-                                        cursor: isHomeroom ? 'grab' : 'default', transition: 'all 0.15s',
-                                        fontSize: '13px'
-                                    }}
-                                    onMouseEnter={e => { if (isHomeroom) { (e.currentTarget as HTMLDivElement).style.backgroundColor = '#eff6ff'; (e.currentTarget as HTMLDivElement).style.borderColor = '#bfdbfe'; } }}
-                                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.backgroundColor = '#f9fafb'; (e.currentTarget as HTMLDivElement).style.borderColor = '#e5e7eb'; }}
-                                >
-                                    <div style={{
-                                        width: '30px', height: '30px', borderRadius: '50%',
-                                        backgroundColor: getStudentColor(s.gender), color: '#fff',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        fontSize: '12px', fontWeight: 700, flexShrink: 0
-                                    }}>
-                                        {ALPHABET[idx] || getInitial(s.fullName)}
-                                    </div>
-                                    <div style={{ overflow: 'hidden' }}>
-                                        <div style={{ fontWeight: 600, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.fullName}</div>
-                                        <div style={{ fontSize: '11px', color: '#9ca3af' }}>{s.studentCode}</div>
-                                    </div>
-                                    {isHomeroom && (
-                                        <div style={{ marginLeft: 'auto', color: '#d1d5db', flexShrink: 0 }}><DragIcon /></div>
-                                    )}
-                                </div>
-                            ))}
-                            {unassignedStudents.length === 0 && config && (
-                                <p style={{ color: '#9ca3af', fontSize: '13px', textAlign: 'center', padding: '12px 0' }}>
-                                    Tất cả học sinh đã được xếp chỗ!
-                                </p>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Objects sidebar */}
-                    {config && (
+                    <div style={{ width: '280px', flexShrink: 0 }}>
                         <div style={{
-                            backgroundColor: '#fff', borderRadius: '12px', padding: '16px', marginTop: '16px',
+                            backgroundColor: '#fff', borderRadius: '12px', padding: '16px',
                             boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #f3f4f6'
                         }}>
-                            <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#374151', margin: '0 0 12px' }}>
-                                Đối tượng trong lớp
+                            <h3 style={{
+                                fontSize: '14px', fontWeight: 600, color: '#374151', margin: '0 0 12px',
+                                display: 'flex', alignItems: 'center', gap: '6px'
+                            }}>
+                                <UsersIcon /> Học sinh chưa xếp ({unassignedStudents.length})
                             </h3>
-                            <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0 0 12px' }}>Kéo để di chuyển vị trí, xoay 90° để đổi cạnh</p>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {Object.entries(OBJECT_CONFIG).map(([type, cfg]) => (
-                                    <button
-                                        key={type}
-                                        onClick={() => addObject(type)}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '400px', overflowY: 'auto' }}>
+                                {unassignedStudents.map((s, idx) => (
+                                    <div
+                                        key={s.id}
+                                        draggable={isHomeroom}
+                                        onDragStart={() => handleDragStart('student', s)}
                                         style={{
-                                            display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
-                                            borderRadius: '8px', backgroundColor: cfg.color + '15', border: `1px solid ${cfg.color}30`,
-                                            cursor: 'pointer', color: cfg.color, fontSize: '13px', fontWeight: 600,
-                                            transition: 'all 0.15s', width: '100%', textAlign: 'left'
+                                            display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px',
+                                            borderRadius: '8px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb',
+                                            cursor: isHomeroom ? 'grab' : 'default', transition: 'all 0.15s',
+                                            fontSize: '13px'
                                         }}
+                                        onMouseEnter={e => { if (isHomeroom) { (e.currentTarget as HTMLDivElement).style.backgroundColor = '#eff6ff'; (e.currentTarget as HTMLDivElement).style.borderColor = '#bfdbfe'; } }}
+                                        onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.backgroundColor = '#f9fafb'; (e.currentTarget as HTMLDivElement).style.borderColor = '#e5e7eb'; }}
                                     >
-                                        {cfg.icon}
-                                        <span style={{ flex: 1 }}>{cfg.label}</span>
-                                        <PlusIcon />
-                                    </button>
+                                        <div style={{
+                                            width: '30px', height: '30px', borderRadius: '50%',
+                                            backgroundColor: getStudentColor(s.gender), color: '#fff',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontSize: '12px', fontWeight: 700, flexShrink: 0
+                                        }}>
+                                            {ALPHABET[idx] || getInitial(s.fullName)}
+                                        </div>
+                                        <div style={{ overflow: 'hidden' }}>
+                                            <div style={{ fontWeight: 600, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.fullName}</div>
+                                            <div style={{ fontSize: '11px', color: '#9ca3af' }}>{s.studentCode}</div>
+                                        </div>
+                                        {isHomeroom && (
+                                            <div style={{ marginLeft: 'auto', color: '#d1d5db', flexShrink: 0 }}><DragIcon /></div>
+                                        )}
+                                    </div>
                                 ))}
+                                {unassignedStudents.length === 0 && config && (
+                                    <p style={{ color: '#9ca3af', fontSize: '13px', textAlign: 'center', padding: '12px 0' }}>
+                                        Tất cả học sinh đã được xếp chỗ!
+                                    </p>
+                                )}
                             </div>
                         </div>
-                    )}
-                </div>
+
+                        {/* Objects sidebar */}
+                        {config && (
+                            <div style={{
+                                backgroundColor: '#fff', borderRadius: '12px', padding: '16px', marginTop: '16px',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #f3f4f6'
+                            }}>
+                                <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#374151', margin: '0 0 12px' }}>
+                                    Đối tượng trong lớp
+                                </h3>
+                                <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0 0 12px' }}>Kéo để di chuyển vị trí, xoay 90° để đổi cạnh</p>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {Object.entries(OBJECT_CONFIG).map(([type, cfg]) => (
+                                        <button
+                                            key={type}
+                                            onClick={() => addObject(type)}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
+                                                borderRadius: '8px', backgroundColor: cfg.color + '15', border: `1px solid ${cfg.color}30`,
+                                                cursor: 'pointer', color: cfg.color, fontSize: '13px', fontWeight: 600,
+                                                transition: 'all 0.15s', width: '100%', textAlign: 'left'
+                                            }}
+                                        >
+                                            {cfg.icon}
+                                            <span style={{ flex: 1 }}>{cfg.label}</span>
+                                            <PlusIcon />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 )}
 
                 {/* Main area - seating chart */}

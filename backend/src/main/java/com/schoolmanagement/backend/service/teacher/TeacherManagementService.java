@@ -2,6 +2,7 @@ package com.schoolmanagement.backend.service.teacher;
 
 import com.schoolmanagement.backend.service.notification.MailService;
 import com.schoolmanagement.backend.service.admin.BulkDeleteHelperService;
+import com.schoolmanagement.backend.service.admin.SemesterService;
 
 import com.schoolmanagement.backend.domain.auth.Role;
 import com.schoolmanagement.backend.domain.entity.admin.School;
@@ -37,6 +38,7 @@ public class TeacherManagementService {
     private final com.schoolmanagement.backend.repo.classes.SubjectRepository subjects;
     private final com.schoolmanagement.backend.repo.student.StudentRepository students;
     private final com.schoolmanagement.backend.repo.student.GuardianRepository guardians;
+    private final SemesterService semesterService;
 
     @org.springframework.beans.factory.annotation.Autowired
     @org.springframework.context.annotation.Lazy
@@ -49,7 +51,8 @@ public class TeacherManagementService {
             ClassRoomRepository classRooms, PasswordEncoder passwordEncoder,
             MailService mailService, com.schoolmanagement.backend.repo.classes.SubjectRepository subjects,
             com.schoolmanagement.backend.repo.student.StudentRepository students,
-            com.schoolmanagement.backend.repo.student.GuardianRepository guardians) {
+            com.schoolmanagement.backend.repo.student.GuardianRepository guardians,
+            SemesterService semesterService) {
         this.teachers = teachers;
         this.users = users;
         this.classRooms = classRooms;
@@ -58,6 +61,7 @@ public class TeacherManagementService {
         this.subjects = subjects;
         this.students = students;
         this.guardians = guardians;
+        this.semesterService = semesterService;
     }
 
     // ==================== TEACHER ACCOUNT MANAGEMENT ====================
@@ -245,16 +249,21 @@ public class TeacherManagementService {
             teacherPage = teachers.findAllBySchoolOrderByTeacherCodeAsc(school, pageable);
         }
 
-        // Fetch all homeroom classes for this school to avoid N+1
-        java.util.List<com.schoolmanagement.backend.domain.entity.classes.ClassRoom> schoolClasses = classRooms
-                .findAllBySchoolAndHomeroomTeacherIsNotNull(school);
+        // Fetch all homeroom classes for this school for current active year to avoid
+        // N+1 and duplicate overwrites
+        com.schoolmanagement.backend.domain.entity.admin.AcademicYear activeYear = semesterService
+                .getActiveAcademicYearSafe(school);
+        java.util.List<com.schoolmanagement.backend.domain.entity.classes.ClassRoom> schoolClasses = activeYear != null
+                ? classRooms.findAllBySchoolAndAcademicYear(school, activeYear)
+                : classRooms.findAllBySchoolAndHomeroomTeacherIsNotNull(school);
+
         java.util.Map<UUID, com.schoolmanagement.backend.domain.entity.classes.ClassRoom> homeroomMap = schoolClasses
                 .stream()
+                .filter(c -> c.getHomeroomTeacher() != null)
                 .collect(java.util.stream.Collectors.toMap(
                         c -> c.getHomeroomTeacher().getId(),
                         c -> c,
-                        (existing, replacement) -> existing // In case of duplicates, though shouldn't happen per year
-                ));
+                        (existing, replacement) -> existing));
 
         return teacherPage.map(t -> toTeacherDto(t, homeroomMap));
     }
@@ -393,8 +402,8 @@ public class TeacherManagementService {
                 homeroomClassId = homeroomClass.getId();
                 homeroomClassName = homeroomClass.getName();
             } else if (homeroomMap == null) {
-                // Fallback for single record mapping
-                var homeroomClass = classRooms.findByHomeroomTeacher(teacher.getUser());
+                // Fallback for single record mapping using the standard resolver
+                var homeroomClass = findActiveHomeroom(teacher.getUser());
                 if (homeroomClass.isPresent()) {
                     homeroomClassId = homeroomClass.get().getId();
                     homeroomClassName = homeroomClass.get().getName();
@@ -447,5 +456,22 @@ public class TeacherManagementService {
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             throw new ApiException(HttpStatus.CONFLICT, "Không thể xóa giáo viên do dữ liệu liên quan.");
         }
+    }
+
+    private Optional<com.schoolmanagement.backend.domain.entity.classes.ClassRoom> findActiveHomeroom(User teacher) {
+        if (teacher == null)
+            return Optional.empty();
+
+        if (teacher.getSchool() != null) {
+            com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = semesterService
+                    .getActiveAcademicYearSafe(teacher.getSchool());
+            if (currentAcademicYear != null) {
+                Optional<com.schoolmanagement.backend.domain.entity.classes.ClassRoom> found = classRooms
+                        .findByHomeroomTeacher_IdAndAcademicYear(teacher.getId(), currentAcademicYear);
+                if (found.isPresent())
+                    return found;
+            }
+        }
+        return classRooms.findTopByHomeroomTeacher_IdOrderByAcademicYear_StartDateDesc(teacher.getId());
     }
 }

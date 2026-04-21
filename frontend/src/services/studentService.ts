@@ -17,8 +17,8 @@ export type StudentProfileDto = {
 
 export type TimetableSlotDto = {
     id: string;
-    dayOfWeek: number; // 2-7 (Mon-Sat)
-    period: number;
+    dayOfWeek: number; // 2-8 (Mon-Sun)
+    slotIndex: number;
     subjectName: string;
     teacherName: string;
     room: string | null;
@@ -55,7 +55,9 @@ export type ScoreDto = {
 
 export type AttendanceRecordDto = {
     date: string;
-    status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
+    slotIndex: number;
+    subjectName: string;
+    status: 'PRESENT' | 'ABSENT' | 'LATE' | 'ABSENT_EXCUSED' | 'ABSENT_UNEXCUSED';
     note: string | null;
 };
 
@@ -66,6 +68,8 @@ export type AttendanceSummaryDto = {
     lateDays: number;
     attendanceRate: number;
     records: AttendanceRecordDto[];
+    attendanceGrid: Record<string, Record<number, AttendanceRecordDto>>;
+    classroomTimetable: TimetableSlotDto[];
 };
 
 export type StudentDashboardDto = {

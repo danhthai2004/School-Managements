@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import DatePicker from "react-datepicker";
 import { format, getDay } from "date-fns";
@@ -34,9 +34,9 @@ export default function AttendancePage() {
     } | null>(null);
 
     // Initial load of weekly schedule to determine teaching slots
-    useState(() => {
+    useEffect(() => {
         loadSchedule();
-    });
+    }, []);
 
     async function loadSchedule() {
         try {

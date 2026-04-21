@@ -42,6 +42,7 @@ public class BulkDeleteHelperService {
     private final GuardianRepository guardianRepo;
     private final UserRepository userRepo;
     private final ExamInvigilatorRepository examInvigilatorRepo;
+    private final SemesterService semesterService;
 
     // Additional Repos for cleanup if not covered by main repo methods
     // In this plan, we put JPQL in main repos, so we trigger them here.
@@ -277,7 +278,7 @@ public class BulkDeleteHelperService {
 
     private void validateNoHomeroom(Teacher teacher) {
         if (teacher.getUser() != null) {
-            var classRoomOpt = classRepo.findByHomeroomTeacher(teacher.getUser());
+            var classRoomOpt = findActiveHomeroom(teacher.getUser());
             if (classRoomOpt.isPresent()) {
                 throw new ApiException(
                         HttpStatus.BAD_REQUEST,
@@ -330,5 +331,22 @@ public class BulkDeleteHelperService {
                     "Giáo viên " + teacher.getFullName()
                             + " đang được phân công giám thị trong các kỳ thi. Vui lòng gỡ bỏ phân công trước khi xóa.");
         }
+    }
+
+    private Optional<com.schoolmanagement.backend.domain.entity.classes.ClassRoom> findActiveHomeroom(User teacher) {
+        if (teacher == null)
+            return Optional.empty();
+
+        if (teacher.getSchool() != null) {
+            com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = semesterService
+                    .getActiveAcademicYearSafe(teacher.getSchool());
+            if (currentAcademicYear != null) {
+                Optional<com.schoolmanagement.backend.domain.entity.classes.ClassRoom> found = classRepo
+                        .findByHomeroomTeacher_IdAndAcademicYear(teacher.getId(), currentAcademicYear);
+                if (found.isPresent())
+                    return found;
+            }
+        }
+        return classRepo.findTopByHomeroomTeacher_IdOrderByAcademicYear_StartDateDesc(teacher.getId());
     }
 }

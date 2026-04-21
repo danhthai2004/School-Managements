@@ -39,6 +39,7 @@ public interface TeacherRepository extends JpaRepository<Teacher, UUID> {
 
         long countBySchool(School school);
 
+        @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "subjects", "user" })
         @org.springframework.data.jpa.repository.Query("SELECT t FROM Teacher t WHERE t.school = :school AND t.status = 'ACTIVE' AND t.user IS NULL AND t.email IS NOT NULL AND t.email <> ''")
         org.springframework.data.domain.Page<Teacher> findEligibleForAccount(
                         @org.springframework.data.repository.query.Param("school") School school,
