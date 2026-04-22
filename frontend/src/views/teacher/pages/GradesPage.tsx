@@ -135,7 +135,7 @@ const GradesPage = () => {
         fetchGrades();
     }, [fetchGrades]);
 
-    const handleGradeChange = (studentId: string, type: 'REGULAR' | 'MID_TERM' | 'FINAL_TERM', index: number | undefined, newValue: number | null) => {
+    const handleGradeChange = (studentId: string, type: 'REGULAR' | 'MIDTERM' | 'FINAL', index: number | undefined, newValue: number | null) => {
         if (!gradeBook) return;
 
         const updatedStudents = gradeBook.students.map((s: StudentGrade) => {
@@ -242,14 +242,14 @@ const GradesPage = () => {
         }
 
         // Mid (Coeff 2)
-        const mid = getGradeValue(student, 'MID_TERM');
+        const mid = getGradeValue(student, 'MIDTERM');
         if (mid !== null) {
             total += mid * 2;
             weight += 2;
         }
 
         // Final (Coeff 3)
-        const final_ = getGradeValue(student, 'FINAL_TERM');
+        const final_ = getGradeValue(student, 'FINAL');
         if (final_ !== null) {
             total += final_ * 3;
             weight += 3;
@@ -540,8 +540,8 @@ const GradesPage = () => {
                                                 <td className="px-1.5 py-4 text-center bg-violet-50/20">
                                                     <div className="flex justify-center">
                                                         <GradeInput
-                                                            value={getGradeValue(student, 'MID_TERM')}
-                                                            onChange={(v) => handleGradeChange(student.studentId, 'MID_TERM', undefined, v)}
+                                                            value={getGradeValue(student, 'MIDTERM')}
+                                                            onChange={(v) => handleGradeChange(student.studentId, 'MIDTERM', undefined, v)}
                                                             disabled={!gradeBook.canEdit}
                                                         />
                                                     </div>
@@ -551,8 +551,8 @@ const GradesPage = () => {
                                                 <td className="px-1.5 py-4 text-center bg-amber-50/20">
                                                     <div className="flex justify-center">
                                                         <GradeInput
-                                                            value={getGradeValue(student, 'FINAL_TERM')}
-                                                            onChange={(v) => handleGradeChange(student.studentId, 'FINAL_TERM', undefined, v)}
+                                                            value={getGradeValue(student, 'FINAL')}
+                                                            onChange={(v) => handleGradeChange(student.studentId, 'FINAL', undefined, v)}
                                                             disabled={!gradeBook.canEdit}
                                                         />
                                                     </div>

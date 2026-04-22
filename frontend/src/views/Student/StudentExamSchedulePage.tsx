@@ -5,10 +5,9 @@ import { useSemester } from "../../context/SemesterContext";
 import SemesterSelector from "../../components/common/SemesterSelector";
 
 const examTypeLabels: Record<string, string> = {
+    REGULAR: "Thường xuyên",
     MIDTERM: "Giữa kỳ",
     FINAL: "Cuối kỳ",
-    REGULAR: "1 tiết",
-    QUIZ: "15 phút",
 };
 
 export default function StudentExamSchedulePage() {
@@ -154,10 +153,10 @@ export default function StudentExamSchedulePage() {
 
                     {/* Filters in one row */}
                     <div className="flex flex-wrap items-center gap-2">
-                        <SemesterSelector 
-                            value={selectedSemesterId} 
+                        <SemesterSelector
+                            value={selectedSemesterId}
                             onChange={setSelectedSemesterId}
-                            label="" 
+                            label=""
                             className="h-[42px]"
                         />
 
@@ -167,10 +166,9 @@ export default function StudentExamSchedulePage() {
                             className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-600 outline-none h-[42px]"
                         >
                             <option value="all">Tất cả bài thi</option>
+                            <option value="REGULAR">Thường xuyên</option>
                             <option value="MIDTERM">Giữa kỳ</option>
                             <option value="FINAL">Cuối kỳ</option>
-                            <option value="REGULAR">1 tiết</option>
-                            <option value="QUIZ">15 phút</option>
                         </select>
                     </div>
                 </div>
@@ -203,7 +201,7 @@ export default function StudentExamSchedulePage() {
                         {sortedExams.map((exam) => {
                             const daysUntil = getDaysUntil(exam.examDate);
                             const isCompleted = isExamCompleted(exam);
-                            const isUrgent = !isCompleted && daysUntil <= 3 && daysUntil >= 0;
+                            const isUrgent = !isCompleted && daysUntil <= 2 && daysUntil >= 0;
 
                             return (
                                 <div key={exam.id} className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl transition-colors ${isCompleted ? 'bg-gray-50 opacity-70' : 'bg-gray-50 hover:bg-blue-50/50'}`}>
@@ -243,7 +241,7 @@ export default function StudentExamSchedulePage() {
                         <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                         <p className="text-gray-600 font-medium">Chưa có lịch kiểm tra</p>
                         <p className="text-sm text-gray-400 mt-1">
-                            Năm học {selectedSemester?.academicYearName || "hiện tại"} 
+                            Năm học {selectedSemester?.academicYearName || "hiện tại"}
                             {selectedSemester?.semesterNumber ? ` - Học kỳ ${selectedSemester.semesterNumber}` : ""}
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">

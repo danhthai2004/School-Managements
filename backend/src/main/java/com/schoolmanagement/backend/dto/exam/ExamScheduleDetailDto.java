@@ -18,5 +18,6 @@ public class ExamScheduleDetailDto {
     private String examDate; // yyyy-MM-dd
     private String startTime; // HH:mm
     private String endTime; // HH:mm
+    private String examType; // MIDTERM, FINAL
     private String note;
 }

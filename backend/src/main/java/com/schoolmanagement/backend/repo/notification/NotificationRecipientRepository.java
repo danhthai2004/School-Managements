@@ -30,4 +30,13 @@ public interface NotificationRecipientRepository extends JpaRepository<Notificat
     Optional<NotificationRecipient> findByIdAndUserId(UUID id, UUID userId);
 
     Optional<NotificationRecipient> findByNotificationIdAndUserId(UUID notificationId, UUID userId);
+
+    boolean existsByNotificationIdAndUserId(UUID notificationId, UUID userId);
+
+    @Modifying
+    @Query(value = "INSERT INTO notification_recipients (id, notification_id, user_id, is_read) " +
+            "VALUES (:id, :notificationId, :userId, false) " +
+            "ON CONFLICT (notification_id, user_id) DO NOTHING", nativeQuery = true)
+    int insertIgnoreDuplicate(@Param("id") UUID id, @Param("notificationId") UUID notificationId,
+            @Param("userId") UUID userId);
 }

@@ -31,7 +31,7 @@ export default function ExamSessionDetailPage() {
     const [currentSchedule, setCurrentSchedule] = useState<ExamScheduleDetailDto | null>(null);
     const [subjects, setSubjects] = useState<SubjectDto[]>([]);
     const [newSchedules, setNewSchedules] = useState<Partial<ExamScheduleDetailDto>[]>([
-        { subjectName: "", grade: 10, examDate: "", startTime: "07:30", endTime: "09:00", note: "" }
+        { subjectName: "", grade: 10, examDate: "", startTime: "07:30", endTime: "09:00", examType: "MIDTERM", note: "" }
     ]);
     const [saving, setSaving] = useState(false);
 
@@ -59,7 +59,7 @@ export default function ExamSessionDetailPage() {
     }, [id]);
 
     const handleAddRow = () => {
-        setNewSchedules([...newSchedules, { subjectName: "", grade: 10, examDate: "", startTime: "07:30", endTime: "09:00", note: "" }]);
+        setNewSchedules([...newSchedules, { subjectName: "", grade: 10, examDate: "", startTime: "07:30", endTime: "09:00", examType: "MIDTERM", note: "" }]);
     };
 
     const handleRemoveRow = (index: number) => {
@@ -80,7 +80,7 @@ export default function ExamSessionDetailPage() {
             await examAdminService.createSchedules(id, newSchedules as ExamScheduleDetailDto[]);
             toast.success("Đã tạo lịch thi thành công");
             setCreateModal(false);
-            setNewSchedules([{ subjectName: "", grade: 10, examDate: "", startTime: "07:30", endTime: "09:00", note: "" }]);
+            setNewSchedules([{ subjectName: "", grade: 10, examDate: "", startTime: "07:30", endTime: "09:00", examType: "MIDTERM", note: "" }]);
             loadData();
         } catch (e: any) {
             toast.error(e?.response?.data?.message || "Lỗi khi tạo lịch thi");
@@ -213,7 +213,12 @@ export default function ExamSessionDetailPage() {
                                         <span className="text-xs font-semibold">K{schedule.grade}</span>
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="font-semibold text-gray-900 line-clamp-1">{schedule.subjectName}</h3>
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="font-semibold text-gray-900 line-clamp-1">{schedule.subjectName}</h3>
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${schedule.examType === 'MIDTERM' ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-purple-50 text-purple-600 border-purple-200'}`}>
+                                                {schedule.examType === 'MIDTERM' ? 'GIỮA KỲ' : 'CUỐI KỲ'}
+                                            </span>
+                                        </div>
                                         {schedule.note && <p className="text-xs text-gray-500 mt-0.5 italic line-clamp-1">Ghi chú: {schedule.note}</p>}
                                     </div>
                                     {session.status === 'DRAFT' && (
@@ -261,8 +266,9 @@ export default function ExamSessionDetailPage() {
                         <div className="p-6 flex-1 overflow-y-auto">
                             <div className="space-y-4">
                                 <div className="grid grid-cols-12 gap-3 text-xs font-bold text-gray-400 uppercase px-3">
-                                    <div className="col-span-3">Môn thi</div>
+                                    <div className="col-span-2">Môn thi</div>
                                     <div className="col-span-1 text-center">Khối</div>
+                                    <div className="col-span-1">Loại</div>
                                     <div className="col-span-2">Ngày thi</div>
                                     <div className="col-span-2">Bắt đầu</div>
                                     <div className="col-span-2">Kết thúc</div>
@@ -272,7 +278,7 @@ export default function ExamSessionDetailPage() {
 
                                 {newSchedules.map((row, idx) => (
                                     <div key={idx} className="grid grid-cols-12 gap-3 items-center group">
-                                        <div className="col-span-3">
+                                        <div className="col-span-2">
                                             <select value={row.subjectName} onChange={e => {
                                                 const rows = [...newSchedules];
                                                 rows[idx].subjectName = e.target.value;
@@ -291,6 +297,16 @@ export default function ExamSessionDetailPage() {
                                                 <option value={10}>10</option>
                                                 <option value={11}>11</option>
                                                 <option value={12}>12</option>
+                                            </select>
+                                        </div>
+                                        <div className="col-span-1">
+                                            <select value={row.examType} onChange={e => {
+                                                const rows = [...newSchedules];
+                                                rows[idx].examType = e.target.value;
+                                                setNewSchedules(rows);
+                                            }} className="w-full px-2 py-2 border border-gray-200 rounded-xl text-sm">
+                                                <option value="MIDTERM">Giữa kỳ</option>
+                                                <option value="FINAL">Cuối kỳ</option>
                                             </select>
                                         </div>
                                         <div className="col-span-2">
@@ -374,14 +390,24 @@ export default function ExamSessionDetailPage() {
                                     {subjects.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                                 </select>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Khối</label>
-                                <select value={currentSchedule.grade} onChange={e => setCurrentSchedule({ ...currentSchedule, grade: parseInt(e.target.value) })}
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm">
-                                    <option value={10}>10</option>
-                                    <option value={11}>11</option>
-                                    <option value={12}>12</option>
-                                </select>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Khối</label>
+                                    <select value={currentSchedule.grade} onChange={e => setCurrentSchedule({ ...currentSchedule, grade: parseInt(e.target.value) })}
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm">
+                                        <option value={10}>10</option>
+                                        <option value={11}>11</option>
+                                        <option value={12}>12</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Loại kỳ thi</label>
+                                    <select value={currentSchedule.examType} onChange={e => setCurrentSchedule({ ...currentSchedule, examType: e.target.value })}
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm">
+                                        <option value="MIDTERM">Giữa kỳ</option>
+                                        <option value="FINAL">Cuối kỳ</option>
+                                    </select>
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Ngày thi</label>

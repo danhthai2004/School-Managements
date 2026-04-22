@@ -184,6 +184,7 @@ public class ExamSessionService {
                                 .examDate(es.getExamDate().toString())
                                 .startTime(es.getStartTime().toString())
                                 .endTime(es.getEndTime() != null ? es.getEndTime().toString() : "")
+                                .examType(es.getExamType() != null ? es.getExamType().name() : "")
                                 .note(es.getNote() != null ? es.getNote() : "")
                                 .build();
         }
@@ -211,8 +212,10 @@ public class ExamSessionService {
                                                         : null)
                                         .duration(60) // Default 60 mins
                                         .note(dto.getNote())
-                                        .examType(session.getName().contains("Giữa") ? ExamType.MIDTERM
-                                                        : ExamType.FINAL)
+                                        .examType(dto.getExamType() != null && !dto.getExamType().isBlank()
+                                                        ? ExamType.valueOf(dto.getExamType().toUpperCase())
+                                                        : (session.getName().contains("Giữa") ? ExamType.MIDTERM
+                                                                        : ExamType.FINAL))
                                         .status(ExamStatus.UPCOMING)
                                         .school(session.getSchool())
                                         .academicYear(session.getAcademicYear())
@@ -248,6 +251,9 @@ public class ExamSessionService {
                                 ? LocalTime.parse(dto.getEndTime())
                                 : null);
                 schedule.setNote(dto.getNote());
+                if (dto.getExamType() != null && !dto.getExamType().isBlank()) {
+                        schedule.setExamType(ExamType.valueOf(dto.getExamType().toUpperCase()));
+                }
 
                 return toDetailDto(examScheduleRepo.save(schedule));
         }

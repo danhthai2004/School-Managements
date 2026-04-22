@@ -85,6 +85,7 @@ const StudentScoresPage = lazy(() => import("../views/Student/StudentScoresPage"
 const StudentAttendancePage = lazy(() => import("../views/Student/StudentAttendancePage"));
 const StudentAnalysisPage = lazy(() => import("../views/Student/StudentAnalysisPage"));
 const MyRiskAnalyticsPage = lazy(() => import("../views/Student/MyRiskAnalyticsPage"));
+const StudentNotificationPage = lazy(() => import("../views/Student/StudentNotificationPage"));
 
 export default function AppRouter() {
   return (
@@ -225,6 +226,7 @@ export default function AppRouter() {
           <Route path="attendance" element={<StudentAttendancePage />} />
           <Route path="analysis" element={<StudentAnalysisPage />} />
           <Route path="risk-analytics" element={<MyRiskAnalyticsPage />} />
+          <Route path="notification" element={<StudentNotificationPage />} />
           <Route path="profile" element={<ProfileSettingsPage />} />
         </Route>
 

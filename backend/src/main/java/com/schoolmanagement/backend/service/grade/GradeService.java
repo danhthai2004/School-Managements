@@ -134,17 +134,17 @@ public class GradeService {
                                                                 .build());
                                         }
 
-                                        // MID_TERM
+                                        // MIDTERM
                                         gradeValues.add(GradeBookDto.GradeValueDto.builder()
-                                                        .type("MID_TERM").index(null)
+                                                        .type("MIDTERM").index(null)
                                                         .value(grade != null && grade.getMidtermScore() != null
                                                                         ? grade.getMidtermScore().doubleValue()
                                                                         : null)
                                                         .build());
 
-                                        // FINAL_TERM
+                                        // FINAL
                                         gradeValues.add(GradeBookDto.GradeValueDto.builder()
-                                                        .type("FINAL_TERM").index(null)
+                                                        .type("FINAL").index(null)
                                                         .value(grade != null && grade.getFinalScore() != null
                                                                         ? grade.getFinalScore().doubleValue()
                                                                         : null)
@@ -268,8 +268,8 @@ public class GradeService {
                                                                                 .build());
                                                         }
                                                 }
-                                                case "MID_TERM" -> grade.setMidtermScore(val);
-                                                case "FINAL_TERM" -> grade.setFinalScore(val);
+                                                case "MIDTERM" -> grade.setMidtermScore(val);
+                                                case "FINAL" -> grade.setFinalScore(val);
                                         }
                                 }
 

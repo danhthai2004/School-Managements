@@ -120,21 +120,21 @@ const ImportGradesModal: React.FC<ImportGradesModalProps> = ({
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
                     <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col z-[100] animate-in zoom-in-95 duration-300 max-h-[85vh]">
                         {/* Header */}
-                        <div className="bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 px-8 py-5 flex-none text-white">
+                        <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 px-8 py-5 flex-none text-white">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                                        <FileSpreadsheet className="w-5 h-5" />
+                                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shadow-inner">
+                                        <FileSpreadsheet className="w-5 h-5 text-emerald-50" />
                                     </div>
                                     <div>
-                                        <h1 className="text-xl font-bold uppercase tracking-tight">Nhập điểm từ Excel</h1>
+                                        <h1 className="text-xl font-bold tracking-tight">Nhập điểm từ Excel</h1>
                                         {className && subjectName && (
-                                            <p className="text-emerald-50 text-xs font-medium opacity-90 mt-0.5">{className} — {subjectName}</p>
+                                            <p className="text-emerald-50/80 text-xs font-medium mt-0.5">{className} • {subjectName}</p>
                                         )}
                                     </div>
                                 </div>
-                                <button onClick={handleClose} className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all">
-                                    <X className="w-5 h-5" />
+                                <button onClick={handleClose} className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all">
+                                    <X className="w-5 h-5 text-white" />
                                 </button>
                             </div>
                         </div>
@@ -142,18 +142,22 @@ const ImportGradesModal: React.FC<ImportGradesModalProps> = ({
                         {/* Body */}
                         <div className="p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
                             {/* Download Template Section */}
-                            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs font-black text-blue-800 uppercase tracking-widest">Tải file mẫu</p>
-                                    <p className="text-[11px] text-blue-600 mt-1 font-medium">File sẽ có sẵn danh sách học sinh và điểm đã nhập (nếu có)</p>
+                            <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+                                <div className="flex gap-3 items-center">
+                                    <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                                        <Download className="w-5 h-5 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-blue-900">Tải file mẫu</p>
+                                        <p className="text-[11px] text-blue-600/70 mt-0.5 font-medium">Gồm danh sách học sinh & điểm đã có</p>
+                                    </div>
                                 </div>
                                 <button
                                     onClick={handleDownloadTemplate}
                                     disabled={downloading}
-                                    className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 shrink-0 uppercase tracking-widest disabled:opacity-50"
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100 shrink-0 disabled:opacity-50"
                                 >
-                                    <Download className="w-4 h-4" />
-                                    {downloading ? "Đang tải..." : "Tải mẫu"}
+                                    {downloading ? "Đang tải..." : "Tải ngay"}
                                 </button>
                             </div>
 
@@ -163,7 +167,7 @@ const ImportGradesModal: React.FC<ImportGradesModalProps> = ({
                                 onDragLeave={() => setDragOver(false)}
                                 onDrop={handleDrop}
                                 onClick={() => fileInputRef.current?.click()}
-                                className={`border-2 border-dashed rounded-3xl p-10 text-center transition-all cursor-pointer group
+                                className={`border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer group relative overflow-hidden
                                     ${dragOver ? "border-emerald-400 bg-emerald-50/50 scale-[1.01]" : file ? "border-emerald-300 bg-emerald-50/20" : "border-slate-200 hover:border-emerald-400 hover:bg-slate-50/50"}`}
                             >
                                 <input
@@ -175,50 +179,50 @@ const ImportGradesModal: React.FC<ImportGradesModalProps> = ({
                                 />
                                 {file ? (
                                     <div className="flex flex-col items-center gap-3 animate-in zoom-in-95">
-                                        <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 shadow-lg shadow-emerald-100">
+                                        <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 shadow-lg shadow-emerald-100/50">
                                             <FileSpreadsheet className="w-8 h-8" />
                                         </div>
                                         <div>
                                             <p className="text-sm font-bold text-slate-800 tracking-tight">{file.name}</p>
-                                            <p className="text-[10px] font-black uppercase text-emerald-600 opacity-60 tracking-widest">{(file.size / 1024).toFixed(1)} KB</p>
+                                            <p className="text-xs font-bold text-emerald-600/60 mt-1 uppercase tracking-wider">{(file.size / 1024).toFixed(1)} KB</p>
                                         </div>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); setFile(null); }}
-                                            className="px-4 py-2 mt-2 rounded-xl text-xs font-black text-red-500 hover:bg-red-50 transition-all uppercase tracking-widest"
+                                            className="px-4 py-2 mt-2 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-50 transition-all"
                                         >
-                                            Thay đổi file
+                                            Chọn file khác
                                         </button>
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
-                                        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-300 mx-auto group-hover:scale-110 group-hover:bg-emerald-100 group-hover:text-emerald-500 transition-all duration-300">
+                                        <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-300 mx-auto group-hover:scale-110 group-hover:bg-emerald-50 group-hover:text-emerald-500 transition-all duration-300 shadow-inner">
                                             <Upload className="w-8 h-8" />
                                         </div>
                                         <div>
-                                            <p className="text-sm text-slate-700 font-bold uppercase tracking-[0.1em]">Kéo thả file Excel vào đây</p>
-                                            <p className="text-[11px] text-slate-400 font-medium">hoặc bấm để chọn file từ máy tính (.xlsx, .xls)</p>
+                                            <p className="text-sm text-slate-600 font-bold">Kéo thả file Excel vào đây</p>
+                                            <p className="text-xs text-slate-400 font-medium mt-1">hoặc click để chọn file từ máy tính</p>
                                         </div>
                                     </div>
                                 )}
                             </div>
 
-                            {/* Info Card */}
-                            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+                            {/* Info Card - Softened colors */}
+                            <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-5 shadow-sm">
                                 <div className="flex items-center gap-2 mb-3">
                                     <Info className="w-4 h-4 text-amber-600" />
-                                    <p className="text-xs font-black text-amber-800 uppercase tracking-widest">Lưu ý nhập điểm</p>
+                                    <p className="text-sm font-bold text-amber-800">Lưu ý nhập điểm</p>
                                 </div>
-                                <ul className="text-[11px] text-amber-800/80 space-y-2 ml-4 list-disc font-medium leading-relaxed">
-                                    <li>Chỉ nhập điểm cho các học sinh có tên trong danh sách.</li>
-                                    <li>Điểm số phải nằm trong khoảng từ <span className="font-bold text-amber-900">0 đến 10</span>.</li>
-                                    <li>Sử dụng dấu chấm <span className="font-bold text-amber-900">(.)</span> để ngăn cách phần thập phân.</li>
-                                    <li>Đảm bảo không thay đổi cấu trúc các cột định dạng trong file mẫu.</li>
+                                <ul className="text-[11px] text-amber-800/70 space-y-2 ml-4 list-disc font-medium leading-relaxed">
+                                    <li>Chỉ nhập điểm cho học sinh trong danh sách mặc định.</li>
+                                    <li>Điểm số hợp lệ trong khoảng từ <span className="font-bold text-amber-900">0 đến 10</span>.</li>
+                                    <li>Sử dụng dấu chấm <span className="font-bold text-amber-900">(.)</span> cho phần thập phân.</li>
+                                    <li><span className="font-bold text-rose-600">Tuyệt đối không</span> thay đổi cấu trúc các cột/dòng mẫu.</li>
                                 </ul>
                             </div>
 
                             {/* Error Message */}
                             {error && (
-                                <div className="flex items-center gap-3 px-5 py-4 rounded-2xl text-sm font-bold bg-red-50 text-red-700 border border-red-200 animate-in slide-in-from-top-2">
+                                <div className="flex items-center gap-3 px-5 py-4 rounded-2xl text-sm font-bold bg-rose-50 text-rose-700 border border-rose-200 animate-in slide-in-from-top-2 shadow-sm">
                                     <AlertCircle className="w-5 h-5 shrink-0" />
                                     {error}
                                 </div>
@@ -226,23 +230,23 @@ const ImportGradesModal: React.FC<ImportGradesModalProps> = ({
                         </div>
 
                         {/* Footer */}
-                        <div className="px-8 py-5 bg-slate-50 border-t border-slate-200 flex-none">
+                        <div className="px-8 py-6 bg-slate-50/80 border-t border-slate-100 flex-none">
                             <div className="flex gap-4">
                                 <button
                                     onClick={handleClose}
-                                    className="flex-1 px-6 py-4 rounded-2xl border border-slate-200 text-slate-600 font-black hover:bg-white hover:shadow-md transition-all active:scale-95 uppercase text-xs tracking-widest"
+                                    className="flex-1 px-6 py-3 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-white hover:border-slate-300 transition-all text-sm"
                                 >
                                     Hủy bỏ
                                 </button>
                                 <button
                                     onClick={handleUpload}
                                     disabled={!file || uploading}
-                                    className="flex-[1.5] px-6 py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black hover:shadow-xl hover:shadow-emerald-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 active:scale-95 uppercase text-xs tracking-widest"
+                                    className="flex-[1.5] px-6 py-3 rounded-xl bg-emerald-500 text-white font-bold hover:shadow-lg hover:shadow-emerald-100 transition-all disabled:opacity-50 flex items-center justify-center gap-3 text-sm"
                                 >
                                     {uploading ? (
                                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                     ) : (
-                                        <Upload className="w-5 h-5" strokeWidth={3} />
+                                        <Upload className="w-5 h-5" strokeWidth={2.5} />
                                     )}
                                     {uploading ? "Đang xử lý..." : "Bắt đầu Import"}
                                 </button>
