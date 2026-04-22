@@ -5,9 +5,7 @@ import com.schoolmanagement.backend.dto.exam.ExamScheduleDto;
 
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.timetable.TimetableStatus;
-import com.schoolmanagement.backend.domain.entity.student.ExamStudent;
 import com.schoolmanagement.backend.domain.entity.classes.Subject;
-import com.schoolmanagement.backend.domain.attendance.AttendanceStatus;
 import com.schoolmanagement.backend.domain.entity.auth.User;
 import com.schoolmanagement.backend.domain.auth.Role;
 import com.schoolmanagement.backend.domain.exam.ExamStatus;
@@ -24,7 +22,7 @@ import com.schoolmanagement.backend.repo.timetable.TimetableRepository;
 import com.schoolmanagement.backend.repo.timetable.TimetableDetailRepository;
 import com.schoolmanagement.backend.repo.attendance.AttendanceRepository;
 import com.schoolmanagement.backend.repo.admin.SemesterRepository;
-import com.schoolmanagement.backend.repo.student.ExamStudentRepository;
+import com.schoolmanagement.backend.repo.exam.ExamScheduleRepository;
 import com.schoolmanagement.backend.dto.timetable.StudentTimetableDto;
 import com.schoolmanagement.backend.domain.entity.timetable.Timetable;
 import com.schoolmanagement.backend.dto.timetable.TimetableSlotDto;
@@ -66,7 +64,7 @@ public class StudentPortalService {
         private final com.schoolmanagement.backend.repo.grade.GradeRepository gradeRepository;
         private final AttendanceRepository attendanceRepository;
         private final SemesterRepository semesterRepository;
-        private final ExamStudentRepository examStudentRepository;
+        private final ExamScheduleRepository examScheduleRepository;
         private final SemesterService semesterService;
 
         // ==================== Public API Methods ====================
@@ -188,14 +186,7 @@ public class StudentPortalService {
                                 ? semesterService.getSemester(UUID.fromString(semesterId))
                                 : semesterService.getActiveSemesterEntity(student.getSchool());
 
-                List<ExamStudent> examStudents = examStudentRepository.findByStudentAndSemester(
-                                student.getId(), targetSemester);
-
-                LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
-                return examStudents.stream()
-                                .map(es -> toExamScheduleDto(es.getExamRoom().getExamSchedule(),
-                                                es.getExamRoom().getRoom().getName(), today))
-                                .collect(Collectors.toList());
+                return getSchedulesForStudent(student, targetSemester);
         }
 
         /**
@@ -210,13 +201,41 @@ public class StudentPortalService {
                                 ? semesterService.getSemester(semesterId)
                                 : semesterService.getActiveSemesterEntity(student.getSchool());
 
-                List<ExamStudent> examStudents = examStudentRepository.findByStudentAndSemester(
-                                student.getId(), targetSemester);
+                return getSchedulesForStudent(student, targetSemester);
+        }
+
+        private List<ExamScheduleDto> getSchedulesForStudent(Student student,
+                        com.schoolmanagement.backend.domain.entity.admin.Semester targetSemester) {
+                ClassEnrollment enrollment = getCurrentEnrollment(student, targetSemester.getAcademicYear());
+                if (enrollment == null) {
+                        return new ArrayList<>();
+                }
+
+                ClassRoom classRoom = enrollment.getClassRoom();
+                Integer grade = classRoom.getGrade();
+
+                // Get student's subjects from combination
+                final Set<UUID> studentSubjectIds = (classRoom.getCombination() != null
+                                && classRoom.getCombination().getSubjects() != null)
+                                                ? classRoom.getCombination().getSubjects().stream()
+                                                                .map(Subject::getId)
+                                                                .collect(Collectors.toSet())
+                                                : new HashSet<>();
+
+                // Find all schedules for this semester
+                List<ExamSchedule> allSchedules = examScheduleRepository
+                                .findByExamSession_Semester_Id(targetSemester.getId());
 
                 LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
-                return examStudents.stream()
-                                .map(es -> toExamScheduleDto(es.getExamRoom().getExamSchedule(),
-                                                es.getExamRoom().getRoom().getName(), today))
+
+                return allSchedules.stream()
+                                // Filter by grade and subject combination
+                                .filter(s -> s.getGrade().equals(grade) || (s.getClassRoom() != null
+                                                && s.getClassRoom().getId().equals(classRoom.getId())))
+                                .filter(s -> studentSubjectIds.contains(s.getSubject().getId()))
+                                .map(s -> toExamScheduleDto(s, s.getRoomNumber(), today))
+                                .sorted(Comparator.comparing(ExamScheduleDto::getExamDate)
+                                                .thenComparing(ExamScheduleDto::getStartTime))
                                 .collect(Collectors.toList());
         }
 
