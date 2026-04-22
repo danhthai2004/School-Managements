@@ -43,7 +43,8 @@ public class GoogleIdTokenService {
         } catch (ApiException ex) {
             throw ex;
         } catch (Exception ex) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "Google token không hợp lệ.");
+            ex.printStackTrace();
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Google token không hợp lệ: " + ex.getMessage());
         }
     }
 }

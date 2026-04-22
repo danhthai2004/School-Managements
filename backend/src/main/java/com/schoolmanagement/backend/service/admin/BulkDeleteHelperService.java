@@ -13,7 +13,9 @@ import com.schoolmanagement.backend.repo.teacher.ExamInvigilatorRepository;
 import com.schoolmanagement.backend.repo.timetable.TimetableDetailRepository;
 
 import com.schoolmanagement.backend.domain.entity.student.Student;
+import com.schoolmanagement.backend.domain.entity.student.Guardian;
 import com.schoolmanagement.backend.domain.entity.teacher.Teacher;
+import com.schoolmanagement.backend.domain.entity.auth.User;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

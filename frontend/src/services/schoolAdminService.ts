@@ -323,6 +323,7 @@ export const schoolAdminService = {
         status?: string;
         sortBy?: string;
         sortDir?: string;
+        unassigned?: boolean;
     } = {}): Promise<StudentPageResponse> => {
         const res = await api.get<StudentPageResponse>("/school/students", { params });
         return res.data;
@@ -393,12 +394,29 @@ export const schoolAdminService = {
         return res.data;
     },
 
+    exportStudents: async (classId?: string): Promise<Blob> => {
+        const res = await api.get("/school/students/export", {
+            params: classId ? { classId } : undefined,
+            responseType: "blob",
+        });
+        return res.data;
+    },
+
     deleteStudent: async (studentId: string): Promise<void> => {
         await api.delete(`/school/students/${studentId}`);
     },
 
     bulkDeleteStudents: async (ids: string[]): Promise<BulkDeleteResponse> => {
         const res = await api.post<BulkDeleteResponse>("/school/students/bulk-delete", { ids });
+        return res.data;
+    },
+
+    bulkAssignToClass: async (
+        studentIds: string[],
+        mode: "AUTO" | "MANUAL",
+        classId?: string
+    ): Promise<BulkAssignResult> => {
+        const res = await api.post<BulkAssignResult>("/school/students/bulk-assign", { studentIds, mode, classId });
         return res.data;
     },
 
@@ -532,6 +550,10 @@ export const schoolAdminService = {
         return res.data;
     },
 
+    bulkAssignTeachers: async (updates: { assignmentId: string; teacherId: string | null }[]): Promise<void> => {
+        await api.put("/school/assignments/bulk", updates);
+    },
+
     // ==================== Attendance Management ====================
 
     getAttendanceSlots: async (classRoomId: string, date: string): Promise<AdminSlotDto[]> => {
@@ -562,6 +584,20 @@ export type BulkAccountCreationResponse = {
 };
 
 // ==================== IMPORT RESULT TYPE ====================
+
+export type BulkAssignDetail = {
+    studentName: string;
+    result: "ASSIGNED" | "SKIPPED" | "FAILED";
+    className: string | null;
+    reason: string | null;
+};
+
+export type BulkAssignResult = {
+    assigned: number;
+    skipped: number;
+    failed: number;
+    details: BulkAssignDetail[];
+};
 
 export type ImportStudentResult = {
     totalRows: number;

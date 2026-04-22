@@ -9,10 +9,10 @@ interface ImportExcelModalProps {
     onClose: () => void;
     onSuccess: () => void;
     onImportComplete: (result: ImportStudentResult) => void;
-    defaultAcademicYear: string;
+    defaultAcademicYear?: string;
 }
 
-function ImportExcelModal({ isOpen, onClose, onSuccess, onImportComplete, defaultAcademicYear }: ImportExcelModalProps) {
+function ImportExcelModal({ isOpen, onClose, onSuccess, onImportComplete, defaultAcademicYear = "" }: ImportExcelModalProps) {
     const [file, setFile] = useState<File | null>(null);
     const [academicYear, setAcademicYear] = useState(defaultAcademicYear);
     const [grade, setGrade] = useState(10);

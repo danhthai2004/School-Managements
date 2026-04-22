@@ -23,6 +23,8 @@ import com.schoolmanagement.backend.repo.student.StudentRepository;
 import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +42,8 @@ import org.apache.commons.csv.CSVRecord;
 
 @Service
 public class StudentImportService {
+
+    private static final Logger log = LoggerFactory.getLogger(StudentImportService.class);
 
     private final StudentRepository students;
     private final GuardianRepository guardians;
@@ -79,6 +83,7 @@ public class StudentImportService {
 
         List<ImportStudentResult.ImportError> errors = new ArrayList<>();
         Map<Student, Combination> studentCombinationMap = new LinkedHashMap<>();
+        List<Student> allImportedStudents = new ArrayList<>();
         int totalRows = 0;
         int successCount = 0;
         int failedCount = 0;
@@ -261,6 +266,7 @@ public class StudentImportService {
                             .build();
 
                     student = students.save(student);
+                    allImportedStudents.add(student);
 
                     // Store student with their parsed combination (can be null if not provided)
                     if (combination != null) {
@@ -316,8 +322,15 @@ public class StudentImportService {
 
         // Auto assign students to classes if requested
         int assignedCount = 0;
-        if (autoAssign && !studentCombinationMap.isEmpty()) {
+        log.info("[Import] autoAssign={}, importedStudents={}, studentsWithCombination={}",
+                autoAssign, allImportedStudents.size(), studentCombinationMap.size());
+        if (autoAssign && !allImportedStudents.isEmpty()) {
+            // Include students without combination (null) so they get fallback-assigned to any available class
+            for (Student s : allImportedStudents) {
+                studentCombinationMap.putIfAbsent(s, null);
+            }
             assignedCount = autoAssignStudentsToClasses(school, studentCombinationMap, academicYear, grade);
+            log.info("[Import] Auto-assign complete: assignedCount={}", assignedCount);
         }
 
         return new ImportStudentResult(totalRows, successCount, failedCount, assignedCount, errors);
@@ -335,7 +348,11 @@ public class StudentImportService {
         List<ClassRoom> allClasses = classRooms.findAllBySchoolAndGradeAndAcademicYearAndStatus(
                 school, grade, academicYear, ClassRoomStatus.ACTIVE);
 
+        log.info("[AutoAssign] grade={}, academicYearId={}, classesFound={}, studentsToAssign={}",
+                grade, academicYear.getId(), allClasses.size(), studentCombinationMap.size());
+
         if (allClasses.isEmpty()) {
+            log.warn("[AutoAssign] No active classes found for grade={} academicYear={}", grade, academicYear.getName());
             return 0; // No classes available
         }
 
@@ -345,12 +362,26 @@ public class StudentImportService {
             classEnrollmentCounts.put(classRoom.getId(), enrollments.countByClassRoom(classRoom));
         }
 
+        // Expected birth year for this grade: grade 10 → startYear-15, 11 → startYear-16, 12 → startYear-17
+        int startYear = academicYear.getStartDate().getYear();
+        int expectedBirthYear = startYear - grade - 5;
+
         for (Map.Entry<Student, Combination> entry : studentCombinationMap.entrySet()) {
             Student student = entry.getKey();
             Combination studentComb = entry.getValue();
 
-            // Filter classes matching student's combination
-            List<ClassRoom> candidateClasses = allClasses.stream()
+            // Skip students whose birth year does not match this grade exactly
+            if (student.getDateOfBirth() != null) {
+                int birthYear = student.getDateOfBirth().getYear();
+                if (birthYear != expectedBirthYear) {
+                    log.debug("[AutoAssign] Skipping {} (born {}) — expected birth year {} for grade {}",
+                            student.getFullName(), birthYear, expectedBirthYear, grade);
+                    continue;
+                }
+            }
+
+            // Filter classes matching student's combination (null combination = fallback to any class)
+            List<ClassRoom> candidateClasses = studentComb == null ? List.of() : allClasses.stream()
                     .filter(c -> c.getCombination() != null && c.getCombination().getId().equals(studentComb.getId()))
                     .sorted(Comparator.comparingLong(c -> classEnrollmentCounts.get(c.getId())))
                     .toList();

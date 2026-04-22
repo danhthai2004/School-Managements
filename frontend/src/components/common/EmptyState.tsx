@@ -131,6 +131,15 @@ export const NoTeachersState: React.FC<{ onAdd?: () => void }> = ({ onAdd }) => 
     />
 );
 
+export const NoAcademicYearState: React.FC<{ onAction?: () => void }> = ({ onAction }) => (
+    <EmptyState
+        variant="no-data"
+        title="Chưa có năm học"
+        description="Cần có năm học để thực hiện thao tác này. Vui lòng tạo năm học trước."
+        action={onAction ? { label: "Tạo năm học", onClick: onAction } : undefined}
+    />
+);
+
 export const NoClassesState: React.FC<{ onAdd?: () => void }> = ({ onAdd }) => (
     <EmptyState
         icon={

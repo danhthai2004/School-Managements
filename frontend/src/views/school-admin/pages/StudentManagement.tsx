@@ -27,6 +27,7 @@ import StudentDetailModal from "../components/student/StudentDetailModal";
 
 import EditStudentModal from "../components/student/EditStudentModal";
 import ImportExcelModal from "../components/student/ImportExcelModal";
+import BulkAssignModal from "../components/student/BulkAssignModal";
 
 // ==================== PAGE COMPONENT ====================
 
@@ -52,6 +53,7 @@ const StudentManagement = () => {
     const [gradeFilter, setGradeFilter] = useState<string>("");
     const [classFilter, setClassFilter] = useState<string>("");
     const [statusFilter, setStatusFilter] = useState<string>("");
+    const [unassignedFilter, setUnassignedFilter] = useState(false);
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'fullName', direction: 'asc' });
 
     // Modal states
@@ -63,7 +65,9 @@ const StudentManagement = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [importToastResult, setImportToastResult] = useState<ImportStudentResult | null>(null);
     const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
+    const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
     const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
+    const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null);
 
     const { showSuccess, toast } = useToast();
 
@@ -101,7 +105,8 @@ const StudentManagement = () => {
     useEffect(() => {
         fetchStudents();
         setSelectedStudentIds(new Set());
-    }, [page, pageSize, debouncedSearch, gradeFilter, classFilter, statusFilter, sortConfig]);
+        setLastClickedIndex(null);
+    }, [page, pageSize, debouncedSearch, gradeFilter, classFilter, statusFilter, sortConfig, unassignedFilter]);
 
     useEffect(() => {
         if (searchParams.get('action') === 'add') {
@@ -129,7 +134,8 @@ const StudentManagement = () => {
                 classId: classFilter || undefined,
                 status: statusFilter || undefined,
                 sortBy: sortConfig?.key || 'fullName',
-                sortDir: sortConfig?.direction || 'asc'
+                sortDir: sortConfig?.direction || 'asc',
+                unassigned: unassignedFilter || undefined
             });
 
             setStudents(response.content);
@@ -177,21 +183,34 @@ const StudentManagement = () => {
 
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
-            const allIds = students.map(s => s.id);
-            setSelectedStudentIds(new Set(allIds));
+            setSelectedStudentIds(new Set(students.map(s => s.id)));
         } else {
             setSelectedStudentIds(new Set());
         }
+        setLastClickedIndex(null);
     };
 
-    const handleSelectOne = (id: string) => {
+    const handleSelectOne = (id: string, index: number, e: React.MouseEvent) => {
         const newSelected = new Set(selectedStudentIds);
-        if (newSelected.has(id)) {
-            newSelected.delete(id);
+
+        if (e.shiftKey && lastClickedIndex !== null) {
+            // Select range between lastClickedIndex and current index
+            const from = Math.min(lastClickedIndex, index);
+            const to = Math.max(lastClickedIndex, index);
+            const shouldSelect = !newSelected.has(id);
+            for (let i = from; i <= to; i++) {
+                if (students[i]) {
+                    if (shouldSelect) newSelected.add(students[i].id);
+                    else newSelected.delete(students[i].id);
+                }
+            }
         } else {
-            newSelected.add(id);
+            if (newSelected.has(id)) newSelected.delete(id);
+            else newSelected.add(id);
         }
+
         setSelectedStudentIds(newSelected);
+        setLastClickedIndex(index);
     };
 
     const handleBulkDelete = async () => {
@@ -230,15 +249,26 @@ const StudentManagement = () => {
                 <h2 className="text-lg font-semibold text-gray-900">Danh sách học sinh</h2>
                 <div className="flex items-center gap-3">
                     {selectedStudentIds.size > 0 && (
-                        <button
-                            onClick={() => setShowBatchDeleteModal(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-all border border-red-200"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            <span>Xóa {selectedStudentIds.size} mục</span>
-                        </button>
+                        <>
+                            <button
+                                onClick={() => setShowBulkAssignModal(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100 transition-all border border-blue-200"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                                <span>Phân lớp ({selectedStudentIds.size})</span>
+                            </button>
+                            <button
+                                onClick={() => setShowBatchDeleteModal(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-all border border-red-200"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                <span>Xóa {selectedStudentIds.size} mục</span>
+                            </button>
+                        </>
                     )}
                     <button
                         onClick={async () => {
@@ -310,11 +340,22 @@ const StudentManagement = () => {
                 </select>
 
                 <select
-                    value={classFilter}
-                    onChange={(e) => { setClassFilter(e.target.value); setPage(0); }}
+                    value={unassignedFilter ? "__UNASSIGNED__" : classFilter}
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "__UNASSIGNED__") {
+                            setUnassignedFilter(true);
+                            setClassFilter("");
+                        } else {
+                            setUnassignedFilter(false);
+                            setClassFilter(val);
+                        }
+                        setPage(0);
+                    }}
                     className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm focus:border-blue-500 outline-none"
                 >
                     <option value="">Tất cả lớp</option>
+                    <option value="__UNASSIGNED__">Chưa phân lớp</option>
                     {sortedClasses.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
@@ -362,10 +403,10 @@ const StudentManagement = () => {
                         </thead>
 
                         <tbody className="divide-y divide-gray-100">
-                            {students.map((stu) => (
+                            {students.map((stu, index) => (
                                 <tr
                                     key={stu.id}
-                                    className="hover:bg-blue-50 cursor-pointer transition-colors"
+                                    className={`hover:bg-blue-50 cursor-pointer transition-colors select-none ${selectedStudentIds.has(stu.id) ? 'bg-blue-50/60' : ''}`}
                                     onClick={() => {
                                         setSelectedStudent(stu);
                                         setShowDetailModal(true);
@@ -374,9 +415,10 @@ const StudentManagement = () => {
                                     <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                                         <input
                                             type="checkbox"
-                                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                                             checked={selectedStudentIds.has(stu.id)}
-                                            onChange={() => handleSelectOne(stu.id)}
+                                            onChange={() => {}}
+                                            onClick={(e) => { e.stopPropagation(); handleSelectOne(stu.id, index, e); }}
                                         />
                                     </td>
                                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{stu.studentCode}</td>
@@ -463,9 +505,15 @@ const StudentManagement = () => {
             <ImportStudentResultModal
                 result={importToastResult}
                 onClose={() => setImportToastResult(null)}
-                onRetry={() => {
-                    setImportToastResult(null);
-                    setShowImportModal(true);
+            />
+            <BulkAssignModal
+                isOpen={showBulkAssignModal}
+                onClose={() => setShowBulkAssignModal(false)}
+                selectedIds={Array.from(selectedStudentIds)}
+                classes={classes}
+                onSuccess={() => {
+                    fetchStudents(true);
+                    setSelectedStudentIds(new Set());
                 }}
             />
             <BatchDeleteModal

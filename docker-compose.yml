@@ -17,16 +17,11 @@ services:
     image: dpage/pgadmin4:9.12
     container_name: school_pgadmin
     ports:
-      - 5050:80
+      - "5050:80"
     environment:
-      # Required by pgAdmin
       PGADMIN_DEFAULT_EMAIL: demo@example.com
       PGADMIN_DEFAULT_PASSWORD: secret
-
-      # Don't require the user to login
       PGADMIN_CONFIG_LOGIN_REQUIRED: 'False'
-
-      # Don't require a "master" password after logging in
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
     networks:
       - school_net
@@ -38,7 +33,6 @@ services:
     container_name: school_backend
     ports:
       - "8081:8081"
-      - "5005:5005"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/school_db
       SPRING_DATASOURCE_USERNAME: postgres
@@ -57,10 +51,8 @@ services:
         - action: sync
           path: ./backend/src
           target: /app/src
-
         - action: rebuild
           path: ./backend/pom.xml
-
         - action: rebuild
           path: ./backend/Dockerfile
     working_dir: /app
@@ -90,40 +82,8 @@ services:
     networks:
       - school_net
 
-  face-recognition:
-    build: ./backend/services/face-recognition
-    container_name: school_face_recognition
-    ports:
-      - "8001:8000"
-    environment:
-      # Dùng Supabase URL — lấy từ .env
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/school_db
-    volumes:
-      - insightface_models:/root/.insightface
-    depends_on:
-      - postgres
-    networks:
-      - school_net
-
 volumes:
   postgres_data:
-  insightface_models:
-  fuuko_test_postgres_data:
-
-services:
-  postgres:
-    image: postgres:15
-    container_name: school_postgres
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: school_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - school_net
 
 networks:
   school_net:

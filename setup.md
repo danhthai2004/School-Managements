@@ -29,6 +29,8 @@ description: Thiết lập và chạy dự án School-Managements (Full Stack - 
 ```powershell
 # Từ thư mục gốc dự án
 docker compose up -d postgres
+
+ docker compose up postgres pgadmin backend frontend -d --build 
 ```
 
 ### Bước 2: Chạy Backend (Port 8081)
@@ -36,6 +38,7 @@ docker compose up -d postgres
 ```powershell
 cd backend
 ./mvnw spring-boot:run
+docker compose up backend -d --build
 ```
 
 > Backend sẽ chạy tại: http://localhost:8081

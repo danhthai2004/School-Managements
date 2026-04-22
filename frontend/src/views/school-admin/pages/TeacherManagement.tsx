@@ -402,10 +402,6 @@ const TeacherManagement = () => {
             <ImportTeacherResultModal
                 result={importResult}
                 onClose={() => setImportResult(null)}
-                onRetry={() => {
-                    setImportResult(null);
-                    setShowImportModal(true);
-                }}
             />
 
         </div>

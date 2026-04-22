@@ -76,6 +76,9 @@ public interface ClassRoomRepository extends JpaRepository<ClassRoom, UUID> {
                         com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear,
                         ClassRoomStatus status);
 
+        // Find all classes by school and status (across all grades/years)
+        List<ClassRoom> findAllBySchoolAndStatus(School school, ClassRoomStatus status);
+
         // Find all active classes for a grade and academic year
         List<ClassRoom> findAllBySchoolAndGradeAndAcademicYearAndStatus(
                         School school,

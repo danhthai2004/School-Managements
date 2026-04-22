@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
+record BulkAssignRequest(UUID assignmentId, UUID teacherId) {}
+
 @RestController
 @RequestMapping("/api/school")
 @Transactional(readOnly = true)
@@ -127,6 +129,18 @@ public class CurriculumController {
         return teacherAssignmentService.assignTeacher(admin.getSchool(), assignmentId, req.teacherId());
     }
 
-
-
+    @Transactional
+    @PutMapping("/assignments/bulk")
+    public List<TeacherAssignmentDto> bulkAssignTeachers(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody List<BulkAssignRequest> items) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        var serviceItems = items.stream()
+                .map(i -> new TeacherAssignmentService.BulkAssignItem(i.assignmentId(), i.teacherId()))
+                .toList();
+        return teacherAssignmentService.bulkAssignTeachers(admin.getSchool(), serviceItems);
+    }
 }

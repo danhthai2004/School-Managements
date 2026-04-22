@@ -33,12 +33,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import jakarta.persistence.criteria.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -240,15 +244,15 @@ public class StudentManagementService {
     public com.schoolmanagement.backend.dto.student.StudentPageResponse listStudents(
             School school, UUID classId, int page, int size,
             String search, Integer grade, String status,
-            String sortBy, String sortDir) {
+            String sortBy, String sortDir, boolean unassigned) {
 
         AcademicYear currentYear = semesterService.getActiveAcademicYearSafe(school.getId());
         Sort.Direction direction = "desc".equalsIgnoreCase(sortDir) ? Sort.Direction.DESC : Sort.Direction.ASC;
 
         // Map FE sort keys to DB field names
-        String sortField = sortBy;
-        if ("currentClassName".equals(sortBy))
-            sortField = "fullName"; // Fallback for related field
+        // currentClassName is a computed JOIN field — sort in-memory after resolving enrollment
+        boolean sortByClassName = "currentClassName".equals(sortBy);
+        String sortField = sortByClassName ? "fullName" : sortBy;
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortField));
 
@@ -292,6 +296,15 @@ public class StudentManagementService {
                 predicates.add(root.get("id").in(subquery));
             }
 
+            // "Chưa phân lớp": students with no enrollment in current academic year
+            if (unassigned && currentYear != null) {
+                Subquery<UUID> sub = query.subquery(UUID.class);
+                Root<ClassEnrollment> ce = sub.from(ClassEnrollment.class);
+                sub.select(ce.get("student").get("id"));
+                sub.where(cb.equal(ce.get("academicYear"), currentYear));
+                predicates.add(cb.not(root.get("id").in(sub)));
+            }
+
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
@@ -310,6 +323,18 @@ public class StudentManagementService {
         List<StudentDto> content = studentPage.getContent().stream()
                 .map(s -> toStudentDtoFast(s, enrollmentMap.get(s.getId())))
                 .collect(Collectors.toList());
+
+        // Sort in-memory by class name (natural numeric order: 10A1 < 10A2 < 11A1)
+        if (sortByClassName) {
+            Comparator<StudentDto> classNameComparator = Comparator.comparing(
+                    s -> s.currentClassName() != null ? s.currentClassName() : "",
+                    Comparator.comparingInt((String name) -> {
+                        try { return Integer.parseInt(name.replaceAll("\\D.*", "")); } catch (Exception e) { return 999; }
+                    }).thenComparing(Comparator.naturalOrder())
+            );
+            if (direction == Sort.Direction.DESC) classNameComparator = classNameComparator.reversed();
+            content.sort(classNameComparator);
+        }
 
         return new com.schoolmanagement.backend.dto.student.StudentPageResponse(
                 content,
@@ -827,6 +852,180 @@ public class StudentManagementService {
         return getStudentProfile(school, studentId);
     }
 
+    // ==================== BULK CLASS ASSIGNMENT ====================
+
+    @Transactional
+    public com.schoolmanagement.backend.dto.student.BulkAssignResult bulkAssignToClass(
+            School school, com.schoolmanagement.backend.dto.student.BulkAssignRequest request) {
+
+        if (request.studentIds() == null || request.studentIds().isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Không có học sinh nào được chọn");
+        }
+
+        AcademicYear currentYear = semesterService.getActiveAcademicYearSafe(school.getId());
+        if (currentYear == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Không có năm học đang hoạt động");
+        }
+
+        List<Student> selectedStudents = students.findAllById(request.studentIds()).stream()
+                .filter(s -> s.getSchool().getId().equals(school.getId()))
+                .toList();
+
+        if ("MANUAL".equalsIgnoreCase(request.mode())) {
+            return manualAssign(school, selectedStudents, request.classId(), currentYear);
+        } else {
+            return autoAssign(school, selectedStudents, currentYear);
+        }
+    }
+
+    private com.schoolmanagement.backend.dto.student.BulkAssignResult manualAssign(
+            School school, List<Student> selectedStudents, UUID classId, AcademicYear currentYear) {
+
+        if (classId == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Cần chọn lớp đích khi phân bổ thủ công");
+        }
+        ClassRoom target = classRooms.findByIdAndSchool(classId, school)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp"));
+
+        if (target.getStatus() != ClassRoomStatus.ACTIVE) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Lớp đích không đang hoạt động");
+        }
+
+        int assigned = 0, skipped = 0, failed = 0;
+        List<com.schoolmanagement.backend.dto.student.BulkAssignResult.Detail> details = new ArrayList<>();
+        long currentCount = enrollments.countByClassRoom(target);
+
+        for (Student student : selectedStudents) {
+            // Skip if already enrolled in this class this year
+            if (enrollments.existsByStudentAndClassRoomAndAcademicYear(student, target, currentYear)) {
+                skipped++;
+                details.add(new com.schoolmanagement.backend.dto.student.BulkAssignResult.Detail(
+                        student.getFullName(), "SKIPPED", target.getName(), "Đã ở trong lớp này"));
+                continue;
+            }
+            // Check capacity
+            if (currentCount >= target.getMaxCapacity()) {
+                failed++;
+                details.add(new com.schoolmanagement.backend.dto.student.BulkAssignResult.Detail(
+                        student.getFullName(), "FAILED", target.getName(), "Lớp đã đủ sĩ số"));
+                continue;
+            }
+            enrollments.save(ClassEnrollment.builder()
+                    .student(student).classRoom(target).academicYear(currentYear)
+                    .enrolledAt(Instant.now()).build());
+            currentCount++;
+            assigned++;
+            details.add(new com.schoolmanagement.backend.dto.student.BulkAssignResult.Detail(
+                    student.getFullName(), "ASSIGNED", target.getName(), null));
+        }
+        return new com.schoolmanagement.backend.dto.student.BulkAssignResult(assigned, skipped, failed, details);
+    }
+
+    private com.schoolmanagement.backend.dto.student.BulkAssignResult autoAssign(
+            School school, List<Student> selectedStudents, AcademicYear currentYear) {
+
+        int startYear = currentYear.getStartDate().getYear();
+
+        // Pre-load all active classes grouped by grade
+        List<ClassRoom> allActiveClasses = classRooms.findAllBySchoolAndStatus(school, ClassRoomStatus.ACTIVE)
+                .stream().filter(c -> c.getAcademicYear().getId().equals(currentYear.getId())).toList();
+
+        // Pre-load current enrollment counts
+        Map<UUID, Long> countMap = new HashMap<>();
+        for (ClassRoom c : allActiveClasses) {
+            countMap.put(c.getId(), enrollments.countByClassRoom(c));
+        }
+
+        // Pre-load each student's combination from their latest enrollment
+        Map<UUID, com.schoolmanagement.backend.domain.entity.classes.Combination> studentCombMap = new HashMap<>();
+        for (Student s : selectedStudents) {
+            List<ClassEnrollment> history = enrollments.findAllByStudent(s);
+            history.stream()
+                    .filter(e -> e.getClassRoom().getCombination() != null)
+                    .max(Comparator.comparing(ClassEnrollment::getEnrolledAt))
+                    .ifPresent(e -> studentCombMap.put(s.getId(), e.getClassRoom().getCombination()));
+        }
+
+        int assigned = 0, skipped = 0, failed = 0;
+        List<com.schoolmanagement.backend.dto.student.BulkAssignResult.Detail> details = new ArrayList<>();
+
+        for (Student student : selectedStudents) {
+            // Determine expected grade from birth year
+            Integer grade = null;
+            if (student.getDateOfBirth() != null) {
+                int g = startYear - student.getDateOfBirth().getYear() - 5;
+                if (g >= 10 && g <= 12) grade = g;
+            }
+
+            if (grade == null) {
+                failed++;
+                details.add(new com.schoolmanagement.backend.dto.student.BulkAssignResult.Detail(
+                        student.getFullName(), "FAILED", null,
+                        student.getDateOfBirth() == null
+                                ? "Học sinh chưa có ngày sinh"
+                                : "Năm sinh không phù hợp với khối 10-12"));
+                continue;
+            }
+
+            com.schoolmanagement.backend.domain.entity.classes.Combination comb = studentCombMap.get(student.getId());
+
+            // Filter candidate classes: same grade + same combination (or any if no comb)
+            final int finalGrade = grade;
+            List<ClassRoom> candidates = allActiveClasses.stream()
+                    .filter(c -> c.getGrade() == finalGrade)
+                    .filter(c -> comb == null || (c.getCombination() != null
+                            && c.getCombination().getId().equals(comb.getId())))
+                    .sorted(Comparator.comparingLong(c -> countMap.getOrDefault(c.getId(), 0L)))
+                    .toList();
+
+            // Fallback: any class of that grade if no comb match
+            if (candidates.isEmpty()) {
+                candidates = allActiveClasses.stream()
+                        .filter(c -> c.getGrade() == finalGrade)
+                        .sorted(Comparator.comparingLong(c -> countMap.getOrDefault(c.getId(), 0L)))
+                        .toList();
+            }
+
+            // Skip if already enrolled in any class this year
+            boolean alreadyEnrolled = false;
+            for (ClassRoom c : candidates) {
+                if (enrollments.existsByStudentAndClassRoomAndAcademicYear(student, c, currentYear)) {
+                    alreadyEnrolled = true;
+                    skipped++;
+                    details.add(new com.schoolmanagement.backend.dto.student.BulkAssignResult.Detail(
+                            student.getFullName(), "SKIPPED", c.getName(), "Đã được phân lớp"));
+                    break;
+                }
+            }
+            if (alreadyEnrolled) continue;
+
+            // Assign to class with most space
+            boolean assignedToClass = false;
+            for (ClassRoom c : candidates) {
+                long cnt = countMap.getOrDefault(c.getId(), 0L);
+                if (cnt < c.getMaxCapacity()) {
+                    enrollments.save(ClassEnrollment.builder()
+                            .student(student).classRoom(c).academicYear(currentYear)
+                            .enrolledAt(Instant.now()).build());
+                    countMap.put(c.getId(), cnt + 1);
+                    assigned++;
+                    details.add(new com.schoolmanagement.backend.dto.student.BulkAssignResult.Detail(
+                            student.getFullName(), "ASSIGNED", c.getName(), null));
+                    assignedToClass = true;
+                    break;
+                }
+            }
+            if (!assignedToClass) {
+                failed++;
+                details.add(new com.schoolmanagement.backend.dto.student.BulkAssignResult.Detail(
+                        student.getFullName(), "FAILED", null,
+                        candidates.isEmpty() ? "Không có lớp phù hợp cho khối " + grade
+                                : "Các lớp phù hợp đã đủ sĩ số"));
+            }
+        }
+        return new com.schoolmanagement.backend.dto.student.BulkAssignResult(assigned, skipped, failed, details);
+    }
+
     // ==================== BULK PROMOTION ====================
 
     /**
@@ -928,6 +1127,74 @@ public class StudentManagementService {
                 promoted, skipped, request.studentIds().size());
 
         return new BulkPromoteResponse(promoted, skipped, errors);
+    }
+
+    public byte[] exportStudentsToExcel(School school, UUID classId) {
+        List<Student> studentList;
+        if (classId != null) {
+            ClassRoom cls = classRooms.findById(classId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học"));
+            if (!cls.getSchool().getId().equals(school.getId())) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "Không có quyền truy cập lớp này");
+            }
+            AcademicYear currentYear = semesterService.getActiveAcademicYearSafe(school.getId());
+            List<ClassEnrollment> clsEnrollments = currentYear != null
+                    ? enrollments.findAllByClassRoomAndAcademicYear(cls, currentYear)
+                    : enrollments.findAllByClassRoom(cls);
+            studentList = clsEnrollments.stream().map(ClassEnrollment::getStudent).toList();
+        } else {
+            studentList = students.findAll(
+                    (root, query, cb) -> cb.equal(root.get("school"), school));
+        }
+
+        // Build enrollment map for class name lookup
+        AcademicYear currentYear = semesterService.getActiveAcademicYearSafe(school.getId());
+        Map<UUID, String> classNameMap = new HashMap<>();
+        if (!studentList.isEmpty() && currentYear != null) {
+            List<ClassEnrollment> allEnrollments = enrollments.findAllByStudentInAndAcademicYear(studentList, currentYear);
+            for (ClassEnrollment e : allEnrollments) {
+                classNameMap.put(e.getStudent().getId(), e.getClassRoom().getName());
+            }
+        }
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Danh sách học sinh");
+
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerStyle.setFont(headerFont);
+
+            String[] headers = {"STT", "Mã HS", "Họ và tên", "Giới tính", "Ngày sinh", "Lớp", "Trạng thái", "Email", "SĐT"};
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+                sheet.setColumnWidth(i, 4000);
+            }
+            sheet.setColumnWidth(2, 7000);
+
+            int rowNum = 1;
+            for (Student s : studentList) {
+                Row row = sheet.createRow(rowNum++);
+                row.createCell(0).setCellValue(rowNum - 1);
+                row.createCell(1).setCellValue(s.getStudentCode() != null ? s.getStudentCode() : "");
+                row.createCell(2).setCellValue(s.getFullName() != null ? s.getFullName() : "");
+                row.createCell(3).setCellValue(s.getGender() != null ? (s.getGender().name().equals("MALE") ? "Nam" : "Nữ") : "");
+                row.createCell(4).setCellValue(s.getDateOfBirth() != null ? s.getDateOfBirth().toString() : "");
+                row.createCell(5).setCellValue(classNameMap.getOrDefault(s.getId(), ""));
+                row.createCell(6).setCellValue(s.getStatus() != null ? s.getStatus().name() : "");
+                row.createCell(7).setCellValue(s.getEmail() != null ? s.getEmail() : "");
+                row.createCell(8).setCellValue(s.getPhone() != null ? s.getPhone() : "");
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Không thể tạo file Excel");
+        }
     }
 
 }

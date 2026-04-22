@@ -3,6 +3,8 @@ package com.schoolmanagement.backend.controller.student;
 import com.schoolmanagement.backend.dto.student.StudentProfileDto;
 
 import com.schoolmanagement.backend.dto.admin.BulkPromoteResponse;
+import com.schoolmanagement.backend.dto.student.BulkAssignRequest;
+import com.schoolmanagement.backend.dto.student.BulkAssignResult;
 import com.schoolmanagement.backend.dto.student.ImportStudentResult;
 import com.schoolmanagement.backend.dto.student.StudentDto;
 import com.schoolmanagement.backend.dto.admin.BulkPromoteRequest;
@@ -14,12 +16,17 @@ import com.schoolmanagement.backend.service.student.StudentImportService;
 import com.schoolmanagement.backend.service.student.StudentManagementService;
 import com.schoolmanagement.backend.service.auth.UserLookupService;
 import jakarta.validation.Valid;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -54,13 +61,14 @@ public class StudentController {
             @RequestParam(required = false) Integer grade,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "fullName") String sortBy,
-            @RequestParam(defaultValue = "asc") String sortDir) {
+            @RequestParam(defaultValue = "asc") String sortDir,
+            @RequestParam(defaultValue = "false") boolean unassigned) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         return studentManagementService.listStudents(
-                admin.getSchool(), classId, page, size, search, grade, status, sortBy, sortDir);
+                admin.getSchool(), classId, page, size, search, grade, status, sortBy, sortDir, unassigned);
     }
 
     @GetMapping("/students/{id}")
@@ -130,6 +138,17 @@ public class StudentController {
         return studentManagementService.transferStudent(admin.getSchool(), studentId, newClassId);
     }
 
+    @Transactional
+    @PostMapping("/students/bulk-assign")
+    public BulkAssignResult bulkAssignToClass(@AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody BulkAssignRequest request) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return studentManagementService.bulkAssignToClass(admin.getSchool(), request);
+    }
+
     @PostMapping("/students/promote")
     public BulkPromoteResponse promoteStudents(@AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody BulkPromoteRequest request) {
@@ -162,6 +181,23 @@ public class StudentController {
                 .findByIdAndSchool(academicYearId, admin.getSchool())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy năm học"));
         return studentImportService.importStudentsFromExcel(admin.getSchool(), file, ay, grade, autoAssign);
+    }
+
+    @GetMapping("/students/export")
+    public ResponseEntity<byte[]> exportStudents(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) UUID classId) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        byte[] data = studentManagementService.exportStudentsToExcel(admin.getSchool(), classId);
+        String filename = "danh_sach_hoc_sinh_" + LocalDate.now() + ".xlsx";
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(filename).build().toString())
+                .body(data);
     }
 
     @Transactional

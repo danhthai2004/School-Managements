@@ -18,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -144,6 +145,17 @@ public class TeacherAssignmentService {
         timetableDetailRepository.updateTeacherForClassAndSubject(assignment.getClassRoom(), assignment.getSubject(), teacher);
         
         return toDto(assignment);
+    }
+
+    public record BulkAssignItem(UUID assignmentId, UUID teacherId) {}
+
+    @Transactional
+    public List<TeacherAssignmentDto> bulkAssignTeachers(School school, List<BulkAssignItem> items) {
+        List<TeacherAssignmentDto> results = new ArrayList<>();
+        for (BulkAssignItem item : items) {
+            results.add(assignTeacher(school, item.assignmentId(), item.teacherId()));
+        }
+        return results;
     }
 
     @Transactional

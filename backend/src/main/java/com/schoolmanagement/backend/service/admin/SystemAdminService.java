@@ -90,11 +90,13 @@ public class SystemAdminService {
         return "SCH-" + randomNum;
     }
 
+    @Transactional(readOnly = true)
     public Page<SchoolDto> listSchools(Pageable pageable) {
         return schools.findByPendingDeleteAtIsNull(pageable)
                 .map(this::toSchoolDto);
     }
 
+    @Transactional(readOnly = true)
     public SchoolDetailDto getSchoolWithAdmins(UUID schoolId) {
         School school = schools.findById(schoolId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Trường không tồn tại."));
@@ -153,6 +155,7 @@ public class SystemAdminService {
                 s.getPendingDeleteAt());
     }
 
+    @Transactional(readOnly = true)
     public Page<SchoolDto> listPendingDeleteSchools(Pageable pageable) {
         return schools.findByPendingDeleteAtIsNotNull(pageable)
                 .map(this::toSchoolDto);
@@ -223,12 +226,14 @@ public class SystemAdminService {
                 school.getCode(), user.isEnabled());
     }
 
+    @Transactional(readOnly = true)
     public Page<UserListDto> listUsers(Role role, UUID schoolId, Boolean enabled, boolean pendingDelete,
             Pageable pageable) {
         return users.findWithFilters(role, schoolId, enabled, pendingDelete, pageable)
                 .map(this::toUserListDto);
     }
 
+    @Transactional(readOnly = true)
     public Page<UserListDto> listPendingDeleteUsers(Pageable pageable) {
         return users.findByPendingDeleteAtIsNotNull(pageable)
                 .map(this::toUserListDto);
