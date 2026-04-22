@@ -76,6 +76,7 @@ export type HomeroomStudent = {
     status: string;
     attendanceRate?: number;
     averageGpa?: number;
+    conductGrade?: string;
     parentPhone?: string;
     parentEmail?: string;
 };

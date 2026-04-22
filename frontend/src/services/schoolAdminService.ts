@@ -90,6 +90,15 @@ export type StudentProfileDto = StudentDto & {
     enrollmentHistory: ClassEnrollmentHistoryDto[];
 };
 
+export type ScoreDto = {
+    subjectId: string;
+    subjectName: string;
+    regularScores: (number | null)[];
+    midtermScore: number | null;
+    finalScore: number | null;
+    averageScore: number | null;
+};
+
 export type GuardianRequest = {
     fullName: string;
     phone?: string;

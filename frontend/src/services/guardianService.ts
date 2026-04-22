@@ -1,6 +1,6 @@
 import api from "./api";
 import type { StudentDto } from "./schoolAdminService";
-import type {ExamScheduleDto} from "./studentService.ts";
+import type {ExamScheduleDto, AttendanceSummaryDto} from "./studentService.ts";
 
 // ========== TIMETABLE TYPE ========
 export type TimetableDto = {
@@ -38,6 +38,17 @@ export const guardianService = {
       return res.data;
     } catch (err) {
       throw new Error("An error occured" + err);
+    }
+  },
+
+  getAttendance: async (studentId: string, month?: number, year?: number): Promise<AttendanceSummaryDto> => {
+    try {
+      const res = await api.get("/guardian/attendance", {
+        params: { studentId, month, year }
+      });
+      return res.data;
+    } catch (err) {
+      throw new Error("An error occurred: " + err);
     }
   },
 
