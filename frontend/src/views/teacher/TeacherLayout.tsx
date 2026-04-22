@@ -57,13 +57,13 @@ export default function TeacherLayout() {
         { path: "/teacher/exam-schedule", label: "Lịch thi", icon: <CalendarClock size={20} strokeWidth={1.5} /> },
         { path: "/teacher/attendance", label: "Điểm danh", icon: <UserCheck size={20} strokeWidth={1.5} /> },
         { path: "/teacher/grades", label: "Nhập điểm", icon: <GraduationCap size={20} strokeWidth={1.5} /> },
-        { path: "/teacher/class-map", label: "Sơ đồ lớp", icon: <LayoutGrid size={20} strokeWidth={1.5} /> },
         { path: "/teacher/notifications", label: "Thông báo", icon: <Bell size={20} strokeWidth={1.5} /> },
     ];
 
     // Additional menu items for homeroom teachers only
     const homeroomOnlyMenuItems = [
         { path: "/teacher/students", label: "Học sinh", icon: <Users size={20} strokeWidth={1.5} /> },
+        { path: "/teacher/class-map", label: "Sơ đồ lớp", icon: <LayoutGrid size={20} strokeWidth={1.5} /> },
         { path: "/teacher/risk-analytics", label: "AI phân tích học tập", icon: <SquareActivity size={20} strokeWidth={1.5} /> },
     ];
 

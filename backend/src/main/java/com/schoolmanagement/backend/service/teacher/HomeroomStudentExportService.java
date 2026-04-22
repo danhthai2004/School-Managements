@@ -16,6 +16,7 @@ import org.apache.poi.xssf.usermodel.XSSFColor;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -36,6 +37,7 @@ public class HomeroomStudentExportService {
     private static final byte[] COLOR_ROW_ALT = { (byte) 245, (byte) 248, (byte) 255 }; // Very light blue
     private static final byte[] COLOR_SUMMARY_BG = { (byte) 230, (byte) 245, (byte) 235 }; // Light green
 
+    @Transactional(readOnly = true)
     public Workbook exportHomeroomStudents(String teacherEmail) {
         User teacher = userRepository.findByEmailIgnoreCase(teacherEmail)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
@@ -47,7 +49,7 @@ public class HomeroomStudentExportService {
 
         ClassRoom homeroom = homeroomClass.get();
         List<ClassEnrollment> enrollments = classEnrollmentRepository
-                .findAllByClassRoomAndAcademicYear(homeroom, homeroom.getAcademicYear());
+                .findAllByClassRoomWithStudentAndGuardian(homeroom);
 
         List<Student> students = enrollments.stream()
                 .map(ClassEnrollment::getStudent)

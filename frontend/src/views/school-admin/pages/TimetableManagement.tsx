@@ -206,6 +206,7 @@ export default function TimetableManagement() {
                 try {
                     await api.post(`/school-admin/timetables/${timetable.id}/generate`);
                     showSuccess(`Đã xếp lịch thành công cho: ${timetable.name}`);
+                    fetchTimetables();
                 } catch (error) {
                     setError(`Lỗi khi xếp TKB: ${timetable.name}. Vui lòng thử lại.`);
                 } finally {

@@ -8,15 +8,15 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record NotificationDto(
-        UUID id,
-        String title,
-        String content,
-        NotificationType type,
-        TargetGroup targetGroup,
-        String referenceId,
-        String actionUrl,
-        NotificationStatus status,
-        String createdByName,
-        Instant createdAt,
-        boolean isRead) {
+                UUID id,
+                String title,
+                String content,
+                NotificationType type,
+                TargetGroup targetGroup,
+                String referenceId,
+                String actionUrl,
+                NotificationStatus status,
+                String createdByName,
+                Instant createdAt,
+                boolean isRead) {
 }
