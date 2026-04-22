@@ -33,7 +33,8 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
         /**
          * Find attendance record for a student on a specific date.
          */
-        Optional<Attendance> findByStudentAndDate(Student student, LocalDate date);
+        @Query("SELECT a FROM Attendance a WHERE a.student = :student AND a.attendanceDate = :date")
+        Optional<Attendance> findByStudentAndDate(@Param("student") Student student, @Param("date") LocalDate date);
 
         /**
          * Find all attendance records for a student in a date range.
@@ -63,7 +64,8 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
         /**
          * Find all attendance records for a classroom on a specific date.
          */
-        List<Attendance> findByClassRoomAndDate(ClassRoom classRoom, LocalDate date);
+        @Query("SELECT a FROM Attendance a WHERE a.classRoom = :classRoom AND a.attendanceDate = :date")
+        List<Attendance> findByClassRoomAndDate(@Param("classRoom") ClassRoom classRoom, @Param("date") LocalDate date);
 
         /**
          * Count attendance by status for a student in a date range.
