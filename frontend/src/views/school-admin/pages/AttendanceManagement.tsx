@@ -3,6 +3,7 @@ import DatePicker from "react-datepicker";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import "react-datepicker/dist/react-datepicker.css";
+import { vietnameseNameSort } from "../../../utils/sortUtils";
 import { schoolAdminService } from "../../../services/schoolAdminService";
 import type {
     ClassRoomDto,
@@ -113,7 +114,8 @@ export default function AttendanceManagement() {
                 dateStr,
                 selectedSlot.slotIndex
             );
-            setStudents(data);
+            const sortedData = [...data].sort((a, b) => vietnameseNameSort(a.studentName, b.studentName));
+            setStudents(sortedData);
         } catch (error) {
             console.error("Failed to load attendance:", error);
         } finally {
@@ -355,7 +357,7 @@ export default function AttendanceManagement() {
                         <p className="text-gray-500 mt-2 max-w-sm text-sm">
                             {selectedClassId
                                 ? "Vui lòng chọn một tiết học phía trên để xem danh sách điểm danh."
-                                : "Hãy chọn khối, lớp and ngày cần kiểm tra dữ liệu."}
+                                : "Hãy chọn khối, lớp và ngày cần kiểm tra dữ liệu."}
                         </p>
                     </div>
                 ) : loading ? (
@@ -395,7 +397,7 @@ export default function AttendanceManagement() {
                                 <button
                                     onClick={handleSave}
                                     disabled={saving}
-                                    className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold disabled:opacity-50 hover:from-blue-700 hover:to-blue-600"
+                                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-600 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {saving ? (
                                         <>
@@ -407,7 +409,7 @@ export default function AttendanceManagement() {
                                         </>
                                     ) : (
                                         <>
-                                            <Save className="w-5 h-5" />
+                                            <Save className="w-4 h-4" strokeWidth={1.8} />
                                             Lưu điểm danh
                                         </>
                                     )}
