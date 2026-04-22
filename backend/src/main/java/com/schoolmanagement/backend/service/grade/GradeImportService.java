@@ -176,11 +176,11 @@ public class GradeImportService {
                 } else if (header.startsWith("tx") || header.startsWith("điểm tx")
                         || header.startsWith("thường xuyên") || header.matches("tx\\s*\\d+")) {
                     regularColumns.add(i);
-                } else if (header.equals("giữa kỳ") || header.equals("gk") || header.equals("mid_term")
-                        || header.equals("midterm") || header.equals("điểm gk")) {
+                } else if (header.equals("giữa kỳ") || header.equals("gk") || header.equals("midterm")
+                        || header.equals("điểm gk")) {
                     midtermCol = i;
-                } else if (header.equals("cuối kỳ") || header.equals("ck") || header.equals("final_term")
-                        || header.equals("finalterm") || header.equals("điểm ck")) {
+                } else if (header.equals("cuối kỳ") || header.equals("ck") || header.equals("finalterm")
+                        || header.equals("final") || header.equals("điểm ck")) {
                     finalCol = i;
                 }
             }
@@ -316,7 +316,7 @@ public class GradeImportService {
                             finalMidVal = grade.getMidtermScore().doubleValue();
                         }
                         gradeValues.add(com.schoolmanagement.backend.dto.grade.GradeBookDto.GradeValueDto.builder()
-                                .type("MID_TERM")
+                                .type("MIDTERM")
                                 .value(finalMidVal)
                                 .build());
 
@@ -325,7 +325,7 @@ public class GradeImportService {
                             finalFinalVal = grade.getFinalScore().doubleValue();
                         }
                         gradeValues.add(com.schoolmanagement.backend.dto.grade.GradeBookDto.GradeValueDto.builder()
-                                .type("FINAL_TERM")
+                                .type("FINAL")
                                 .value(finalFinalVal)
                                 .build());
 

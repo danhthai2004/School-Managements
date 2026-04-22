@@ -189,7 +189,8 @@ public class NotificationService {
         notification = notificationRepository.save(notification);
 
         // Phân phát thông báo tới các recipients
-        List<User> targetUsers = resolveTargetUsers(request.targetGroup(), request.referenceId());
+        List<User> targetUsers = resolveTargetUsers(request.targetGroup(), request.referenceId(),
+                createdBy.getSchool() != null ? createdBy.getSchool().getId() : null);
         batchCreateRecipients(notification, targetUsers);
 
         activityLog.log("NOTIFICATION_CREATED", createdBy, null,
@@ -426,14 +427,17 @@ public class NotificationService {
     // ─────────────────────────────────────────────────────────
 
     /**
-     * Phân giải danh sách User theo nhóm đối tượng.
+     * Phân giải danh sách User theo nhóm đối tượng và schoolId.
      */
-    private List<User> resolveTargetUsers(TargetGroup targetGroup, String referenceId) {
+    private List<User> resolveTargetUsers(TargetGroup targetGroup, String referenceId, UUID schoolId) {
         return switch (targetGroup) {
-            case ALL -> userRepository.findAll();
-            case TEACHER -> userRepository.findByRole(Role.TEACHER);
-            case STUDENT -> userRepository.findByRole(Role.STUDENT);
-            case GUARDIAN -> userRepository.findByRole(Role.GUARDIAN);
+            case ALL -> schoolId != null ? userRepository.findBySchoolId(schoolId) : userRepository.findAll();
+            case TEACHER -> schoolId != null ? userRepository.findBySchoolIdAndRole(schoolId, Role.TEACHER)
+                    : userRepository.findByRole(Role.TEACHER);
+            case STUDENT -> schoolId != null ? userRepository.findBySchoolIdAndRole(schoolId, Role.STUDENT)
+                    : userRepository.findByRole(Role.STUDENT);
+            case GUARDIAN -> schoolId != null ? userRepository.findBySchoolIdAndRole(schoolId, Role.GUARDIAN)
+                    : userRepository.findByRole(Role.GUARDIAN);
             case CLASS -> resolveClassUsers(referenceId);
             case GRADE -> resolveGradeUsers(referenceId);
         };
@@ -519,26 +523,29 @@ public class NotificationService {
 
     /**
      * Batch insert NotificationRecipient cho danh sách User và gửi FCM Push.
+     * Sử dụng native INSERT ... ON CONFLICT DO NOTHING để tránh lỗi unique
+     * constraint.
      */
     private void batchCreateRecipients(Notification notification, List<User> users) {
         if (users == null || users.isEmpty())
             return;
 
-        java.util.Map<UUID, User> uniqueUsers = new java.util.HashMap<>();
+        // Deduplicate users by ID
+        java.util.Map<UUID, User> uniqueUsers = new java.util.LinkedHashMap<>();
         for (User u : users) {
             if (u != null && u.getId() != null) {
                 uniqueUsers.putIfAbsent(u.getId(), u);
             }
         }
 
-        List<NotificationRecipient> recipients = uniqueUsers.values().stream()
-                .map(user -> NotificationRecipient.builder()
-                        .notification(notification)
-                        .user(user)
-                        .build())
-                .toList();
-
-        recipientRepository.saveAll(recipients);
+        int savedCount = 0;
+        for (User user : uniqueUsers.values()) {
+            int inserted = recipientRepository.insertIgnoreDuplicate(
+                    UUID.randomUUID(), notification.getId(), user.getId());
+            savedCount += inserted;
+        }
+        log.info("Saved {}/{} recipients for notification '{}'", savedCount, uniqueUsers.size(),
+                notification.getTitle());
 
         // Fetch FCM tokens and push
         List<String> fcmTokens = deviceTokenRepository.findFcmTokensByUsers(users);

@@ -28,6 +28,7 @@ export type ExamScheduleDetailDto = {
     examDate: string;
     startTime: string;
     endTime: string;
+    examType: string;
     note: string;
 };
 

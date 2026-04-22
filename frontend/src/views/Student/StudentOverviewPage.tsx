@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { studentService, type StudentDashboardDto, type TimetableSlotDto, type ExamScheduleDto } from "../../services/studentService";
 import { CalendarIcon } from "../../components/layout/SystemIcons";
 import { Bell, BookOpen, TrendingUp, CheckCircle, ChevronRight, X, Clock } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useSemester } from "../../context/SemesterContext";
 import { formatDate } from "../../utils/dateHelpers";
 
@@ -21,10 +22,9 @@ const periodTimes: Record<number, string> = {
 };
 
 const examTypeLabels: Record<string, string> = {
+    REGULAR: "Thường xuyên",
     MIDTERM: "Giữa kỳ",
     FINAL: "Cuối kỳ",
-    REGULAR: "1 tiết",
-    QUIZ: "15 phút",
 };
 
 const renderFormattedContent = (content: string) => {
@@ -227,7 +227,7 @@ function UpcomingExamsCard({ exams }: { exams: ExamScheduleDto[] }) {
                                     </p>
                                 </div>
                                 <div className="text-right">
-                                    <span className={`text-xs px-2 py-1 rounded-full ${daysUntil <= 3 ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                                    <span className={`text-xs px-2 py-1 rounded-full ${daysUntil <= 2 ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
                                         Còn {daysUntil} ngày
                                     </span>
                                     <p className="text-xs text-gray-500 mt-1">{formatDate(exam.examDate)}</p>
@@ -258,7 +258,6 @@ function NotificationsCard() {
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
     const [allNotifications, setAllNotifications] = useState<NotificationItem[]>([]);
     const [loading, setLoading] = useState(true);
-    const [showAllModal, setShowAllModal] = useState(false);
     const [selectedNotif, setSelectedNotif] = useState<NotificationItem | null>(null);
 
     useEffect(() => {
@@ -313,44 +312,7 @@ function NotificationsCard() {
 
     return (
         <>
-            {/* All Notifications Modal - Using Portal to cover everything */}
-            {showAllModal && createPortal(
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-xl flex items-center justify-center z-[9999] p-4 transition-all duration-300">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-blue-600 text-white">
-                            <h3 className="font-semibold">Tất cả thông báo</h3>
-                            <button onClick={() => setShowAllModal(false)} className="p-1 hover:bg-white/20 rounded-lg">
-                                <X className="w-5 h-5 text-white" />
-                            </button>
-                        </div>
-                        <div className="overflow-y-auto p-4 space-y-2">
-                            {allNotifications.length > 0 ? (
-                                allNotifications.map((notif) => (
-                                    <div
-                                        key={notif.id}
-                                        onClick={() => { setSelectedNotif(notif); setShowAllModal(false); }}
-                                        className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-xl transition-colors cursor-pointer border border-gray-50"
-                                    >
-                                        <Bell className="w-5 h-5 text-blue-500 mt-1 flex-shrink-0" />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm text-gray-900 font-medium truncate">{notif.title}</p>
-                                            <p className="text-xs text-gray-500 mt-1 line-clamp-1">{renderFormattedContent(notif.content)}</p>
-                                            <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-gray-400">
-                                                <Clock className="w-3 h-3" />
-                                                <span>{formatTimeAgo(notif.createdAt)} • {notif.createdByName || 'Hệ thống'}</span>
-                                            </div>
-                                        </div>
-                                        <ChevronRight className="w-4 h-4 text-gray-300" />
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="text-center py-12 text-gray-400">Không có thông báo</div>
-                            )}
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
+
 
             {/* Detail Modal - Using Portal and z-9999 to cover header/sidebar */}
             {selectedNotif && createPortal(
@@ -459,12 +421,12 @@ function NotificationsCard() {
                         </div>
                     )}
                     {allNotifications.length > 3 && (
-                        <button
-                            onClick={() => setShowAllModal(true)}
+                        <Link
+                            to="/student/notification"
                             className="w-full text-center text-[11px] font-bold text-blue-600 hover:bg-blue-50 py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 border border-blue-50"
                         >
                             Xem tất cả ({allNotifications.length}) <ChevronRight className="w-4 h-4" />
-                        </button>
+                        </Link>
                     )}
                 </div>
             </div>

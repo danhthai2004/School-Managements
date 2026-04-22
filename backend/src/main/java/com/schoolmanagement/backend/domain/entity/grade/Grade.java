@@ -59,17 +59,6 @@ public class Grade {
         @Builder.Default
         private java.util.List<RegularScore> regularScores = new java.util.ArrayList<>();
 
-        // Legacy fixed score columns (kept for backward compatibility)
-        // Scores
-        @Column(name = "oral_score", precision = 4, scale = 2)
-        private BigDecimal oralScore;
-
-        @Column(name = "test_15min_score", precision = 4, scale = 2)
-        private BigDecimal test15minScore;
-
-        @Column(name = "test_45min_score", precision = 4, scale = 2)
-        private BigDecimal test45minScore;
-
         @Column(name = "midterm_score", precision = 4, scale = 2)
         private BigDecimal midtermScore;
 

@@ -98,8 +98,6 @@ export type TimetableDetail = {
 
 // ==================== NOTIFICATION TYPES ====================
 
-// ==================== NOTIFICATION TYPES ====================
-
 export type NotificationType = 'EXAM' | 'SCHEDULE' | 'OTHER';
 
 export type TargetGroup = 'ALL' | 'TEACHER' | 'STUDENT' | 'GUARDIAN' | 'CLASS' | 'GRADE';
@@ -133,22 +131,9 @@ export type CreateNotificationPayload = {
 // ==================== GRADE TYPES ====================
 
 export type GradeValue = {
-    type: 'REGULAR' | 'MID_TERM' | 'FINAL_TERM';
+    type: 'REGULAR' | 'MIDTERM' | 'FINAL';
     index?: number; // 1-4 for REGULAR
     value: number | null;
-};
-
-export type SubGradeValue = {
-    id?: string;
-    category: 'ORAL' | 'TEST_15MIN';
-    subIndex: number;
-    value: number | null;
-};
-
-export type SubGradeColumn = {
-    category: 'ORAL' | 'TEST_15MIN';
-    subIndex: number;
-    label: string;
 };
 
 export type StudentGrade = {
@@ -156,7 +141,6 @@ export type StudentGrade = {
     studentCode: string;
     fullName: string;
     grades: GradeValue[];
-    subGrades?: SubGradeValue[];
 };
 
 export type GradeBook = {
@@ -167,7 +151,6 @@ export type GradeBook = {
     semesterId?: string;
     regularAssessmentCount: number; // 2, 3, or 4
     canEdit: boolean;
-    subGradeColumns?: SubGradeColumn[];
     students: StudentGrade[];
 };
 
@@ -352,28 +335,6 @@ export const teacherService = {
             headers: { "Content-Type": "multipart/form-data" }
         });
         return res.data;
-    },
-
-    // Add sub-grade column
-    addSubGradeColumn: async (classId: string, subjectId: string, semester: number, category: string): Promise<SubGradeColumn> => {
-        const res = await api.post<SubGradeColumn>("/teacher/grades/sub-columns", {
-            classId, subjectId, semester, category
-        });
-        return res.data;
-    },
-
-    // Remove sub-grade column
-    removeSubGradeColumn: async (classId: string, subjectId: string, semester: number, category: string, subIndex: number): Promise<void> => {
-        await api.delete("/teacher/grades/sub-columns", {
-            params: { classId, subjectId, semester, category, subIndex }
-        });
-    },
-
-    // Resolve overflow
-    resolveOverflow: async (classId: string, subjectId: string, semester: number, strategy: 'AVERAGE' | 'MAX'): Promise<void> => {
-        await api.post("/teacher/grades/resolve", {
-            classId, subjectId, semester, strategy
-        });
     },
 
     // Download grade template
