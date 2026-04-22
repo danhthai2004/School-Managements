@@ -98,45 +98,36 @@ export type TimetableDetail = {
 
 // ==================== NOTIFICATION TYPES ====================
 
-export type NotificationTypeEnum =
-    | 'EXAM'
-    | 'SCHEDULE'
-    | 'OTHER';
+// ==================== NOTIFICATION TYPES ====================
 
-export type RecipientTypeEnum = 'ALL' | 'STUDENTS_ONLY' | 'PARENTS_ONLY' | 'SPECIFIC';
+export type NotificationType = 'EXAM' | 'SCHEDULE' | 'OTHER';
 
-export type RecipientInfo = {
-    userId: string;
-    name: string;
-    role: string;
-    isRead: boolean;
-};
+export type TargetGroup = 'ALL' | 'TEACHER' | 'STUDENT' | 'GUARDIAN' | 'CLASS' | 'GRADE';
 
-export type HomeroomNotification = {
+export type NotificationDto = {
     id: string;
-    className: string;
-    classRoomId: string;
-    notificationType: NotificationTypeEnum;
-    recipientType: RecipientTypeEnum;
     title: string;
     content: string;
-    scheduledDate?: string;
-    scheduledTime?: string;
+    type: NotificationType;
+    targetGroup: TargetGroup;
+    referenceId?: string;
+    actionUrl?: string;
+    status: 'ACTIVE' | 'RECALLED';
     createdByName: string;
     createdAt: string;
-    recipientCount: number;
-    readCount: number;
-    recipients: RecipientInfo[];
+    isRead?: boolean;
+    // For teacher management display
+    readCount?: number;
+    recipientCount?: number;
 };
 
 export type CreateNotificationPayload = {
-    notificationType: NotificationTypeEnum;
-    recipientType: RecipientTypeEnum;
     title: string;
     content: string;
-    scheduledDate?: string;
-    scheduledTime?: string;
-    specificRecipientIds?: string[];
+    type: NotificationType;
+    targetGroup: TargetGroup;
+    referenceId?: string;
+    actionUrl?: string;
 };
 
 // ==================== GRADE TYPES ====================
@@ -296,8 +287,9 @@ export const teacherService = {
     },
 
     // Get homeroom students (403 for subject-only teachers)
-    getHomeroomStudents: async (): Promise<HomeroomStudent[]> => {
-        const res = await api.get<HomeroomStudent[]>("/teacher/students");
+    getHomeroomStudents: async (classId?: string): Promise<HomeroomStudent[]> => {
+        const url = classId ? `/teacher/homeroom/students/${classId}` : "/teacher/students";
+        const res = await api.get<HomeroomStudent[]>(url);
         return res.data;
     },
 
@@ -434,23 +426,25 @@ export const teacherService = {
         return res.data;
     },
 
-    // ==================== NOTIFICATIONS ====================
+    // ==================== NOTIFICATIONS (v1 Unified) ====================
 
-    // Create a homeroom notification
-    createNotification: async (data: CreateNotificationPayload): Promise<HomeroomNotification> => {
-        const res = await api.post<HomeroomNotification>("/teacher/notifications", data);
+    // Create a notification for a class or group
+    createNotification: async (data: CreateNotificationPayload): Promise<NotificationDto> => {
+        const res = await api.post<NotificationDto>("/v1/teacher/notifications", data);
         return res.data;
     },
 
-    // Get sent notifications
-    getNotifications: async (): Promise<HomeroomNotification[]> => {
-        const res = await api.get<HomeroomNotification[]>("/teacher/notifications");
+    // Get notifications sent by the current teacher
+    getNotifications: async (page: number = 0, size: number = 20): Promise<any> => {
+        const res = await api.get("/v1/teacher/notifications", {
+            params: { page, size }
+        });
         return res.data;
     },
 
-    // Delete a notification
+    // Delete/Recall a notification
     deleteNotification: async (id: string): Promise<void> => {
-        await api.delete(`/teacher/notifications/${id}`);
+        await api.delete(`/v1/teacher/notifications/${id}`);
     },
 
     // ==================== CLASS SEAT MAP ====================

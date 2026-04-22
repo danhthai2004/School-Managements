@@ -86,7 +86,16 @@ public class TeacherPortalController {
     @GetMapping("/students")
     public ResponseEntity<List<HomeroomStudentDto>> getHomeroomStudents(
             @AuthenticationPrincipal UserDetails userDetails) {
-        List<HomeroomStudentDto> students = teacherPortalService.getHomeroomStudents(userDetails.getUsername());
+        List<HomeroomStudentDto> students = teacherPortalService.getHomeroomStudents(userDetails.getUsername(), null);
+        return ResponseEntity.ok(students);
+    }
+
+    @GetMapping("/homeroom/students/{classId}")
+    public ResponseEntity<List<HomeroomStudentDto>> getStudentsByClass(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID classId) {
+        List<HomeroomStudentDto> students = teacherPortalService.getHomeroomStudents(userDetails.getUsername(),
+                classId);
         return ResponseEntity.ok(students);
     }
 

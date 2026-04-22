@@ -11,6 +11,7 @@ interface ConfirmationOptions {
 
 export const useConfirmation = () => {
     const [isOpen, setIsOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const [options, setOptions] = useState<ConfirmationOptions>({
         title: "",
         message: "",
@@ -20,17 +21,25 @@ export const useConfirmation = () => {
     const confirm = useCallback((opts: ConfirmationOptions) => {
         setOptions(opts);
         setIsOpen(true);
+        setIsLoading(false);
     }, []);
 
     const close = useCallback(() => {
-        setIsOpen(false);
-    }, []);
+        if (!isLoading) {
+            setIsOpen(false);
+        }
+    }, [isLoading]);
 
     const handleConfirm = async () => {
-        if (options.onConfirm) {
-            await options.onConfirm();
+        setIsLoading(true);
+        try {
+            if (options.onConfirm) {
+                await options.onConfirm();
+            }
+            setIsOpen(false);
+        } finally {
+            setIsLoading(false);
         }
-        close();
     };
 
     const ConfirmationDialog = () => (
@@ -42,6 +51,7 @@ export const useConfirmation = () => {
             message={options.message}
             variant={options.variant}
             confirmText={options.confirmText}
+            isLoading={isLoading}
         />
     );
 
