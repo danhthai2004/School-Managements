@@ -74,13 +74,29 @@ const ImportGradesModal: React.FC<ImportGradesModalProps> = ({
         setUploading(true);
         setError(null);
         try {
-            const importResult = await teacherService.importGrades(file, classId, subjectId, semesterId);
+            const importResult = await teacherService.importGrades(file, classId, subjectId, semesterId, true);
             setResult(importResult);
-            if (importResult.successCount > 0) {
-                onSuccess(); // Refresh grade table
-            }
         } catch (err: any) {
             setError(err.response?.data?.message || "Có lỗi xảy ra khi import điểm.");
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleConfirmSave = async () => {
+        if (!result?.previewData) return;
+        setUploading(true); // reusing uploading state as saving state
+        try {
+            await teacherService.saveGrades({
+                classId,
+                subjectId,
+                semesterId,
+                students: result.previewData
+            });
+            onSuccess(); // Refresh grade table
+            handleClose(); // Close all
+        } catch (err: any) {
+            alert(err.response?.data?.message || "Có lỗi khi lưu điểm.");
         } finally {
             setUploading(false);
         }
@@ -241,6 +257,8 @@ const ImportGradesModal: React.FC<ImportGradesModalProps> = ({
                 result={result}
                 onClose={handleClose}
                 onRetry={handleReset}
+                onConfirmSave={handleConfirmSave}
+                isSaving={uploading}
             />
         </>
     );

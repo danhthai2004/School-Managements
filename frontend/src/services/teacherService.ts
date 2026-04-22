@@ -188,6 +188,7 @@ export type GradeImportResult = {
         studentCode: string;
         errorMessage: string;
     }[];
+    previewData?: StudentGrade[];
 };
 
 // ==================== HOMEROOM GRADE SUMMARY TYPES ====================
@@ -340,12 +341,13 @@ export const teacherService = {
     },
 
     // Import grades from Excel
-    importGrades: async (file: File, classId: string, subjectId: string, semesterId: string): Promise<GradeImportResult> => {
+    importGrades: async (file: File, classId: string, subjectId: string, semesterId: string, preview: boolean = false): Promise<GradeImportResult> => {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("classId", classId);
         formData.append("subjectId", subjectId);
         formData.append("semesterId", semesterId);
+        formData.append("preview", String(preview));
         const res = await api.post<GradeImportResult>("/teacher/grades/import-excel", formData, {
             headers: { "Content-Type": "multipart/form-data" }
         });
@@ -442,9 +444,9 @@ export const teacherService = {
         return res.data;
     },
 
-    // Delete/Recall a notification
-    deleteNotification: async (id: string): Promise<void> => {
-        await api.delete(`/v1/teacher/notifications/${id}`);
+    // Recall a notification
+    recallNotification: async (id: string): Promise<void> => {
+        await api.patch(`/v1/teacher/notifications/${id}/recall`);
     },
 
     // ==================== CLASS SEAT MAP ====================

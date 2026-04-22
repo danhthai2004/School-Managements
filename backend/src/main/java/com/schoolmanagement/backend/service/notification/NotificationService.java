@@ -98,6 +98,7 @@ public class NotificationService {
     /**
      * Lấy danh sách thông báo của user (có phân trang) kèm unreadCount.
      */
+    @Transactional(readOnly = true)
     public NotificationPageResponse getUserNotifications(UUID userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<NotificationRecipient> recipientPage = recipientRepository.findByUserIdOrderByCreatedAtDesc(userId,
@@ -120,8 +121,8 @@ public class NotificationService {
      * Đánh dấu 1 thông báo đã đọc.
      */
     @Transactional
-    public void markAsRead(UUID recipientId, UUID userId) {
-        NotificationRecipient nr = recipientRepository.findByIdAndUserId(recipientId, userId)
+    public void markAsRead(UUID notificationId, UUID userId) {
+        NotificationRecipient nr = recipientRepository.findByNotificationIdAndUserId(notificationId, userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Thông báo không tồn tại."));
         nr.setRead(true);
         recipientRepository.save(nr);
@@ -313,6 +314,7 @@ public class NotificationService {
     /**
      * Xem lịch sử thông báo đã phát (Admin).
      */
+    @Transactional(readOnly = true)
     public Page<NotificationDto> getAdminNotificationHistory(
             NotificationType type,
             TargetGroup targetGroup,
@@ -388,6 +390,7 @@ public class NotificationService {
     /**
      * Lấy lịch sử thông báo do teacher đã gửi.
      */
+    @Transactional(readOnly = true)
     public Page<NotificationDto> getTeacherNotificationHistory(User teacher, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         return notificationRepository.findByCreatedByOrderByCreatedAtDesc(teacher, pageable)
@@ -492,10 +495,11 @@ public class NotificationService {
      */
     private List<User> resolveClassUsers(String classRoomIdStr) {
         UUID classRoomId = UUID.fromString(classRoomIdStr);
-        ClassRoom classRoom = classRoomRepository.findById(classRoomId)
+        // Validating class exists
+        classRoomRepository.findById(classRoomId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Lớp học không tồn tại."));
 
-        List<ClassEnrollment> enrollments = classEnrollmentRepository.findAllByClassRoom(classRoom);
+        List<ClassEnrollment> enrollments = classEnrollmentRepository.findByClassRoomIdWithUsers(classRoomId);
         List<User> users = new ArrayList<>();
 
         for (ClassEnrollment enrollment : enrollments) {

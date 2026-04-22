@@ -67,16 +67,16 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Xác nhận xóa thông báo này?")) return;
+  const handleRecall = async (id: string) => {
+    if (!window.confirm("Xác nhận thu hồi thông báo này?")) return;
     setError(null);
     setSuccess(null);
     try {
-      await systemService.deleteNotification(id);
-      setSuccess("Đã xóa thông báo");
+      await systemService.recallNotification(id);
+      setSuccess("Đã thu hồi thông báo");
       loadData();
     } catch (e: unknown) {
-      setError(extractErrorMessage(e, "Lỗi khi xóa"));
+      setError(extractErrorMessage(e, "Lỗi khi thu hồi"));
     }
   };
 
@@ -205,7 +205,7 @@ export default function NotificationsPage() {
                       </div>
                     </div>
                     <button
-                      onClick={() => handleDelete(notif.id)}
+                      onClick={() => handleRecall(notif.id)}
                       className="shrink-0 px-3 py-1.5 bg-rose-100 text-rose-700 rounded-lg text-xs font-medium hover:bg-rose-200"
                     >
                       Thu hồi

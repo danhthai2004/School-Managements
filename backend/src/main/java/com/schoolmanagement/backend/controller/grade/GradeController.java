@@ -58,9 +58,10 @@ public class GradeController {
                         @RequestParam("file") MultipartFile file,
                         @RequestParam("classId") UUID classId,
                         @RequestParam("subjectId") UUID subjectId,
-                        @RequestParam("semesterId") String semesterId) {
+                        @RequestParam("semesterId") String semesterId,
+                        @RequestParam(value = "preview", defaultValue = "false") boolean preview) {
                 GradeImportResultDto result = gradeImportService.importGradesFromExcel(
-                                authentication.getName(), file, classId, subjectId, semesterId);
+                                authentication.getName(), file, classId, subjectId, semesterId, preview);
                 return ResponseEntity.ok(result);
         }
 

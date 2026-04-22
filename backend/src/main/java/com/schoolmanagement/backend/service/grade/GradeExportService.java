@@ -15,7 +15,6 @@ import com.schoolmanagement.backend.repo.grade.GradeRepository;
 import com.schoolmanagement.backend.service.admin.SemesterService;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFColor;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -48,6 +47,7 @@ public class GradeExportService {
     /**
      * Export a formatted grade report Excel file.
      */
+    @jakarta.transaction.Transactional
     public Workbook exportGradeReport(String teacherEmail, UUID classId, UUID subjectId, String semesterId) {
         // 1. Resolve entities
         User user = userRepository.findByEmailIgnoreCase(teacherEmail)
@@ -56,9 +56,10 @@ public class GradeExportService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lớp không tồn tại"));
         Subject subject = subjectRepository.findById(subjectId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Môn không tồn tại"));
-        Semester semester = semesterId != null
-                ? semesterService.getSemester(UUID.fromString(semesterId))
-                : semesterService.getActiveSemesterEntity(user.getSchool());
+        Semester semester = (semesterId != null && !semesterId.isBlank() && !semesterId.equals("null")
+                && !semesterId.equals("undefined"))
+                        ? semesterService.getSemester(UUID.fromString(semesterId))
+                        : semesterService.getActiveSemesterEntity(user.getSchool());
 
         // 2. Fetch data
         var enrollments = classEnrollmentRepository
@@ -243,6 +244,8 @@ public class GradeExportService {
         setCellNum(sumRow, col++, averageCount, summaryNumStyle);
         setCell(sumRow, col++, "Yếu", summaryStyle);
         setCellNum(sumRow, col++, weakCount, summaryNumStyle);
+        setCell(sumRow, col++, "Kém", summaryStyle);
+        setCellNum(sumRow, col++, poorCount, summaryNumStyle);
 
         // Merge info cells across the full row width for clean look
         mergeRow(sheet, 0, 0, 0, totalCols - 1);

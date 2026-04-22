@@ -239,8 +239,8 @@ export const systemService = {
     return res.data;
   },
 
-  deleteNotification: async (id: string): Promise<void> => {
-    await api.delete(`/system/notifications/${id}`);
+  recallNotification: async (id: string): Promise<void> => {
+    await api.patch(`/system/notifications/${id}/recall`);
   },
 
   // Activity Logs

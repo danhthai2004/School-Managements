@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,6 +26,8 @@ public interface StudentRepository extends JpaRepository<Student, UUID>,
 
         @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "guardian", "user" })
         List<Student> findAllBySchoolOrderByFullNameAsc(School school);
+
+        List<Student> findByEmailIn(Collection<String> emails);
 
         Optional<Student> findBySchoolAndStudentCode(School school, String studentCode);
 
