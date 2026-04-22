@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,6 +25,8 @@ public interface GuardianRepository extends JpaRepository<Guardian, UUID> {
         void deleteByUserId(UUID userId);
 
         List<Guardian> findByEmailIgnoreCase(String email);
+
+        List<Guardian> findByEmailIn(Collection<String> emails);
 
         java.util.Optional<Guardian> findByUser(com.schoolmanagement.backend.domain.entity.auth.User user);
 

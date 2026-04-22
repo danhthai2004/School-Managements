@@ -7,9 +7,11 @@ interface ImportGradesResultModalProps {
     result: GradeImportResult | null;
     onClose: () => void;
     onRetry?: () => void;
+    onConfirmSave?: () => void;
+    isSaving?: boolean;
 }
 
-const ImportGradesResultModal: React.FC<ImportGradesResultModalProps> = ({ result, onClose, onRetry }) => {
+const ImportGradesResultModal: React.FC<ImportGradesResultModalProps> = ({ result, onClose, onRetry, onConfirmSave, isSaving }) => {
     if (!result) return null;
 
     const hasErrors = result.failedCount > 0;
@@ -65,11 +67,45 @@ const ImportGradesResultModal: React.FC<ImportGradesResultModalProps> = ({ resul
                         </div>
                     )}
 
-                    {/* Success Message (if no errors) */}
-                    {!hasErrors && (
-                        <div className="py-8 text-center bg-emerald-50 rounded-2xl border border-emerald-100">
-                            <p className="text-emerald-800 font-bold text-lg">Hoàn tất nhập liệu</p>
-                            <p className="text-emerald-600 text-sm mt-1">Tất cả điểm đã được cập nhật thành công!</p>
+                    {/* Success Message & Preview Table */}
+                    {!hasErrors && result.previewData && (
+                        <div className="space-y-4">
+                            <div className="py-4 text-center bg-emerald-50 rounded-2xl border border-emerald-100">
+                                <p className="text-emerald-800 font-bold text-lg">Dữ liệu hợp lệ</p>
+                                <p className="text-emerald-600 text-sm mt-1">Vui lòng kiểm tra kỹ bảng điểm dưới đây trước khi Duyệt.</p>
+                            </div>
+
+                            <div className="bg-white border text-sm border-gray-200 rounded-xl overflow-x-auto max-h-[300px] custom-scrollbar">
+                                <table className="w-full text-left border-collapse">
+                                    <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                                        <tr>
+                                            <th className="p-3 border-b border-gray-200 font-bold text-gray-600 text-xs uppercase tracking-wider whitespace-nowrap sticky left-0 bg-gray-50 z-20">Mã HS</th>
+                                            <th className="p-3 border-b border-gray-200 font-bold text-gray-600 text-xs uppercase tracking-wider whitespace-nowrap">Họ Tên</th>
+                                            <th className="p-3 border-b border-gray-200 font-bold text-gray-600 text-xs uppercase tracking-wider text-center">TX / GK / CK</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {result.previewData.map(student => (
+                                            <tr key={student.studentId} className="hover:bg-gray-50 transition-colors">
+                                                <td className="p-3 font-medium text-gray-700 sticky left-0 bg-white group-hover:bg-gray-50">{student.studentCode}</td>
+                                                <td className="p-3 font-semibold text-gray-900 whitespace-nowrap">{student.fullName}</td>
+                                                <td className="p-3 text-center">
+                                                    <div className="flex flex-wrap items-center justify-center gap-1.5">
+                                                        {student.grades.map((g, idx) => (
+                                                            <span key={idx} className={`px-2 py-0.5 min-w-[2rem] text-center rounded text-xs font-bold leading-none
+                                                                ${g.type === 'REGULAR' ? 'bg-blue-100 text-blue-700' :
+                                                                    g.type === 'MID_TERM' ? 'bg-amber-100 text-amber-700' :
+                                                                        'bg-rose-100 text-rose-700'}`}>
+                                                                {g.value !== null ? g.value : '-'}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     )}
 
@@ -77,17 +113,33 @@ const ImportGradesResultModal: React.FC<ImportGradesResultModalProps> = ({ resul
                     <div className="mt-8 flex gap-3">
                         <button
                             onClick={onClose}
-                            className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-all"
+                            className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-all uppercase text-xs tracking-widest"
+                            disabled={isSaving}
                         >
-                            Đóng
+                            Hủy bỏ
                         </button>
-                        <button
-                            onClick={onRetry}
-                            className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                        >
-                            <RefreshCcw className="w-4 h-4" />
-                            Import lại
-                        </button>
+
+                        {hasErrors ? (
+                            <button
+                                onClick={onRetry}
+                                className="flex-[2] px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2 uppercase text-xs tracking-widest"
+                            >
+                                <RefreshCcw className="w-4 h-4" />
+                                Chọn file khác để thử lại
+                            </button>
+                        ) : (
+                            <button
+                                onClick={onConfirmSave}
+                                disabled={isSaving}
+                                className="flex-[2] px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-bold hover:shadow-lg hover:shadow-emerald-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50 uppercase text-xs tracking-widest"
+                            >
+                                {isSaving ? (
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                    "Duyệt & Lưu điểm"
+                                )}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

@@ -64,7 +64,7 @@ public class GradeImportService {
     @Transactional
     public GradeImportResultDto importGradesFromExcel(
             String teacherEmail, MultipartFile file,
-            UUID classId, UUID subjectId, String semesterId) {
+            UUID classId, UUID subjectId, String semesterId, boolean preview) {
 
         // 1. Validate file
         if (file == null || file.isEmpty()) {
@@ -119,6 +119,7 @@ public class GradeImportService {
 
         // 6. Parse the Excel file
         List<GradeImportResultDto.ImportError> errors = new ArrayList<>();
+        List<com.schoolmanagement.backend.dto.grade.GradeBookDto.StudentGradeDto> previewData = new ArrayList<>();
         int totalRows = 0;
         int successCount = 0;
         int updatedCount = 0;
@@ -238,21 +239,9 @@ public class GradeImportService {
                     // Get or create grade entity
                     Grade grade = gradeByStudentId.get(student.getId());
                     boolean isUpdate = (grade != null);
-                    if (grade == null) {
-                        grade = Grade.builder()
-                                .student(student)
-                                .subject(subject)
-                                .classRoom(classRoom)
-                                .teacher(teacher)
-                                .semester(semesterEntity)
-                                .recordedBy(user)
-                                .recordedAt(Instant.now())
-                                .build();
-                        grade = gradeRepository.save(grade);
-                    }
 
-                    // Clear existing regular scores and rebuild from Excel
-                    grade.getRegularScores().clear();
+                    boolean rowValid = true;
+                    Map<Integer, Double> regularScoresMap = new HashMap<>(); // temporary
 
                     // Parse regular scores
                     for (int colIdx = 0; colIdx < regularColumns.size(); colIdx++) {
@@ -262,60 +251,141 @@ public class GradeImportService {
                                 errors.add(new GradeImportResultDto.ImportError(rowNum + 1, studentCode,
                                         "Điểm TX" + (colIdx + 1) + " không hợp lệ (0-10): " + val));
                                 failedCount++;
-                                grade = null; // Skip saving
+                                rowValid = false;
                                 break;
                             }
-                            grade.getRegularScores().add(RegularScore.builder()
-                                    .grade(grade)
-                                    .scoreIndex(colIdx + 1)
-                                    .scoreValue(BigDecimal.valueOf(val))
-                                    .build());
+                            regularScoresMap.put(colIdx + 1, val);
                         }
                     }
 
-                    if (grade == null)
-                        continue; // Was marked invalid above
+                    if (!rowValid)
+                        continue;
 
-                    // Parse midterm
+                    Double midVal = null;
                     if (midtermCol >= 0) {
-                        Double midVal = getNumericCellValue(row, midtermCol);
+                        midVal = getNumericCellValue(row, midtermCol);
                         if (midVal != null) {
                             if (midVal < 0 || midVal > 10) {
                                 errors.add(new GradeImportResultDto.ImportError(rowNum + 1, studentCode,
                                         "Điểm Giữa kỳ không hợp lệ (0-10): " + midVal));
                                 failedCount++;
-                                continue;
+                                rowValid = false;
                             }
-                            grade.setMidtermScore(BigDecimal.valueOf(midVal));
                         }
                     }
 
-                    // Parse final
+                    if (!rowValid)
+                        continue;
+
+                    Double finalVal = null;
                     if (finalCol >= 0) {
-                        Double finalVal = getNumericCellValue(row, finalCol);
+                        finalVal = getNumericCellValue(row, finalCol);
                         if (finalVal != null) {
                             if (finalVal < 0 || finalVal > 10) {
                                 errors.add(new GradeImportResultDto.ImportError(rowNum + 1, studentCode,
                                         "Điểm Cuối kỳ không hợp lệ (0-10): " + finalVal));
                                 failedCount++;
-                                continue;
+                                rowValid = false;
                             }
-                            grade.setFinalScore(BigDecimal.valueOf(finalVal));
                         }
                     }
 
-                    // Calculate average
-                    grade.setAverageScore(calculateAverage(grade));
-                    grade.setUpdatedAt(Instant.now());
-                    grade.setUpdatedBy(user);
-                    gradeRepository.save(grade);
+                    if (!rowValid)
+                        continue;
 
-                    if (isUpdate) {
-                        updatedCount++;
+                    if (preview) {
+                        List<com.schoolmanagement.backend.dto.grade.GradeBookDto.GradeValueDto> gradeValues = new ArrayList<>();
+
+                        // Regular scores (completely replaced if any regular column is in the excel)
+                        // Wait, if Excel has TX, it completely overwrites existing in normal import. So
+                        // preview must match.
+                        for (int colIdx = 0; colIdx < regularColumns.size(); colIdx++) {
+                            Double val = regularScoresMap.get(colIdx + 1);
+                            gradeValues.add(com.schoolmanagement.backend.dto.grade.GradeBookDto.GradeValueDto.builder()
+                                    .type("REGULAR")
+                                    .index(colIdx + 1)
+                                    .value(val)
+                                    .build());
+                        }
+
+                        // For Midterm/Final, if not in excel, we USE EXISTING DB VALUE.
+                        // If in excel but empty, normal import DOES NOT OVERWRITE. So we USE EXISTING
+                        // DB VALUE.
+                        Double finalMidVal = midVal;
+                        if (finalMidVal == null && grade != null && grade.getMidtermScore() != null) {
+                            finalMidVal = grade.getMidtermScore().doubleValue();
+                        }
+                        gradeValues.add(com.schoolmanagement.backend.dto.grade.GradeBookDto.GradeValueDto.builder()
+                                .type("MID_TERM")
+                                .value(finalMidVal)
+                                .build());
+
+                        Double finalFinalVal = finalVal;
+                        if (finalFinalVal == null && grade != null && grade.getFinalScore() != null) {
+                            finalFinalVal = grade.getFinalScore().doubleValue();
+                        }
+                        gradeValues.add(com.schoolmanagement.backend.dto.grade.GradeBookDto.GradeValueDto.builder()
+                                .type("FINAL_TERM")
+                                .value(finalFinalVal)
+                                .build());
+
+                        previewData.add(com.schoolmanagement.backend.dto.grade.GradeBookDto.StudentGradeDto.builder()
+                                .studentId(student.getId().toString())
+                                .studentCode(student.getStudentCode())
+                                .fullName(student.getFullName())
+                                .grades(gradeValues)
+                                .build());
+
+                        if (isUpdate) {
+                            updatedCount++;
+                        } else {
+                            successCount++; // count this as "will be created" or "success"
+                        }
+
                     } else {
-                        successCount++;
-                    }
+                        // NORMAL SAVE
+                        if (grade == null) {
+                            grade = Grade.builder()
+                                    .student(student)
+                                    .subject(subject)
+                                    .classRoom(classRoom)
+                                    .teacher(teacher)
+                                    .semester(semesterEntity)
+                                    .recordedBy(user)
+                                    .recordedAt(Instant.now())
+                                    .build();
+                            grade = gradeRepository.save(grade);
+                        }
 
+                        // Clear existing regular scores and rebuild from Excel
+                        grade.getRegularScores().clear();
+                        for (Map.Entry<Integer, Double> entry : regularScoresMap.entrySet()) {
+                            grade.getRegularScores().add(RegularScore.builder()
+                                    .grade(grade)
+                                    .scoreIndex(entry.getKey())
+                                    .scoreValue(BigDecimal.valueOf(entry.getValue()))
+                                    .build());
+                        }
+
+                        if (midVal != null) {
+                            grade.setMidtermScore(BigDecimal.valueOf(midVal));
+                        }
+                        if (finalVal != null) {
+                            grade.setFinalScore(BigDecimal.valueOf(finalVal));
+                        }
+
+                        // Calculate average
+                        grade.setAverageScore(calculateAverage(grade));
+                        grade.setUpdatedAt(Instant.now());
+                        grade.setUpdatedBy(user);
+                        gradeRepository.save(grade);
+
+                        if (isUpdate) {
+                            updatedCount++;
+                        } else {
+                            successCount++;
+                        }
+                    }
                 } catch (Exception e) {
                     errors.add(new GradeImportResultDto.ImportError(rowNum + 1, studentCode,
                             "Lỗi: " + e.getMessage()));
@@ -330,13 +400,14 @@ public class GradeImportService {
                     "Không đọc được file Excel: " + ex.getMessage());
         }
 
-        return new GradeImportResultDto(totalRows, successCount, failedCount, updatedCount, errors);
+        return new GradeImportResultDto(totalRows, successCount, failedCount, updatedCount, errors, previewData);
     }
 
     /**
      * Generate an Excel template for grade import.
      * Teachers download this, fill it in, and re-upload.
      */
+    @jakarta.transaction.Transactional
     public Workbook generateTemplate(String teacherEmail, UUID classId, UUID subjectId, String semesterId) {
         User user = userRepository.findByEmailIgnoreCase(teacherEmail)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
@@ -347,9 +418,10 @@ public class GradeImportService {
         Subject subject = subjectRepository.findById(subjectId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Môn không tồn tại"));
 
-        Semester semesterEntity = semesterId != null
-                ? semesterService.getSemester(UUID.fromString(semesterId))
-                : semesterService.getActiveSemesterEntity(user.getSchool());
+        Semester semesterEntity = (semesterId != null && !semesterId.isBlank() && !semesterId.equals("null")
+                && !semesterId.equals("undefined"))
+                        ? semesterService.getSemester(UUID.fromString(semesterId))
+                        : semesterService.getActiveSemesterEntity(user.getSchool());
 
         // Get enrolled students
         var enrollments = classEnrollmentRepository

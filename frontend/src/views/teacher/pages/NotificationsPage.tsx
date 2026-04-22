@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Send, Bell, Clock, ChevronDown, AlertCircle, ClipboardList, Calendar, Trash2 } from "lucide-react";
+import { Send, Bell, Clock, ChevronDown, AlertCircle, ClipboardList, Calendar, RotateCcw } from "lucide-react";
 import { teacherService } from "../../../services/teacherService";
 import type { TeacherProfile, NotificationDto } from "../../../services/teacherService";
 import { useToast } from "../../../context/ToastContext";
@@ -87,11 +87,11 @@ export default function NotificationsPage() {
         }
     };
 
-    const handleDelete = async (id: string) => {
+    const handleRecall = async (id: string) => {
         if (!window.confirm("Bạn có chắc chắn muốn thu hồi thông báo này?")) return;
 
         try {
-            await teacherService.deleteNotification(id);
+            await teacherService.recallNotification(id);
             toast.success("Đã thu hồi thông báo.");
             fetchHistory();
         } catch (err) {
@@ -264,11 +264,11 @@ export default function NotificationsPage() {
                                                 {notification.readCount}/{notification.recipientCount} đã xem
                                             </span>
                                             <button
-                                                onClick={() => handleDelete(notification.id)}
-                                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                                                title="Xóa thông báo"
+                                                onClick={() => handleRecall(notification.id)}
+                                                className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
+                                                title="Thu hồi thông báo"
                                             >
-                                                <Trash2 className="w-4 h-4" />
+                                                <RotateCcw className="w-4 h-4" />
                                             </button>
                                         </div>
                                         <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full font-medium">

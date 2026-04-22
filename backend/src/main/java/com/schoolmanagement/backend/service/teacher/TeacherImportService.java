@@ -137,30 +137,45 @@ public class TeacherImportService {
             }
 
             // ==================== PHASE 2: Pre-load lookup data ONCE ====================
+            // Collect all emails from the file
+            Set<String> allEmailsInFile = new HashSet<>();
+            for (ParsedRow row : parsedRows) {
+                String email = row.getValue("email");
+                if (email != null)
+                    allEmailsInFile.add(email.trim().toLowerCase());
+            }
+
             // Teachers
             Set<String> existingTeacherEmails = new HashSet<>();
-            for (Teacher t : teachers.findAllBySchoolOrderByFullNameAsc(school)) {
-                if (t.getEmail() != null)
-                    existingTeacherEmails.add(t.getEmail().toLowerCase());
+            if (!allEmailsInFile.isEmpty()) {
+                teachers.findByEmailIn(allEmailsInFile).forEach(t -> {
+                    if (t.getEmail() != null)
+                        existingTeacherEmails.add(t.getEmail().toLowerCase());
+                });
             }
             // Students
             Set<String> existingStudentEmails = new HashSet<>();
-            for (com.schoolmanagement.backend.domain.entity.student.Student s : students
-                    .findAllBySchoolOrderByFullNameAsc(school)) {
-                if (s.getEmail() != null)
-                    existingStudentEmails.add(s.getEmail().toLowerCase());
+            if (!allEmailsInFile.isEmpty()) {
+                students.findByEmailIn(allEmailsInFile).forEach(s -> {
+                    if (s.getEmail() != null)
+                        existingStudentEmails.add(s.getEmail().toLowerCase());
+                });
             }
             // Guardians
             Set<String> existingGuardianEmails = new HashSet<>();
-            for (com.schoolmanagement.backend.domain.entity.student.Guardian g : guardians.findAll()) {
-                if (g.getEmail() != null)
-                    existingGuardianEmails.add(g.getEmail().toLowerCase());
+            if (!allEmailsInFile.isEmpty()) {
+                guardians.findByEmailIn(allEmailsInFile).forEach(g -> {
+                    if (g.getEmail() != null)
+                        existingGuardianEmails.add(g.getEmail().toLowerCase());
+                });
             }
             // Users
             Map<String, User> userEmailMap = new HashMap<>();
-            for (User u : users.findAll()) {
-                if (u.getEmail() != null)
-                    userEmailMap.put(u.getEmail().toLowerCase(), u);
+            if (!allEmailsInFile.isEmpty()) {
+                users.findByEmailIn(allEmailsInFile).forEach(u -> {
+                    if (u.getEmail() != null)
+                        userEmailMap.put(u.getEmail().toLowerCase(), u);
+                });
             }
             // Subjects
             List<com.schoolmanagement.backend.domain.entity.classes.Subject> allSubjects = subjects.findAll();
