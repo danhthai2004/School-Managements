@@ -51,7 +51,8 @@ public class RestExceptionHandler {
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiError> handleMessageNotReadable(HttpMessageNotReadableException ex, HttpServletRequest req) {
+    public ResponseEntity<ApiError> handleMessageNotReadable(HttpMessageNotReadableException ex,
+            HttpServletRequest req) {
         var status = HttpStatus.BAD_REQUEST;
         var body = new ApiError(
                 Instant.now(),
@@ -76,7 +77,8 @@ public class RestExceptionHandler {
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<ApiError> handleMissingParam(MissingServletRequestParameterException ex, HttpServletRequest req) {
+    public ResponseEntity<ApiError> handleMissingParam(MissingServletRequestParameterException ex,
+            HttpServletRequest req) {
         var status = HttpStatus.BAD_REQUEST;
         String message = String.format("Thiếu tham số bắt buộc: %s", ex.getParameterName());
         var body = new ApiError(
@@ -114,17 +116,18 @@ public class RestExceptionHandler {
     public ResponseEntity<ApiError> handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest req) {
         String message = "Dữ liệu bị trùng lặp hoặc vi phạm ràng buộc.";
         Throwable rootCause = NestedExceptionUtils.getRootCause(ex);
-        
+
         if (rootCause != null) {
             String detail = rootCause.getMessage();
-            if (detail.contains("idx_room_name_building_school")) {
+            if (detail != null && detail.contains("idx_attendance_unique")) {
+                message = "Điểm danh đã tồn tại cho học sinh này tại tiết học này. Vui lòng tải lại trang.";
+            } else if (detail != null && detail.contains("idx_room_name_building_school")) {
                 message = "Phòng học này đã tồn tại trong tòa nhà này.";
-            } else if (detail.contains("violates unique constraint")) {
-                // If it's a generic unique constraint violation, try to make it cleaner
+            } else if (detail != null && detail.contains("violates unique constraint")) {
                 message = "Dữ liệu này đã tồn tại trong hệ thống. Vui lòng kiểm tra lại.";
             }
         }
-        
+
         log.error("Data integrity violation: {}", message, ex);
         var status = HttpStatus.CONFLICT;
         var body = new ApiError(Instant.now(), status.value(), status.getReasonPhrase(), message, req.getRequestURI());
