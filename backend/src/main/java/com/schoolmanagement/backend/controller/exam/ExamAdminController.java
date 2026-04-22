@@ -1,17 +1,9 @@
 package com.schoolmanagement.backend.controller.exam;
 
 import com.schoolmanagement.backend.service.exam.ExamSessionService;
-import com.schoolmanagement.backend.service.exam.ExamAllocationService;
-import com.schoolmanagement.backend.service.timetable.ConflictDetectionService;
-import com.schoolmanagement.backend.service.classes.RoomService;
 import com.schoolmanagement.backend.service.auth.UserLookupService;
-
-import com.schoolmanagement.backend.dto.exam.ExamAllocateRequest;
-import com.schoolmanagement.backend.dto.exam.ExamScheduleDetailDto;
 import com.schoolmanagement.backend.dto.exam.ExamSessionDto;
-import com.schoolmanagement.backend.dto.student.ExamStudentDetailDto;
-import com.schoolmanagement.backend.dto.exam.ExamSwapRequest;
-import com.schoolmanagement.backend.dto.classes.RoomDto;
+import com.schoolmanagement.backend.dto.exam.ExamScheduleDetailDto;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.security.UserPrincipal;
 
@@ -20,12 +12,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-
 import jakarta.validation.Valid;
-import java.time.LocalDate;
-import java.time.LocalTime;
+
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -37,9 +26,6 @@ import java.util.UUID;
 public class ExamAdminController {
 
     private final ExamSessionService examSessionService;
-    private final ExamAllocationService allocationService;
-    private final ConflictDetectionService conflictService;
-    private final RoomService roomService;
     private final UserLookupService userLookup;
 
     // ==================== Helper ====================
@@ -106,54 +92,6 @@ public class ExamAdminController {
         return examSessionService.updateSessionStatus(id, status, getSchool(principal).getId());
     }
 
-    // ==================== Available Resources ====================
-
-    @GetMapping("/available-rooms")
-    public List<RoomDto> getAvailableRooms(
-            @RequestParam LocalDate date,
-            @RequestParam LocalTime startTime,
-            @RequestParam LocalTime endTime,
-            @AuthenticationPrincipal UserPrincipal principal) {
-
-        var school = getSchool(principal);
-        List<RoomDto> activeRooms = roomService.getAllActiveRoomsBySchool(school.getId());
-
-        // Lọc phòng không có conflict
-        return activeRooms.stream()
-                .filter(r -> conflictService.checkRoomConflicts(r.getId(), date, startTime, endTime).isEmpty())
-                .toList();
-    }
-
-    // ==================== Allocation ====================
-
-    @Transactional
-    @PostMapping("/allocate")
-    public Map<String, Object> allocateExam(
-            @Valid @RequestBody ExamAllocateRequest request,
-            @AuthenticationPrincipal UserPrincipal principal) {
-
-        var school = getSchool(principal);
-        int count = examSessionService.allocateExam(request, school);
-        return Map.of(
-                "message", "Phân bổ thành công " + count + " học sinh",
-                "allocatedCount", count);
-    }
-
-    // ==================== Student Swap ====================
-
-    @Transactional
-    @PutMapping("/students/swap")
-    public Map<String, String> swapStudents(
-            @Valid @RequestBody ExamSwapRequest request,
-            @AuthenticationPrincipal UserPrincipal principal) {
-
-        getSchool(principal); // Validate school admin
-        allocationService.swapStudents(
-                request.getStudentId1(), request.getExamRoomId1(),
-                request.getStudentId2(), request.getExamRoomId2());
-        return Map.of("message", "Đổi chỗ học sinh thành công");
-    }
-
     // ==================== View Schedule Details ====================
 
     @GetMapping("/sessions/{id}/schedules")
@@ -163,11 +101,29 @@ public class ExamAdminController {
         return examSessionService.getSessionSchedules(id, getSchool(principal).getId());
     }
 
-    @GetMapping("/rooms/{roomId}/students")
-    public List<ExamStudentDetailDto> getRoomStudents(
-            @PathVariable UUID roomId,
+    @Transactional
+    @PostMapping("/sessions/{id}/schedules")
+    public void bulkCreateSchedules(
+            @PathVariable UUID id,
+            @RequestBody List<ExamScheduleDetailDto> dtos,
             @AuthenticationPrincipal UserPrincipal principal) {
-        getSchool(principal); // Validate school admin
-        return examSessionService.getRoomStudents(roomId);
+        examSessionService.bulkCreateSchedules(id, dtos, getSchool(principal).getId());
+    }
+
+    @Transactional
+    @PutMapping("/schedules/{id}")
+    public ExamScheduleDetailDto updateSchedule(
+            @PathVariable UUID id,
+            @RequestBody ExamScheduleDetailDto dto,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return examSessionService.updateSchedule(id, dto, getSchool(principal).getId());
+    }
+
+    @Transactional
+    @DeleteMapping("/schedules/{id}")
+    public void deleteSchedule(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        examSessionService.deleteSchedule(id, getSchool(principal).getId());
     }
 }

@@ -18,6 +18,12 @@ const periodTimes: Record<number, string> = {
     10: "16:55 - 17:40",
 };
 
+const examTypeLabels: Record<string, string> = {
+    REGULAR: "Thường xuyên",
+    MIDTERM: "Giữa kỳ",
+    FINAL: "Cuối kỳ",
+};
+
 interface NotificationDto {
     id: string;
     title: string;
@@ -33,6 +39,7 @@ export default function GuardianDashboardPage() {
     const [averageScore, setAverageScore] = useState<number | null>(null);
     const [upcomingExams, setUpcomingExams] = useState<ExamScheduleDto[]>([]);
     const [notifications, setNotifications] = useState<NotificationDto[]>([]);
+    const [allNotifications, setAllNotifications] = useState<NotificationDto[]>([]);
     const [loading, setLoading] = useState(true);
 
     const currentDay = new Date()
@@ -52,7 +59,7 @@ export default function GuardianDashboardPage() {
                 guardianService.getAttendance(student.id),
                 guardianService.getScores(student.id),
                 guardianService.getExamSchedule(student.id),
-                fetch(`${import.meta.env.VITE_API_URL || ""}/v1/notifications?page=0&size=5`, {
+                fetch(`${import.meta.env.VITE_API_URL || ""}/v1/notifications?page=0&size=10`, {
                     headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
                 }).then(res => res.json())
             ]);
@@ -79,7 +86,9 @@ export default function GuardianDashboardPage() {
                 .slice(0, 3);
             setUpcomingExams(futureExams);
 
-            setNotifications(notifsRes.notifications || []);
+            const fetchedNotifications = notifsRes.notifications || [];
+            setAllNotifications(fetchedNotifications);
+            setNotifications(fetchedNotifications.slice(0, 3));
         } catch (error) {
             console.error("Failed to fetch dashboard data:", error);
         } finally {
@@ -99,8 +108,14 @@ export default function GuardianDashboardPage() {
     };
 
     const formatDaysRemaining = (dateString: string) => {
-        const diff = new Date(dateString).getTime() - new Date().getTime();
-        const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+        const examDate = new Date(dateString);
+        examDate.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const diff = examDate.getTime() - today.getTime();
+        const days = Math.round(diff / (1000 * 60 * 60 * 24));
+
         if (days === 0) return "Hôm nay";
         if (days < 0) return "Đã diễn ra";
         return `Còn ${days} ngày`;
@@ -223,10 +238,10 @@ export default function GuardianDashboardPage() {
                                 <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-blue-50 transition-colors cursor-pointer group">
                                     <div>
                                         <h4 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{exam.subjectName}</h4>
-                                        <p className="text-xs text-gray-500">{exam.examType}</p>
+                                        <p className="text-xs text-gray-500">{examTypeLabels[exam.examType] || exam.examType}</p>
                                     </div>
                                     <div className="text-right">
-                                        <span className={`text-xs px-2 py-1 rounded-full font-bold ${formatDaysRemaining(exam.examDate).includes("Còn 1") || formatDaysRemaining(exam.examDate).includes("Hôm nay")
+                                        <span className={`text-xs px-2 py-1 rounded-full font-bold ${formatDaysRemaining(exam.examDate).includes("Hôm nay") || (formatDaysRemaining(exam.examDate).includes("Còn") && parseInt(formatDaysRemaining(exam.examDate).match(/\d+/)?.[0] || "999") <= 2)
                                             ? "bg-red-100 text-red-600"
                                             : "bg-blue-100 text-blue-600"
                                             }`}>
@@ -268,9 +283,11 @@ export default function GuardianDashboardPage() {
                             )) : (
                                 <p className="text-center text-sm text-gray-400 py-4">Không có thông báo mới</p>
                             )}
-                            <Link to="/guardian/notification" className="w-full text-center text-[11px] font-bold text-blue-600 hover:bg-blue-50 py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 border border-blue-50">
-                                Xem tất cả <ChevronRight className="w-4 h-4" />
-                            </Link>
+                            {allNotifications.length > 3 && (
+                                <Link to="/guardian/notification" className="w-full text-center text-[11px] font-bold text-blue-600 hover:bg-blue-50 py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 border border-blue-50">
+                                    Xem tất cả ({allNotifications.length}) <ChevronRight className="w-4 h-4" />
+                                </Link>
+                            )}
                         </div>
                     </div>
                 </div>

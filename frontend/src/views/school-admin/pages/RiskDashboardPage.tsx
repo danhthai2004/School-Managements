@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { riskService, type ClassRiskOverviewDto, type RiskAssessmentDto } from "../../../services/riskService";
 import { Shield, AlertTriangle, CheckCircle, RefreshCw, Users, Loader2, ThumbsUp, ThumbsDown, Map, BellRing, MessageSquare, Activity } from "lucide-react";
+import { useToast } from "../../../context/ToastContext";
 
 export default function RiskDashboardPage() {
+    const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [triggerLoading, setTriggerLoading] = useState(false);
     const [overview, setOverview] = useState<ClassRiskOverviewDto[]>([]);
@@ -33,9 +35,10 @@ export default function RiskDashboardPage() {
         try {
             await riskService.triggerAnalysis();
             await loadData();
+            toast.success("Đã kích hoạt AI phân tích thành công!");
         } catch (error) {
             console.error("Error triggering analysis:", error);
-            alert("Lỗi khi kích hoạt phân tích. Vui lòng thử lại.");
+            toast.error("Lỗi khi kích hoạt phân tích. Vui lòng thử lại.");
         } finally {
             setTriggerLoading(false);
         }
@@ -45,16 +48,18 @@ export default function RiskDashboardPage() {
         try {
             await riskService.submitFeedback({ assessmentId, feedback });
             setAlerts(prev => prev.filter(a => a.id !== assessmentId));
+            toast.success("Đã gửi phản hồi thành công.");
         } catch (error) {
             console.error("Error submitting feedback:", error);
+            toast.error("Lỗi khi gửi phản hồi.");
         }
     };
 
     const getRiskBadge = (level: string) => {
         switch (level) {
-            case "DANGER": return <span className="flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-700 rounded-full text-xs font-semibold border border-red-200"><div className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"/> Nguy cơ cao</span>;
-            case "WATCH": return <span className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-semibold border border-amber-200"><div className="w-1.5 h-1.5 rounded-full bg-amber-500"/> Theo dõi</span>;
-            default: return <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold border border-emerald-200"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500"/> An toàn</span>;
+            case "DANGER": return <span className="flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-700 rounded-full text-xs font-semibold border border-red-200"><div className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" /> Nguy cơ cao</span>;
+            case "WATCH": return <span className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-semibold border border-amber-200"><div className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Theo dõi</span>;
+            default: return <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold border border-emerald-200"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> An toàn</span>;
         }
     };
 
@@ -82,16 +87,16 @@ export default function RiskDashboardPage() {
                         <Shield className="w-6 h-6 text-indigo-600" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">AI Risk Analytics Dashboard</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">Hệ thống Phân tích Rủi ro AI</h1>
                         <p className="text-sm text-gray-500">Tổng quan rủi ro toàn trường theo AI phân tích</p>
                     </div>
                 </div>
                 <button
                     onClick={handleTriggerAnalysis}
                     disabled={triggerLoading}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm font-medium"
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-lg text-sm font-medium hover:from-indigo-700 hover:to-indigo-600 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    {triggerLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                    {triggerLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" strokeWidth={1.8} />}
                     {triggerLoading ? "Đang phân tích..." : "Kích hoạt AI phân tích"}
                 </button>
             </div>
@@ -112,7 +117,7 @@ export default function RiskDashboardPage() {
                         <AlertTriangle className="w-24 h-24 text-red-600" />
                     </div>
                     <p className="text-sm text-red-600 font-medium mb-1 relative z-10 flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-red-600 shadow-[0_0_8px_rgba(220,38,38,0.5)] animate-pulse"/> Nguy cơ cao
+                        <div className="w-2 h-2 rounded-full bg-red-600 shadow-[0_0_8px_rgba(220,38,38,0.5)] animate-pulse" /> Nguy cơ cao
                     </p>
                     <p className="text-3xl font-bold text-red-600 relative z-10">{dangerClasses}</p>
                 </div>
@@ -121,7 +126,7 @@ export default function RiskDashboardPage() {
                         <AlertTriangle className="w-24 h-24 text-amber-500" />
                     </div>
                     <p className="text-sm font-medium text-amber-600 mb-1 relative z-10 flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-amber-500"/> Theo dõi
+                        <div className="w-2 h-2 rounded-full bg-amber-500" /> Theo dõi
                     </p>
                     <p className="text-3xl font-bold text-amber-600 relative z-10">{watchClasses}</p>
                 </div>
@@ -130,7 +135,7 @@ export default function RiskDashboardPage() {
                         <CheckCircle className="w-24 h-24 text-emerald-500" />
                     </div>
                     <p className="text-sm font-medium text-emerald-600 mb-1 relative z-10 flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500"/> An toàn
+                        <div className="w-2 h-2 rounded-full bg-emerald-500" /> An toàn
                     </p>
                     <p className="text-3xl font-bold text-emerald-600 relative z-10">{safeClasses}</p>
                 </div>
@@ -139,7 +144,7 @@ export default function RiskDashboardPage() {
             {/* Tabs */}
             <div className="flex gap-2 bg-gray-100/80 p-1.5 rounded-xl w-fit">
                 <button onClick={() => setActiveTab("heatmap")} className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${activeTab === "heatmap" ? "bg-white shadow-sm text-indigo-700 font-semibold" : "text-gray-500 hover:text-gray-800 hover:bg-gray-200/50"}`}>
-                    <Map className="w-4 h-4" /> Heatmap Lớp Học
+                    <Map className="w-4 h-4" /> Bản đồ nhiệt Lớp học
                 </button>
                 <button onClick={() => setActiveTab("alerts")} className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all relative ${activeTab === "alerts" ? "bg-white shadow-sm text-indigo-700 font-semibold" : "text-gray-500 hover:text-gray-800 hover:bg-gray-200/50"}`}>
                     <BellRing className="w-4 h-4" /> Cảnh Báo ({alerts.length})

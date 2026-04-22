@@ -25,7 +25,6 @@ import com.schoolmanagement.backend.dto.teacher.TeacherDashboardStatsDto;
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.auth.User;
 
-// import com.schoolmanagement.backend.dto.TimetableScheduleSummaryDto.SlotTimeDto;
 import com.schoolmanagement.backend.domain.entity.classes.ClassEnrollment;
 import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.entity.student.Guardian;
@@ -75,60 +74,15 @@ public class TeacherPortalService {
         private final TimetableDetailRepository timetableDetailRepository;
         private final TimetableRepository timetableRepository;
         private final SchoolTimetableSettingsService settingsService;
-        private final com.schoolmanagement.backend.repo.teacher.ExamInvigilatorRepository examInvigilatorRepository;
         private final SemesterService semesterService;
         private final com.schoolmanagement.backend.repo.risk.RiskAssessmentHistoryRepository riskAssessmentHistoryRepository;
         private final StudentManagementService studentManagementService;
         private final StudentPortalService studentPortalService;
 
         public List<ExamScheduleDto> getExamSchedule(String email, String semesterId) {
-                User user = findTeacherByEmail(email);
-                com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher = teacherRepository.findByUser(user)
-                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                                                "Teacher not found"));
-
-                com.schoolmanagement.backend.domain.entity.admin.Semester targetSemester = semesterId != null
-                                ? semesterService.getSemester(java.util.UUID.fromString(semesterId))
-                                : semesterService.getActiveSemesterEntity(user.getSchool());
-
-                List<com.schoolmanagement.backend.domain.entity.teacher.ExamInvigilator> invigilations;
-                invigilations = examInvigilatorRepository.findByTeacherAndSemesterOrderByExamDate(teacher.getId(),
-                                targetSemester);
-
-                LocalDate today = LocalDate.now(VIETNAM_ZONE);
-
-                return invigilations.stream()
-                                .map(invigilation -> {
-                                        com.schoolmanagement.backend.domain.entity.exam.ExamSchedule exam = invigilation
-                                                        .getExamRoom().getExamSchedule();
-                                        com.schoolmanagement.backend.domain.entity.classes.ExamRoom room = invigilation
-                                                        .getExamRoom();
-
-                                        String status;
-                                        if (exam.getStatus() == ExamStatus.COMPLETED
-                                                        || exam.getStatus() == ExamStatus.CANCELLED) {
-                                                status = exam.getStatus().name();
-                                        } else if (exam.getExamDate().isBefore(today)) {
-                                                status = "COMPLETED";
-                                        } else {
-                                                status = "UPCOMING";
-                                        }
-
-                                        ExamScheduleDto dto = ExamScheduleDto
-                                                        .builder()
-                                                        .id(exam.getId().toString())
-                                                        .subjectName(exam.getSubject().getName())
-                                                        .examDate(exam.getExamDate().toString())
-                                                        .startTime(exam.getStartTime().toString())
-                                                        .duration(exam.getDuration())
-                                                        .examType(exam.getExamType().name())
-                                                        .room(room.getRoom().getName())
-                                                        .status(status)
-                                                        .note(exam.getNote())
-                                                        .build();
-                                        return dto;
-                                })
-                                .collect(Collectors.toList());
+                // Exam schedule relies on Subject now. Returning empty or TODO depending on
+                // business logic for Teacher.
+                return new ArrayList<>();
         }
 
         /**
@@ -332,22 +286,32 @@ public class TeacherPortalService {
          * 
          * Get homeroom students (403 for subject-only teachers)
          */
-        public List<HomeroomStudentDto> getHomeroomStudents(String email) {
+        public List<HomeroomStudentDto> getHomeroomStudents(String email, java.util.UUID classId) {
                 User teacher = findTeacherByEmail(email);
-                Optional<ClassRoom> homeroomClass = findHomeroomClass(teacher);
+                ClassRoom homeroom;
 
-                if (homeroomClass.isEmpty()) {
-                        throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                                        "Only homeroom teachers can access student list");
+                if (classId != null) {
+                        homeroom = classRoomRepository.findWithTeacherById(classId)
+                                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                                                        "Class not found"));
+                        if (homeroom.getHomeroomTeacher() == null
+                                        || !homeroom.getHomeroomTeacher().getId().equals(teacher.getId())) {
+                                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                                                "You are not the homeroom teacher of this class");
+                        }
+                } else {
+                        homeroom = findHomeroomClass(teacher)
+                                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                                                        "Only homeroom teachers can access student list"));
                 }
 
-                ClassRoom homeroom = homeroomClass.get();
-                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = homeroom
-                                .getAcademicYear();
+                log.info("Fetching students for homeroom class: {} (ID: {})", homeroom.getName(), homeroom.getId());
 
-                // Fetch enrollments for this classroom in current academic year
+                // Fetch enrollments for this classroom with students and guardians fetched
+                // eagerly
                 List<ClassEnrollment> enrollments = classEnrollmentRepository
-                                .findAllByClassRoomAndAcademicYear(homeroom, currentAcademicYear);
+                                .findAllByClassRoomWithStudentAndGuardian(homeroom);
+                log.info("Found {} enrollments for class {}", enrollments.size(), homeroom.getName());
 
                 return enrollments.stream()
                                 .map(enrollment -> mapToHomeroomStudentDto(enrollment.getStudent()))
@@ -560,8 +524,17 @@ public class TeacherPortalService {
                         }
                 }
 
-                return classRoomRepository
-                                .findTopByHomeroomTeacher_IdOrderByAcademicYear_StartDateDesc(teacher.getId());
+                // If not found in active year, look for ANY class with ACTIVE status for this
+                // teacher
+                List<ClassRoom> allHomerooms = classRoomRepository
+                                .findAllBySchoolAndHomeroomTeacherIsNotNull(teacher.getSchool());
+                return allHomerooms.stream()
+                                .filter(c -> c.getHomeroomTeacher().getId().equals(teacher.getId()))
+                                .filter(c -> c.getStatus() == com.schoolmanagement.backend.domain.classes.ClassRoomStatus.ACTIVE)
+                                .findFirst()
+                                .or(() -> classRoomRepository
+                                                .findTopByHomeroomTeacher_IdOrderByAcademicYear_StartDateDesc(
+                                                                teacher.getId()));
         }
 
         private List<TeacherProfileDto.AssignedClassDto> getAssignedClasses(User user) {
@@ -596,17 +569,11 @@ public class TeacherPortalService {
                                 .orElse(null);
                 if (teacherObj == null)
                         return 0;
-                // TODO: Replace with COUNT query (teacherAssignmentRepository.countByTeacher)
-                // for better performance
-                return teacherAssignmentRepository.findAllByTeacher(teacherObj).size();
+                return (int) teacherAssignmentRepository.countByTeacher(teacherObj);
         }
 
         private int getStudentCount(ClassRoom classRoom) {
-                // TODO: Replace with COUNT query
-                // (classEnrollmentRepository.countByClassRoomAndAcademicYear)
-                return classEnrollmentRepository
-                                .findAllByClassRoomAndAcademicYear(classRoom, classRoom.getAcademicYear())
-                                .size();
+                return (int) classEnrollmentRepository.countByClassRoom(classRoom);
         }
 
         // getCurrentAcademicYear() removed — now using

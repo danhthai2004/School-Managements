@@ -19,6 +19,17 @@ public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment
 
         List<ClassEnrollment> findAllByClassRoom(ClassRoom classRoom);
 
+        @Query("SELECT ce FROM ClassEnrollment ce JOIN FETCH ce.student s LEFT JOIN FETCH s.guardian WHERE ce.classRoom = :classRoom")
+        List<ClassEnrollment> findAllByClassRoomWithStudentAndGuardian(@Param("classRoom") ClassRoom classRoom);
+
+        @Query("SELECT ce FROM ClassEnrollment ce " +
+                        "JOIN FETCH ce.student s " +
+                        "LEFT JOIN FETCH s.user " +
+                        "LEFT JOIN FETCH s.guardian g " +
+                        "LEFT JOIN FETCH g.user " +
+                        "WHERE ce.classRoom.id = :classroomId")
+        List<ClassEnrollment> findByClassRoomIdWithUsers(@Param("classroomId") UUID classroomId);
+
         List<ClassEnrollment> findAllByClassRoomAndAcademicYear(ClassRoom classRoom,
                         com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 

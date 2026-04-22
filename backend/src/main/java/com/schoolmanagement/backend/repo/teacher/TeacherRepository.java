@@ -5,6 +5,7 @@ import com.schoolmanagement.backend.domain.entity.teacher.Teacher;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,6 +17,8 @@ public interface TeacherRepository extends JpaRepository<Teacher, UUID> {
 
         @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "subjects", "user" })
         List<Teacher> findAllBySchoolOrderByFullNameAsc(School school);
+
+        List<Teacher> findByEmailIn(Collection<String> emails);
 
         @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "subjects", "user" })
         org.springframework.data.domain.Page<Teacher> findAllBySchoolOrderByTeacherCodeAsc(School school,

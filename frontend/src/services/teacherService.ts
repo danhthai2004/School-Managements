@@ -98,66 +98,42 @@ export type TimetableDetail = {
 
 // ==================== NOTIFICATION TYPES ====================
 
-export type NotificationTypeEnum =
-    | 'EXAM'
-    | 'SCHEDULE'
-    | 'OTHER';
+export type NotificationType = 'EXAM' | 'SCHEDULE' | 'OTHER';
 
-export type RecipientTypeEnum = 'ALL' | 'STUDENTS_ONLY' | 'PARENTS_ONLY' | 'SPECIFIC';
+export type TargetGroup = 'ALL' | 'TEACHER' | 'STUDENT' | 'GUARDIAN' | 'CLASS' | 'GRADE';
 
-export type RecipientInfo = {
-    userId: string;
-    name: string;
-    role: string;
-    isRead: boolean;
-};
-
-export type HomeroomNotification = {
+export type NotificationDto = {
     id: string;
-    className: string;
-    classRoomId: string;
-    notificationType: NotificationTypeEnum;
-    recipientType: RecipientTypeEnum;
     title: string;
     content: string;
-    scheduledDate?: string;
-    scheduledTime?: string;
+    type: NotificationType;
+    targetGroup: TargetGroup;
+    referenceId?: string;
+    actionUrl?: string;
+    status: 'ACTIVE' | 'RECALLED';
     createdByName: string;
     createdAt: string;
-    recipientCount: number;
-    readCount: number;
-    recipients: RecipientInfo[];
+    isRead?: boolean;
+    // For teacher management display
+    readCount?: number;
+    recipientCount?: number;
 };
 
 export type CreateNotificationPayload = {
-    notificationType: NotificationTypeEnum;
-    recipientType: RecipientTypeEnum;
     title: string;
     content: string;
-    scheduledDate?: string;
-    scheduledTime?: string;
-    specificRecipientIds?: string[];
+    type: NotificationType;
+    targetGroup: TargetGroup;
+    referenceId?: string;
+    actionUrl?: string;
 };
 
 // ==================== GRADE TYPES ====================
 
 export type GradeValue = {
-    type: 'REGULAR' | 'MID_TERM' | 'FINAL_TERM';
+    type: 'REGULAR' | 'MIDTERM' | 'FINAL';
     index?: number; // 1-4 for REGULAR
     value: number | null;
-};
-
-export type SubGradeValue = {
-    id?: string;
-    category: 'ORAL' | 'TEST_15MIN';
-    subIndex: number;
-    value: number | null;
-};
-
-export type SubGradeColumn = {
-    category: 'ORAL' | 'TEST_15MIN';
-    subIndex: number;
-    label: string;
 };
 
 export type StudentGrade = {
@@ -165,7 +141,6 @@ export type StudentGrade = {
     studentCode: string;
     fullName: string;
     grades: GradeValue[];
-    subGrades?: SubGradeValue[];
 };
 
 export type GradeBook = {
@@ -176,7 +151,6 @@ export type GradeBook = {
     semesterId?: string;
     regularAssessmentCount: number; // 2, 3, or 4
     canEdit: boolean;
-    subGradeColumns?: SubGradeColumn[];
     students: StudentGrade[];
 };
 
@@ -197,6 +171,7 @@ export type GradeImportResult = {
         studentCode: string;
         errorMessage: string;
     }[];
+    previewData?: StudentGrade[];
 };
 
 // ==================== HOMEROOM GRADE SUMMARY TYPES ====================
@@ -296,8 +271,9 @@ export const teacherService = {
     },
 
     // Get homeroom students (403 for subject-only teachers)
-    getHomeroomStudents: async (): Promise<HomeroomStudent[]> => {
-        const res = await api.get<HomeroomStudent[]>("/teacher/students");
+    getHomeroomStudents: async (classId?: string): Promise<HomeroomStudent[]> => {
+        const url = classId ? `/teacher/homeroom/students/${classId}` : "/teacher/students";
+        const res = await api.get<HomeroomStudent[]>(url);
         return res.data;
     },
 
@@ -348,38 +324,17 @@ export const teacherService = {
     },
 
     // Import grades from Excel
-    importGrades: async (file: File, classId: string, subjectId: string, semesterId: string): Promise<GradeImportResult> => {
+    importGrades: async (file: File, classId: string, subjectId: string, semesterId: string, preview: boolean = false): Promise<GradeImportResult> => {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("classId", classId);
         formData.append("subjectId", subjectId);
         formData.append("semesterId", semesterId);
+        formData.append("preview", String(preview));
         const res = await api.post<GradeImportResult>("/teacher/grades/import-excel", formData, {
             headers: { "Content-Type": "multipart/form-data" }
         });
         return res.data;
-    },
-
-    // Add sub-grade column
-    addSubGradeColumn: async (classId: string, subjectId: string, semester: number, category: string): Promise<SubGradeColumn> => {
-        const res = await api.post<SubGradeColumn>("/teacher/grades/sub-columns", {
-            classId, subjectId, semester, category
-        });
-        return res.data;
-    },
-
-    // Remove sub-grade column
-    removeSubGradeColumn: async (classId: string, subjectId: string, semester: number, category: string, subIndex: number): Promise<void> => {
-        await api.delete("/teacher/grades/sub-columns", {
-            params: { classId, subjectId, semester, category, subIndex }
-        });
-    },
-
-    // Resolve overflow
-    resolveOverflow: async (classId: string, subjectId: string, semester: number, strategy: 'AVERAGE' | 'MAX'): Promise<void> => {
-        await api.post("/teacher/grades/resolve", {
-            classId, subjectId, semester, strategy
-        });
     },
 
     // Download grade template
@@ -434,23 +389,25 @@ export const teacherService = {
         return res.data;
     },
 
-    // ==================== NOTIFICATIONS ====================
+    // ==================== NOTIFICATIONS (v1 Unified) ====================
 
-    // Create a homeroom notification
-    createNotification: async (data: CreateNotificationPayload): Promise<HomeroomNotification> => {
-        const res = await api.post<HomeroomNotification>("/teacher/notifications", data);
+    // Create a notification for a class or group
+    createNotification: async (data: CreateNotificationPayload): Promise<NotificationDto> => {
+        const res = await api.post<NotificationDto>("/v1/teacher/notifications", data);
         return res.data;
     },
 
-    // Get sent notifications
-    getNotifications: async (): Promise<HomeroomNotification[]> => {
-        const res = await api.get<HomeroomNotification[]>("/teacher/notifications");
+    // Get notifications sent by the current teacher
+    getNotifications: async (page: number = 0, size: number = 20): Promise<any> => {
+        const res = await api.get("/v1/teacher/notifications", {
+            params: { page, size }
+        });
         return res.data;
     },
 
-    // Delete a notification
-    deleteNotification: async (id: string): Promise<void> => {
-        await api.delete(`/teacher/notifications/${id}`);
+    // Recall a notification
+    recallNotification: async (id: string): Promise<void> => {
+        await api.patch(`/v1/teacher/notifications/${id}/recall`);
     },
 
     // ==================== CLASS SEAT MAP ====================

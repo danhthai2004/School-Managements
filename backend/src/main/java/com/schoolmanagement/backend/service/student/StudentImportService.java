@@ -157,27 +157,41 @@ public class StudentImportService {
             // ==================== PHASE 2: Pre-load lookup data ONCE ====================
             List<Combination> allCombinations = combinations.findAllBySchool(school);
 
-            // Only load guardian emails (not full entities of ALL guardians)
+            // Collect all emails from the file to fetch targeted lookups
+            Set<String> allEmailsInFile = new HashSet<>();
+            for (ParsedRow row : parsedRows) {
+                String email = row.getValue("email");
+                if (email != null)
+                    allEmailsInFile.add(email.trim().toLowerCase());
+                String gEmail = row.getValue("guardianemail", "email phụ huynh", "emailphuhuynh");
+                if (gEmail != null)
+                    allEmailsInFile.add(gEmail.trim().toLowerCase());
+            }
+
+            // Batch fetch lookups by email
             Map<String, Guardian> guardianEmailMap = new HashMap<>();
-            for (Guardian g : guardians.findAll()) {
-                if (g.getEmail() != null) {
-                    guardianEmailMap.put(g.getEmail().toLowerCase(), g);
-                }
+            if (!allEmailsInFile.isEmpty()) {
+                guardians.findByEmailIn(allEmailsInFile).forEach(g -> {
+                    if (g.getEmail() != null)
+                        guardianEmailMap.put(g.getEmail().toLowerCase(), g);
+                });
             }
             Set<String> existingGuardianEmails = guardianEmailMap.keySet();
 
-            // Load users for email collision check
             Map<String, User> userEmailMap = new HashMap<>();
-            for (User u : users.findAll()) {
-                if (u.getEmail() != null) {
-                    userEmailMap.put(u.getEmail().toLowerCase(), u);
-                }
+            if (!allEmailsInFile.isEmpty()) {
+                users.findByEmailIn(allEmailsInFile).forEach(u -> {
+                    if (u.getEmail() != null)
+                        userEmailMap.put(u.getEmail().toLowerCase(), u);
+                });
             }
 
             Set<String> existingStudentEmails = new HashSet<>();
-            for (Student s : students.findAllBySchoolOrderByFullNameAsc(school)) {
-                if (s.getEmail() != null)
-                    existingStudentEmails.add(s.getEmail().toLowerCase());
+            if (!allEmailsInFile.isEmpty()) {
+                students.findByEmailIn(allEmailsInFile).forEach(s -> {
+                    if (s.getEmail() != null)
+                        existingStudentEmails.add(s.getEmail().toLowerCase());
+                });
             }
 
             // Pre-compute student code counter (avoid N queries)

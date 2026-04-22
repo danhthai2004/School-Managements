@@ -9,12 +9,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificationExecutor<User> {
         Optional<User> findByEmailIgnoreCase(String email);
+
+        List<User> findByEmailIn(Collection<String> emails);
 
         @Query("SELECT u FROM User u LEFT JOIN FETCH u.school WHERE LOWER(u.email) = LOWER(:email)")
         Optional<User> findByEmailIgnoreCaseWithSchool(@Param("email") String email);

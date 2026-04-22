@@ -1,9 +1,6 @@
 package com.schoolmanagement.backend.dto.exam;
 
-import com.schoolmanagement.backend.dto.classes.ExamRoomDetailDto;
-
 import lombok.*;
-import java.util.List;
 
 /**
  * DTO trả về chi tiết lịch thi của một kỳ thi.
@@ -21,5 +18,6 @@ public class ExamScheduleDetailDto {
     private String examDate; // yyyy-MM-dd
     private String startTime; // HH:mm
     private String endTime; // HH:mm
-    private List<ExamRoomDetailDto> rooms;
+    private String examType; // MIDTERM, FINAL
+    private String note;
 }

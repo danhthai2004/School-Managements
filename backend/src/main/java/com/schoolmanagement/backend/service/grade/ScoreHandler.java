@@ -165,9 +165,16 @@ public class ScoreHandler implements ChatHandler {
                         g.getSemester() != null && g.getSemester().getAcademicYear() != null
                                 ? g.getSemester().getAcademicYear().getName()
                                 : "");
-                item.put("oralScore", formatScore(g.getOralScore()));
-                item.put("test15min", formatScore(g.getTest15minScore()));
-                item.put("test45min", formatScore(g.getTest45minScore()));
+
+                // Get list of regular scores
+                List<String> regList = new ArrayList<>();
+                if (g.getRegularScores() != null) {
+                    for (var rs : g.getRegularScores()) {
+                        regList.add(formatScore(rs.getScoreValue()));
+                    }
+                }
+
+                item.put("regular", regList);
                 item.put("midterm", formatScore(g.getMidtermScore()));
                 item.put("final", formatScore(g.getFinalScore()));
                 item.put("average", formatScore(g.getAverageScore()));

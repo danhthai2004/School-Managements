@@ -3,6 +3,7 @@ import DatePicker from "react-datepicker";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import "react-datepicker/dist/react-datepicker.css";
+import { vietnameseNameSort } from "../../../utils/sortUtils";
 import { schoolAdminService } from "../../../services/schoolAdminService";
 import type {
     ClassRoomDto,
@@ -22,6 +23,8 @@ import {
     BookOpen
 } from "lucide-react";
 
+import { useToast } from "../../../context/ToastContext";
+
 const AttendanceStatus = {
     PRESENT: "PRESENT",
     ABSENT_EXCUSED: "ABSENT_EXCUSED",
@@ -32,6 +35,7 @@ const AttendanceStatus = {
 type AttendanceStatusType = typeof AttendanceStatus[keyof typeof AttendanceStatus];
 
 export default function AttendanceManagement() {
+    const { toast } = useToast();
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>("");
     const [selectedDate, setSelectedDate] = useState(new Date());
@@ -110,7 +114,8 @@ export default function AttendanceManagement() {
                 dateStr,
                 selectedSlot.slotIndex
             );
-            setStudents(data);
+            const sortedData = [...data].sort((a, b) => vietnameseNameSort(a.studentName, b.studentName));
+            setStudents(sortedData);
         } catch (error) {
             console.error("Failed to load attendance:", error);
         } finally {
@@ -161,12 +166,20 @@ export default function AttendanceManagement() {
                 });
                 setSkippedStudents(skippedWithDetails);
                 setShowSkippedModal(true);
+                toast.error(`Lưu thành công, nhưng có ${res.skippedStudents.length} học sinh bị bỏ qua.`);
             } else {
-                alert("Lưu điểm danh thành công!");
+                toast.success("Lưu điểm danh thành công!");
             }
         } catch (error: any) {
             console.error("Failed to save:", error);
-            alert(error.response?.data?.message || "Lỗi khi lưu điểm danh");
+            const status = error.response?.status;
+            const message = error.response?.data?.message || "Lỗi khi lưu điểm danh";
+
+            if (status === 400 || status === 403 || status === 404 || status === 409) {
+                toast.error(message);
+            } else {
+                toast.error("Hệ thống gặp sự cố. Vui lòng thử lại sau.");
+            }
         } finally {
             setSaving(false);
         }
@@ -344,7 +357,7 @@ export default function AttendanceManagement() {
                         <p className="text-gray-500 mt-2 max-w-sm text-sm">
                             {selectedClassId
                                 ? "Vui lòng chọn một tiết học phía trên để xem danh sách điểm danh."
-                                : "Hãy chọn khối, lớp and ngày cần kiểm tra dữ liệu."}
+                                : "Hãy chọn khối, lớp và ngày cần kiểm tra dữ liệu."}
                         </p>
                     </div>
                 ) : loading ? (
@@ -384,7 +397,7 @@ export default function AttendanceManagement() {
                                 <button
                                     onClick={handleSave}
                                     disabled={saving}
-                                    className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold disabled:opacity-50 hover:from-blue-700 hover:to-blue-600"
+                                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-600 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {saving ? (
                                         <>
@@ -396,7 +409,7 @@ export default function AttendanceManagement() {
                                         </>
                                     ) : (
                                         <>
-                                            <Save className="w-5 h-5" />
+                                            <Save className="w-4 h-4" strokeWidth={1.8} />
                                             Lưu điểm danh
                                         </>
                                     )}

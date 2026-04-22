@@ -142,9 +142,9 @@ export default function TeacherAssignment() {
         const count = getAssignedCount();
         const total = assignments.length;
         if (total === 0) return 'bg-gray-200';
-        if (count === total) return 'bg-green-500';
+        if (count === total) return 'bg-emerald-500';
         if (count > total / 2) return 'bg-blue-500';
-        return 'bg-orange-500';
+        return 'bg-slate-400';
     };
 
     const filteredClasses = classes.filter(c => gradeFilter === "ALL" || c.grade.toString() === gradeFilter);
@@ -297,7 +297,7 @@ export default function TeacherAssignment() {
                                                 ...pendingAssignments,
                                                 [assign.id]: e.target.value
                                             })}
-                                            className={`w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm ${pendingAssignments[assign.id] ? 'border-gray-300' : 'border-orange-300 bg-orange-50'
+                                            className={`w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm transition-all ${pendingAssignments[assign.id] ? 'border-gray-300 bg-white' : 'border-slate-200 bg-slate-50 font-medium'
                                                 }`}
                                         >
                                             <option value="">-- Chưa gán --</option>
@@ -308,7 +308,7 @@ export default function TeacherAssignment() {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         {pendingAssignments[assign.id] !== (assign.teacherId || "") && (
-                                            <span className="text-orange-500 text-xs italic">Chưa lưu</span>
+                                            <span className="text-blue-500 text-[10px] font-bold uppercase tracking-tight">Cần lưu</span>
                                         )}
                                     </td>
                                 </tr>

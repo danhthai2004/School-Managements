@@ -127,7 +127,10 @@ export default function NotificationDropdown({ role }: Props) {
 
     const getNotificationPath = () => {
         if (role === "system") return "/system/notifications";
+        if (role === "school-admin") return "/school-admin/notifications";
         if (role === "teacher") return "/teacher/notifications";
+        if (role === "guardian") return "/guardian/notification";
+        if (role === "student") return "/student/overview";
         return "#";
     };
 
