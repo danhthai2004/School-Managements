@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { teacherService, type TimetableDetail } from "../../../services/teacherService";
 import { AlertCircle, Calendar, Clock } from "lucide-react";
 
 const SLOTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-const DAYS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
-const ENGLISH_DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+const DAYS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"];
+const ENGLISH_DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
 
 export default function SchedulePage() {
     const [schedule, setSchedule] = useState<TimetableDetail[]>([]);
@@ -28,16 +28,27 @@ export default function SchedulePage() {
         }
     };
 
+    // Deduplicate schedule: keep only one entry per (dayOfWeek, slotIndex) pair
+    const deduplicatedSchedule = useMemo(() => {
+        const seen = new Set<string>();
+        return schedule.filter(s => {
+            const key = `${s.dayOfWeek}-${s.slotIndex}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    }, [schedule]);
+
     const getCell = (day: string, slot: number) => {
         const dayIndex = DAYS.indexOf(day);
         if (dayIndex === -1) return undefined;
         const originalDayName = ENGLISH_DAYS[dayIndex];
-        return schedule.find(s => s.dayOfWeek === originalDayName && s.slotIndex === slot);
+        return deduplicatedSchedule.find(s => s.dayOfWeek === originalDayName && s.slotIndex === slot);
     };
 
     // Get slot time from any matching schedule entry for that slot
     const getSlotTime = (slot: number): string | null => {
-        const entry = schedule.find(s => s.slotIndex === slot);
+        const entry = deduplicatedSchedule.find(s => s.slotIndex === slot);
         if (entry?.startTime && entry?.endTime) {
             return `${entry.startTime} - ${entry.endTime}`;
         }

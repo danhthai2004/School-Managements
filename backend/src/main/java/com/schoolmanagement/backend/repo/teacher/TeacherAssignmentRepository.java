@@ -31,4 +31,9 @@ public interface TeacherAssignmentRepository extends JpaRepository<TeacherAssign
     void deleteByTeacherId(UUID teacherId);
 
     List<TeacherAssignment> findAllBySubjectAndSchool(com.schoolmanagement.backend.domain.entity.classes.Subject subject, School school);
+
+    long countByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
+
+    Optional<TeacherAssignment> findByClassRoomAndSubject(ClassRoom classRoom,
+            com.schoolmanagement.backend.domain.entity.classes.Subject subject);
 }

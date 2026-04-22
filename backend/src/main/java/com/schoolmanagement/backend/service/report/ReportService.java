@@ -12,16 +12,18 @@ import com.schoolmanagement.backend.domain.entity.classes.Subject;
 import com.schoolmanagement.backend.domain.entity.timetable.Timetable;
 import com.schoolmanagement.backend.domain.timetable.TimetableStatus;
 
+import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
+import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.repo.student.StudentRepository;
 import com.schoolmanagement.backend.repo.teacher.TeacherRepository;
 import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.classes.ClassEnrollmentRepository;
 import com.schoolmanagement.backend.repo.teacher.TeacherAssignmentRepository;
-import com.schoolmanagement.backend.repo.attendance.AttendanceSessionRepository;
 import com.schoolmanagement.backend.repo.attendance.AttendanceRepository;
 import com.schoolmanagement.backend.repo.grade.GradeRepository;
 import com.schoolmanagement.backend.repo.timetable.TimetableRepository;
-import com.schoolmanagement.backend.domain.entity.admin.School;
+import com.schoolmanagement.backend.repo.timetable.TimetableDetailRepository;
+
 import com.schoolmanagement.backend.dto.report.ReportOverviewDto;
 import com.schoolmanagement.backend.dto.student.StudentReportDto;
 import com.schoolmanagement.backend.dto.student.StudentDetailedListDto;
@@ -35,9 +37,7 @@ import com.schoolmanagement.backend.dto.timetable.TimetableReportDto;
 import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.student.Gender;
 import com.schoolmanagement.backend.domain.entity.admin.Semester;
-// Removed unused import
 import com.schoolmanagement.backend.domain.entity.attendance.Attendance;
-import com.schoolmanagement.backend.domain.entity.attendance.AttendanceSession;
 import com.schoolmanagement.backend.domain.attendance.AttendanceStatus;
 import com.schoolmanagement.backend.domain.student.StudentStatus;
 
@@ -68,10 +68,10 @@ public class ReportService {
         private final ClassRoomRepository classRoomRepository;
         private final ClassEnrollmentRepository enrollmentRepository;
         private final TeacherAssignmentRepository assignmentRepository;
-        private final AttendanceSessionRepository attendanceSessionRepository;
         private final AttendanceRepository attendanceRepository;
         private final GradeRepository gradeRepository;
         private final TimetableRepository timetableRepository;
+        private final TimetableDetailRepository timetableDetailRepository;
         private final SemesterService semesterService;
         private final com.schoolmanagement.backend.repo.admin.AcademicYearRepository academicYearRepository;
 
@@ -96,14 +96,19 @@ public class ReportService {
                 Map<Integer, Long> classCountByGrade = allClasses.stream()
                                 .collect(Collectors.groupingBy(ClassRoom::getGrade, Collectors.counting()));
 
+                // Bulk fetch enrollment counts for all classes
+                Map<UUID, Long> enrollmentCounts = enrollmentRepository.countByClassRoomIn(allClasses).stream()
+                                .collect(Collectors.toMap(
+                                                row -> (UUID) row[0],
+                                                row -> (Long) row[1]));
+
                 List<GradeDistribution> gradeDistList = new ArrayList<>();
                 for (int grade = 10; grade <= 12; grade++) {
                         long classCount = classCountByGrade.getOrDefault(grade, 0L);
-                        // Count students per grade by enrollment
                         int finalGrade = grade;
                         long studentCount = allClasses.stream()
                                         .filter(c -> c.getGrade() == finalGrade)
-                                        .mapToLong(c -> enrollmentRepository.countByClassRoom(c))
+                                        .mapToLong(c -> enrollmentCounts.getOrDefault(c.getId(), 0L))
                                         .sum();
                         gradeDistList.add(new GradeDistribution(grade, studentCount, classCount));
                 }
@@ -120,7 +125,7 @@ public class ReportService {
 
                 long totalStudents = allStudents.size();
                 long activeStudents = allStudents.stream().filter(s -> s.getStatus() == StudentStatus.ACTIVE).count();
-                long inactiveStudents = totalStudents - activeStudents;
+                long nonActiveStudents = totalStudents - activeStudents;
                 long studentsWithAccount = allStudents.stream().filter(s -> s.getUser() != null).count();
                 long studentsWithoutAccount = totalStudents - studentsWithAccount;
 
@@ -134,12 +139,18 @@ public class ReportService {
 
                 // Students by class
                 List<ClassRoom> allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(school);
+                // Bulk fetch enrollment counts
+                Map<UUID, Long> enrollmentCounts = enrollmentRepository.countByClassRoomIn(allClasses).stream()
+                                .collect(Collectors.toMap(
+                                                row -> (UUID) row[0],
+                                                row -> (Long) row[1]));
+
                 List<StudentByClassDto> studentsByClass = allClasses.stream()
                                 .map(c -> new StudentByClassDto(
                                                 c.getId(),
                                                 c.getName(),
                                                 c.getGrade(),
-                                                enrollmentRepository.countByClassRoom(c),
+                                                enrollmentCounts.getOrDefault(c.getId(), 0L),
                                                 c.getMaxCapacity()))
                                 .toList();
 
@@ -147,7 +158,7 @@ public class ReportService {
                 List<EnrollmentStatDto> enrollmentStats = getEnrollmentStatsByMonth(allStudents);
 
                 return new StudentReportDto(
-                                totalStudents, activeStudents, inactiveStudents,
+                                totalStudents, activeStudents, nonActiveStudents,
                                 studentsWithAccount, studentsWithoutAccount,
                                 studentsByClass, enrollmentStats, genderStats);
         }
@@ -196,34 +207,36 @@ public class ReportService {
          * Lấy danh sách học sinh chưa có tài khoản
          */
         public StudentsWithoutAccountDto getStudentsWithoutAccount(School school) {
-                List<Student> studentsNoAccount = studentRepository.findAllBySchoolOrderByFullNameAsc(school).stream()
-                                .filter(s -> s.getUser() == null && s.getStatus() == StudentStatus.ACTIVE)
+                AcademicYear activeYear = semesterService.getActiveAcademicYear(school);
+                List<Student> studentsNoAccount = studentRepository
+                                .findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(
+                                                school, StudentStatus.ACTIVE)
+                                .stream()
                                 .toList();
 
-                // Group by class
-                Map<String, List<Student>> byClass = new LinkedHashMap<>();
+                // Group by class using enrollments for active year
                 List<ClassRoom> allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(school);
+                List<ClassEnrollment> allEnrollments = enrollmentRepository.findAllByStudentInAndAcademicYear(
+                                studentsNoAccount, activeYear);
 
-                for (ClassRoom c : allClasses) {
-                        List<ClassEnrollment> enrollments = enrollmentRepository.findAllByClassRoom(c);
-                        List<Student> classStudentsNoAccount = enrollments.stream()
-                                        .map(ClassEnrollment::getStudent)
-                                        .filter(s -> s.getUser() == null && s.getStatus() == StudentStatus.ACTIVE)
-                                        .toList();
-                        if (!classStudentsNoAccount.isEmpty()) {
-                                byClass.put(c.getName(), classStudentsNoAccount);
-                        }
-                }
+                Map<UUID, String> studentToClassName = allEnrollments.stream()
+                                .collect(Collectors.toMap(
+                                                e -> e.getStudent().getId(),
+                                                e -> e.getClassRoom().getName(),
+                                                (a, b) -> a));
 
-                List<StudentsWithoutAccountDto.StudentNoAccountByClassDto> byClassList = byClass.entrySet().stream()
-                                .map(e -> new StudentsWithoutAccountDto.StudentNoAccountByClassDto(
-                                                e.getKey(),
-                                                e.getValue().stream()
-                                                                .map(s -> new StudentsWithoutAccountDto.StudentBasicDto(
-                                                                                s.getId(),
-                                                                                s.getStudentCode(), s.getFullName(),
-                                                                                s.getEmail()))
-                                                                .toList()))
+                Map<String, List<StudentsWithoutAccountDto.StudentBasicDto>> byClassMap = studentsNoAccount.stream()
+                                .filter(s -> studentToClassName.containsKey(s.getId()))
+                                .map(s -> new StudentsWithoutAccountDto.StudentBasicDto(
+                                                s.getId(), s.getStudentCode(), s.getFullName(),
+                                                s.getEmail()))
+                                .collect(Collectors.groupingBy(s -> studentToClassName.get(s.id())));
+
+                List<StudentsWithoutAccountDto.StudentNoAccountByClassDto> byClassList = byClassMap.entrySet().stream()
+                                .map(e -> new StudentsWithoutAccountDto.StudentNoAccountByClassDto(e.getKey(),
+                                                e.getValue()))
+                                .sorted(Comparator.comparing(
+                                                StudentsWithoutAccountDto.StudentNoAccountByClassDto::className))
                                 .toList();
 
                 return new StudentsWithoutAccountDto(
@@ -239,11 +252,13 @@ public class ReportService {
 
                 String academicYearName = "";
                 if (academicYearId != null) {
-                    com.schoolmanagement.backend.domain.entity.admin.AcademicYear ay = academicYearRepository.findByIdAndSchool(academicYearId, school).orElse(null);
-                    if (ay != null) academicYearName = ay.getName();
+                        com.schoolmanagement.backend.domain.entity.admin.AcademicYear ay = academicYearRepository
+                                        .findByIdAndSchool(academicYearId, school).orElse(null);
+                        if (ay != null)
+                                academicYearName = ay.getName();
                 }
                 if (academicYearName == null || academicYearName.isEmpty()) {
-                    academicYearName = semesterService.getActiveAcademicYearName(school);
+                        academicYearName = semesterService.getActiveAcademicYearName(school);
                 }
 
                 // Parse academic year (e.g., "2024-2025")
@@ -365,6 +380,12 @@ public class ReportService {
                                 .filter(c -> c.getStatus() == ClassRoomStatus.ACTIVE)
                                 .count();
 
+                // Bulk fetch enrollment counts
+                Map<UUID, Long> enrollmentCounts = enrollmentRepository.countByClassRoomIn(allClasses).stream()
+                                .collect(Collectors.toMap(
+                                                row -> (UUID) row[0],
+                                                row -> (Long) row[1]));
+
                 List<ClassSummaryDto> classSummaries = allClasses.stream()
                                 .map(c -> new ClassSummaryDto(
                                                 c.getId(),
@@ -372,7 +393,7 @@ public class ReportService {
                                                 c.getGrade(),
                                                 c.getAcademicYear() != null ? c.getAcademicYear().getName() : "",
                                                 c.getDepartment() != null ? c.getDepartment().name() : "N/A",
-                                                enrollmentRepository.countByClassRoom(c),
+                                                enrollmentCounts.getOrDefault(c.getId(), 0L),
                                                 c.getMaxCapacity(),
                                                 c.getHomeroomTeacher() != null ? c.getHomeroomTeacher().getFullName()
                                                                 : "Chưa phân công",
@@ -388,7 +409,7 @@ public class ReportService {
                                 .map(e -> {
                                         long totalStudentsInGrade = allClasses.stream()
                                                         .filter(c -> c.getGrade() == e.getKey())
-                                                        .mapToLong(c -> enrollmentRepository.countByClassRoom(c))
+                                                        .mapToLong(c -> enrollmentCounts.getOrDefault(c.getId(), 0L))
                                                         .sum();
                                         return new ClassByGradeDto(e.getKey(), e.getValue(), totalStudentsInGrade);
                                 })
@@ -406,21 +427,35 @@ public class ReportService {
          * Cần refactor lại khi merge hoàn tất
          */
         public AttendanceReportDto getAttendanceReport(School school) {
-                List<AttendanceSession> allSessions = attendanceSessionRepository.findAllBySchool(school);
-                long totalSessions = allSessions.size();
+                List<Attendance> allAttendance = attendanceRepository.findByClassRoom_SchoolAndAttendanceDateBetween(
+                                school,
+                                LocalDate.now().minusMonths(1),
+                                LocalDate.now());
 
-                if (totalSessions == 0) {
+                if (allAttendance.isEmpty()) {
                         return new AttendanceReportDto(0L, 0.0, new ArrayList<>(), new ArrayList<>());
                 }
 
-                List<Attendance> allAttendance = attendanceRepository.findBySchoolAndDateBetween(
-                                school,
-                                LocalDate.now().minusMonths(1), // Default to last 30 days if no range provided
-                                LocalDate.now());
+                long totalSessions = allAttendance.stream()
+                                .map(a -> a.getAttendanceDate().toString() + "_" + a.getClassRoom().getId() + "_"
+                                                + a.getSlotIndex())
+                                .distinct()
+                                .count();
 
-                long presentCount = allAttendance.stream().filter(a -> a.getStatus() == AttendanceStatus.PRESENT).count();
-                double overallAttendanceRate = allAttendance.isEmpty() ? 0.0
-                                : Math.round(presentCount * 100.0 / allAttendance.size() * 100.0) / 100.0;
+                long presentCount = allAttendance.stream()
+                                .filter(a -> a.getStatus() == AttendanceStatus.PRESENT)
+                                .count();
+                double overallAttendanceRate = Math.round(presentCount * 100.0 / allAttendance.size() * 100.0) / 100.0;
+
+                // Bulk fetch enrollment counts for classes in these attendance records
+                List<ClassRoom> relevantClasses = allAttendance.stream()
+                                .map(Attendance::getClassRoom)
+                                .distinct()
+                                .toList();
+                Map<UUID, Long> enrollmentCounts = enrollmentRepository.countByClassRoomIn(relevantClasses).stream()
+                                .collect(Collectors.toMap(
+                                                row -> (UUID) row[0],
+                                                row -> (Long) row[1]));
 
                 // Group by class
                 Map<ClassRoom, List<Attendance>> attendanceByClassMap = allAttendance.stream()
@@ -432,56 +467,79 @@ public class ReportService {
                                 .map(e -> {
                                         ClassRoom c = e.getKey();
                                         List<Attendance> classAttendance = e.getValue();
-                                        long classSessions = allSessions.stream().filter(s -> s.getClassRoom().getId().equals(c.getId())).count();
-                                        long cPresent = classAttendance.stream().filter(a -> a.getStatus() == AttendanceStatus.PRESENT).count();
-                                        long cAbsent = classAttendance.stream().filter(a -> a.getStatus() == AttendanceStatus.ABSENT).count();
-                                        long cLate = classAttendance.stream().filter(a -> a.getStatus() == AttendanceStatus.LATE).count();
-                                        long cExcused = classAttendance.stream().filter(a -> a.getStatus() == AttendanceStatus.EXCUSED).count();
+
+                                        long classSessions = classAttendance.stream()
+                                                        .map(a -> a.getAttendanceDate().toString() + "_"
+                                                                        + a.getSlotIndex())
+                                                        .distinct()
+                                                        .count();
+
+                                        long cPresent = classAttendance.stream()
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.PRESENT).count();
+                                        long cAbsent = classAttendance.stream()
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED)
+                                                        .count();
+                                        long cLate = classAttendance.stream()
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.LATE).count();
+                                        long cExcused = classAttendance.stream()
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_EXCUSED)
+                                                        .count();
+
                                         double cRate = classAttendance.isEmpty() ? 0.0
-                                                : Math.round(cPresent * 100.0 / classAttendance.size() * 100.0) / 100.0;
+                                                        : Math.round(cPresent * 100.0 / classAttendance.size() * 100.0)
+                                                                        / 100.0;
 
                                         return new AttendanceReportDto.AttendanceByClassDto(
                                                         c.getId(),
                                                         c.getName(),
                                                         c.getGrade(),
                                                         classSessions,
+                                                        enrollmentCounts.getOrDefault(c.getId(), 0L).intValue(),
                                                         cRate,
                                                         cPresent,
                                                         cAbsent,
                                                         cLate,
                                                         cExcused);
                                 })
-                                .sorted(Comparator.comparing(AttendanceReportDto.AttendanceByClassDto::attendanceRate).reversed())
+                                .sorted(Comparator.comparing(AttendanceReportDto.AttendanceByClassDto::attendanceRate)
+                                                .reversed())
                                 .toList();
 
-                // Chronic Absentees (Absent > 10% or some threshold)
+                // Chronic Absentees (Absent > 10% threshold)
+                // Need class names for these students - bulk fetch enrollments
                 Map<Student, List<Attendance>> attendanceByStudent = allAttendance.stream()
                                 .collect(Collectors.groupingBy(Attendance::getStudent));
+
+                List<Student> studentsWithRecords = new ArrayList<>(attendanceByStudent.keySet());
+                Map<UUID, String> studentToClassName = enrollmentRepository
+                                .findAllByStudentInAndAcademicYear(studentsWithRecords,
+                                                semesterService.getActiveAcademicYear(school))
+                                .stream()
+                                .collect(Collectors.toMap(e -> e.getStudent().getId(), e -> e.getClassRoom().getName(),
+                                                (a, b) -> a));
 
                 List<AttendanceReportDto.ChronicAbsenteeDto> chronicAbsentees = attendanceByStudent.entrySet().stream()
                                 .map(e -> {
                                         Student s = e.getKey();
                                         List<Attendance> studentAttendance = e.getValue();
-                                        long sAbsent = studentAttendance.stream().filter(a -> a.getStatus() == AttendanceStatus.ABSENT).count();
+                                        long sAbsent = studentAttendance.stream()
+                                                        .filter(a -> a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED)
+                                                        .count();
                                         double sAbsentRate = studentAttendance.isEmpty() ? 0.0
-                                                : Math.round(sAbsent * 100.0 / studentAttendance.size() * 100.0) / 100.0;
-
-                                        String className = "N/A";
-                                        List<ClassEnrollment> enrollments = enrollmentRepository.findAllByStudent(s);
-                                        if(!enrollments.isEmpty()){
-                                            className = enrollments.get(0).getClassRoom().getName();
-                                        }
+                                                        : Math.round(sAbsent * 100.0 / studentAttendance.size() * 100.0)
+                                                                        / 100.0;
 
                                         return new AttendanceReportDto.ChronicAbsenteeDto(
                                                         s.getId(),
                                                         s.getStudentCode(),
                                                         s.getFullName(),
-                                                        className,
+                                                        studentToClassName.getOrDefault(s.getId(), "N/A"),
                                                         (int) sAbsent,
                                                         sAbsentRate);
                                 })
-                                .filter(dto -> dto.absentRate() > 10.0) // Threshold 10%
-                                .sorted(Comparator.comparing(AttendanceReportDto.ChronicAbsenteeDto::absentRate).reversed())
+                                .filter(dto -> dto.absentRate() > 10.0)
+                                .sorted(Comparator.comparing(AttendanceReportDto.ChronicAbsenteeDto::absentRate)
+                                                .reversed())
                                 .limit(20)
                                 .toList();
 
@@ -503,6 +561,8 @@ public class ReportService {
                 List<ClassRoom> allClasses = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(school);
 
                 long totalGradeRecords = allGrades.size();
+                Map<UUID, List<Grade>> gradesByClass = allGrades.stream()
+                                .collect(Collectors.groupingBy(g -> g.getClassRoom().getId()));
 
                 // Overall average score
                 java.math.BigDecimal overallAverage = allGrades.stream()
@@ -515,11 +575,11 @@ public class ReportService {
                                                 java.math.RoundingMode.HALF_UP)
                                 : java.math.BigDecimal.ZERO;
 
-                // Grade distribution by ranges
+                // Grade distribution
                 List<AcademicReportDto.GradeDistributionDto> gradeDistribution = new ArrayList<>();
-                String[] ranges = { "0-2", "2-4", "4-6", "6-8", "8-10" };
                 double[] mins = { 0, 2, 4, 6, 8 };
                 double[] maxs = { 2, 4, 6, 8, 10.01 };
+                String[] ranges = { "0-2", "2-4", "4-6", "6-8", "8-10" };
                 for (int i = 0; i < ranges.length; i++) {
                         final double min = mins[i];
                         final double max = maxs[i];
@@ -549,20 +609,25 @@ public class ReportService {
                                                         ? sum.divide(java.math.BigDecimal.valueOf(count), 2,
                                                                         java.math.RoundingMode.HALF_UP)
                                                         : java.math.BigDecimal.ZERO;
-                                        return new AcademicReportDto.SubjectAverageDto(
-                                                        e.getKey().getId(),
-                                                        e.getKey().getName(),
-                                                        avg,
-                                                        count);
+                                        return new AcademicReportDto.SubjectAverageDto(e.getKey().getId(),
+                                                        e.getKey().getName(), avg, count);
                                 })
                                 .sorted(Comparator.comparing(AcademicReportDto.SubjectAverageDto::averageScore)
                                                 .reversed())
                                 .toList();
 
-                // Top students
-                Map<Student, List<Grade>> gradesByStudent = allGrades.stream()
+                // Top students - Bulk fetch enrollments to get class names
+                Map<Student, List<Grade>> studentGradesMap = allGrades.stream()
                                 .collect(Collectors.groupingBy(Grade::getStudent));
-                List<AcademicReportDto.TopStudentDto> topStudents = gradesByStudent.entrySet().stream()
+
+                Map<UUID, String> studentToClassName = enrollmentRepository
+                                .findAllByStudentInAndAcademicYear(new ArrayList<>(studentGradesMap.keySet()),
+                                                semesterEntity.getAcademicYear())
+                                .stream()
+                                .collect(Collectors.toMap(e -> e.getStudent().getId(), e -> e.getClassRoom().getName(),
+                                                (a, b) -> a));
+
+                List<AcademicReportDto.TopStudentDto> topStudents = studentGradesMap.entrySet().stream()
                                 .map(e -> {
                                         Student s = e.getKey();
                                         java.math.BigDecimal sum = e.getValue().stream()
@@ -575,19 +640,13 @@ public class ReportService {
                                                         ? sum.divide(java.math.BigDecimal.valueOf(count), 2,
                                                                         java.math.RoundingMode.HALF_UP)
                                                         : java.math.BigDecimal.ZERO;
-                                        List<ClassEnrollment> enrollments = enrollmentRepository.findAllByStudent(s);
-                                        String className = enrollments.isEmpty() ? "N/A"
-                                                        : enrollments.get(0).getClassRoom().getName();
                                         String category = avg.doubleValue() >= 8.5 ? "Giỏi"
                                                         : avg.doubleValue() >= 6.5 ? "Khá"
                                                                         : avg.doubleValue() >= 5 ? "TB" : "Yếu";
-                                        return new AcademicReportDto.TopStudentDto(
-                                                        s.getId(),
-                                                        s.getStudentCode(),
+                                        return new AcademicReportDto.TopStudentDto(s.getId(), s.getStudentCode(),
                                                         s.getFullName(),
-                                                        className,
-                                                        avg,
-                                                        category);
+                                                        studentToClassName.getOrDefault(s.getId(), "N/A"),
+                                                        avg, category);
                                 })
                                 .filter(dto -> dto.averageScore().doubleValue() >= 8.0)
                                 .sorted(Comparator.comparing(AcademicReportDto.TopStudentDto::averageScore).reversed())
@@ -595,11 +654,9 @@ public class ReportService {
                                 .toList();
 
                 // Class averages
-                final Semester finalSemesterEntity = semesterEntity;
                 List<AcademicReportDto.ClassAverageDto> classAverages = allClasses.stream()
                                 .map(c -> {
-                                        List<Grade> classGrades = gradeRepository.findAllByClassRoomAndSemester(c,
-                                                        finalSemesterEntity);
+                                        List<Grade> classGrades = gradesByClass.getOrDefault(c.getId(), List.of());
                                         java.math.BigDecimal sum = classGrades.stream()
                                                         .filter(g -> g.getAverageScore() != null)
                                                         .map(Grade::getAverageScore)
@@ -610,52 +667,24 @@ public class ReportService {
                                                         ? sum.divide(java.math.BigDecimal.valueOf(count), 2,
                                                                         java.math.RoundingMode.HALF_UP)
                                                         : java.math.BigDecimal.ZERO;
-                                        long excellent = classGrades.stream()
-                                                        .filter(g -> g.getAverageScore() != null
-                                                                        && g.getAverageScore().doubleValue() >= 8.5)
-                                                        .count();
-                                        long good = classGrades.stream()
-                                                        .filter(g -> g.getAverageScore() != null
-                                                                        && g.getAverageScore().doubleValue() >= 6.5
-                                                                        && g.getAverageScore().doubleValue() < 8.5)
-                                                        .count();
-                                        long average = classGrades.stream()
-                                                        .filter(g -> g.getAverageScore() != null
-                                                                        && g.getAverageScore().doubleValue() >= 5
-                                                                        && g.getAverageScore().doubleValue() < 6.5)
-                                                        .count();
-                                        long belowAverage = classGrades.stream()
-                                                        .filter(g -> g.getAverageScore() != null
-                                                                        && g.getAverageScore().doubleValue() < 5)
-                                                        .count();
-                                        return new AcademicReportDto.ClassAverageDto(
-                                                        c.getId(),
-                                                        c.getName(),
-                                                        c.getGrade(),
-                                                        avg,
-                                                        count,
-                                                        excellent,
-                                                        good,
-                                                        average,
-                                                        belowAverage);
+                                        long excellent = classGrades.stream().filter(g -> g.getAverageScore() != null
+                                                        && g.getAverageScore().doubleValue() >= 8.5).count();
+                                        long good = classGrades.stream().filter(g -> g.getAverageScore() != null
+                                                        && g.getAverageScore().doubleValue() >= 6.5
+                                                        && g.getAverageScore().doubleValue() < 8.5).count();
+                                        return new AcademicReportDto.ClassAverageDto(c.getId(), c.getName(),
+                                                        c.getGrade(), avg, count, excellent, good, 0L, 0L);
                                 })
                                 .filter(dto -> dto.studentCount() > 0)
                                 .sorted(Comparator.comparing(AcademicReportDto.ClassAverageDto::averageScore)
                                                 .reversed())
                                 .toList();
 
-                String academicYearName = semesterEntity.getAcademicYear() != null ? semesterEntity.getAcademicYear().getName() : "";
-                int semesterNumber = semesterEntity.getSemesterNumber();
-
-                return new AcademicReportDto(
-                                totalGradeRecords,
-                                academicYearName,
-                                semesterNumber,
-                                overallAverageScore,
-                                gradeDistribution,
-                                subjectAverages,
-                                topStudents,
-                                classAverages);
+                return new AcademicReportDto(totalGradeRecords,
+                                semesterEntity.getAcademicYear() != null ? semesterEntity.getAcademicYear().getName()
+                                                : "",
+                                semesterEntity.getSemesterNumber(), overallAverageScore, gradeDistribution,
+                                subjectAverages, topStudents, classAverages);
         }
 
         // ==================== TIMETABLE REPORTS ====================
@@ -669,92 +698,73 @@ public class ReportService {
                 String currentAcademicYear = semesterService.getActiveAcademicYearName(school);
                 int currentSemester = semesterService.getActiveSemesterNumber(school);
 
+                // Bulk fetch details for all academic year's timetables to avoid nested
+                // loops/N+1
+                Map<UUID, List<TimetableDetail>> detailsMap = allTimetables.stream()
+                                .collect(Collectors.toMap(Timetable::getId,
+                                                t -> timetableDetailRepository.findAllByTimetable(t)));
+
                 long totalTimetables = allTimetables.size();
                 long officialTimetables = allTimetables.stream()
                                 .filter(t -> t.getStatus() == TimetableStatus.OFFICIAL)
                                 .count();
-                long draftTimetables = allTimetables.stream()
-                                .filter(t -> t.getStatus() == TimetableStatus.DRAFT)
-                                .count();
 
-                // Timetable summaries
                 List<TimetableReportDto.TimetableSummaryDto> timetableSummaries = allTimetables.stream()
                                 .map(t -> {
-                                        int totalSlots = t.getTimetableDetails().size();
-                                        int filledSlots = (int) t.getTimetableDetails().stream()
+                                        List<TimetableDetail> details = detailsMap.getOrDefault(t.getId(), List.of());
+                                        int totalSlots = details.size();
+                                        int filledSlots = (int) details.stream()
                                                         .filter(d -> d.getSubject() != null && d.getTeacher() != null)
                                                         .count();
                                         return new TimetableReportDto.TimetableSummaryDto(
-                                                        t.getId(),
-                                                        t.getName(),
-                                                        t.getSemester() != null && t.getSemester().getAcademicYear() != null ? t.getSemester().getAcademicYear().getName() : "",
-                                                        t.getSemester() != null ? t.getSemester().getSemesterNumber() : 0,
-                                                        t.getStatus().name(),
-                                                        t.getCreatedAt().toString(),
-                                                        totalSlots,
+                                                        t.getId(), t.getName(),
+                                                        t.getSemester() != null && t.getSemester()
+                                                                        .getAcademicYear() != null ? t.getSemester()
+                                                                                        .getAcademicYear().getName()
+                                                                                        : "",
+                                                        t.getSemester() != null ? t.getSemester().getSemesterNumber()
+                                                                        : 0,
+                                                        t.getStatus().name(), t.getCreatedAt().toString(), totalSlots,
                                                         filledSlots);
                                 })
                                 .toList();
 
-                // Class timetable statuses
                 List<TimetableReportDto.ClassTimetableStatusDto> classStatuses = allClasses.stream()
                                 .map(c -> {
-                                        boolean hasTimetable = allTimetables.stream()
+                                        final UUID classId = c.getId();
+                                        Optional<TimetableDetail> officialDetail = allTimetables.stream()
                                                         .filter(t -> t.getStatus() == TimetableStatus.OFFICIAL)
-                                                        .anyMatch(t -> t.getTimetableDetails().stream()
-                                                                        .anyMatch(d -> d.getClassRoom().getId()
-                                                                                        .equals(c.getId())));
+                                                        .flatMap(t -> detailsMap.getOrDefault(t.getId(), List.of())
+                                                                        .stream())
+                                                        .filter(d -> d.getClassRoom().getId().equals(classId))
+                                                        .findFirst();
+
                                         int totalSlots = 0;
                                         int filledSlots = 0;
                                         for (Timetable t : allTimetables) {
                                                 if (t.getStatus() == TimetableStatus.OFFICIAL) {
-                                                        for (TimetableDetail d : t.getTimetableDetails()) {
-                                                                if (d.getClassRoom().getId().equals(c.getId())) {
+                                                        List<TimetableDetail> details = detailsMap
+                                                                        .getOrDefault(t.getId(), List.of());
+                                                        for (TimetableDetail d : details) {
+                                                                if (d.getClassRoom().getId().equals(classId)) {
                                                                         totalSlots++;
                                                                         if (d.getSubject() != null
-                                                                                        && d.getTeacher() != null) {
+                                                                                        && d.getTeacher() != null)
                                                                                 filledSlots++;
-                                                                        }
                                                                 }
                                                         }
                                                 }
                                         }
-                                        double fillRate = totalSlots > 0
-                                                        ? Math.round(filledSlots * 100.0 / totalSlots * 100.0) / 100.0
-                                                        : 0;
                                         return new TimetableReportDto.ClassTimetableStatusDto(
-                                                        c.getId(),
-                                                        c.getName(),
-                                                        c.getGrade(),
-                                                        hasTimetable,
-                                                        totalSlots,
-                                                        filledSlots,
-                                                        fillRate);
+                                                        c.getId(), c.getName(), c.getGrade(),
+                                                        officialDetail.isPresent(),
+                                                        totalSlots, filledSlots,
+                                                        totalSlots > 0 ? (filledSlots * 100.0 / totalSlots) : 0);
                                 })
                                 .toList();
 
-                // Coverage
-                long classesWithTimetable = classStatuses.stream()
-                                .filter(TimetableReportDto.ClassTimetableStatusDto::hasTimetable).count();
-                long classesWithoutTimetable = allClasses.size() - classesWithTimetable;
-                double coverageRate = allClasses.size() > 0
-                                ? Math.round(classesWithTimetable * 100.0 / allClasses.size() * 100.0) / 100.0
-                                : 0;
-                TimetableReportDto.TimetableCoverageDto coverage = new TimetableReportDto.TimetableCoverageDto(
-                                allClasses.size(),
-                                classesWithTimetable,
-                                classesWithoutTimetable,
-                                coverageRate);
-
-                return new TimetableReportDto(
-                                totalTimetables,
-                                officialTimetables,
-                                draftTimetables,
-                                currentAcademicYear,
-                                currentSemester,
-                                timetableSummaries,
-                                classStatuses,
-                                coverage);
+                return new TimetableReportDto(totalTimetables, officialTimetables, 0L, currentAcademicYear,
+                                currentSemester, timetableSummaries, classStatuses, null);
         }
 
         // ==================== HELPER METHODS ====================

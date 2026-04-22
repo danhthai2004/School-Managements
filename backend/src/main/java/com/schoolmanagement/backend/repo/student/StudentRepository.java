@@ -2,12 +2,14 @@ package com.schoolmanagement.backend.repo.student;
 
 import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.student.Student;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,34 +22,38 @@ public interface StudentRepository extends JpaRepository<Student, UUID>,
                         org.springframework.data.jpa.domain.Specification<Student> spec,
                         org.springframework.data.domain.Pageable pageable);
 
-    Optional<Student> findByUser(com.schoolmanagement.backend.domain.entity.auth.User user);
+        Optional<Student> findByUser(com.schoolmanagement.backend.domain.entity.auth.User user);
 
         @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "guardian", "user" })
         List<Student> findAllBySchoolOrderByFullNameAsc(School school);
 
-    Optional<Student> findBySchoolAndStudentCode(School school, String studentCode);
+        List<Student> findByEmailIn(Collection<String> emails);
 
-    boolean existsBySchoolAndStudentCode(School school, String studentCode);
+        Optional<Student> findBySchoolAndStudentCode(School school, String studentCode);
 
-    boolean existsBySchoolAndEmail(School school, String email);
+        boolean existsBySchoolAndStudentCode(School school, String studentCode);
 
-    Optional<Student> findBySchoolAndEmail(School school, String email);
+        boolean existsBySchoolAndEmail(School school, String email);
 
-    boolean existsByEmail(String email);
+        Optional<Student> findBySchoolAndEmail(School school, String email);
 
-    Optional<Student> findTopBySchoolOrderByStudentCodeDesc(School school);
+        boolean existsByEmail(String email);
 
-    long countBySchool(School school);
+        boolean existsByEmailAndUserIsNotNull(String email);
 
-    Optional<Student> findByIdAndSchool(UUID id, School school);
+        Optional<Student> findTopBySchoolOrderByStudentCodeDesc(School school);
 
-    // Find students eligible for account creation: ACTIVE, has email, no user
-    // linked
-    List<Student> findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(School school,
-            com.schoolmanagement.backend.domain.student.StudentStatus status);
+        long countBySchool(School school);
 
-    // --- Bulk Delete Optimization ---
+        Optional<Student> findByIdAndSchool(UUID id, School school);
 
+        // Find students eligible for account creation: ACTIVE, has email, no user
+        // linked
+        @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "guardian", "user" })
+        List<Student> findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(School school,
+                        com.schoolmanagement.backend.domain.student.StudentStatus status);
+
+        @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "guardian", "user" })
         org.springframework.data.domain.Page<Student> findAllBySchoolAndStatusAndUserIsNullAndEmailIsNotNull(
                         School school,
                         com.schoolmanagement.backend.domain.student.StudentStatus status,

@@ -15,6 +15,7 @@ import Pagination from "../../../components/common/Pagination";
 // ... (imports)
 import { NoAcademicYearState } from "../../../components/common/EmptyState";
 import { useToast } from "../../../context/ToastContext";
+import { vietnameseNameSort } from "../../../utils/sortUtils";
 
 
 
@@ -138,7 +139,16 @@ const StudentManagement = () => {
                 unassigned: unassignedFilter || undefined
             });
 
-            setStudents(response.content);
+            let content = response.content;
+            if (sortConfig?.key === 'fullName') {
+                content = [...content].sort((a, b) => {
+                    return sortConfig.direction === 'asc'
+                        ? vietnameseNameSort(a.fullName, b.fullName)
+                        : vietnameseNameSort(b.fullName, a.fullName);
+                });
+            }
+
+            setStudents(content);
             setTotalElements(response.totalElements);
             setTotalPages(response.totalPages);
             if (!silent) setLoading(false);

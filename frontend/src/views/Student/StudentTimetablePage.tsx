@@ -75,9 +75,9 @@ export default function StudentTimetablePage() {
         }
     }, [selectedSemesterId, isContextLoading]);
 
-    const getSlotForDayAndPeriod = (dayOfWeek: number, period: number): TimetableSlotDto | null => {
+    const getSlotForDayAndPeriod = (dayOfWeek: number, slotIndex: number): TimetableSlotDto | null => {
         if (!timetable) return null;
-        return timetable.slots.find(s => s.dayOfWeek === dayOfWeek && s.period === period) || null;
+        return timetable.slots.find(s => s.dayOfWeek === dayOfWeek && s.slotIndex === slotIndex) || null;
     };
 
 

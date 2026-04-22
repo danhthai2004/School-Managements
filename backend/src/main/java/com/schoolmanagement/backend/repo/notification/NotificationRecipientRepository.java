@@ -11,10 +11,12 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 
 @Repository
 public interface NotificationRecipientRepository extends JpaRepository<NotificationRecipient, UUID> {
-    
+
+    @EntityGraph(attributePaths = { "notification", "notification.createdBy" })
     @Query("SELECT nr FROM NotificationRecipient nr WHERE nr.user.id = :userId AND nr.notification.status = 'ACTIVE' ORDER BY nr.notification.createdAt DESC")
     Page<NotificationRecipient> findByUserIdOrderByCreatedAtDesc(@Param("userId") UUID userId, Pageable pageable);
 
@@ -26,4 +28,6 @@ public interface NotificationRecipientRepository extends JpaRepository<Notificat
     void markAllAsReadByUserId(@Param("userId") UUID userId);
 
     Optional<NotificationRecipient> findByIdAndUserId(UUID id, UUID userId);
+
+    Optional<NotificationRecipient> findByNotificationIdAndUserId(UUID notificationId, UUID userId);
 }

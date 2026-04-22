@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import DatePicker from "react-datepicker";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import "react-datepicker/dist/react-datepicker.css";
+import { vietnameseNameSort } from "../../../utils/sortUtils";
 import { schoolAdminService } from "../../../services/schoolAdminService";
 import type {
     ClassRoomDto,
@@ -10,7 +11,19 @@ import type {
     AdminAttendanceDto,
     AdminSaveAttendanceRequest,
 } from "../../../services/schoolAdminService";
-import { CalendarIcon } from "../SchoolAdminIcons";
+import {
+    Calendar as CalendarIcon,
+    Users,
+    Save,
+    AlertTriangle,
+    Info,
+    CheckCircle,
+    XCircle,
+    Clock,
+    BookOpen
+} from "lucide-react";
+
+import { useToast } from "../../../context/ToastContext";
 
 const AttendanceStatus = {
     PRESENT: "PRESENT",
@@ -22,6 +35,7 @@ const AttendanceStatus = {
 type AttendanceStatusType = typeof AttendanceStatus[keyof typeof AttendanceStatus];
 
 export default function AttendanceManagement() {
+    const { toast } = useToast();
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>("");
     const [selectedDate, setSelectedDate] = useState(new Date());
@@ -31,6 +45,10 @@ export default function AttendanceManagement() {
     const [loading, setLoading] = useState(false);
     const [loadingSlots, setLoadingSlots] = useState(false);
     const [saving, setSaving] = useState(false);
+
+    const [filterGrade, setFilterGrade] = useState<string>("");
+    const [skippedStudents, setSkippedStudents] = useState<{ studentId: string; reason: string; studentName?: string; studentCode?: string }[]>([]);
+    const [showSkippedModal, setShowSkippedModal] = useState(false);
 
     // Load classes on mount
     useEffect(() => {
@@ -45,6 +63,18 @@ export default function AttendanceManagement() {
             console.error("Failed to load classes:", error);
         }
     }
+
+    const filteredClasses = useMemo(() => {
+        if (!filterGrade) return classes;
+        return classes.filter(c => c.grade.toString() === filterGrade);
+    }, [classes, filterGrade]);
+
+    // Clear class if it doesn't match filter
+    useEffect(() => {
+        if (selectedClassId && !filteredClasses.some(c => c.id === selectedClassId)) {
+            setSelectedClassId("");
+        }
+    }, [filteredClasses, selectedClassId]);
 
     // Load slots when class or date changes
     useEffect(() => {
@@ -84,10 +114,10 @@ export default function AttendanceManagement() {
                 dateStr,
                 selectedSlot.slotIndex
             );
-            setStudents(data);
+            const sortedData = [...data].sort((a, b) => vietnameseNameSort(a.studentName, b.studentName));
+            setStudents(sortedData);
         } catch (error) {
             console.error("Failed to load attendance:", error);
-            alert("Không thể tải danh sách điểm danh");
         } finally {
             setLoading(false);
         }
@@ -123,22 +153,43 @@ export default function AttendanceManagement() {
                     remarks: s.remarks || "",
                 })),
             };
-            await schoolAdminService.saveAttendance(selectedClassId, request);
-            alert("Lưu điểm danh thành công!");
-        } catch (error: unknown) {
+            const res = await schoolAdminService.saveAttendance(selectedClassId, request);
+
+            if (res.skippedStudents && res.skippedStudents.length > 0) {
+                const skippedWithDetails = res.skippedStudents.map(skipped => {
+                    const studentInfo = students.find(s => s.studentId === skipped.studentId);
+                    return {
+                        ...skipped,
+                        studentName: studentInfo?.studentName || "Không xác định",
+                        studentCode: studentInfo?.studentCode || skipped.studentId
+                    };
+                });
+                setSkippedStudents(skippedWithDetails);
+                setShowSkippedModal(true);
+                toast.error(`Lưu thành công, nhưng có ${res.skippedStudents.length} học sinh bị bỏ qua.`);
+            } else {
+                toast.success("Lưu điểm danh thành công!");
+            }
+        } catch (error: any) {
             console.error("Failed to save:", error);
-            const err = error as { response?: { data?: { message?: string } } };
-            alert(err.response?.data?.message || "Lỗi khi lưu điểm danh");
+            const status = error.response?.status;
+            const message = error.response?.data?.message || "Lỗi khi lưu điểm danh";
+
+            if (status === 400 || status === 403 || status === 404 || status === 409) {
+                toast.error(message);
+            } else {
+                toast.error("Hệ thống gặp sự cố. Vui lòng thử lại sau.");
+            }
         } finally {
             setSaving(false);
         }
     };
 
     const statusOptions = [
-        { value: AttendanceStatus.PRESENT, label: "Có mặt", color: "bg-green-100 text-green-800", ring: "ring-green-500" },
-        { value: AttendanceStatus.ABSENT_EXCUSED, label: "Vắng (CP)", color: "bg-yellow-100 text-yellow-800", ring: "ring-yellow-500" },
-        { value: AttendanceStatus.ABSENT_UNEXCUSED, label: "Vắng (KP)", color: "bg-red-100 text-red-800", ring: "ring-red-500" },
-        { value: AttendanceStatus.LATE, label: "Đi muộn", color: "bg-orange-100 text-orange-800", ring: "ring-orange-500" },
+        { value: AttendanceStatus.PRESENT, label: "Có mặt", icon: CheckCircle, color: "bg-green-100 text-green-700", ring: "ring-green-500", active: "bg-green-600 text-white" },
+        { value: AttendanceStatus.ABSENT_EXCUSED, label: "Vắng (CP)", icon: Info, color: "bg-amber-100 text-amber-700", ring: "ring-amber-500", active: "bg-amber-500 text-white" },
+        { value: AttendanceStatus.ABSENT_UNEXCUSED, label: "Vắng (KP)", icon: XCircle, color: "bg-red-100 text-red-700", ring: "ring-red-500", active: "bg-red-600 text-white" },
+        { value: AttendanceStatus.LATE, label: "Đi muộn", icon: Clock, color: "bg-blue-100 text-blue-700", ring: "ring-blue-500", active: "bg-blue-600 text-white" },
     ];
 
     const isPastDay = (() => {
@@ -150,290 +201,289 @@ export default function AttendanceManagement() {
     })();
 
     return (
-        <div className="p-6 max-w-7xl mx-auto space-y-6 animate-fade-in-up">
-            {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Quản lý điểm danh</h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Xem và chỉnh sửa điểm danh cho tất cả các lớp (bao gồm ngày đã qua)
-                </p>
-            </div>
-
-            {/* Filters Row */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-                <div className="flex flex-wrap items-end gap-4">
-                    {/* Class selector */}
-                    <div className="flex-1 min-w-[200px]">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                            Chọn lớp
-                        </label>
-                        <select
-                            value={selectedClassId}
-                            onChange={(e) => setSelectedClassId(e.target.value)}
-                            className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        >
-                            <option value="">-- Chọn lớp --</option>
-                            {classes.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                    {c.name} (Khối {c.grade})
-                                </option>
+        <div className="p-6 max-w-7xl mx-auto space-y-6">
+            {/* Modal Skipped Students */}
+            {showSkippedModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4">
+                        <div className="flex items-center gap-3 text-amber-600 border-b border-gray-100 pb-4">
+                            <div className="p-2 bg-amber-100 rounded-full">
+                                <AlertTriangle className="w-6 h-6" />
+                            </div>
+                            <h3 className="text-xl font-bold">Điểm danh chưa hoàn tất</h3>
+                        </div>
+                        <p className="text-gray-600 text-sm">
+                            Hệ thống đã lưu điểm danh, nhưng có <strong>{skippedStudents.length}</strong> học sinh bị bỏ qua:
+                        </p>
+                        <div className="bg-gray-50 rounded-xl border border-gray-200 divide-y max-h-60 overflow-y-auto">
+                            {skippedStudents.map((s, i) => (
+                                <div key={i} className="p-3">
+                                    <div className="font-medium text-gray-800">{s.studentName} <span className="text-gray-500 text-xs font-normal">({s.studentCode})</span></div>
+                                    <div className="text-red-500 text-xs mt-0.5">{s.reason}</div>
+                                </div>
                             ))}
-                        </select>
-                    </div>
-
-                    {/* Date picker */}
-                    <div className="min-w-[180px]">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                            Chọn ngày
-                        </label>
-                        <div className="relative">
-                            <DatePicker
-                                selected={selectedDate}
-                                onChange={(date: Date | null) => date && setSelectedDate(date)}
-                                dateFormat="dd/MM/yyyy"
-                                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                locale={vi}
-                            />
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                <CalendarIcon />
-                            </div>
+                        </div>
+                        <div className="flex justify-end pt-2">
+                            <button
+                                onClick={() => setShowSkippedModal(false)}
+                                className="px-6 py-2.5 bg-gray-900 hover:bg-black text-white font-medium rounded-xl transition-all shadow-lg"
+                            >
+                                Đóng và kiểm tra lại
+                            </button>
                         </div>
                     </div>
+                </div>
+            )}
 
-                    {/* Date info badge */}
-                    {isPastDay && (
-                        <div className="flex items-center gap-2 px-3 py-2.5 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg">
-                            <span className="text-amber-600 dark:text-amber-400 text-sm font-medium">
-                                🔓 Ngày đã qua — Quyền Admin
-                            </span>
-                        </div>
-                    )}
+            {/* Header Section */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+                        Quản lý điểm danh trường
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
+                        <Users className="w-4 h-4" />
+                        Chế độ Admin • Xem và chỉnh sửa dữ liệu toàn trường
+                    </p>
                 </div>
             </div>
 
-            {/* Content Area */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                {/* Slot List (Left Side) */}
-                <div className="lg:col-span-1">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-                        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                            Các tiết trong ngày
-                        </h3>
+            {/* Filter Bar */}
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-wrap items-center gap-8">
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Users className="w-3 h-3" /> Khối
+                    </label>
+                    <select
+                        value={filterGrade}
+                        onChange={(e) => setFilterGrade(e.target.value)}
+                        className="min-w-[120px] px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold focus:border-blue-500 outline-none transition-all cursor-pointer hover:bg-white"
+                    >
+                        <option value="">Tất cả khối</option>
+                        <option value="10">Khối 10</option>
+                        <option value="11">Khối 11</option>
+                        <option value="12">Khối 12</option>
+                    </select>
+                </div>
 
-                        {!selectedClassId ? (
-                            <p className="text-sm text-gray-400 text-center py-8">
-                                Vui lòng chọn lớp
-                            </p>
-                        ) : loadingSlots ? (
-                            <p className="text-sm text-gray-400 text-center py-8">
-                                Đang tải...
-                            </p>
-                        ) : slots.length === 0 ? (
-                            <p className="text-sm text-gray-400 text-center py-8">
-                                Không có tiết nào trong ngày này
-                            </p>
-                        ) : (
-                            <div className="space-y-2">
-                                {slots.map((slot) => (
-                                    <button
-                                        key={slot.slotIndex}
-                                        onClick={() => setSelectedSlot(slot)}
-                                        className={`w-full text-left p-3 rounded-lg border transition-all text-sm ${
-                                            selectedSlot?.slotIndex === slot.slotIndex
-                                                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-sm"
-                                                : "border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="font-bold">Tiết {slot.slotIndex}</span>
-                                            {selectedSlot?.slotIndex === slot.slotIndex && (
-                                                <span className="w-2 h-2 rounded-full bg-blue-500" />
-                                            )}
-                                        </div>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                            {slot.subjectName || "—"}
-                                        </p>
-                                        {slot.teacherName && (
-                                            <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
-                                                GV: {slot.teacherName}
-                                            </p>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <BookOpen className="w-3 h-3" /> Lớp học
+                    </label>
+                    <select
+                        value={selectedClassId}
+                        onChange={(e) => setSelectedClassId(e.target.value)}
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold focus:border-blue-500 outline-none transition-all cursor-pointer hover:bg-white"
+                    >
+                        <option value="">Chọn lớp học từ danh sách...</option>
+                        {filteredClasses.map((c) => (
+                            <option key={c.id} value={c.id}>
+                                {c.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <CalendarIcon className="w-3 h-3" /> Ngày điểm danh
+                    </label>
+                    <div className="border border-gray-200 rounded-xl bg-gray-50 overflow-hidden hover:bg-white transition-colors">
+                        <DatePicker
+                            selected={selectedDate}
+                            onChange={(date: Date | null) => date && setSelectedDate(date)}
+                            dateFormat="dd/MM/yyyy"
+                            className="w-36 px-3 py-2 bg-transparent border-0 text-gray-900 text-sm font-semibold outline-none cursor-pointer"
+                            locale={vi}
+                        />
                     </div>
                 </div>
 
-                {/* Attendance Table (Right Side) */}
-                <div className="lg:col-span-3">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                        {!selectedSlot ? (
-                            <div className="p-12 text-center">
-                                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                                    <svg
-                                        className="w-8 h-8 text-gray-400"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        strokeWidth={1.5}
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"
-                                        />
-                                    </svg>
+                {isPastDay && (
+                    <div className="self-end mb-1">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 rounded-xl text-[10px] font-bold border border-amber-200/50 uppercase tracking-tighter shadow-sm animate-pulse">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            Chế độ ghi đè dữ liệu
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Slots Selection Bar */}
+            <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
+                {!selectedClassId ? (
+                    <div className="py-2 text-center text-sm text-gray-400 italic">
+                        Hãy chọn khối và lớp để xem danh sách tiết học
+                    </div>
+                ) : loadingSlots ? (
+                    <div className="flex gap-2 p-1 overflow-hidden">
+                        {[1, 2, 3, 4, 5].map(i => (
+                            <div key={i} className="h-10 w-32 bg-gray-100 animate-pulse rounded-xl" />
+                        ))}
+                    </div>
+                ) : slots.length === 0 ? (
+                    <div className="py-2 text-center text-sm text-gray-400 italic">
+                        Lớp học không có tiết trong ngày này
+                    </div>
+                ) : (
+                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                        {slots.map((slot) => (
+                            <button
+                                key={slot.slotIndex}
+                                onClick={() => setSelectedSlot(slot)}
+                                className={`flex-shrink-0 px-5 py-2.5 rounded-xl border-2 text-center transition-all min-w-[140px] ${selectedSlot?.slotIndex === slot.slotIndex
+                                    ? "border-blue-500 bg-blue-50 text-blue-700 font-bold"
+                                    : "border-transparent bg-gray-50 text-gray-500 font-semibold hover:bg-gray-100"
+                                    }`}
+                            >
+                                <div className="text-[10px] uppercase tracking-wider opacity-60 mb-0.5">Tiết {slot.slotIndex}</div>
+                                <div className="text-sm line-clamp-1">{slot.subjectName || "Nghỉ"}</div>
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Main Content Area */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden min-h-[600px] flex flex-col">
+                {!selectedSlot ? (
+                    <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+                        <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6 ring-4 ring-gray-50">
+                            <BookOpen className="w-8 h-8 text-gray-300" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                            Thông tin điểm danh học sinh
+                        </h3>
+                        <p className="text-gray-500 mt-2 max-w-sm text-sm">
+                            {selectedClassId
+                                ? "Vui lòng chọn một tiết học phía trên để xem danh sách điểm danh."
+                                : "Hãy chọn khối, lớp và ngày cần kiểm tra dữ liệu."}
+                        </p>
+                    </div>
+                ) : loading ? (
+                    <div className="flex-1 flex flex-col items-center justify-center">
+                        <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
+                        <p className="text-gray-500 text-sm font-medium">Đang tải danh sách học sinh...</p>
+                    </div>
+                ) : (
+                    <>
+                        {/* Table Header Info */}
+                        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex flex-wrap items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-500/20">
+                                    <BookOpen className="w-6 h-6" />
                                 </div>
-                                <h3 className="text-gray-500 dark:text-gray-400 font-medium">
-                                    {selectedClassId
-                                        ? "Chọn tiết để xem điểm danh"
-                                        : "Chọn lớp và tiết để bắt đầu"}
-                                </h3>
+                                <div>
+                                    <div className="text-xs font-semibold text-blue-600 uppercase tracking-widest mb-0.5">
+                                        Thông tin tiết học
+                                    </div>
+                                    <h2 className="text-xl font-bold text-gray-900">
+                                        Tiết {selectedSlot.slotIndex} • {selectedSlot.subjectName || "Tiết không tên"}
+                                    </h2>
+                                </div>
                             </div>
-                        ) : loading ? (
-                            <div className="p-12 text-center text-gray-500">Đang tải...</div>
-                        ) : (
-                            <>
-                                {/* Header */}
-                                <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700">
-                                    <div>
-                                        <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                                            Tiết {selectedSlot.slotIndex} — {selectedSlot.subjectName}
-                                        </h2>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                                            {format(selectedDate, "EEEE, dd/MM/yyyy", { locale: vi })}
-                                            {selectedSlot.teacherName && (
-                                                <span> • GV: {selectedSlot.teacherName}</span>
-                                            )}
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={handleSave}
-                                        disabled={saving}
-                                        className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium text-sm transition-colors shadow-sm"
-                                    >
-                                        {saving ? "Đang lưu..." : "💾 Lưu điểm danh"}
-                                    </button>
-                                </div>
-
-                                {isPastDay && (
-                                    <div className="mx-5 mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm">
-                                        <span>⚠️</span>
-                                        <span>
-                                            Đang chỉnh sửa điểm danh ngày đã qua với quyền School Admin.
-                                            Giáo viên không thể sửa ngày này.
-                                        </span>
-                                    </div>
-                                )}
-
-                                {/* Summary badges */}
-                                <div className="flex flex-wrap gap-3 px-5 pt-4">
-                                    {statusOptions.map((opt) => {
-                                        const count = students.filter(
-                                            (s) => s.status === opt.value
-                                        ).length;
+                            <div className="flex items-center gap-4">
+                                <div className="flex gap-2">
+                                    {statusOptions.map(opt => {
+                                        const count = students.filter(s => s.status === opt.value).length;
                                         return (
-                                            <span
-                                                key={opt.value}
-                                                className={`px-3 py-1 rounded-full text-xs font-semibold ${opt.color}`}
-                                            >
+                                            <div key={opt.value} className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 border border-gray-100 ${opt.color}`}>
+                                                <opt.icon className="w-3.5 h-3.5" />
                                                 {opt.label}: {count}
-                                            </span>
+                                            </div>
                                         );
                                     })}
-                                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-                                        Tổng: {students.length}
-                                    </span>
                                 </div>
+                                <button
+                                    onClick={handleSave}
+                                    disabled={saving}
+                                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-600 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {saving ? (
+                                        <>
+                                            <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Đang lưu...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save className="w-4 h-4" strokeWidth={1.8} />
+                                            Lưu điểm danh
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
 
-                                {/* Table */}
-                                <div className="overflow-x-auto p-5">
-                                    <table className="w-full">
-                                        <thead className="bg-gray-50 dark:bg-gray-700/50">
-                                            <tr>
-                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                                    STT
-                                                </th>
-                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                                    Mã HS
-                                                </th>
-                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                                    Họ tên
-                                                </th>
-                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                                    Trạng thái
-                                                </th>
-                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                                    Ghi chú
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                            {students.map((student, index) => (
-                                                <tr
-                                                    key={student.studentId}
-                                                    className="hover:bg-gray-50 dark:hover:bg-gray-700/30"
-                                                >
-                                                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                                                        {index + 1}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                                                        {student.studentCode}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                        {/* Table Area */}
+                        <div className="flex-1 overflow-auto bg-white">
+                            <table className="w-full text-left border-collapse">
+                                <thead className="sticky top-0 bg-white z-10 shadow-sm border-b border-gray-100">
+                                    <tr>
+                                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50/50">
+                                            STT
+                                        </th>
+                                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50/50">
+                                            Học sinh
+                                        </th>
+                                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50/50">
+                                            Trạng thái điểm danh
+                                        </th>
+                                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50/50">
+                                            Ghi chú
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {students.map((student, index) => (
+                                        <tr key={student.studentId} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-6 py-4 text-sm text-gray-500 font-medium">
+                                                {index + 1}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-semibold text-gray-900">
                                                         {student.studentName}
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <div className="flex gap-1.5 flex-wrap">
-                                                            {statusOptions.map((option) => (
-                                                                <button
-                                                                    key={option.value}
-                                                                    onClick={() =>
-                                                                        handleStatusChange(
-                                                                            student.studentId,
-                                                                            option.value
-                                                                        )
-                                                                    }
-                                                                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all
-                                                                        ${
-                                                                            student.status ===
-                                                                            option.value
-                                                                                ? option.color +
-                                                                                  " ring-2 ring-offset-1 " +
-                                                                                  option.ring
-                                                                                : "bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-500"
-                                                                        }
-                                                                    `}
-                                                                >
-                                                                    {option.label}
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <input
-                                                            type="text"
-                                                            value={student.remarks || ""}
-                                                            onChange={(e) =>
-                                                                handleRemarksChange(
-                                                                    student.studentId,
-                                                                    e.target.value
-                                                                )
-                                                            }
-                                                            className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                                            placeholder="Ghi chú..."
-                                                        />
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
+                                                    </span>
+                                                    <span className="text-xs text-gray-500 font-mono">
+                                                        {student.studentCode}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-wrap gap-2">
+                                                    {statusOptions.map(opt => (
+                                                        <button
+                                                            key={opt.value}
+                                                            onClick={() => handleStatusChange(student.studentId, opt.value as any)}
+                                                            className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${student.status === opt.value
+                                                                ? opt.active + " border-transparent"
+                                                                : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100"
+                                                                }`}
+                                                        >
+                                                            {opt.label}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <input
+                                                    type="text"
+                                                    value={student.remarks || ""}
+                                                    onChange={(e) => handleRemarksChange(student.studentId, e.target.value)}
+                                                    className="w-full px-3 py-1.5 text-sm bg-gray-50 border border-transparent hover:border-gray-200 focus:border-blue-500 focus:bg-white rounded-lg outline-none transition-all text-gray-600 placeholder:text-gray-400 font-medium"
+                                                    placeholder="Ghi chú..."
+                                                />
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );

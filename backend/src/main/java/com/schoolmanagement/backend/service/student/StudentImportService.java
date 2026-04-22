@@ -16,15 +16,15 @@ import com.schoolmanagement.backend.domain.student.StudentStatus;
 
 import com.schoolmanagement.backend.dto.student.ImportStudentResult;
 import com.schoolmanagement.backend.exception.ApiException;
+import com.schoolmanagement.backend.repo.auth.UserRepository;
 import com.schoolmanagement.backend.repo.classes.ClassEnrollmentRepository;
 import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.student.GuardianRepository;
 import com.schoolmanagement.backend.repo.student.StudentRepository;
+import com.schoolmanagement.backend.repo.classes.CombinationRepository;
 import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,7 +43,7 @@ import org.apache.commons.csv.CSVRecord;
 @Service
 public class StudentImportService {
 
-    private static final Logger log = LoggerFactory.getLogger(StudentImportService.class);
+    private static final int BATCH_SIZE = 50;
 
     private final StudentRepository students;
     private final GuardianRepository guardians;
@@ -54,8 +54,8 @@ public class StudentImportService {
 
     public StudentImportService(StudentRepository students, GuardianRepository guardians,
             ClassRoomRepository classRooms, ClassEnrollmentRepository enrollments,
-            com.schoolmanagement.backend.repo.auth.UserRepository users,
-            com.schoolmanagement.backend.repo.classes.CombinationRepository combinations) {
+            UserRepository users,
+            CombinationRepository combinations) {
         this.students = students;
         this.guardians = guardians;
         this.classRooms = classRooms;
@@ -67,7 +67,10 @@ public class StudentImportService {
     // ==================== EXCEL IMPORT ====================
 
     /**
-     * Import students from Excel file with optional auto class assignment
+     * Import students from Excel file with optional auto class assignment.
+     * Optimized with batch processing: guardians and students are collected
+     * in-memory
+     * first, then saved in bulk using saveAll() to minimize DB round-trips.
      */
     @Transactional
     public ImportStudentResult importStudentsFromExcel(School school, MultipartFile file,
@@ -77,43 +80,49 @@ public class StudentImportService {
         }
 
         String filename = file.getOriginalFilename();
-        if (filename == null || (!filename.endsWith(".xlsx") && !filename.endsWith(".xls") && !filename.endsWith(".csv"))) {
+        if (filename == null
+                || (!filename.endsWith(".xlsx") && !filename.endsWith(".xls") && !filename.endsWith(".csv"))) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Vui lòng upload file Excel (.xlsx, .xls) hoặc CSV (.csv)");
         }
 
         List<ImportStudentResult.ImportError> errors = new ArrayList<>();
-        Map<Student, Combination> studentCombinationMap = new LinkedHashMap<>();
-        List<Student> allImportedStudents = new ArrayList<>();
         int totalRows = 0;
         int successCount = 0;
         int failedCount = 0;
 
         List<ParsedRow> parsedRows = new ArrayList<>();
+        List<Student> studentsToSave = new ArrayList<>();
+        Map<Integer, Combination> studentIndexToCombination = new LinkedHashMap<>();
 
         try {
+            // ==================== PHASE 1: Parse file into rows ====================
             if (filename.toLowerCase().endsWith(".csv")) {
                 try (InputStreamReader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
-                     CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).build())) {
-                    
+                        CSVParser csvParser = new CSVParser(reader,
+                                CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).build())) {
+
                     List<String> headers = csvParser.getHeaderNames();
                     for (CSVRecord record : csvParser) {
                         Map<String, String> data = new HashMap<>();
                         for (String h : headers) {
-                            if (h != null) data.put(h.toLowerCase().trim(), record.get(h));
+                            if (h != null)
+                                data.put(h.toLowerCase().trim(), record.get(h));
                         }
                         parsedRows.add(new ParsedRow((int) record.getRecordNumber() + 1, data));
                     }
                 }
             } else {
                 try (InputStream is = file.getInputStream();
-                     Workbook workbook = new XSSFWorkbook(is)) {
-                    
+                        Workbook workbook = new XSSFWorkbook(is)) {
+
                     Sheet sheet = workbook.getSheetAt(0);
-                    if (sheet == null) throw new ApiException(HttpStatus.BAD_REQUEST, "File không có sheet nào.");
-                    
+                    if (sheet == null)
+                        throw new ApiException(HttpStatus.BAD_REQUEST, "File không có sheet nào.");
+
                     Row headerRow = sheet.getRow(0);
-                    if (headerRow == null) throw new ApiException(HttpStatus.BAD_REQUEST, "File không có header row.");
-                    
+                    if (headerRow == null)
+                        throw new ApiException(HttpStatus.BAD_REQUEST, "File không có header row.");
+
                     Map<Integer, String> colIndexToHeader = new HashMap<>();
                     for (int i = 0; i < headerRow.getLastCellNum(); i++) {
                         Cell cell = headerRow.getCell(i);
@@ -121,10 +130,11 @@ public class StudentImportService {
                             colIndexToHeader.put(i, getCellStringValue(cell).toLowerCase().trim());
                         }
                     }
-                    
+
                     for (int rowNum = 1; rowNum <= sheet.getLastRowNum(); rowNum++) {
                         Row row = sheet.getRow(rowNum);
-                        if (row == null) continue;
+                        if (row == null)
+                            continue;
                         Map<String, String> data = new HashMap<>();
                         for (Map.Entry<Integer, String> entry : colIndexToHeader.entrySet()) {
                             Cell cell = row.getCell(entry.getKey());
@@ -144,36 +154,57 @@ public class StudentImportService {
                 }
             }
 
-            // === PRE-LOAD lookup data ONCE (avoids N+1 queries) ===
+            // ==================== PHASE 2: Pre-load lookup data ONCE ====================
             List<Combination> allCombinations = combinations.findAllBySchool(school);
-            List<Guardian> allGuardians = guardians.findAll();
+
+            // Collect all emails from the file to fetch targeted lookups
+            Set<String> allEmailsInFile = new HashSet<>();
+            for (ParsedRow row : parsedRows) {
+                String email = row.getValue("email");
+                if (email != null)
+                    allEmailsInFile.add(email.trim().toLowerCase());
+                String gEmail = row.getValue("guardianemail", "email phụ huynh", "emailphuhuynh");
+                if (gEmail != null)
+                    allEmailsInFile.add(gEmail.trim().toLowerCase());
+            }
+
+            // Batch fetch lookups by email
             Map<String, Guardian> guardianEmailMap = new HashMap<>();
-            for (Guardian g : allGuardians) {
-                if (g.getEmail() != null) {
-                    guardianEmailMap.put(g.getEmail().toLowerCase(), g);
-                }
+            if (!allEmailsInFile.isEmpty()) {
+                guardians.findByEmailIn(allEmailsInFile).forEach(g -> {
+                    if (g.getEmail() != null)
+                        guardianEmailMap.put(g.getEmail().toLowerCase(), g);
+                });
             }
             Set<String> existingGuardianEmails = guardianEmailMap.keySet();
 
-            List<User> allUsers = users.findAll();
             Map<String, User> userEmailMap = new HashMap<>();
-            for (User u : allUsers) {
-                if (u.getEmail() != null) {
-                    userEmailMap.put(u.getEmail().toLowerCase(), u);
-                }
+            if (!allEmailsInFile.isEmpty()) {
+                users.findByEmailIn(allEmailsInFile).forEach(u -> {
+                    if (u.getEmail() != null)
+                        userEmailMap.put(u.getEmail().toLowerCase(), u);
+                });
             }
 
             Set<String> existingStudentEmails = new HashSet<>();
-            for (Student s : students.findAllBySchoolOrderByFullNameAsc(school)) {
-                if (s.getEmail() != null) existingStudentEmails.add(s.getEmail().toLowerCase());
+            if (!allEmailsInFile.isEmpty()) {
+                students.findByEmailIn(allEmailsInFile).forEach(s -> {
+                    if (s.getEmail() != null)
+                        existingStudentEmails.add(s.getEmail().toLowerCase());
+                });
             }
 
             // Pre-compute student code counter (avoid N queries)
             int nextCodeNumber = getNextStudentCodeNumber(school);
 
-            // Process data rows
+            // ==================== PHASE 3: Validate & collect entities in-memory
+            // ====================
+            // Instead of saving one-by-one, we collect all valid entities first
+            List<Guardian> guardiansToSave = new ArrayList<>();
+
             for (ParsedRow row : parsedRows) {
-                if (row.isEmpty()) continue;
+                if (row.isEmpty())
+                    continue;
 
                 totalRows++;
                 String studentName = "";
@@ -188,24 +219,44 @@ public class StudentImportService {
 
                     LocalDate dateOfBirth = parseDateFromRow(row, "dateofbirth", "ngày sinh", "ngaysinh");
                     Gender gender = parseGenderFromRow(row, "gender", "giới tính", "gioitinh");
-                    Combination combination = findCombinationFromList(row, allCombinations, "tổ hợp", "combination", "mã tổ hợp", "tohop");
+                    Combination combination = findCombinationFromList(row, allCombinations, "tổ hợp", "combination",
+                            "mã tổ hợp", "tohop");
 
                     String birthPlace = row.getValue("birthplace", "nơi sinh", "noisinh");
                     String address = row.getValue("address", "địa chỉ", "diachi");
                     String email = row.getValue("email");
                     if (email != null && !email.isBlank()) {
                         email = email.trim().toLowerCase();
-                        // Validation: Email must not be used by Guardian or other Role
+
+                        // 1. Kiểm tra xem Email có trùng với bất kỳ Phụ huynh nào đã tồn tại không
                         if (existingGuardianEmails.contains(email)) {
                             errors.add(new ImportStudentResult.ImportError(row.rowNum, studentName,
-                                    "Email học sinh trùng với email Phụ huynh khác."));
+                                    "Email trùng với một Phụ huynh đã tồn tại trong hệ thống: " + email));
                             failedCount++;
                             continue;
                         }
+
+                        // 2. Kiểm tra tài khoản User
                         User existingUser = userEmailMap.get(email);
-                        if (existingUser != null && existingUser.getRole() != Role.STUDENT) {
+                        if (existingUser != null) {
+                            if (existingUser.getRole() != Role.STUDENT) {
+                                errors.add(new ImportStudentResult.ImportError(row.rowNum, studentName,
+                                        "Email đã được sử dụng bởi một tài khoản khác với vai trò: "
+                                                + existingUser.getRole()));
+                                failedCount++;
+                                continue;
+                            } else {
+                                errors.add(new ImportStudentResult.ImportError(row.rowNum, studentName,
+                                        "Học sinh với email này đã có tài khoản trong hệ thống: " + email));
+                                failedCount++;
+                                continue;
+                            }
+                        }
+
+                        // 3. Kiểm tra trùng lặp email với học sinh đã import trong batch này
+                        if (existingStudentEmails.contains(email)) {
                             errors.add(new ImportStudentResult.ImportError(row.rowNum, studentName,
-                                    "Email đã được sử dụng bởi tài khoản " + existingUser.getRole()));
+                                    "Email trùng với học sinh khác: " + email));
                             failedCount++;
                             continue;
                         }
@@ -215,7 +266,8 @@ public class StudentImportService {
 
                     String guardianName = row.getValue("guardianname", "tên phụ huynh", "tenphuhuynh");
                     String guardianPhone = row.getValue("guardianphone", "sđt phụ huynh", "sdtphuhuynh");
-                    String guardianRelationship = row.getValue("guardianrelationship", "quan hệ", "quanhe", "mối quan hệ");
+                    String guardianRelationship = row.getValue("guardianrelationship", "quan hệ", "quanhe",
+                            "mối quan hệ");
 
                     String guardianEmail = null;
                     String rawGuardianEmail = row.getValue("guardianemail", "email phụ huynh", "emailphuhuynh");
@@ -236,10 +288,11 @@ public class StudentImportService {
                             continue;
                         }
 
-                        User existingUser = userEmailMap.get(guardianEmail);
-                        if (existingUser != null && existingUser.getRole() != Role.GUARDIAN) {
+                        User existingGuardianUser = userEmailMap.get(guardianEmail);
+                        if (existingGuardianUser != null && existingGuardianUser.getRole() != Role.GUARDIAN) {
                             errors.add(new ImportStudentResult.ImportError(row.rowNum, studentName,
-                                    "Email phụ huynh đã được sử dụng bởi tài khoản " + existingUser.getRole()));
+                                    "Email phụ huynh đã được sử dụng bởi tài khoản "
+                                            + existingGuardianUser.getRole()));
                             failedCount++;
                             continue;
                         }
@@ -248,9 +301,38 @@ public class StudentImportService {
                     // Generate student code from in-memory counter (no DB query)
                     String studentCode = String.format("HS%04d", nextCodeNumber++);
                     // Track new student email for intra-batch collision detection
-                    if (email != null) existingStudentEmails.add(email);
+                    if (email != null)
+                        existingStudentEmails.add(email);
 
-                    // Create student entity
+                    // === Resolve Guardian in-memory (no DB save yet) ===
+                    Guardian guardian = null;
+                    if (guardianName != null && !guardianName.isBlank()) {
+                        if (guardianEmail != null) {
+                            // Case 1: Has Email -> Find from cache or Create new (in-memory)
+                            guardian = guardianEmailMap.get(guardianEmail);
+                            if (guardian == null) {
+                                guardian = Guardian.builder()
+                                        .fullName(guardianName.trim())
+                                        .phone(guardianPhone)
+                                        .email(guardianEmail)
+                                        .relationship(guardianRelationship)
+                                        .build();
+                                guardiansToSave.add(guardian);
+                                guardianEmailMap.put(guardianEmail, guardian);
+                            }
+                        } else {
+                            // Case 2: No Email -> Force Create new Guardian (in-memory)
+                            guardian = Guardian.builder()
+                                    .fullName(guardianName.trim())
+                                    .phone(guardianPhone)
+                                    .email(null)
+                                    .relationship(guardianRelationship)
+                                    .build();
+                            guardiansToSave.add(guardian);
+                        }
+                    }
+
+                    // Create student entity (in-memory, no DB save yet)
                     Student student = Student.builder()
                             .studentCode(studentCode)
                             .fullName(studentName.trim())
@@ -263,47 +345,14 @@ public class StudentImportService {
                             .enrollmentDate(LocalDate.now())
                             .status(StudentStatus.ACTIVE)
                             .school(school)
+                            .guardian(guardian) // Set guardian reference directly (may be null)
                             .build();
 
-                    student = students.save(student);
-                    allImportedStudents.add(student);
+                    studentsToSave.add(student);
 
-                    // Store student with their parsed combination (can be null if not provided)
+                    // Track combination for auto-assign (index-based to match after saveAll)
                     if (combination != null) {
-                        studentCombinationMap.put(student, combination);
-                    }
-
-                    // Process Guardian Logic (Many-to-One Refactor)
-                    if (guardianName != null && !guardianName.isBlank()) {
-                        Guardian guardian = null;
-
-                        if (guardianEmail != null) {
-                            // Case 1: Has Email -> Find from cache or Create
-                            guardian = guardianEmailMap.get(guardianEmail);
-                            if (guardian == null) {
-                                guardian = Guardian.builder()
-                                        .fullName(guardianName.trim())
-                                        .phone(guardianPhone)
-                                        .email(guardianEmail)
-                                        .relationship(guardianRelationship)
-                                        .build();
-                                guardian = guardians.save(guardian);
-                                guardianEmailMap.put(guardianEmail, guardian);
-                            }
-                        } else {
-                            // Case 2: No Email -> Force Create (No User Account)
-                            guardian = Guardian.builder()
-                                    .fullName(guardianName.trim())
-                                    .phone(guardianPhone)
-                                    .email(null)
-                                    .relationship(guardianRelationship)
-                                    .build();
-                            guardian = guardians.save(guardian);
-                        }
-
-                        // Link directly to student (single save below)
-                        student.setGuardian(guardian);
-                        students.save(student);
+                        studentIndexToCombination.put(studentsToSave.size() - 1, combination);
                     }
 
                     successCount++;
@@ -314,31 +363,46 @@ public class StudentImportService {
                 }
             }
 
+            // ==================== PHASE 4: Batch save to DB ====================
+            // Step 1: Save all new guardians first (so they get IDs from DB)
+            if (!guardiansToSave.isEmpty()) {
+                guardians.saveAll(guardiansToSave);
+            }
+
+            // Step 2: Save all students in chunks (guardian FK is already set via object
+            // reference)
+            if (!studentsToSave.isEmpty()) {
+                for (int i = 0; i < studentsToSave.size(); i += BATCH_SIZE) {
+                    int end = Math.min(i + BATCH_SIZE, studentsToSave.size());
+                    students.saveAll(studentsToSave.subList(i, end));
+                }
+            }
+
         } catch (ApiException ex) {
             throw ex;
         } catch (Exception ex) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Không đọc được file cấu trúc chung: " + ex.getMessage());
         }
 
-        // Auto assign students to classes if requested
+        // ==================== PHASE 5: Auto assign students to classes
+        // ====================
         int assignedCount = 0;
-        log.info("[Import] autoAssign={}, importedStudents={}, studentsWithCombination={}",
-                autoAssign, allImportedStudents.size(), studentCombinationMap.size());
-        if (autoAssign && !allImportedStudents.isEmpty()) {
-            // Include students without combination (null) so they get fallback-assigned to any available class
-            for (Student s : allImportedStudents) {
-                studentCombinationMap.putIfAbsent(s, null);
+        if (autoAssign && !studentIndexToCombination.isEmpty()) {
+            // Rebuild the student-combination map using the saved (now ID-bearing) students
+            Map<Student, Combination> studentCombinationMap = new LinkedHashMap<>();
+            for (Map.Entry<Integer, Combination> entry : studentIndexToCombination.entrySet()) {
+                studentCombinationMap.put(studentsToSave.get(entry.getKey()), entry.getValue());
             }
             assignedCount = autoAssignStudentsToClasses(school, studentCombinationMap, academicYear, grade);
-            log.info("[Import] Auto-assign complete: assignedCount={}", assignedCount);
         }
 
         return new ImportStudentResult(totalRows, successCount, failedCount, assignedCount, errors);
     }
 
     /**
-     * Auto-assign students to classes based on combination
-     * Uses round-robin distribution to balance class sizes
+     * Auto-assign students to classes based on combination.
+     * Uses "least students first" distribution to balance class sizes.
+     * Enrollments are also batch-saved for performance.
      */
     private int autoAssignStudentsToClasses(School school, Map<Student, Combination> studentCombinationMap,
             AcademicYear academicYear, int grade) {
@@ -348,12 +412,8 @@ public class StudentImportService {
         List<ClassRoom> allClasses = classRooms.findAllBySchoolAndGradeAndAcademicYearAndStatus(
                 school, grade, academicYear, ClassRoomStatus.ACTIVE);
 
-        log.info("[AutoAssign] grade={}, academicYearId={}, classesFound={}, studentsToAssign={}",
-                grade, academicYear.getId(), allClasses.size(), studentCombinationMap.size());
-
         if (allClasses.isEmpty()) {
-            log.warn("[AutoAssign] No active classes found for grade={} academicYear={}", grade, academicYear.getName());
-            return 0; // No classes available
+            return 0;
         }
 
         // Get current enrollment counts for each class
@@ -362,34 +422,20 @@ public class StudentImportService {
             classEnrollmentCounts.put(classRoom.getId(), enrollments.countByClassRoom(classRoom));
         }
 
-        // Expected birth year for this grade: grade 10 → startYear-15, 11 → startYear-16, 12 → startYear-17
-        int startYear = academicYear.getStartDate().getYear();
-        int expectedBirthYear = startYear - grade - 5;
+        // Collect all enrollments in-memory first
+        List<ClassEnrollment> enrollmentsToSave = new ArrayList<>();
 
         for (Map.Entry<Student, Combination> entry : studentCombinationMap.entrySet()) {
             Student student = entry.getKey();
             Combination studentComb = entry.getValue();
 
-            // Skip students whose birth year does not match this grade exactly
-            if (student.getDateOfBirth() != null) {
-                int birthYear = student.getDateOfBirth().getYear();
-                if (birthYear != expectedBirthYear) {
-                    log.debug("[AutoAssign] Skipping {} (born {}) — expected birth year {} for grade {}",
-                            student.getFullName(), birthYear, expectedBirthYear, grade);
-                    continue;
-                }
-            }
-
-            // Filter classes matching student's combination (null combination = fallback to any class)
-            List<ClassRoom> candidateClasses = studentComb == null ? List.of() : allClasses.stream()
+            // Filter classes matching student's combination
+            List<ClassRoom> candidateClasses = allClasses.stream()
                     .filter(c -> c.getCombination() != null && c.getCombination().getId().equals(studentComb.getId()))
                     .sorted(Comparator.comparingLong(c -> classEnrollmentCounts.get(c.getId())))
                     .toList();
 
-            // If no matching classes found (e.g. specialized stream student but no
-            // specialized class),
-            // fallback to any class with space (or maybe skip? for now fallback to any
-            // class)
+            // Fallback to any class with space
             if (candidateClasses.isEmpty()) {
                 candidateClasses = allClasses.stream()
                         .sorted(Comparator.comparingLong(c -> classEnrollmentCounts.get(c.getId())))
@@ -400,33 +446,33 @@ public class StudentImportService {
             for (ClassRoom classRoom : candidateClasses) {
                 long currentCount = classEnrollmentCounts.get(classRoom.getId());
                 if (currentCount < classRoom.getMaxCapacity()) {
-                    // Assign
+                    // Collect enrollment (don't save yet)
                     ClassEnrollment enrollment = ClassEnrollment.builder()
                             .student(student)
                             .classRoom(classRoom)
                             .academicYear(academicYear)
                             .enrolledAt(Instant.now())
                             .build();
-                    enrollments.save(enrollment);
+                    enrollmentsToSave.add(enrollment);
 
-                    // Update count
+                    // Update in-memory count
                     classEnrollmentCounts.put(classRoom.getId(), currentCount + 1);
                     assignedCount++;
-
-                    // Update student current class name (optional but good for consistency if we
-                    // have that field denormalized)
-                    // student.setCurrentClassName(classRoom.getName());
-                    // students.save(student);
-
-                    break; // Move to next student
+                    break;
                 }
+            }
+        }
+
+        // Batch save all enrollments at once
+        if (!enrollmentsToSave.isEmpty()) {
+            for (int i = 0; i < enrollmentsToSave.size(); i += BATCH_SIZE) {
+                int end = Math.min(i + BATCH_SIZE, enrollmentsToSave.size());
+                enrollments.saveAll(enrollmentsToSave.subList(i, end));
             }
         }
 
         return assignedCount;
     }
-
-    // Removal of matchesDepartment
 
     // ==================== EXCEL HELPER METHODS ====================
 
@@ -470,7 +516,8 @@ public class StudentImportService {
         String getValue(String... possibleNames) {
             for (String name : possibleNames) {
                 String val = data.get(name.toLowerCase());
-                if (val != null && !val.isBlank()) return val.trim();
+                if (val != null && !val.isBlank())
+                    return val.trim();
             }
             return null;
         }
@@ -505,7 +552,8 @@ public class StudentImportService {
 
     private Gender parseGenderFromRow(ParsedRow row, String... possibleNames) {
         String value = row.getValue(possibleNames);
-        if (value == null) return null;
+        if (value == null)
+            return null;
 
         value = value.toLowerCase().trim();
         if (value.equals("nam") || value.equals("male") || value.equals("m")) {
@@ -544,7 +592,8 @@ public class StudentImportService {
      */
     private int getNextStudentCodeNumber(School school) {
         Optional<Student> latestStudent = students.findTopBySchoolOrderByStudentCodeDesc(school);
-        if (latestStudent.isEmpty()) return 1;
+        if (latestStudent.isEmpty())
+            return 1;
 
         String lastCode = latestStudent.get().getStudentCode();
         try {

@@ -19,6 +19,7 @@ interface Timetable {
 
 import { useSemester } from "../../../context/SemesterContext";
 import SemesterSelector from "../../../components/common/SemesterSelector";
+import { NoAcademicYearState } from "../../../components/common/EmptyState";
 
 // Modal Component for Creating Timetable
 interface CreateModalProps {
@@ -153,7 +154,7 @@ export default function TimetableManagement() {
     // Create Modal state
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-    const { activeSemester, loading: isContextLoading } = useSemester();
+    const { activeSemester, allSemesters, loading: isContextLoading } = useSemester();
     const [selectedSemesterId, setSelectedSemesterId] = useState<string>("");
 
     // Initial load priority: System Active Semester
@@ -180,8 +181,12 @@ export default function TimetableManagement() {
     };
 
     useEffect(() => {
-        if (!isContextLoading && selectedSemesterId) {
-            fetchTimetables();
+        if (!isContextLoading) {
+            if (selectedSemesterId) {
+                fetchTimetables();
+            } else {
+                setLoading(false);
+            }
         }
     }, [selectedSemesterId, isContextLoading]);
 
@@ -201,6 +206,7 @@ export default function TimetableManagement() {
                 try {
                     await api.post(`/school-admin/timetables/${timetable.id}/generate`);
                     showSuccess(`Đã xếp lịch thành công cho: ${timetable.name}`);
+                    fetchTimetables();
                 } catch (error) {
                     setError(`Lỗi khi xếp TKB: ${timetable.name}. Vui lòng thử lại.`);
                 } finally {
@@ -265,14 +271,15 @@ export default function TimetableManagement() {
                     <p className="text-sm text-gray-500 mt-1">Danh sách các phiên bản thời khóa biểu</p>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    <SemesterSelector 
-                        value={selectedSemesterId} 
+                    <SemesterSelector
+                        value={selectedSemesterId}
                         onChange={setSelectedSemesterId}
-                        label="" 
+                        label=""
                         className="h-[42px]"
                     />
                     <button onClick={() => setIsCreateModalOpen(true)}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-sm hover:shadow-md font-medium"
+                        disabled={allSemesters.length === 0}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50"
                     >
                         <Plus size={20} />
                         Tạo TKB Mới
@@ -280,114 +287,122 @@ export default function TimetableManagement() {
                 </div>
             </div>
 
-            {/* Error Alerts (Keep error as banner, logical for persistent issues) */}
-            {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
-                    <AlertCircle size={20} />
-                    <span>{error}</span>
+            {allSemesters.length === 0 && !isContextLoading ? (
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <NoAcademicYearState onAction={() => navigate("/school-admin/semesters")} />
                 </div>
-            )}
+            ) : (
+                <>
+                    {/* Error Alerts (Keep error as banner, logical for persistent issues) */}
+                    {error && (
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+                            <AlertCircle size={20} />
+                            <span>{error}</span>
+                        </div>
+                    )}
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                        <tr>
-                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tên TKB</th>
-                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Năm học</th>
-                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Học kỳ</th>
-                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Trạng thái</th>
-                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Ngày tạo</th>
-                            <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                        {loading ? (
-                            <tr>
-                                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Đang tải...</td>
-                            </tr>
-                        ) : !Array.isArray(timetables) || timetables.length === 0 ? (
-                            <tr>
-                                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Chưa có thời khóa biểu nào</td>
-                            </tr>
-                        ) : (
-                            timetables.map((t) => (
-                                <tr key={t.id} className="hover:bg-blue-50 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
-                                                <Calendar size={18} />
-                                            </div>
-                                            <span className="font-semibold text-gray-900">{t.name}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-600 font-medium">{t.academicYear}</td>
-                                    <td className="px-6 py-4 text-gray-600">{t.semester}</td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${t.status === 'OFFICIAL' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                                            }`}>
-                                            {t.status === 'OFFICIAL' ? 'Đang áp dụng' : 'Bản nháp'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-500 text-sm">
-                                        {formatDate(t.createdAt)}
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            {t.status !== 'OFFICIAL' && (
-                                                <button
-                                                    onClick={() => openApplyModal(t)}
-                                                    className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors group"
-                                                    title="Áp dụng cho toàn trường"
-                                                >
-                                                    <CheckCircle2 size={18} className="group-hover:stroke-[2.5px]" />
-                                                </button>
-                                            )}
-
-                                            <button
-                                                onClick={() => handleGenerateClick(t)}
-                                                disabled={generating === t.id}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
-                                                title="Chạy thuật toán xếp tự động"
-                                            >
-                                                {generating === t.id ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                                                Auto Xếp
-                                            </button>
-
-                                            <button
-                                                onClick={() => navigate(`/school-admin/schedule/${t.id}`)}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors"
-                                            >
-                                                <Eye size={14} />
-                                            </button>
-
-                                            <button
-                                                onClick={() => confirmDelete(t)}
-                                                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                                title="Xóa thời khóa biểu"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
-                                        </div>
-                                    </td>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <table className="w-full">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tên TKB</th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Năm học</th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Học kỳ</th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Trạng thái</th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Ngày tạo</th>
+                                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Thao tác</th>
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Đang tải...</td>
+                                    </tr>
+                                ) : !Array.isArray(timetables) || timetables.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Chưa có thời khóa biểu nào</td>
+                                    </tr>
+                                ) : (
+                                    timetables.map((t) => (
+                                        <tr key={t.id} className="hover:bg-blue-50 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+                                                        <Calendar size={18} />
+                                                    </div>
+                                                    <span className="font-semibold text-gray-900">{t.name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-600 font-medium">{t.academicYear}</td>
+                                            <td className="px-6 py-4 text-gray-600">{t.semester}</td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${t.status === 'OFFICIAL' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                                                    }`}>
+                                                    {t.status === 'OFFICIAL' ? 'Đang áp dụng' : 'Bản nháp'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-500 text-sm">
+                                                {formatDate(t.createdAt)}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {t.status !== 'OFFICIAL' && (
+                                                        <button
+                                                            onClick={() => openApplyModal(t)}
+                                                            className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors group"
+                                                            title="Áp dụng cho toàn trường"
+                                                        >
+                                                            <CheckCircle2 size={18} className="group-hover:stroke-[2.5px]" />
+                                                        </button>
+                                                    )}
 
-            {/* Create Modal */}
-            <CreateTimetableModal
-                isOpen={isCreateModalOpen}
-                onClose={() => setIsCreateModalOpen(false)}
-                onSuccess={() => {
-                    fetchTimetables();
-                    showSuccess("Tạo thời khóa biểu mới thành công!");
-                }}
-            />
+                                                    <button
+                                                        onClick={() => handleGenerateClick(t)}
+                                                        disabled={generating === t.id}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
+                                                        title="Chạy thuật toán xếp tự động"
+                                                    >
+                                                        {generating === t.id ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                                                        Auto Xếp
+                                                    </button>
 
-            {/* Confirmation Dialog */}
-            <ConfirmationDialog />
+                                                    <button
+                                                        onClick={() => navigate(`/school-admin/schedule/${t.id}`)}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors"
+                                                    >
+                                                        <Eye size={14} />
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => confirmDelete(t)}
+                                                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                        title="Xóa thời khóa biểu"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Create Modal */}
+                    <CreateTimetableModal
+                        isOpen={isCreateModalOpen}
+                        onClose={() => setIsCreateModalOpen(false)}
+                        onSuccess={() => {
+                            fetchTimetables();
+                            showSuccess("Tạo thời khóa biểu mới thành công!");
+                        }}
+                    />
+
+                    {/* Confirmation Dialog */}
+                    <ConfirmationDialog />
+                </>
+            )}
         </div>
     );
 }

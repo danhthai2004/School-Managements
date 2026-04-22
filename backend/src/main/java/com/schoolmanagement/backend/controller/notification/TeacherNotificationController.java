@@ -14,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 /**
  * API thông báo dành cho Giáo viên — gửi thông báo cho lớp dạy/chủ nhiệm.
  */
@@ -25,14 +27,15 @@ public class TeacherNotificationController {
     private final UserRepository userRepository;
 
     public TeacherNotificationController(NotificationService notificationService,
-                                         UserRepository userRepository) {
+            UserRepository userRepository) {
         this.notificationService = notificationService;
         this.userRepository = userRepository;
     }
 
     /**
      * Gửi thông báo cho lớp dạy hoặc chủ nhiệm.
-     * Body: { title, content, type=MANUAL, targetGroup=CLASS, referenceId=classRoomId }
+     * Body: { title, content, type=MANUAL, targetGroup=CLASS,
+     * referenceId=classRoomId }
      */
     @PostMapping
     public ResponseEntity<NotificationDto> createNotification(
@@ -44,7 +47,7 @@ public class TeacherNotificationController {
     }
 
     /**
-     * Xem lịch sử thông báo do teacher đã gửi.
+     * Lấy lịch sử thông báo do teacher đã gửi.
      */
     @GetMapping
     public Page<NotificationDto> getMyNotificationHistory(
@@ -53,6 +56,18 @@ public class TeacherNotificationController {
             @RequestParam(defaultValue = "20") int size) {
         User teacher = getUser(principal);
         return notificationService.getTeacherNotificationHistory(teacher, page, size);
+    }
+
+    /**
+     * Thu hồi thông báo.
+     */
+    @PatchMapping("/{id}/recall")
+    public ResponseEntity<Void> recallNotification(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        User teacher = getUser(principal);
+        notificationService.recallNotification(id, teacher);
+        return ResponseEntity.ok().build();
     }
 
     private User getUser(UserPrincipal principal) {

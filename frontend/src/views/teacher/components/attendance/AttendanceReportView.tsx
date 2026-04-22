@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { attendanceService } from "../../../../services/attendanceService";
 import type { AttendanceReportSummaryDto } from "../../../../services/attendanceService";
+import { vietnameseNameSort } from "../../../../utils/sortUtils";
 import AttendanceDetailModal from "./AttendanceDetailModal";
 
 type Props = {
@@ -81,6 +82,9 @@ export default function AttendanceReportView({ date, reportType }: Props) {
                 default: valA = a.studentName; valB = b.studentName;
             }
             if (typeof valA === "string") {
+                if (sortField === "studentName") {
+                    return sortAsc ? vietnameseNameSort(valA, valB as string) : vietnameseNameSort(valB as string, valA);
+                }
                 return sortAsc ? valA.localeCompare(valB as string) : (valB as string).localeCompare(valA);
             }
             return sortAsc ? (valA as number) - (valB as number) : (valB as number) - (valA as number);

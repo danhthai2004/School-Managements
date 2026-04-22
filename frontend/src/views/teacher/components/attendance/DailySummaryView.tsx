@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { attendanceService, AttendanceStatus } from "../../../../services/attendanceService";
 import type { DailyAttendanceSummaryDto } from "../../../../services/attendanceService";
+import { vietnameseNameSort } from "../../../../utils/sortUtils";
+import { useMemo } from "react";
 
 type Props = {
     date: Date;
@@ -48,6 +50,11 @@ export default function DailySummaryView({ date }: Props) {
         }
     };
 
+    const sortedStudents = useMemo(() => {
+        if (!summary?.students) return [];
+        return [...summary.students].sort((a, b) => vietnameseNameSort(a.studentName, b.studentName));
+    }, [summary]);
+
     if (loading) return <div className="p-8 text-center">Đang tải...</div>;
     if (!summary) return <div className="p-8 text-center text-gray-500">Không có dữ liệu</div>;
 
@@ -80,7 +87,7 @@ export default function DailySummaryView({ date }: Props) {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                        {summary.students.map((student) => {
+                        {sortedStudents.map((student) => {
                             const stats = Object.values(student.slotTheStatus).reduce((acc, status) => {
                                 if (status !== AttendanceStatus.PRESENT) acc.absent++;
                                 return acc;

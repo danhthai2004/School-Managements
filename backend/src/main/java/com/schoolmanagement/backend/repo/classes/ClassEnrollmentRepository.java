@@ -15,52 +15,68 @@ import java.util.UUID;
 @Repository
 public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment, UUID> {
 
-    List<ClassEnrollment> findAllByStudent(Student student);
+        List<ClassEnrollment> findAllByStudent(Student student);
 
-    List<ClassEnrollment> findAllByClassRoom(ClassRoom classRoom);
+        List<ClassEnrollment> findAllByClassRoom(ClassRoom classRoom);
 
-    List<ClassEnrollment> findAllByClassRoomAndAcademicYear(ClassRoom classRoom, com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+        @Query("SELECT ce FROM ClassEnrollment ce JOIN FETCH ce.student s LEFT JOIN FETCH s.guardian WHERE ce.classRoom = :classRoom")
+        List<ClassEnrollment> findAllByClassRoomWithStudentAndGuardian(@Param("classRoom") ClassRoom classRoom);
 
-    Optional<ClassEnrollment> findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(Student student,
-            com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+        @Query("SELECT ce FROM ClassEnrollment ce " +
+                        "JOIN FETCH ce.student s " +
+                        "LEFT JOIN FETCH s.user " +
+                        "LEFT JOIN FETCH s.guardian g " +
+                        "LEFT JOIN FETCH g.user " +
+                        "WHERE ce.classRoom.id = :classroomId")
+        List<ClassEnrollment> findByClassRoomIdWithUsers(@Param("classroomId") UUID classroomId);
 
-    boolean existsByStudentAndClassRoomAndAcademicYear(Student student, ClassRoom classRoom, com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+        List<ClassEnrollment> findAllByClassRoomAndAcademicYear(ClassRoom classRoom,
+                        com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
-    long countByClassRoom(ClassRoom classRoom);
+        Optional<ClassEnrollment> findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(Student student,
+                        com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
-    @org.springframework.data.jpa.repository.Modifying
-    @Query("DELETE FROM ClassEnrollment c WHERE c.student = :student")
-    void deleteAllByStudent(@Param("student") Student student);
+        boolean existsByStudentAndClassRoomAndAcademicYear(Student student, ClassRoom classRoom,
+                        com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
-    @Query("""
-                select ce.classRoom.id
-                from ClassEnrollment ce
-                where ce.student.id = :studentId
-                and ce.academicYear = :academicYear
-                order by ce.enrolledAt desc
-            """)
-    List<UUID> findLatestClassroomId(
-            @Param("studentId") UUID studentId,
-            @Param("academicYear") com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+        long countByClassRoom(ClassRoom classRoom);
 
-    long countByAcademicYear(com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+        @Query("SELECT ce.classRoom.id, COUNT(ce) FROM ClassEnrollment ce WHERE ce.classRoom IN :classes GROUP BY ce.classRoom.id")
+        List<Object[]> countByClassRoomIn(@Param("classes") List<ClassRoom> classes);
 
-    /**
-     * Batch-fetch enrollments for multiple students in one query (fixes N+1).
-     * JOIN FETCH ensures classRoom is loaded eagerly.
-     */
-    @Query("""
-                SELECT ce FROM ClassEnrollment ce
-                JOIN FETCH ce.classRoom
-                WHERE ce.student IN :students
-                AND ce.academicYear = :academicYear
-                ORDER BY ce.enrolledAt DESC
-            """)
-    List<ClassEnrollment> findAllByStudentInAndAcademicYear(
-            @Param("students") List<Student> students,
-            @Param("academicYear") com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+        @org.springframework.data.jpa.repository.Modifying
+        @Query("DELETE FROM ClassEnrollment c WHERE c.student = :student")
+        void deleteAllByStudent(@Param("student") Student student);
 
-    @org.springframework.data.jpa.repository.Modifying
-    @Query("DELETE FROM ClassEnrollment c WHERE c.student.id = :studentId")
-    void deleteByStudentId(@Param("studentId") UUID studentId);
+        @Query("""
+                            select ce.classRoom.id
+                            from ClassEnrollment ce
+                            where ce.student.id = :studentId
+                            and ce.academicYear = :academicYear
+                            order by ce.enrolledAt desc
+                        """)
+        List<UUID> findLatestClassroomId(
+                        @Param("studentId") UUID studentId,
+                        @Param("academicYear") com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+
+        long countByAcademicYear(com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+
+        /**
+         * Batch-fetch enrollments for multiple students in one query (fixes N+1).
+         * JOIN FETCH ensures classRoom is loaded eagerly.
+         */
+        @Query("""
+                            SELECT ce FROM ClassEnrollment ce
+                            JOIN FETCH ce.classRoom
+                            WHERE ce.student IN :students
+                            AND ce.academicYear = :academicYear
+                            ORDER BY ce.enrolledAt DESC
+                        """)
+        List<ClassEnrollment> findAllByStudentInAndAcademicYear(
+                        @Param("students") List<Student> students,
+                        @Param("academicYear") com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+
+        @org.springframework.data.jpa.repository.Modifying
+        @Query("DELETE FROM ClassEnrollment c WHERE c.student.id = :studentId")
+        void deleteByStudentId(@Param("studentId") UUID studentId);
 }

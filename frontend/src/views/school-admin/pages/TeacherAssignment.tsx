@@ -142,9 +142,9 @@ export default function TeacherAssignment() {
         const count = getAssignedCount();
         const total = assignments.length;
         if (total === 0) return 'bg-gray-200';
-        if (count === total) return 'bg-green-500';
+        if (count === total) return 'bg-emerald-500';
         if (count > total / 2) return 'bg-blue-500';
-        return 'bg-orange-500';
+        return 'bg-slate-400';
     };
 
     const filteredClasses = classes.filter(c => gradeFilter === "ALL" || c.grade.toString() === gradeFilter);
@@ -183,10 +183,22 @@ export default function TeacherAssignment() {
                         <button
                             onClick={handleSaveAll}
                             disabled={isSaving}
-                            className="bg-blue-600 border border-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
+                            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl transition-all shadow-lg shadow-blue-500/20 font-semibold disabled:opacity-50 hover:from-blue-700 hover:to-blue-600"
                         >
-                            <CheckCircle className="w-5 h-5" />
-                            {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
+                            {isSaving ? (
+                                <>
+                                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Đang lưu...
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle className="w-5 h-5" />
+                                    Lưu thay đổi
+                                </>
+                            )}
                         </button>
                     )}
                 </div>
@@ -285,7 +297,7 @@ export default function TeacherAssignment() {
                                                 ...pendingAssignments,
                                                 [assign.id]: e.target.value
                                             })}
-                                            className={`w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm ${pendingAssignments[assign.id] ? 'border-gray-300' : 'border-orange-300 bg-orange-50'
+                                            className={`w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm transition-all ${pendingAssignments[assign.id] ? 'border-gray-300 bg-white' : 'border-slate-200 bg-slate-50 font-medium'
                                                 }`}
                                         >
                                             <option value="">-- Chưa gán --</option>
@@ -296,7 +308,7 @@ export default function TeacherAssignment() {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         {pendingAssignments[assign.id] !== (assign.teacherId || "") && (
-                                            <span className="text-orange-500 text-xs italic">Chưa lưu</span>
+                                            <span className="text-blue-500 text-[10px] font-bold uppercase tracking-tight">Cần lưu</span>
                                         )}
                                     </td>
                                 </tr>

@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, Play, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Play, Trash2, Loader2 } from "lucide-react";
 import React from "react";
 import { createPortal } from "react-dom";
 
@@ -65,41 +65,60 @@ export default function ConfirmationModal({
     return createPortal(
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
             {/* Backdrop */}
-            <div 
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" 
-                onClick={onClose} 
+            <div
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
+                onClick={onClose}
             />
-            
+
             {/* Modal Content */}
             <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300 p-6 text-center">
-                <div className={`w-16 h-16 ${config.circleBg} rounded-full flex items-center justify-center mx-auto mb-4`}>
-                    <Icon className={`w-8 h-8 ${config.iconColor}`} />
+                <div className={`w-16 h-16 ${isLoading ? 'bg-blue-50' : config.circleBg} rounded-full flex items-center justify-center mx-auto mb-4`}>
+                    {isLoading ? (
+                        <div className="w-8 h-8 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
+                    ) : (
+                        <Icon className={`w-8 h-8 ${config.iconColor}`} />
+                    )}
                 </div>
-                
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">{title}</h3>
-                
-                <div className={`p-4 ${config.box} rounded-xl border flex gap-3 text-left mb-6`}>
-                    <Icon className="w-5 h-5 flex-shrink-0 mt-0.5 opacity-80" />
-                    <div className="text-sm leading-relaxed">
-                        {message}
-                    </div>
+
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">{isLoading ? 'Đang Xử Lý...' : title}</h3>
+
+                <div className={`p-4 ${isLoading ? 'bg-slate-50 border-slate-100 text-slate-600' : config.box} rounded-xl border flex gap-3 text-left mb-6 transition-all duration-300`}>
+                    {isLoading ? (
+                        <div className="flex flex-col items-center justify-center w-full py-2 gap-3 text-center">
+                            <p className="text-sm font-medium animate-pulse">Vui lòng đợi trong giây lát</p>
+                            <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                                <div className="bg-blue-600 h-full w-1/3 rounded-full animate-progress-indeterminate" />
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <Icon className="w-5 h-5 flex-shrink-0 mt-0.5 opacity-80" />
+                            <div className="text-sm leading-relaxed">
+                                {message}
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 <div className="flex gap-3">
-                    <button
-                        onClick={onClose}
-                        disabled={isLoading}
-                        className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-all text-sm disabled:opacity-50"
-                    >
-                        {cancelText}
-                    </button>
+                    {!isLoading && (
+                        <button
+                            onClick={onClose}
+                            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-all text-sm"
+                        >
+                            {cancelText}
+                        </button>
+                    )}
                     <button
                         onClick={onConfirm}
                         disabled={isLoading}
-                        className={`flex-1 px-4 py-2.5 rounded-xl ${config.confirmBtn} text-white font-semibold transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50`}
+                        className={`flex-1 px-4 py-2.5 rounded-xl ${isLoading ? 'bg-blue-600/10 text-blue-600' : config.confirmBtn + ' text-white'} font-semibold transition-all flex items-center justify-center gap-2 text-sm disabled:cursor-not-allowed`}
                     >
                         {isLoading ? (
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Đang xử lý...</span>
+                            </>
                         ) : confirmText}
                     </button>
                 </div>

@@ -20,6 +20,71 @@ public class RestExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(RestExceptionHandler.class);
 
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiError> handleResponseStatus(ResponseStatusException ex, HttpServletRequest req) {
+        var status = (HttpStatus) ex.getStatusCode();
+        var body = new ApiError(
+                Instant.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                ex.getReason(),
+                req.getRequestURI());
+        return ResponseEntity.status(status).body(body);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex, HttpServletRequest req) {
+        var status = HttpStatus.FORBIDDEN;
+        var body = new ApiError(
+                Instant.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                "Bạn không có quyền thực hiện hành động này.",
+                req.getRequestURI());
+        return ResponseEntity.status(status).body(body);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleMessageNotReadable(HttpMessageNotReadableException ex,
+            HttpServletRequest req) {
+        var status = HttpStatus.BAD_REQUEST;
+        var body = new ApiError(
+                Instant.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                "Dữ liệu gửi lên không đúng định dạng JSON.",
+                req.getRequestURI());
+        return ResponseEntity.status(status).body(body);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest req) {
+        var status = HttpStatus.BAD_REQUEST;
+        String message = String.format("Tham số '%s' có giá trị không hợp lệ.", ex.getName());
+        var body = new ApiError(
+                Instant.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                message,
+                req.getRequestURI());
+        return ResponseEntity.status(status).body(body);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiError> handleMissingParam(MissingServletRequestParameterException ex,
+            HttpServletRequest req) {
+        var status = HttpStatus.BAD_REQUEST;
+        String message = String.format("Thiếu tham số bắt buộc: %s", ex.getParameterName());
+        var body = new ApiError(
+                Instant.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                message,
+                req.getRequestURI());
+        return ResponseEntity.status(status).body(body);
+    }
+
+
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiError> handleApi(ApiException ex, HttpServletRequest req) {
         var status = ex.getStatus();
@@ -46,11 +111,19 @@ public class RestExceptionHandler {
     public ResponseEntity<ApiError> handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest req) {
         String message = "Lỗi ràng buộc dữ liệu.";
         Throwable rootCause = NestedExceptionUtils.getRootCause(ex);
-        if (rootCause != null && rootCause.getMessage().contains("violates unique constraint")) {
-            // Can be more specific here if needed by parsing the constraint name
-            message = "Dữ liệu bị trùng lặp: " + rootCause.getMessage();
+
+        if (rootCause != null) {
+            String detail = rootCause.getMessage();
+            if (detail != null && detail.contains("idx_attendance_unique")) {
+                message = "Điểm danh đã tồn tại cho học sinh này tại tiết học này. Vui lòng tải lại trang.";
+            } else if (detail != null && detail.contains("idx_room_name_building_school")) {
+                message = "Phòng học này đã tồn tại trong tòa nhà này.";
+            } else if (detail != null && detail.contains("violates unique constraint")) {
+                message = "Dữ liệu này đã tồn tại trong hệ thống. Vui lòng kiểm tra lại.";
+            }
         }
-        log.error("Data integrity violation", ex);
+
+        log.error("Data integrity violation: {}", message, ex);
         var status = HttpStatus.CONFLICT;
         var body = new ApiError(Instant.now(), status.value(), status.getReasonPhrase(), message, req.getRequestURI());
         return ResponseEntity.status(status).body(body);

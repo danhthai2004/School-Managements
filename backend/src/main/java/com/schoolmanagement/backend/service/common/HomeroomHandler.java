@@ -9,12 +9,12 @@ import com.schoolmanagement.backend.service.chat.ChatHandler;
 import com.schoolmanagement.backend.repo.auth.UserRepository;
 import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.classes.ClassEnrollmentRepository;
-import com.schoolmanagement.backend.repo.attendance.AttendanceSessionRepository;
 import com.schoolmanagement.backend.repo.attendance.AttendanceRepository;
 
 import com.schoolmanagement.backend.domain.chat.ChatIntent;
 
 import com.schoolmanagement.backend.dto.chat.ChatContext;
+import com.schoolmanagement.backend.service.admin.SemesterService;
 
 import org.springframework.stereotype.Component;
 
@@ -36,19 +36,19 @@ public class HomeroomHandler implements ChatHandler {
     private final UserRepository userRepository;
     private final ClassRoomRepository classRoomRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
-    private final AttendanceSessionRepository attendanceSessionRepository;
     private final AttendanceRepository attendanceRepository;
+    private final SemesterService semesterService;
 
     public HomeroomHandler(UserRepository userRepository,
             ClassRoomRepository classRoomRepository,
             ClassEnrollmentRepository classEnrollmentRepository,
-            AttendanceSessionRepository attendanceSessionRepository,
-            AttendanceRepository attendanceRepository) {
+            AttendanceRepository attendanceRepository,
+            SemesterService semesterService) {
         this.userRepository = userRepository;
         this.classRoomRepository = classRoomRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
-        this.attendanceSessionRepository = attendanceSessionRepository;
         this.attendanceRepository = attendanceRepository;
+        this.semesterService = semesterService;
     }
 
     @Override
@@ -63,7 +63,7 @@ public class HomeroomHandler implements ChatHandler {
         }
 
         // Tìm lớp chủ nhiệm
-        ClassRoom classRoom = classRoomRepository.findByHomeroomTeacher(user).orElse(null);
+        ClassRoom classRoom = findActiveHomeroom(user).orElse(null);
         if (classRoom == null) {
             return ChatContext.denied(ChatIntent.ASK_HOMEROOM_CLASS,
                     "Bạn hiện không chủ nhiệm lớp nào.");
@@ -74,7 +74,7 @@ public class HomeroomHandler implements ChatHandler {
 
         // Điểm danh hôm nay
         LocalDate today = LocalDate.now();
-        List<Attendance> attendances = attendanceRepository.findByClassRoomAndDate(classRoom, today);
+        List<Attendance> attendances = attendanceRepository.findByClassRoomAndAttendanceDate(classRoom, today);
 
         long absentToday = 0;
         long lateToday = 0;
@@ -91,8 +91,7 @@ public class HomeroomHandler implements ChatHandler {
                 }
                 case LATE -> lateToday++;
                 case ABSENT_EXCUSED -> excusedToday++;
-                case EXCUSED -> excusedToday++; // Legacy excused
-                case ABSENT -> absentToday++; // Handle legacy ABSENT
+
                 case PRESENT -> {
                 }
             }
@@ -118,5 +117,22 @@ public class HomeroomHandler implements ChatHandler {
         data.put("hasAttendanceToday", !attendances.isEmpty());
 
         return ChatContext.ok(ChatIntent.ASK_HOMEROOM_CLASS, data);
+    }
+
+    private Optional<ClassRoom> findActiveHomeroom(User teacher) {
+        if (teacher == null)
+            return Optional.empty();
+
+        if (teacher.getSchool() != null) {
+            com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = semesterService
+                    .getActiveAcademicYearSafe(teacher.getSchool());
+            if (currentAcademicYear != null) {
+                Optional<ClassRoom> found = classRoomRepository.findByHomeroomTeacher_IdAndAcademicYear(teacher.getId(),
+                        currentAcademicYear);
+                if (found.isPresent())
+                    return found;
+            }
+        }
+        return classRoomRepository.findTopByHomeroomTeacher_IdOrderByAcademicYear_StartDateDesc(teacher.getId());
     }
 }

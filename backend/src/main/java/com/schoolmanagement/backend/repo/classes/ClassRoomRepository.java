@@ -112,5 +112,11 @@ public interface ClassRoomRepository extends JpaRepository<ClassRoom, UUID> {
         Optional<ClassRoom> findByRoomAndAcademicYear(com.schoolmanagement.backend.domain.entity.classes.Room room,
                         com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
+        List<ClassRoom> findAllBySchoolAndAcademicYear(School school,
+                        com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+
         long countByAcademicYear(com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
+
+        @Query("SELECT c FROM ClassRoom c LEFT JOIN FETCH c.homeroomTeacher WHERE c.id = :id")
+        Optional<ClassRoom> findWithTeacherById(@Param("id") UUID id);
 }

@@ -7,7 +7,10 @@ import com.schoolmanagement.backend.domain.entity.teacher.Teacher;
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.classes.Subject;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -18,8 +21,9 @@ import java.util.UUID;
 @Builder
 @Entity
 @Table(name = "attendance", indexes = {
-        @Index(name = "idx_attendance_date_class", columnList = "date, classroom_id"),
-        @Index(name = "idx_attendance_student", columnList = "student_id")
+        @Index(name = "idx_attendance_date", columnList = "attendance_date"),
+        @Index(name = "idx_attendance_student", columnList = "student_id"),
+        @Index(name = "idx_attendance_unique", columnList = "student_id, attendance_date, slot_index", unique = true)
 })
 public class Attendance {
     @Id
@@ -31,7 +35,7 @@ public class Attendance {
     private Student student;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "classroom_id")
+    @JoinColumn(name = "classroom_id", nullable = false)
     private ClassRoom classRoom;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -39,11 +43,11 @@ public class Attendance {
     private Subject subject;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "teacher_id", nullable = true)
+    @JoinColumn(name = "teacher_id")
     private Teacher teacher;
 
-    @Column(nullable = false)
-    private LocalDate date;
+    @Column(name = "attendance_date", nullable = false)
+    private LocalDate attendanceDate;
 
     @Column(name = "slot_index", nullable = false)
     private int slotIndex;
@@ -54,4 +58,12 @@ public class Attendance {
 
     @Column(columnDefinition = "TEXT")
     private String remarks;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private Instant updatedAt;
 }

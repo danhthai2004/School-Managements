@@ -1,12 +1,19 @@
 package com.schoolmanagement.backend.controller.grade;
 
 import com.schoolmanagement.backend.dto.grade.GradeBookDto;
+import com.schoolmanagement.backend.dto.grade.GradeImportResultDto;
+import com.schoolmanagement.backend.service.grade.GradeExportService;
+import com.schoolmanagement.backend.service.grade.GradeImportService;
 import com.schoolmanagement.backend.service.grade.GradeService;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.UUID;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +24,8 @@ import java.util.Map;
 public class GradeController {
 
         private final GradeService gradeService;
+        private final GradeImportService gradeImportService;
+        private final GradeExportService gradeExportService;
 
         @GetMapping
         public ResponseEntity<GradeBookDto> getGradeBook(
@@ -93,6 +102,57 @@ public class GradeController {
                                 authentication.getName(), semester));
         }
 
+        @PostMapping("/import-excel")
+        public ResponseEntity<GradeImportResultDto> importGradesFromExcel(
+                        Authentication authentication,
+                        @RequestParam("file") MultipartFile file,
+                        @RequestParam("classId") UUID classId,
+                        @RequestParam("subjectId") UUID subjectId,
+                        @RequestParam("semesterId") String semesterId,
+                        @RequestParam(value = "preview", defaultValue = "false") boolean preview) {
+                GradeImportResultDto result = gradeImportService.importGradesFromExcel(
+                                authentication.getName(), file, classId, subjectId, semesterId, preview);
+                return ResponseEntity.ok(result);
+        }
+
+        @GetMapping("/template")
+        public void downloadTemplate(
+                        Authentication authentication,
+                        @RequestParam UUID classId,
+                        @RequestParam UUID subjectId,
+                        @RequestParam(required = false) String semesterId,
+                        HttpServletResponse response) throws IOException {
+                Workbook workbook = gradeImportService.generateTemplate(
+                                authentication.getName(), classId, subjectId, semesterId);
+
+                response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+                response.setHeader("Content-Disposition", "attachment; filename=bang_diem_mau.xlsx");
+                workbook.write(response.getOutputStream());
+                workbook.close();
+        }
+
+        @GetMapping("/export")
+        public void exportGradeReport(
+                        Authentication authentication,
+                        @RequestParam UUID classId,
+                        @RequestParam UUID subjectId,
+                        @RequestParam(required = false) String semesterId,
+                        HttpServletResponse response) throws IOException {
+                Workbook workbook = gradeExportService.exportGradeReport(
+                                authentication.getName(), classId, subjectId, semesterId);
+
+                String filename = "bang_diem_" + classId + ".xlsx";
+                response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+                response.setHeader("Content-Disposition",
+                                "attachment; filename=\"" + filename + "\"; filename*=UTF-8''" +
+                                                java.net.URLEncoder
+                                                                .encode(filename,
+                                                                                java.nio.charset.StandardCharsets.UTF_8)
+                                                                .replace("+", "%20"));
+                workbook.write(response.getOutputStream());
+                workbook.close();
+        }
+
         // ==================== REQUEST RECORDS ====================
 
         public record SaveGradeRequest(
@@ -116,4 +176,3 @@ public class GradeController {
                         String strategy) { // "AVERAGE" or "MAX"
         }
 }
-

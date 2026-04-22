@@ -94,8 +94,8 @@ public class FaceAttendanceService {
     public Map<String, Object> registerFace(String teacherEmail, String studentId,
             String studentCode, String studentName,
             MultipartFile file) {
-        // Verify teacher is homeroom teacher
-        User teacherUser = userRepository.findByEmailIgnoreCase(teacherEmail)
+        // Verify teacher existence
+        userRepository.findByEmailIgnoreCase(teacherEmail)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy giáo viên"));
 
         try {
@@ -279,7 +279,8 @@ public class FaceAttendanceService {
     public FaceRegistrationStatusResponse getClassRegistrationStatus(
             String teacherEmail, String classId) {
 
-        User teacherUser = userRepository.findByEmailIgnoreCase(teacherEmail)
+        // Verify teacher existence
+        userRepository.findByEmailIgnoreCase(teacherEmail)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy giáo viên"));
 
         // Get students from class

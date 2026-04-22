@@ -122,9 +122,15 @@ public class NightlyDataAggregatorService {
         // === Academic metrics ===
         List<Grade> grades = gradeRepository.findAllByStudent(student);
         BigDecimal currentGpa = calculateAverageGpa(grades);
-        int failingCount = (int) grades.stream()
+
+        List<String> failingSubjectsList = grades.stream()
                 .filter(g -> g.getAverageScore() != null && g.getAverageScore().compareTo(BigDecimal.valueOf(5)) < 0)
-                .count();
+                .map(g -> g.getSubject().getName()) // Lấy tên môn học
+                .distinct()
+                .toList();
+
+        int failingCount = failingSubjectsList.size();
+        String failingDetail = String.join(", ", failingSubjectsList);
 
         // === Previous snapshot (cho trend) ===
         BigDecimal previousGpa = snapshotRepository.findPreviousSnapshot(student, today)
@@ -147,6 +153,7 @@ public class NightlyDataAggregatorService {
                 .previousGpa(previousGpa)
                 .gpaTrend(gpaTrend)
                 .failingSubjectsCount(failingCount)
+                .failingSubjectsDetail(failingDetail)
                 .build();
     }
 

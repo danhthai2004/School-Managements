@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ClipboardList, Calendar, Bell } from "lucide-react";
 import { systemService, type NotificationDto } from "../../services/systemService";
 import { extractErrorMessage } from "../../utils/errorUtils";
 import { usePagination } from "../../hooks/usePagination";
@@ -51,7 +52,7 @@ export default function NotificationsPage() {
       await systemService.createNotification({
         title: title.trim(),
         content: content.trim(),
-        type: "SYSTEM",
+        type: "OTHER",
         targetGroup,
       });
       setSuccess("Đã tạo thông báo thành công");
@@ -66,16 +67,16 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Xác nhận xóa thông báo này?")) return;
+  const handleRecall = async (id: string) => {
+    if (!window.confirm("Xác nhận thu hồi thông báo này?")) return;
     setError(null);
     setSuccess(null);
     try {
-      await systemService.deleteNotification(id);
-      setSuccess("Đã xóa thông báo");
+      await systemService.recallNotification(id);
+      setSuccess("Đã thu hồi thông báo");
       loadData();
     } catch (e: unknown) {
-      setError(extractErrorMessage(e, "Lỗi khi xóa"));
+      setError(extractErrorMessage(e, "Lỗi khi thu hồi"));
     }
   };
 
@@ -178,34 +179,42 @@ export default function NotificationsPage() {
             <div className="divide-y divide-slate-100">
               {paginatedNotifications.map((notif) => (
                 <div key={notif.id} className="p-4 hover:bg-slate-50">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <h3 className="font-medium text-slate-900">{notif.title}</h3>
-                    <p className="text-sm text-slate-600 mt-1">{notif.content}</p>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
-                      <span className="px-2 py-0.5 bg-slate-100 rounded text-blue-700 font-medium border border-blue-100">
-                        {getTargetGroupLabel(notif.targetGroup)}
-                      </span>
-                      {notif.type !== 'SYSTEM' && (
-                        <span className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded border border-purple-100">
-                          {notif.type}
-                        </span>
-                      )}
-                      <span>{new Date(notif.createdAt).toLocaleString("vi-VN")}</span>
-                      <span>bởi {notif.createdBy || 'Hệ thống'}</span>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                      {(() => {
+                        const iconClass = "w-5 h-5 text-blue-600";
+                        if (notif.type === "EXAM") return <ClipboardList className={iconClass} />;
+                        if (notif.type === "SCHEDULE") return <Calendar className={iconClass} />;
+                        return <Bell className={iconClass} />;
+                      })()}
                     </div>
+                    <div className="flex-1">
+                      <h3 className="font-medium text-slate-900">{notif.title}</h3>
+                      <p className="text-sm text-slate-600 mt-1">{notif.content}</p>
+                      <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+                        <span className="px-2 py-0.5 bg-slate-100 rounded text-blue-700 font-medium border border-blue-100">
+                          {getTargetGroupLabel(notif.targetGroup)}
+                        </span>
+                        {notif.type !== 'SYSTEM' && (
+                          <span className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded border border-purple-100">
+                            {notif.type}
+                          </span>
+                        )}
+                        <span>{new Date(notif.createdAt).toLocaleString("vi-VN")}</span>
+                        <span>bởi {notif.createdBy || 'Hệ thống'}</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleRecall(notif.id)}
+                      className="shrink-0 px-3 py-1.5 bg-rose-100 text-rose-700 rounded-lg text-xs font-medium hover:bg-rose-200"
+                    >
+                      Thu hồi
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleDelete(notif.id)}
-                    className="shrink-0 px-3 py-1.5 bg-rose-100 text-rose-700 rounded-lg text-xs font-medium hover:bg-rose-200"
-                  >
-                    Thu hồi
-                  </button>
                 </div>
-              </div>
-            ))}
+              ))}
             </div>
-            <Pagination 
+            <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
               totalItems={totalItems}

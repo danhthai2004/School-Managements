@@ -3,6 +3,10 @@ import { format, startOfDay, isBefore, isEqual, isAfter } from "date-fns";
 import { vi } from "date-fns/locale";
 import { attendanceService, AttendanceStatus } from "../../../../services/attendanceService";
 import type { AttendanceDto } from "../../../../services/attendanceService";
+import { Clock, Lock, Save } from "lucide-react";
+import { vietnameseNameSort } from "../../../../utils/sortUtils";
+
+import { useToast } from "../../../../context/ToastContext";
 
 type Props = {
     date: Date;
@@ -14,11 +18,16 @@ type Props = {
 };
 
 export default function AttendanceMarkingView({ date, slotIndex, subjectName, className, slotStartTime, onClose }: Props) {
+    const { toast } = useToast();
     const [students, setStudents] = useState<AttendanceDto[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [countdown, setCountdown] = useState<string>("");
     const [isSlotStarted, setIsSlotStarted] = useState(true);
+
+    const [skippedStudents, setSkippedStudents] = useState<{ studentId: string; reason: string; studentName?: string; studentCode?: string }[]>([]);
+    const [showSkippedModal, setShowSkippedModal] = useState(false);
+
 
     // Lock attendance for non-today days (past = auto-locked, future = not allowed)
     const isLocked = useMemo(() => {
@@ -99,27 +108,28 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
             setLoading(true);
             const dateStr = format(date, "yyyy-MM-dd");
             const data = await attendanceService.getAttendanceForSlot(dateStr, slotIndex);
-            setStudents(data);
+            const sortedData = [...data].sort((a, b) => vietnameseNameSort(a.studentName, b.studentName));
+            setStudents(sortedData);
         } catch (error) {
             console.error("Failed to load attendance:", error);
-            alert("Không thể tải danh sách điểm danh");
+            toast.error("Không thể tải danh sách điểm danh");
         } finally {
             setLoading(false);
         }
-    }, [date, slotIndex]);
+    }, [date, slotIndex, toast]);
 
     useEffect(() => {
         loadData();
     }, [loadData]);
 
     const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
-        setStudents(prev => prev.map(s => 
+        setStudents(prev => prev.map(s =>
             s.studentId === studentId ? { ...s, status } : s
         ));
     };
 
     const handleRemarksChange = (studentId: string, remarks: string) => {
-        setStudents(prev => prev.map(s => 
+        setStudents(prev => prev.map(s =>
             s.studentId === studentId ? { ...s, remarks } : s
         ));
     };
@@ -128,7 +138,7 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
         try {
             setSaving(true);
             const dateStr = format(date, "yyyy-MM-dd");
-            await attendanceService.saveAttendance({
+            const res = await attendanceService.saveAttendance({
                 date: dateStr,
                 slotIndex,
                 records: students.map(s => ({
@@ -137,12 +147,39 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
                     remarks: s.remarks
                 }))
             });
-            alert("Lưu điểm danh thành công!");
-            onClose();
-        } catch (error: unknown) {
-            console.error("Failed to save:", error);
-            const err = error as { response?: { data?: { message?: string } } };
-            alert(err.response?.data?.message || "Lỗi khi lưu điểm danh");
+
+            if (res.skippedStudents && res.skippedStudents.length > 0) {
+                const skippedWithDetails = res.skippedStudents.map(skipped => {
+                    const studentInfo = students.find(s => s.studentId === skipped.studentId);
+                    return {
+                        ...skipped,
+                        studentName: studentInfo?.studentName || "Không xác định",
+                        studentCode: studentInfo?.studentCode || skipped.studentId
+                    };
+                });
+                setSkippedStudents(skippedWithDetails);
+                setShowSkippedModal(true);
+            } else {
+                toast.success("Lưu điểm danh thành công!");
+                onClose();
+            }
+        } catch (error: any) {
+
+            console.error("Failed to save attendance:", error);
+
+            // Extract the most meaningful message
+            const status = error.response?.status;
+            const data = error.response?.data;
+            let errorMessage = "Đã xảy ra lỗi khi lưu điểm danh";
+
+            if (status === 400 || status === 403 || status === 404 || status === 409) {
+                // Use backend reason if available, otherwise generic
+                errorMessage = data?.message || data?.error || errorMessage;
+            } else if (status === 500) {
+                errorMessage = "Lỗi hệ thống (Server Error). Vui lòng liên hệ Admin.";
+            }
+
+            toast.error(errorMessage);
         } finally {
             setSaving(false);
         }
@@ -161,6 +198,45 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 relative">
+            {showSkippedModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 animate-in fade-in zoom-in duration-200">
+                        <div className="flex items-center gap-3 text-amber-600 mb-4">
+                            <div className="p-2 bg-amber-100 rounded-lg">
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            </div>
+                            <h3 className="text-xl font-bold">Điểm danh chưa hoàn tất</h3>
+                        </div>
+                        <p className="text-gray-600 mb-4">
+                            Hệ thống đã lưu điểm danh, nhưng có <strong>{skippedStudents.length}</strong> học sinh bị bỏ qua (có thể do học sinh đã chuyển lớp hoặc bị xoá khỏi danh sách):
+                        </p>
+
+                        <div className="bg-gray-50 rounded-lg border border-gray-200 divide-y max-h-60 overflow-y-auto mb-6">
+                            {skippedStudents.map((s, i) => (
+                                <div key={i} className="p-3 text-sm">
+                                    <div className="font-medium text-gray-800">{s.studentName} <span className="text-gray-500 font-normal">({s.studentCode})</span></div>
+                                    <div className="text-red-500 mt-1">{s.reason}</div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="flex justify-end">
+                            <button
+                                onClick={() => {
+                                    setShowSkippedModal(false);
+                                    onClose();
+                                }}
+                                className="px-5 py-2 bg-gray-800 hover:bg-gray-900 text-white font-medium rounded-lg transition-colors"
+                            >
+                                Đóng và tải lại danh sách
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Countdown overlay when slot hasn't started */}
             {!isLocked && !isSlotStarted && (
                 <>
@@ -223,12 +299,25 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
                         Quay lại
                     </button>
                     {canEdit && (
-                        <button 
-                            onClick={handleSave} 
+                        <button
+                            onClick={handleSave}
                             disabled={saving}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-600 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {saving ? "Đang lưu..." : "Lưu điểm danh"}
+                            {saving ? (
+                                <>
+                                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Đang lưu...
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="w-4 h-4" strokeWidth={1.8} />
+                                    Lưu điểm danh
+                                </>
+                            )}
                         </button>
                     )}
                 </div>
@@ -236,7 +325,7 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
 
             {isLocked && (
                 <div className={`mb-4 p-3 border rounded-lg flex items-center gap-2 ${isFutureDay ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
-                    <span>{isFutureDay ? '⏳' : '🔒'}</span>
+                    {isFutureDay ? <Clock size={20} strokeWidth={2} /> : <Lock size={20} strokeWidth={2} />}
                     <span className="font-medium">
                         {isFutureDay
                             ? 'Không thể điểm danh cho ngày trong tương lai. Vui lòng chờ đến ngày hôm đó.'
@@ -272,8 +361,8 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
                                                 onClick={() => handleStatusChange(student.studentId, option.value)}
                                                 disabled={!canEdit}
                                                 className={`px-3 py-1 rounded-full text-xs font-medium transition-all
-                                                    ${student.status === option.value 
-                                                        ? option.color + " ring-2 ring-offset-1 ring-blue-500" 
+                                                    ${student.status === option.value
+                                                        ? option.color + " ring-2 ring-offset-1 ring-blue-500"
                                                         : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                                                     }
                                                     ${!canEdit ? "opacity-60 cursor-not-allowed" : ""}

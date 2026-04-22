@@ -9,12 +9,18 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificationExecutor<User> {
         Optional<User> findByEmailIgnoreCase(String email);
+
+        List<User> findByEmailIn(Collection<String> emails);
+
+        @Query("SELECT u FROM User u LEFT JOIN FETCH u.school WHERE LOWER(u.email) = LOWER(:email)")
+        Optional<User> findByEmailIgnoreCaseWithSchool(@Param("email") String email);
 
         boolean existsByEmailIgnoreCase(String email);
 
@@ -23,6 +29,12 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
         List<User> findByRole(Role role);
 
         List<User> findBySchoolIdAndRole(UUID schoolId, Role role);
+
+        org.springframework.data.domain.Page<User> findBySchoolIdAndRole(UUID schoolId, Role role,
+                        org.springframework.data.domain.Pageable pageable);
+
+        org.springframework.data.domain.Page<User> findBySchoolIdAndRoleNot(UUID schoolId, Role role,
+                        org.springframework.data.domain.Pageable pageable);
 
         List<User> findByPendingDeleteAtIsNotNull();
 

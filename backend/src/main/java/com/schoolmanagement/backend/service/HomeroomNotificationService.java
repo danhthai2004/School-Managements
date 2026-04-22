@@ -16,13 +16,13 @@ import com.schoolmanagement.backend.repo.student.GuardianRepository;
 import com.schoolmanagement.backend.repo.notification.HomeroomNotificationRepository;
 import com.schoolmanagement.backend.repo.notification.HomeroomNotificationRecipientRepository;
 import com.schoolmanagement.backend.repo.auth.UserRepository;
+import com.schoolmanagement.backend.service.admin.SemesterService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -32,6 +32,7 @@ public class HomeroomNotificationService {
 
     private final UserRepository userRepository;
     private final ClassRoomRepository classRoomRepository;
+    private final SemesterService semesterService;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final GuardianRepository guardianRepository;
     private final HomeroomNotificationRepository notificationRepository;
@@ -217,14 +218,26 @@ public class HomeroomNotificationService {
     }
 
     private ClassRoom getHomeroomClass(User teacher) {
-        return classRoomRepository.findByHomeroomTeacher(teacher)
+        return findActiveHomeroom(teacher)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
                         "Chỉ giáo viên chủ nhiệm mới có thể gửi thông báo."));
     }
 
-    private String getCurrentAcademicYear() {
-        int year = LocalDate.now().getYear();
-        int month = LocalDate.now().getMonthValue();
-        return month >= 9 ? year + "-" + (year + 1) : (year - 1) + "-" + year;
+    private Optional<ClassRoom> findActiveHomeroom(User teacher) {
+        if (teacher == null)
+            return Optional.empty();
+
+        if (teacher.getSchool() != null) {
+            com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentAcademicYear = semesterService
+                    .getActiveAcademicYearSafe(teacher.getSchool());
+            if (currentAcademicYear != null) {
+                Optional<ClassRoom> found = classRoomRepository.findByHomeroomTeacher_IdAndAcademicYear(teacher.getId(),
+                        currentAcademicYear);
+                if (found.isPresent())
+                    return found;
+            }
+        }
+        return classRoomRepository.findTopByHomeroomTeacher_IdOrderByAcademicYear_StartDateDesc(teacher.getId());
     }
+
 }

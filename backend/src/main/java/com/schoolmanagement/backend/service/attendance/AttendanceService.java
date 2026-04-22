@@ -7,10 +7,11 @@ import com.schoolmanagement.backend.domain.timetable.TimetableStatus;
 
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.attendance.Attendance;
+import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
+import com.schoolmanagement.backend.domain.entity.admin.School;
 
 import com.schoolmanagement.backend.repo.attendance.AttendanceRepository;
 import com.schoolmanagement.backend.repo.timetable.TimetableRepository;
-import com.schoolmanagement.backend.repo.attendance.DailyClassStatusRepository;
 import com.schoolmanagement.backend.repo.teacher.TeacherRepository;
 import com.schoolmanagement.backend.repo.auth.UserRepository;
 import com.schoolmanagement.backend.repo.timetable.TimetableDetailRepository;
@@ -28,6 +29,7 @@ import com.schoolmanagement.backend.dto.attendance.AttendanceDto;
 import com.schoolmanagement.backend.dto.attendance.AttendanceReportSummaryDto;
 import com.schoolmanagement.backend.dto.attendance.DailyAttendanceSummaryDto;
 import com.schoolmanagement.backend.dto.attendance.SaveAttendanceRequest;
+import com.schoolmanagement.backend.dto.attendance.SaveAttendanceResultDto;
 import com.schoolmanagement.backend.dto.attendance.StudentAttendanceDetailDto;
 import com.schoolmanagement.backend.dto.timetable.TimetableScheduleSummaryDto;
 
@@ -42,17 +44,19 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional(readOnly = true)
 public class AttendanceService {
 
         private static final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+
         private final AttendanceRepository attendanceRepository;
         private final TimetableRepository timetableRepository;
-        private final DailyClassStatusRepository dailyClassStatusRepository;
         private final TeacherRepository teacherRepository;
         private final UserRepository userRepository;
         private final TimetableDetailRepository timetableDetailRepository;
@@ -62,240 +66,244 @@ public class AttendanceService {
         private final SchoolTimetableSettingsService settingsService;
         private final StudentRepository studentRepository;
 
+        // ==================== TEACHER: GET ATTENDANCE FOR SLOT ====================
+
         /**
-         * Get attendance list for a specific teacher's slot
+         * Returns the attendance list for a specific slot.
+         * Always shows the full class roster, merging any existing records.
          */
         public List<AttendanceDto> getAttendanceForSlot(String email, LocalDate date, int slotIndex) {
                 User user = findUserByEmail(email);
-                Teacher teacher = teacherRepository.findByUser(user)
-                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                                                "Teacher profile not found"));
+                Teacher teacher = findTeacher(user);
 
-                // Verify teacher teaches this slot
-                TimetableDetail timetableDetail = findTimetableDetail(teacher, date, slotIndex);
-                ClassRoom classRoom = timetableDetail.getClassRoom();
+                TimetableDetail detail = findTimetableDetail(teacher, date, slotIndex);
+                ClassRoom classRoom = detail.getClassRoom();
 
-                // Check if data exists in Attendance table
-                List<Attendance> savedAttendance = attendanceRepository.findAllByClassRoomAndDateAndSlotIndex(classRoom,
-                                date,
-                                slotIndex);
+                // 1. Full class roster (source of truth)
+                AcademicYear year = getAcademicYear(user.getSchool(), date);
+                List<ClassEnrollment> enrollments = classEnrollmentRepository
+                                .findAllByClassRoomAndAcademicYear(classRoom, year);
 
-                if (!savedAttendance.isEmpty()) {
-                        // Return saved data
-                        return savedAttendance.stream()
-                                        .map(a -> new AttendanceDto(
-                                                        a.getStudent().getId().toString(),
-                                                        a.getStudent().getStudentCode(),
-                                                        a.getStudent().getFullName(),
-                                                        a.getStatus(),
-                                                        a.getRemarks()))
-                                        .toList();
-                }
+                // 2. Existing records — look up by student IDs, not by classRoom
+                // to correctly find records even if classRoom was different
+                List<UUID> studentIds = enrollments.stream()
+                                .map(e -> e.getStudent().getId())
+                                .toList();
 
-                // Else return default list (all PRESENT)
-                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentYear = semesterService
-                                .getAcademicYearByDate(teacher.getUser().getSchool(), date);
-                List<ClassEnrollment> enrollments = classEnrollmentRepository.findAllByClassRoomAndAcademicYear(
-                                classRoom,
-                                currentYear);
+                Map<UUID, Attendance> savedMap = studentIds.isEmpty()
+                                ? Collections.emptyMap()
+                                : attendanceRepository
+                                                .findAllByStudentIdInAndDateAndSlotIndex(studentIds, date, slotIndex)
+                                                .stream()
+                                                .collect(Collectors.toMap(
+                                                                a -> a.getStudent().getId(),
+                                                                Function.identity(),
+                                                                (a, b) -> a));
+
+                // 3. Merge: saved record wins, otherwise default to PRESENT
                 return enrollments.stream()
-                                .map(e -> AttendanceDto.builder()
-                                                .studentId(e.getStudent().getId().toString())
-                                                .studentCode(e.getStudent().getStudentCode())
-                                                .studentName(e.getStudent().getFullName())
-                                                .status(AttendanceStatus.PRESENT)
-                                                .remarks("")
-                                                .build())
+                                .map(e -> {
+                                        Student s = e.getStudent();
+                                        Attendance saved = savedMap.get(s.getId());
+                                        return AttendanceDto.builder()
+                                                        .studentId(s.getId().toString())
+                                                        .studentCode(s.getStudentCode())
+                                                        .studentName(s.getFullName())
+                                                        .status(saved != null ? saved.getStatus()
+                                                                        : AttendanceStatus.PRESENT)
+                                                        .remarks(saved != null ? saved.getRemarks() : "")
+                                                        .build();
+                                })
+                                .sorted(Comparator.comparing(AttendanceDto::getStudentCode))
                                 .toList();
         }
 
+        // ==================== TEACHER: SAVE ATTENDANCE ====================
+
         /**
-         * Save attendance for a specific slot
+         * Saves attendance for a specific slot.
+         * 
+         * Flow:
+         * 1. Validate teacher owns this slot on this date
+         * 2. Validate date/time constraints
+         * 3. De-duplicate incoming records (prevent same student appearing twice)
+         * 4. Bulk-fetch existing DB records (one query, not N queries)
+         * 5. Upsert: update existing or create new
+         * 6. SaveAll in a single batch
          */
         @Transactional
-        public void saveAttendance(String email, SaveAttendanceRequest request) {
+        public SaveAttendanceResultDto saveAttendance(String email, SaveAttendanceRequest request) {
                 User user = findUserByEmail(email);
-                Teacher teacher = teacherRepository.findByUser(user)
-                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                                                "Teacher profile not found"));
+                Teacher teacher = findTeacher(user);
 
-                TimetableDetail timetableDetail = findTimetableDetail(teacher, request.getDate(),
-                                request.getSlotIndex());
-                ClassRoom classRoom = timetableDetail.getClassRoom();
+                LocalDate date = request.getDate();
+                int slotIndex = request.getSlotIndex();
 
-                // Check if day is locked (past days are automatically locked after 23:59:59)
-                LocalDate today = LocalDate.now(VIETNAM_ZONE);
-                if (request.getDate().isBefore(today)) {
-                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                        "Điểm danh ngày này đã bị khóa tự động. Không thể chỉnh sửa.");
-                }
+                TimetableDetail detail = findTimetableDetail(teacher, date, slotIndex);
+                ClassRoom classRoom = detail.getClassRoom();
 
-                com.schoolmanagement.backend.domain.entity.admin.Semester currentSemester = semesterService
-                                .getSemesterByDate(teacher.getUser().getSchool(), request.getDate());
-                if (currentSemester != null && currentSemester
-                                .getStatus() == com.schoolmanagement.backend.domain.admin.SemesterStatus.CLOSED) {
-                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                        "Học kỳ chứa ngày điểm danh này đã chốt sổ. Chỉ có Giám thị hoặc Admin mới được phép chỉnh sửa.");
-                }
+                // --- Validation ---
+                validateAttendanceDate(date, teacher, slotIndex);
 
-                // Check if slot has started
-                if (request.getDate().isEqual(today)) {
-                        try {
-                                TimetableScheduleSummaryDto.SlotTimeDto slotTime = settingsService
-                                                .calculateSlotTime(
-                                                                teacher.getUser().getSchool(), request.getSlotIndex());
-                                LocalTime slotStartTime = LocalTime.parse(slotTime.getStartTime());
-                                if (LocalTime.now(VIETNAM_ZONE).isBefore(slotStartTime)) {
-                                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                                        "Chưa đến giờ bắt đầu tiết " + request.getSlotIndex()
-                                                                        + " (" + slotTime.getStartTime()
-                                                                        + "). Không thể điểm danh.");
-                                }
-                        } catch (ResponseStatusException e) {
-                                throw e; // Re-throw our own exceptions
-                        } catch (Exception e) {
-                                log.warn("Could not verify slot start time, allowing attendance: {}", e.getMessage());
-                        }
-                }
-
-                // Save records
+                // --- Step 1: De-duplicate incoming records ---
+                // If frontend sends the same studentId twice, keep only the first occurrence
+                Map<UUID, SaveAttendanceRequest.AttendanceRecord> uniqueRecords = new LinkedHashMap<>();
                 for (SaveAttendanceRequest.AttendanceRecord record : request.getRecords()) {
-                        Student student = studentRepository.findById(UUID.fromString(record.getStudentId()))
-                                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                                                        "Student not found: " + record.getStudentId()));
+                        UUID sid = UUID.fromString(record.getStudentId());
+                        uniqueRecords.putIfAbsent(sid, record);
+                }
 
-                        Optional<Attendance> existing = attendanceRepository.findByStudentAndDateAndSlotIndex(student,
-                                        request.getDate(), request.getSlotIndex());
+                List<UUID> studentIds = new ArrayList<>(uniqueRecords.keySet());
+                if (studentIds.isEmpty()) {
+                        return new SaveAttendanceResultDto(0, List.of());
+                }
 
-                        Attendance attendance;
-                        if (existing.isPresent()) {
-                                attendance = existing.get();
+                // --- Step 2: Bulk-fetch students ---
+                Map<UUID, Student> studentMap = studentRepository.findAllById(studentIds).stream()
+                                .collect(Collectors.toMap(Student::getId, Function.identity()));
+
+                // --- Step 3: Bulk-fetch existing attendance records ---
+                // One query matches the unique constraint (student_id, attendance_date,
+                // slot_index)
+                Map<UUID, Attendance> existingMap = attendanceRepository
+                                .findAllByStudentIdInAndDateAndSlotIndex(studentIds, date, slotIndex)
+                                .stream()
+                                .collect(Collectors.toMap(
+                                                a -> a.getStudent().getId(),
+                                                Function.identity(),
+                                                (a, b) -> a)); // handle unlikely duplicates
+
+                // --- Step 4: Upsert ---
+                List<Attendance> toSave = new ArrayList<>();
+                List<SaveAttendanceResultDto.SkippedStudentDto> skipped = new ArrayList<>();
+
+                for (Map.Entry<UUID, SaveAttendanceRequest.AttendanceRecord> entry : uniqueRecords.entrySet()) {
+                        UUID sid = entry.getKey();
+                        SaveAttendanceRequest.AttendanceRecord record = entry.getValue();
+                        Student student = studentMap.get(sid);
+
+                        if (student == null) {
+                                log.warn("Student {} not found during attendance save", sid);
+                                skipped.add(new SaveAttendanceResultDto.SkippedStudentDto(
+                                                sid.toString(), "Học sinh không tồn tại trong hệ thống."));
+                                continue;
+                        }
+
+                        Attendance attendance = existingMap.get(sid);
+                        if (attendance != null) {
+                                // UPDATE existing record
                                 attendance.setStatus(record.getStatus());
                                 attendance.setRemarks(record.getRemarks());
-                                attendance.setTeacher(teacher); // Update modified by
+                                attendance.setTeacher(teacher);
+                                attendance.setClassRoom(classRoom);
+                                attendance.setSubject(detail.getSubject());
                         } else {
+                                // INSERT new record
                                 attendance = Attendance.builder()
                                                 .student(student)
                                                 .classRoom(classRoom)
-                                                .subject(timetableDetail.getSubject())
+                                                .subject(detail.getSubject())
                                                 .teacher(teacher)
-                                                .date(request.getDate())
-                                                .slotIndex(request.getSlotIndex())
+                                                .attendanceDate(date)
+                                                .slotIndex(slotIndex)
                                                 .status(record.getStatus())
                                                 .remarks(record.getRemarks())
                                                 .build();
                         }
-                        attendanceRepository.save(attendance);
+                        toSave.add(attendance);
                 }
+
+                attendanceRepository.saveAll(toSave);
+
+                log.info("Saved attendance: {} records for slot {} on {} by teacher {}",
+                                toSave.size(), slotIndex, date, email);
+
+                return new SaveAttendanceResultDto(toSave.size(), skipped);
         }
 
+        // ==================== HOMEROOM: DAILY SUMMARY ====================
+
         /**
-         * Get Daily Summary for Homeroom Teacher
+         * Returns a daily attendance summary for the homeroom teacher's class.
          */
         public DailyAttendanceSummaryDto getDailyAttendanceSummary(String email, LocalDate date) {
                 User user = findUserByEmail(email);
+                AcademicYear year = getAcademicYear(user.getSchool(), date);
+                ClassRoom homeroom = findHomeroomClass(user, year);
 
-                // 1. Find Homeroom Class
-                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentYear = semesterService
-                                .getAcademicYearByDate(user.getSchool(), date);
-                ClassRoom homeroomClass = classRoomRepository
-                                .findByHomeroomTeacher_IdAndAcademicYear(user.getId(), currentYear)
-                                .orElseGet(() -> classRoomRepository
-                                                .findTopByHomeroomTeacher_IdOrderByAcademicYear_StartDateDesc(user.getId())
-                                                .orElseThrow(
-                                                                () -> new ResponseStatusException(HttpStatus.FORBIDDEN,
-                                                                                "Not a homeroom teacher")));
+                List<ClassEnrollment> enrollments = classEnrollmentRepository
+                                .findAllByClassRoomAndAcademicYear(homeroom, year);
 
-                // 2. Process Students
-                List<ClassEnrollment> enrollments = classEnrollmentRepository.findAllByClassRoomAndAcademicYear(
-                                homeroomClass,
-                                currentYear);
-
-                // 3. Get all attendance records for this class on this date
-                List<Attendance> allAttendance = attendanceRepository.findAllByClassRoomAndDate(homeroomClass, date);
-
-                // 4. Group by Student
-                Map<UUID, List<Attendance>> attendanceByStudent = allAttendance.stream()
+                // Single query for all attendance records of this class on this date
+                Map<UUID, List<Attendance>> byStudent = attendanceRepository
+                                .findAllByClassRoomAndDate(homeroom, date)
+                                .stream()
                                 .collect(Collectors.groupingBy(a -> a.getStudent().getId()));
 
-                List<DailyAttendanceSummaryDto.StudentDailyAttendance> studentSummaries = enrollments.stream()
-                                .map(enrollment -> {
-                                        Student student = enrollment.getStudent();
-                                        List<Attendance> studentRecords = attendanceByStudent.getOrDefault(
-                                                        student.getId(),
-                                                        Collections.emptyList());
-
-                                        Map<Integer, AttendanceStatus> slotStatusMap = studentRecords.stream()
+                List<DailyAttendanceSummaryDto.StudentDailyAttendance> summaries = enrollments.stream()
+                                .map(e -> {
+                                        Student s = e.getStudent();
+                                        Map<Integer, AttendanceStatus> slotMap = byStudent
+                                                        .getOrDefault(s.getId(), Collections.emptyList())
+                                                        .stream()
                                                         .filter(a -> a.getSlotIndex() > 0)
-                                                        .collect(Collectors.toMap(Attendance::getSlotIndex,
-                                                                        Attendance::getStatus));
-
+                                                        .collect(Collectors.toMap(
+                                                                        Attendance::getSlotIndex,
+                                                                        Attendance::getStatus,
+                                                                        (a, b) -> a));
                                         return DailyAttendanceSummaryDto.StudentDailyAttendance.builder()
-                                                        .studentId(student.getId().toString())
-                                                        .studentName(student.getFullName())
-                                                        .slotTheStatus(slotStatusMap)
+                                                        .studentId(s.getId().toString())
+                                                        .studentName(s.getFullName())
+                                                        .slotTheStatus(slotMap)
                                                         .build();
                                 })
                                 .toList();
 
-                // 5. Check Finalized Status - auto-locked if date is before today
                 boolean isFinalized = date.isBefore(LocalDate.now(VIETNAM_ZONE));
 
                 return DailyAttendanceSummaryDto.builder()
-                                .classroomName(homeroomClass.getName())
+                                .classroomName(homeroom.getName())
                                 .date(date.toString())
                                 .isFinalized(isFinalized)
-                                .students(studentSummaries)
+                                .students(summaries)
                                 .build();
         }
 
+        // ==================== HOMEROOM: ATTENDANCE REPORT ====================
+
         /**
-         * Get Attendance Report for Homeroom Teacher (weekly/monthly)
+         * Generates an attendance report for a date range (weekly/monthly).
          */
         public AttendanceReportSummaryDto getAttendanceReport(String email, LocalDate startDate, LocalDate endDate,
                         String reportType) {
                 User user = findUserByEmail(email);
+                AcademicYear year = getAcademicYear(user.getSchool(), endDate);
+                ClassRoom homeroom = findHomeroomClass(user, year);
 
-                // 1. Find Homeroom Class
-                com.schoolmanagement.backend.domain.entity.admin.AcademicYear currentYear = semesterService
-                                .getAcademicYearByDate(user.getSchool(), endDate);
-                ClassRoom homeroomClass = classRoomRepository
-                                .findByHomeroomTeacher_IdAndAcademicYear(user.getId(), currentYear)
-                                .orElseGet(() -> classRoomRepository
-                                                .findTopByHomeroomTeacher_IdOrderByAcademicYear_StartDateDesc(user.getId())
-                                                .orElseThrow(
-                                                                () -> new ResponseStatusException(HttpStatus.FORBIDDEN,
-                                                                                "Not a homeroom teacher")));
+                List<ClassEnrollment> enrollments = classEnrollmentRepository
+                                .findAllByClassRoomAndAcademicYear(homeroom, year);
 
-                // 2. Get enrollments
-                List<ClassEnrollment> enrollments = classEnrollmentRepository.findAllByClassRoomAndAcademicYear(
-                                homeroomClass, currentYear);
+                // Single query for the entire date range
+                List<Attendance> allRecords = attendanceRepository
+                                .findAllByClassRoomAndDateBetween(homeroom, startDate, endDate);
 
-                // 3. Get all attendance records in date range
-                List<Attendance> allAttendance = attendanceRepository.findAllByClassRoomAndDateBetween(
-                                homeroomClass, startDate, endDate);
-
-                // 4. Count unique school days
-                long totalSchoolDays = allAttendance.stream()
-                                .map(Attendance::getDate)
+                long totalSchoolDays = allRecords.stream()
+                                .map(Attendance::getAttendanceDate)
                                 .distinct()
                                 .count();
 
-                // 5. Group by student
-                Map<UUID, List<Attendance>> attendanceByStudent = allAttendance.stream()
+                Map<UUID, List<Attendance>> byStudent = allRecords.stream()
                                 .collect(Collectors.groupingBy(a -> a.getStudent().getId()));
 
-                // 6. Build per-student summaries
                 long totalPresentAll = 0;
                 long totalSessionsAll = 0;
-
                 List<AttendanceReportSummaryDto.StudentAttendanceSummary> studentSummaries = new ArrayList<>();
 
-                for (ClassEnrollment enrollment : enrollments) {
-                        Student student = enrollment.getStudent();
-                        List<Attendance> records = attendanceByStudent.getOrDefault(student.getId(),
-                                        Collections.emptyList());
+                for (ClassEnrollment e : enrollments) {
+                        Student student = e.getStudent();
+                        List<Attendance> records = byStudent.getOrDefault(student.getId(), Collections.emptyList());
 
+                        // Count statuses in a single pass
                         int present = 0, absentExcused = 0, absentUnexcused = 0, late = 0;
                         for (Attendance a : records) {
                                 switch (a.getStatus()) {
@@ -303,18 +311,13 @@ public class AttendanceService {
                                         case ABSENT_EXCUSED -> absentExcused++;
                                         case ABSENT_UNEXCUSED -> absentUnexcused++;
                                         case LATE -> late++;
-                                        case ABSENT -> absentUnexcused++; // Fallback for legacy
-                                        case EXCUSED -> absentExcused++; // Legacy excused
                                 }
                         }
 
-                        int totalSessions = records.size();
-                        double attendanceRate = totalSessions > 0
-                                        ? (double) (present + late) / totalSessions * 100.0
-                                        : 0.0;
-
+                        int total = records.size();
+                        double rate = total > 0 ? (double) (present + late) / total * 100.0 : 0.0;
                         totalPresentAll += (present + late);
-                        totalSessionsAll += totalSessions;
+                        totalSessionsAll += total;
 
                         studentSummaries.add(AttendanceReportSummaryDto.StudentAttendanceSummary.builder()
                                         .studentId(student.getId().toString())
@@ -323,8 +326,8 @@ public class AttendanceService {
                                         .totalAbsentExcused(absentExcused)
                                         .totalAbsentUnexcused(absentUnexcused)
                                         .totalLate(late)
-                                        .totalSessions(totalSessions)
-                                        .attendanceRate(Math.round(attendanceRate * 10.0) / 10.0)
+                                        .totalSessions(total)
+                                        .attendanceRate(Math.round(rate * 10.0) / 10.0)
                                         .build());
                 }
 
@@ -333,7 +336,7 @@ public class AttendanceService {
                                 : 0.0;
 
                 return AttendanceReportSummaryDto.builder()
-                                .classroomName(homeroomClass.getName())
+                                .classroomName(homeroom.getName())
                                 .startDate(startDate.toString())
                                 .endDate(endDate.toString())
                                 .reportType(reportType)
@@ -344,43 +347,35 @@ public class AttendanceService {
                                 .build();
         }
 
+        // ==================== HOMEROOM: STUDENT DETAIL ====================
+
         /**
-         * Get detailed attendance records for a specific student in a date range
+         * Returns detailed attendance records for a specific student in a date range.
          */
         public StudentAttendanceDetailDto getStudentAttendanceDetail(String email, UUID studentId,
                         LocalDate startDate, LocalDate endDate, String statusFilter) {
-                // Verify caller is a teacher
-                findUserByEmail(email);
+                findUserByEmail(email); // verify caller is a teacher
 
                 Student student = studentRepository.findById(studentId)
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                                                "Student not found"));
+                                                "Không tìm thấy học sinh."));
 
                 List<Attendance> records = attendanceRepository.findAllByStudentIdAndDateBetween(
                                 studentId, startDate, endDate);
 
-                // Filter by status if provided
-                if (statusFilter != null && !statusFilter.isEmpty()) {
-                        AttendanceStatus filterStatus = AttendanceStatus.valueOf(statusFilter);
+                // Optional status filter
+                if (statusFilter != null && !statusFilter.isBlank()) {
+                        AttendanceStatus filter = AttendanceStatus.valueOf(statusFilter);
                         records = records.stream()
-                                        .filter(a -> a.getStatus() == filterStatus)
+                                        .filter(a -> a.getStatus() == filter)
                                         .toList();
                 }
 
-                // Sort by date then slot
-                records = records.stream()
-                                .sorted((a, b) -> {
-                                        int dateComp = a.getDate().compareTo(b.getDate());
-                                        return dateComp != 0 ? dateComp
-                                                        : Integer.compare(
-                                                                        a.getSlotIndex(),
-                                                                        b.getSlotIndex());
-                                })
-                                .toList();
-
-                List<StudentAttendanceDetailDto.AttendanceRecord> detailRecords = records.stream()
+                List<StudentAttendanceDetailDto.AttendanceRecord> details = records.stream()
+                                .sorted(Comparator.comparing(Attendance::getAttendanceDate)
+                                                .thenComparingInt(Attendance::getSlotIndex))
                                 .map(a -> StudentAttendanceDetailDto.AttendanceRecord.builder()
-                                                .date(a.getDate().toString())
+                                                .date(a.getAttendanceDate().toString())
                                                 .slotIndex(a.getSlotIndex())
                                                 .subjectName(a.getSubject() != null ? a.getSubject().getName() : "")
                                                 .status(a.getStatus())
@@ -391,42 +386,236 @@ public class AttendanceService {
                 return StudentAttendanceDetailDto.builder()
                                 .studentId(studentId.toString())
                                 .studentName(student.getFullName())
-                                .records(detailRecords)
+                                .records(details)
                                 .build();
         }
 
-        // --- Helpers ---
+        // ==================== ADMIN: GET / SAVE ATTENDANCE ====================
 
-        private User findUserByEmail(String email) {
-                return userRepository.findByEmailIgnoreCase(email)
-                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-        }
+        public List<AttendanceDto> getAttendanceForSlotAsAdmin(School school, UUID classRoomId,
+                        LocalDate date, int slotIndex) {
+                ClassRoom classRoom = classRoomRepository.findByIdAndSchool(classRoomId, school)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                                                "Lớp học không tồn tại hoặc không thuộc trường."));
 
-        private TimetableDetail findTimetableDetail(Teacher teacher, LocalDate date, int slotIndex) {
-                Timetable timetable = timetableRepository.findFirstBySchoolAndStatusOrderByCreatedAtDesc(
-                                teacher.getUser().getSchool(),
-                                TimetableStatus.OFFICIAL)
-                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                                "No official timetable found for school"));
+                // 1. Full class roster
+                AcademicYear year = getAcademicYear(school, date);
+                List<ClassEnrollment> enrollments = classEnrollmentRepository
+                                .findAllByClassRoomAndAcademicYear(classRoom, year);
 
-                return timetableDetailRepository.findByTimetableAndTeacherAndDayOfWeekAndSlotIndex(
-                                timetable, teacher, date.getDayOfWeek(), slotIndex)
-                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
-                                                "Teacher is not assigned to slot " + slotIndex + " on " + date));
-        }
+                // 2. Existing records — bulk lookup by student IDs
+                List<UUID> studentIds = enrollments.stream()
+                                .map(e -> e.getStudent().getId())
+                                .toList();
 
-        // ==================== ADMIN ENDPOINTS (STUBS) ====================
+                Map<UUID, Attendance> savedMap = studentIds.isEmpty()
+                                ? Collections.emptyMap()
+                                : attendanceRepository
+                                                .findAllByStudentIdInAndDateAndSlotIndex(studentIds, date, slotIndex)
+                                                .stream()
+                                                .collect(Collectors.toMap(
+                                                                a -> a.getStudent().getId(),
+                                                                Function.identity(),
+                                                                (a, b) -> a));
 
-        public java.util.List<AttendanceDto> getAttendanceForSlotAsAdmin(com.schoolmanagement.backend.domain.entity.admin.School school, UUID classRoomId, LocalDate date, int slotIndex) {
-                 throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+                // 3. Merge
+                return enrollments.stream()
+                                .map(e -> {
+                                        Student s = e.getStudent();
+                                        Attendance saved = savedMap.get(s.getId());
+                                        return AttendanceDto.builder()
+                                                        .studentId(s.getId().toString())
+                                                        .studentCode(s.getStudentCode())
+                                                        .studentName(s.getFullName())
+                                                        .status(saved != null ? saved.getStatus()
+                                                                        : AttendanceStatus.PRESENT)
+                                                        .remarks(saved != null ? saved.getRemarks() : "")
+                                                        .build();
+                                })
+                                .sorted(Comparator.comparing(AttendanceDto::getStudentCode))
+                                .toList();
         }
 
         @Transactional
-        public void saveAttendanceAsAdmin(com.schoolmanagement.backend.domain.entity.admin.School school, UUID classRoomId, SaveAttendanceRequest request) {
-                throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+        public SaveAttendanceResultDto saveAttendanceAsAdmin(School school, UUID classRoomId,
+                        SaveAttendanceRequest request) {
+                ClassRoom classRoom = classRoomRepository.findByIdAndSchool(classRoomId, school)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                                                "Lớp học không tồn tại."));
+
+                Timetable timetable = timetableRepository
+                                .findFirstBySchoolAndStatusOrderByCreatedAtDesc(school, TimetableStatus.OFFICIAL)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                                "Chưa có thời khóa biểu chính thức."));
+
+                TimetableDetail detail = timetableDetailRepository
+                                .findByTimetableAndClassRoomAndDayOfWeekAndSlotIndex(timetable, classRoom,
+                                                request.getDate().getDayOfWeek(), request.getSlotIndex())
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                                "Không có tiết học này trong thời khóa biểu."));
+
+                // De-duplicate
+                Map<UUID, SaveAttendanceRequest.AttendanceRecord> uniqueRecords = new LinkedHashMap<>();
+                for (SaveAttendanceRequest.AttendanceRecord item : request.getRecords()) {
+                        UUID sid = UUID.fromString(item.getStudentId());
+                        uniqueRecords.putIfAbsent(sid, item);
+                }
+
+                List<UUID> studentIds = new ArrayList<>(uniqueRecords.keySet());
+
+                // Bulk fetch students
+                Map<UUID, Student> studentMap = studentRepository.findAllById(studentIds).stream()
+                                .collect(Collectors.toMap(Student::getId, Function.identity()));
+
+                // Bulk fetch existing records
+                Map<UUID, Attendance> existingMap = attendanceRepository
+                                .findAllByStudentIdInAndDateAndSlotIndex(studentIds, request.getDate(),
+                                                request.getSlotIndex())
+                                .stream()
+                                .collect(Collectors.toMap(
+                                                a -> a.getStudent().getId(),
+                                                Function.identity(),
+                                                (a, b) -> a));
+
+                List<Attendance> toSave = new ArrayList<>();
+                List<SaveAttendanceResultDto.SkippedStudentDto> skipped = new ArrayList<>();
+
+                for (Map.Entry<UUID, SaveAttendanceRequest.AttendanceRecord> entry : uniqueRecords.entrySet()) {
+                        UUID sid = entry.getKey();
+                        SaveAttendanceRequest.AttendanceRecord item = entry.getValue();
+                        Student student = studentMap.get(sid);
+
+                        if (student == null) {
+                                skipped.add(new SaveAttendanceResultDto.SkippedStudentDto(
+                                                sid.toString(), "Không tìm thấy học sinh."));
+                                continue;
+                        }
+
+                        Attendance attendance = existingMap.get(sid);
+                        if (attendance != null) {
+                                attendance.setStatus(item.getStatus());
+                                attendance.setRemarks(item.getRemarks());
+                                attendance.setClassRoom(classRoom);
+                                attendance.setSubject(detail.getSubject());
+                        } else {
+                                attendance = Attendance.builder()
+                                                .student(student)
+                                                .classRoom(classRoom)
+                                                .subject(detail.getSubject())
+                                                .attendanceDate(request.getDate())
+                                                .slotIndex(request.getSlotIndex())
+                                                .status(item.getStatus())
+                                                .remarks(item.getRemarks())
+                                                .build();
+                        }
+                        toSave.add(attendance);
+                }
+
+                attendanceRepository.saveAll(toSave);
+                return new SaveAttendanceResultDto(toSave.size(), skipped);
         }
 
-        public java.util.List<com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail> getTimetableSlotsForClassOnDate(com.schoolmanagement.backend.domain.entity.admin.School school, UUID classRoomId, LocalDate date) {
-                throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+        public List<TimetableDetail> getTimetableSlotsForClassOnDate(School school, UUID classRoomId, LocalDate date) {
+                ClassRoom classRoom = classRoomRepository.findByIdAndSchool(classRoomId, school)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                                                "Lớp học không tồn tại."));
+
+                Timetable timetable = timetableRepository
+                                .findFirstBySchoolAndStatusOrderByCreatedAtDesc(school, TimetableStatus.OFFICIAL)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                                "Chưa có thời khóa biểu chính thức."));
+
+                return timetableDetailRepository.findAllByTimetableAndClassRoomAndDayOfWeek(
+                                timetable, classRoom, date.getDayOfWeek());
+        }
+
+        // ==================== PRIVATE HELPERS ====================
+
+        private User findUserByEmail(String email) {
+                return userRepository.findByEmailIgnoreCaseWithSchool(email)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                                                "Không tìm thấy người dùng."));
+        }
+
+        private Teacher findTeacher(User user) {
+                return teacherRepository.findByUser(user)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                                                "Không tìm thấy hồ sơ giáo viên."));
+        }
+
+        private AcademicYear getAcademicYear(School school, LocalDate date) {
+                return semesterService.getAcademicYearByDate(school, date);
+        }
+
+        private ClassRoom findHomeroomClass(User user, AcademicYear year) {
+                return classRoomRepository
+                                .findByHomeroomTeacher_IdAndAcademicYear(user.getId(), year)
+                                .orElseGet(() -> classRoomRepository
+                                                .findTopByHomeroomTeacher_IdOrderByAcademicYear_StartDateDesc(
+                                                                user.getId())
+                                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                                                                "Bạn không phải là giáo viên chủ nhiệm.")));
+        }
+
+        private TimetableDetail findTimetableDetail(Teacher teacher, LocalDate date, int slotIndex) {
+                Timetable timetable = timetableRepository
+                                .findFirstBySchoolAndStatusOrderByCreatedAtDesc(
+                                                teacher.getUser().getSchool(), TimetableStatus.OFFICIAL)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                                "Chưa có thời khóa biểu chính thức."));
+
+                return timetableDetailRepository
+                                .findByTimetableAndTeacherAndDayOfWeekAndSlotIndex(
+                                                timetable, teacher, date.getDayOfWeek(), slotIndex)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                                                "Giáo viên không được phân tiết " + slotIndex + " vào ngày " + date));
+        }
+
+        /**
+         * Validates date constraints for saving attendance:
+         * - Cannot save for past dates (auto-locked after midnight)
+         * - Cannot save for future dates
+         * - Cannot save for closed semesters
+         * - Cannot save before slot start time
+         */
+        private void validateAttendanceDate(LocalDate date, Teacher teacher, int slotIndex) {
+                LocalDate today = LocalDate.now(VIETNAM_ZONE);
+
+                if (date.isBefore(today)) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                        "Điểm danh ngày này đã bị khóa tự động. Không thể chỉnh sửa.");
+                }
+                if (date.isAfter(today)) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                        "Không thể thực hiện điểm danh cho tương lai. Vui lòng quay lại vào ngày "
+                                                        + date);
+                }
+
+                // Check semester status
+                var semester = semesterService.getSemesterByDate(teacher.getUser().getSchool(), date);
+                if (semester != null
+                                && semester.getStatus() == com.schoolmanagement.backend.domain.admin.SemesterStatus.CLOSED) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                        "Học kỳ đã chốt sổ. Chỉ Giám thị hoặc Admin mới được phép chỉnh sửa.");
+                }
+
+                // Check slot start time (today only)
+                if (date.isEqual(today)) {
+                        try {
+                                TimetableScheduleSummaryDto.SlotTimeDto slotTime = settingsService
+                                                .calculateSlotTime(teacher.getUser().getSchool(), slotIndex);
+                                LocalTime slotStart = LocalTime.parse(slotTime.getStartTime());
+                                if (LocalTime.now(VIETNAM_ZONE).isBefore(slotStart)) {
+                                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                                        "Chưa đến giờ bắt đầu tiết " + slotIndex
+                                                                        + " (" + slotTime.getStartTime()
+                                                                        + "). Không thể điểm danh.");
+                                }
+                        } catch (ResponseStatusException e) {
+                                throw e;
+                        } catch (Exception e) {
+                                log.warn("Cannot verify slot start time, allowing: {}", e.getMessage());
+                        }
+                }
         }
 }

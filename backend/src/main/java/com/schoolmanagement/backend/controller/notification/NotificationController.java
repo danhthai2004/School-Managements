@@ -39,8 +39,8 @@ public class NotificationController {
         return notificationService.createNotification(req, user);
     }
 
-    @DeleteMapping("/{id}")
-    public void delete(@PathVariable UUID id, @AuthenticationPrincipal UserPrincipal principal) {
+    @PatchMapping("/{id}/recall")
+    public void recall(@PathVariable UUID id, @AuthenticationPrincipal UserPrincipal principal) {
         User user = getCurrentUser(principal);
         notificationService.recallNotification(id, user);
     }

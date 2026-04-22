@@ -168,7 +168,7 @@ function TodayScheduleCard({ slots }: { slots: TimetableSlotDto[] }) {
                         {slots.map((slot, index) => (
                             <div key={index} className="flex items-center py-3 border-b border-gray-50 last:border-0">
                                 <div className="w-24 text-sm text-gray-500">
-                                    {periodTimes[slot.period] || ""}
+                                    {periodTimes[slot.slotIndex] || ""}
                                 </div>
                                 <div className="flex-1 pl-4 border-l-2 border-gray-200">
                                     <h4 className="font-medium text-gray-900">{slot.subjectName}</h4>
@@ -176,7 +176,7 @@ function TodayScheduleCard({ slots }: { slots: TimetableSlotDto[] }) {
                                 </div>
                                 <div className="text-right text-sm text-gray-500">
                                     <div>P.{slot.room || "-"}</div>
-                                    <div>{slot.period}</div>
+                                    <div>Tiết {slot.slotIndex}</div>
                                 </div>
                             </div>
                         ))}

@@ -22,6 +22,8 @@ import com.schoolmanagement.backend.domain.entity.grade.Grade;
 import com.schoolmanagement.backend.domain.entity.admin.Semester;
 import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
 import com.schoolmanagement.backend.repo.admin.SemesterRepository;
+import java.util.function.Function;
+import com.schoolmanagement.backend.util.StudentSortUtils;
 
 import com.schoolmanagement.backend.dto.grade.GradeBookDto;
 
@@ -41,6 +43,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class GradeService {
 
         private final GradeRepository gradeRepository;
@@ -55,7 +58,7 @@ public class GradeService {
         private final SemesterRepository semesterRepository;
 
         public GradeBookDto getGradeBook(String email, UUID classId, UUID subjectId, String semesterId) {
-                User user = userRepository.findByEmailIgnoreCase(email)
+                User user = userRepository.findByEmailIgnoreCaseWithSchool(email)
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
                 ClassRoom classRoom = classRoomRepository.findById(classId)
@@ -169,10 +172,10 @@ public class GradeService {
                                 .build();
         }
 
-        @Transactional
+        @org.springframework.transaction.annotation.Transactional
         public void saveGrades(String email, UUID classId, UUID subjectId, String semesterId,
                         List<GradeBookDto.StudentGradeDto> gradeData) {
-                User user = userRepository.findByEmailIgnoreCase(email)
+                User user = userRepository.findByEmailIgnoreCaseWithSchool(email)
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
                 Teacher teacher = teacherRepository.findByUser(user)
@@ -220,9 +223,15 @@ public class GradeService {
                                 .collect(Collectors.toMap(grade -> grade.getStudent().getId(), grade -> grade,
                                                 (gradeA, gradeB) -> gradeA));
 
+                // Bulk fetch students
+                List<UUID> studentIds = gradeData.stream()
+                                .map(d -> UUID.fromString(d.getStudentId()))
+                                .toList();
+                Map<UUID, Student> studentMap = studentRepository.findAllById(studentIds).stream()
+                                .collect(Collectors.toMap(Student::getId, Function.identity()));
+
                 for (GradeBookDto.StudentGradeDto dto : gradeData) {
-                        Student student = studentRepository.findById(UUID.fromString(dto.getStudentId()))
-                                        .orElse(null);
+                        Student student = studentMap.get(UUID.fromString(dto.getStudentId()));
                         if (student == null)
                                 continue;
 
