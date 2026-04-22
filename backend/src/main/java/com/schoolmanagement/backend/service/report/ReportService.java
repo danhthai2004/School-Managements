@@ -494,14 +494,14 @@ public class ReportService {
                                                         c.getName(),
                                                         c.getGrade(),
                                                         classSessions,
-                                                        enrollmentCounts.getOrDefault(c.getId(), 0L).intValue(),
                                                         cRate,
                                                         cPresent,
                                                         cAbsent,
                                                         cLate,
                                                         cExcused);
                                 })
-                                .sorted(Comparator.comparing(AttendanceReportDto.AttendanceByClassDto::attendanceRate)
+                                .sorted(Comparator.<AttendanceReportDto.AttendanceByClassDto, Double>comparing(
+                                                AttendanceReportDto.AttendanceByClassDto::attendanceRate)
                                                 .reversed())
                                 .toList();
 

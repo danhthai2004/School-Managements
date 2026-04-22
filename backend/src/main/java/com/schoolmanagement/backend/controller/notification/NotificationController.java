@@ -29,7 +29,7 @@ public class NotificationController {
     @GetMapping
     public org.springframework.data.domain.Page<NotificationDto> list(@RequestParam(defaultValue = "0") int page,
                                                                       @RequestParam(defaultValue = "20") int size) {
-        return notificationService.getAdminNotificationHistory(page, size);
+        return notificationService.getAdminNotificationHistory(null, null, null, null, page, size);
     }
 
     @PostMapping

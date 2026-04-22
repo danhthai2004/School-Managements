@@ -253,7 +253,7 @@ public class FaceAttendanceService {
                         .classRoom(classRoom)
                         .subject(subject)
                         .teacher(teacher)
-                        .date(date)
+                        .attendanceDate(date)
                         .slotIndex(slotIndex)
                         .status(AttendanceStatus.valueOf(cs.status))
                         .remarks("Điểm danh khuôn mặt")

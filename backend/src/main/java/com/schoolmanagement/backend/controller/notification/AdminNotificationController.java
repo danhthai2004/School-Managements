@@ -51,7 +51,7 @@ public class AdminNotificationController {
     public Page<NotificationDto> getNotificationHistory(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return notificationService.getAdminNotificationHistory(page, size);
+        return notificationService.getAdminNotificationHistory(null, null, null, null, page, size);
     }
 
     /**

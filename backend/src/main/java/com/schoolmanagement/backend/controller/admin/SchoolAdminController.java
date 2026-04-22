@@ -193,7 +193,7 @@ public class SchoolAdminController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         log.info("[Notification] GET /notifications/history - User: {}", principal.getEmail());
-        return notificationService.getAdminNotificationHistory(page, size);
+        return notificationService.getAdminNotificationHistory(null, null, null, null, page, size);
     }
 
     /**

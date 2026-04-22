@@ -146,6 +146,12 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
                         @Param("startDate") LocalDate startDate,
                         @Param("endDate") LocalDate endDate);
 
+        @Query("SELECT a FROM Attendance a WHERE a.classRoom.school = :school AND a.attendanceDate BETWEEN :startDate AND :endDate")
+        List<Attendance> findByClassRoom_SchoolAndAttendanceDateBetween(
+                        @Param("school") com.schoolmanagement.backend.domain.entity.admin.School school,
+                        @Param("startDate") LocalDate startDate,
+                        @Param("endDate") LocalDate endDate);
+
         // ==================== Admin / Cleanup Methods ====================
 
         @Modifying
