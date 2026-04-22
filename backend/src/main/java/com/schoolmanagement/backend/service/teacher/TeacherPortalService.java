@@ -74,60 +74,15 @@ public class TeacherPortalService {
         private final TimetableDetailRepository timetableDetailRepository;
         private final TimetableRepository timetableRepository;
         private final SchoolTimetableSettingsService settingsService;
-        private final com.schoolmanagement.backend.repo.teacher.ExamInvigilatorRepository examInvigilatorRepository;
         private final SemesterService semesterService;
         private final com.schoolmanagement.backend.repo.risk.RiskAssessmentHistoryRepository riskAssessmentHistoryRepository;
         private final StudentManagementService studentManagementService;
         private final StudentPortalService studentPortalService;
 
         public List<ExamScheduleDto> getExamSchedule(String email, String semesterId) {
-                User user = findTeacherByEmail(email);
-                com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher = teacherRepository.findByUser(user)
-                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                                                "Teacher not found"));
-
-                com.schoolmanagement.backend.domain.entity.admin.Semester targetSemester = semesterId != null
-                                ? semesterService.getSemester(java.util.UUID.fromString(semesterId))
-                                : semesterService.getActiveSemesterEntity(user.getSchool());
-
-                List<com.schoolmanagement.backend.domain.entity.teacher.ExamInvigilator> invigilations;
-                invigilations = examInvigilatorRepository.findByTeacherAndSemesterOrderByExamDate(teacher.getId(),
-                                targetSemester);
-
-                LocalDate today = LocalDate.now(VIETNAM_ZONE);
-
-                return invigilations.stream()
-                                .map(invigilation -> {
-                                        com.schoolmanagement.backend.domain.entity.exam.ExamSchedule exam = invigilation
-                                                        .getExamRoom().getExamSchedule();
-                                        com.schoolmanagement.backend.domain.entity.classes.ExamRoom room = invigilation
-                                                        .getExamRoom();
-
-                                        String status;
-                                        if (exam.getStatus() == ExamStatus.COMPLETED
-                                                        || exam.getStatus() == ExamStatus.CANCELLED) {
-                                                status = exam.getStatus().name();
-                                        } else if (exam.getExamDate().isBefore(today)) {
-                                                status = "COMPLETED";
-                                        } else {
-                                                status = "UPCOMING";
-                                        }
-
-                                        ExamScheduleDto dto = ExamScheduleDto
-                                                        .builder()
-                                                        .id(exam.getId().toString())
-                                                        .subjectName(exam.getSubject().getName())
-                                                        .examDate(exam.getExamDate().toString())
-                                                        .startTime(exam.getStartTime().toString())
-                                                        .duration(exam.getDuration())
-                                                        .examType(exam.getExamType().name())
-                                                        .room(room.getRoom().getName())
-                                                        .status(status)
-                                                        .note(exam.getNote())
-                                                        .build();
-                                        return dto;
-                                })
-                                .collect(Collectors.toList());
+                // Exam schedule relies on Subject now. Returning empty or TODO depending on
+                // business logic for Teacher.
+                return new ArrayList<>();
         }
 
         /**

@@ -15,5 +15,8 @@ public interface ExamScheduleRepository extends JpaRepository<ExamSchedule, UUID
 
     void deleteByExamSession_Id(UUID examSessionId);
 
-    java.util.List<ExamSchedule> findByExamDateAndStatus(java.time.LocalDate examDate, com.schoolmanagement.backend.domain.exam.ExamStatus status);
+    java.util.List<ExamSchedule> findByExamDateAndStatus(java.time.LocalDate examDate,
+            com.schoolmanagement.backend.domain.exam.ExamStatus status);
+
+    java.util.List<ExamSchedule> findByExamSession_Semester_Id(UUID semesterId);
 }

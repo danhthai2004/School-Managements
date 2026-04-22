@@ -9,7 +9,6 @@ import com.schoolmanagement.backend.repo.attendance.AttendanceRepository;
 import com.schoolmanagement.backend.repo.student.GuardianRepository;
 import com.schoolmanagement.backend.repo.auth.UserRepository;
 import com.schoolmanagement.backend.repo.teacher.TeacherAssignmentRepository;
-import com.schoolmanagement.backend.repo.teacher.ExamInvigilatorRepository;
 import com.schoolmanagement.backend.repo.timetable.TimetableDetailRepository;
 
 import com.schoolmanagement.backend.domain.entity.student.Student;
@@ -41,7 +40,6 @@ public class BulkDeleteHelperService {
     private final AttendanceRepository attendanceRepo;
     private final GuardianRepository guardianRepo;
     private final UserRepository userRepo;
-    private final ExamInvigilatorRepository examInvigilatorRepo;
     private final SemesterService semesterService;
 
     // Additional Repos for cleanup if not covered by main repo methods
@@ -264,7 +262,6 @@ public class BulkDeleteHelperService {
         validateNoTimetable(teacher);
         validateNoGrades(teacher);
         validateNoAttendance(teacher);
-        validateNoExamInvigilation(teacher);
 
         // Cleanup and Delete
         User user = teacher.getUser();
@@ -321,15 +318,6 @@ public class BulkDeleteHelperService {
                     HttpStatus.BAD_REQUEST,
                     "Giáo viên " + teacher.getFullName()
                             + " đã ghi nhận thông tin điểm danh. Không thể xóa dữ liệu này.");
-        }
-    }
-
-    private void validateNoExamInvigilation(Teacher teacher) {
-        if (examInvigilatorRepo.existsByTeacher(teacher)) {
-            throw new ApiException(
-                    HttpStatus.BAD_REQUEST,
-                    "Giáo viên " + teacher.getFullName()
-                            + " đang được phân công giám thị trong các kỳ thi. Vui lòng gỡ bỏ phân công trước khi xóa.");
         }
     }
 
