@@ -541,28 +541,59 @@ export default function ClassMapPage() {
                     </p>
                 </div>
                 {isHomeroom && config && (
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        <button onClick={() => setShowConfigModal(true)} style={btnStyle('#f8fafc', '#334155', '1px solid #e2e8f0')}>
+                    <div className="flex flex-wrap gap-2 items-center">
+                        <button
+                            onClick={() => setShowConfigModal(true)}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-all shadow-sm"
+                        >
                             <GridIcon /> Cấu hình
                         </button>
-                        <button onClick={randomAssign} style={btnStyle('#f8fafc', '#334155', '1px solid #e2e8f0')}>
+                        <button
+                            onClick={randomAssign}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-all shadow-sm"
+                        >
                             <ShuffleIcon /> Ngẫu nhiên
                         </button>
-                        <button onClick={resetStudents} style={btnStyle('#f8fafc', '#334155', '1px solid #e2e8f0')}>
+                        <button
+                            onClick={resetStudents}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-all shadow-sm"
+                        >
                             <ResetIcon /> Reset HS
                         </button>
-                        <button onClick={resetAll} style={btnStyle('#fff1f2', '#e11d48', '1px solid #fecdd3')}>
+                        <button
+                            onClick={handleExport}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-all shadow-sm"
+                        >
+                            <DownloadIcon /> Xuất Excel
+                        </button>
+                        <button
+                            onClick={resetAll}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-lg text-sm font-medium hover:from-rose-600 hover:to-red-600 transition-all shadow-sm shadow-red-500/10"
+                        >
                             <TrashIcon /> Reset tất cả
                         </button>
-                        <button onClick={handleExport} style={btnStyle('#f8fafc', '#334155', '1px solid #e2e8f0')}>
-                            <DownloadIcon /> Export
-                        </button>
-                        <div style={{ width: '1px', backgroundColor: '#e5e7eb', margin: '0 4px' }} />
-                        <button onClick={handleSave} disabled={saving} style={{
-                            ...btnStyle('#1e293b', '#ffffff'),
-                            opacity: saving ? 0.6 : 1,
-                        }}>
-                            <SaveIcon /> {saving ? 'Đang lưu...' : 'Lưu'}
+
+                        <div className="w-[1px] h-6 bg-slate-200 mx-1" />
+
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-600 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {saving ? (
+                                <>
+                                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Đang lưu...
+                                </>
+                            ) : (
+                                <>
+                                    <SaveIcon />
+                                    Lưu sơ đồ
+                                </>
+                            )}
                         </button>
                     </div>
                 )}
@@ -570,12 +601,10 @@ export default function ClassMapPage() {
 
             {/* Save message */}
             {saveMsg && (
-                <div style={{
-                    padding: '10px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', fontWeight: 500,
-                    backgroundColor: '#f8fafc',
-                    color: '#334155',
-                    border: '1px solid #e2e8f0'
-                }}>
+                <div className={`mt-4 px-4 py-3 rounded-lg text-sm font-medium border ${saveMsg.includes('Lỗi')
+                    ? 'bg-red-50 text-red-700 border-red-200'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`}>
                     {saveMsg}
                 </div>
             )}
@@ -1005,12 +1034,4 @@ function ObjectBar({
     );
 }
 
-// ==================== STYLES ====================
-function btnStyle(bg: string, color: string, border: string = 'none'): React.CSSProperties {
-    return {
-        display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px',
-        borderRadius: '8px', backgroundColor: bg, color, border,
-        fontSize: '13px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
-        whiteSpace: 'nowrap', boxShadow: 'sm'
-    };
-}
+

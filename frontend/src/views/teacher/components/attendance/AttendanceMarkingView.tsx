@@ -4,6 +4,7 @@ import { vi } from "date-fns/locale";
 import { attendanceService, AttendanceStatus } from "../../../../services/attendanceService";
 import type { AttendanceDto } from "../../../../services/attendanceService";
 import { Clock, Lock, Save } from "lucide-react";
+import { vietnameseNameSort } from "../../../../utils/sortUtils";
 
 import { useToast } from "../../../../context/ToastContext";
 
@@ -107,7 +108,8 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
             setLoading(true);
             const dateStr = format(date, "yyyy-MM-dd");
             const data = await attendanceService.getAttendanceForSlot(dateStr, slotIndex);
-            setStudents(data);
+            const sortedData = [...data].sort((a, b) => vietnameseNameSort(a.studentName, b.studentName));
+            setStudents(sortedData);
         } catch (error) {
             console.error("Failed to load attendance:", error);
             toast.error("Không thể tải danh sách điểm danh");
@@ -300,7 +302,7 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
                         <button
                             onClick={handleSave}
                             disabled={saving}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl transition-all shadow-lg shadow-blue-500/20 font-semibold disabled:opacity-50 hover:from-blue-700 hover:to-blue-600"
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-600 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {saving ? (
                                 <>
@@ -312,7 +314,7 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
                                 </>
                             ) : (
                                 <>
-                                    <Save className="w-5 h-5" />
+                                    <Save className="w-4 h-4" strokeWidth={1.8} />
                                     Lưu điểm danh
                                 </>
                             )}

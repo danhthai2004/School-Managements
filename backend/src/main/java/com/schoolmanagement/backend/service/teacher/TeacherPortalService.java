@@ -336,7 +336,7 @@ public class TeacherPortalService {
                 ClassRoom homeroom;
 
                 if (classId != null) {
-                        homeroom = classRoomRepository.findById(classId)
+                        homeroom = classRoomRepository.findWithTeacherById(classId)
                                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                                                         "Class not found"));
                         if (homeroom.getHomeroomTeacher() == null

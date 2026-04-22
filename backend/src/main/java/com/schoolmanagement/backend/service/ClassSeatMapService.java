@@ -22,6 +22,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional(readOnly = true)
 public class ClassSeatMapService {
 
         private final ClassSeatMapRepository classSeatMapRepository;

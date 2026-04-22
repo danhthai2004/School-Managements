@@ -87,16 +87,16 @@ export default function RiskDashboardPage() {
                         <Shield className="w-6 h-6 text-indigo-600" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">AI Risk Analytics Dashboard</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">Hệ thống Phân tích Rủi ro AI</h1>
                         <p className="text-sm text-gray-500">Tổng quan rủi ro toàn trường theo AI phân tích</p>
                     </div>
                 </div>
                 <button
                     onClick={handleTriggerAnalysis}
                     disabled={triggerLoading}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm font-medium"
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-lg text-sm font-medium hover:from-indigo-700 hover:to-indigo-600 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    {triggerLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                    {triggerLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" strokeWidth={1.8} />}
                     {triggerLoading ? "Đang phân tích..." : "Kích hoạt AI phân tích"}
                 </button>
             </div>
@@ -144,7 +144,7 @@ export default function RiskDashboardPage() {
             {/* Tabs */}
             <div className="flex gap-2 bg-gray-100/80 p-1.5 rounded-xl w-fit">
                 <button onClick={() => setActiveTab("heatmap")} className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${activeTab === "heatmap" ? "bg-white shadow-sm text-indigo-700 font-semibold" : "text-gray-500 hover:text-gray-800 hover:bg-gray-200/50"}`}>
-                    <Map className="w-4 h-4" /> Heatmap Lớp Học
+                    <Map className="w-4 h-4" /> Bản đồ nhiệt Lớp học
                 </button>
                 <button onClick={() => setActiveTab("alerts")} className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all relative ${activeTab === "alerts" ? "bg-white shadow-sm text-indigo-700 font-semibold" : "text-gray-500 hover:text-gray-800 hover:bg-gray-200/50"}`}>
                     <BellRing className="w-4 h-4" /> Cảnh Báo ({alerts.length})
