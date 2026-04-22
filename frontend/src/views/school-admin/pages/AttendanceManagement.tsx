@@ -22,6 +22,8 @@ import {
     BookOpen
 } from "lucide-react";
 
+import { useToast } from "../../../context/ToastContext";
+
 const AttendanceStatus = {
     PRESENT: "PRESENT",
     ABSENT_EXCUSED: "ABSENT_EXCUSED",
@@ -32,6 +34,7 @@ const AttendanceStatus = {
 type AttendanceStatusType = typeof AttendanceStatus[keyof typeof AttendanceStatus];
 
 export default function AttendanceManagement() {
+    const { toast } = useToast();
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>("");
     const [selectedDate, setSelectedDate] = useState(new Date());
@@ -161,12 +164,20 @@ export default function AttendanceManagement() {
                 });
                 setSkippedStudents(skippedWithDetails);
                 setShowSkippedModal(true);
+                toast.error(`Lưu thành công, nhưng có ${res.skippedStudents.length} học sinh bị bỏ qua.`);
             } else {
-                alert("Lưu điểm danh thành công!");
+                toast.success("Lưu điểm danh thành công!");
             }
         } catch (error: any) {
             console.error("Failed to save:", error);
-            alert(error.response?.data?.message || "Lỗi khi lưu điểm danh");
+            const status = error.response?.status;
+            const message = error.response?.data?.message || "Lỗi khi lưu điểm danh";
+
+            if (status === 400 || status === 403 || status === 404 || status === 409) {
+                toast.error(message);
+            } else {
+                toast.error("Hệ thống gặp sự cố. Vui lòng thử lại sau.");
+            }
         } finally {
             setSaving(false);
         }

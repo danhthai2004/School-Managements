@@ -84,14 +84,21 @@ public class AttendanceService {
                 List<ClassEnrollment> enrollments = classEnrollmentRepository
                                 .findAllByClassRoomAndAcademicYear(classRoom, year);
 
-                // 2. Existing records (may be partial)
-                Map<UUID, Attendance> savedMap = attendanceRepository
-                                .findAllByClassRoomAndDateAndSlotIndex(classRoom, date, slotIndex)
-                                .stream()
-                                .collect(Collectors.toMap(
-                                                a -> a.getStudent().getId(),
-                                                Function.identity(),
-                                                (a, b) -> a));
+                // 2. Existing records — look up by student IDs, not by classRoom
+                // to correctly find records even if classRoom was different
+                List<UUID> studentIds = enrollments.stream()
+                                .map(e -> e.getStudent().getId())
+                                .toList();
+
+                Map<UUID, Attendance> savedMap = studentIds.isEmpty()
+                                ? Collections.emptyMap()
+                                : attendanceRepository
+                                                .findAllByStudentIdInAndDateAndSlotIndex(studentIds, date, slotIndex)
+                                                .stream()
+                                                .collect(Collectors.toMap(
+                                                                a -> a.getStudent().getId(),
+                                                                Function.identity(),
+                                                                (a, b) -> a));
 
                 // 3. Merge: saved record wins, otherwise default to PRESENT
                 return enrollments.stream()
@@ -114,8 +121,15 @@ public class AttendanceService {
         // ==================== TEACHER: SAVE ATTENDANCE ====================
 
         /**
-         * Saves attendance for a specific slot. Validates date, time, and semester
-         * constraints.
+         * Saves attendance for a specific slot.
+         * 
+         * Flow:
+         * 1. Validate teacher owns this slot on this date
+         * 2. Validate date/time constraints
+         * 3. De-duplicate incoming records (prevent same student appearing twice)
+         * 4. Bulk-fetch existing DB records (one query, not N queries)
+         * 5. Upsert: update existing or create new
+         * 6. SaveAll in a single batch
          */
         @Transactional
         public SaveAttendanceResultDto saveAttendance(String email, SaveAttendanceRequest request) {
@@ -131,49 +145,60 @@ public class AttendanceService {
                 // --- Validation ---
                 validateAttendanceDate(date, teacher, slotIndex);
 
-                // --- Bulk fetch students and existing records ---
-                List<UUID> studentIds = request.getRecords().stream()
-                                .map(r -> UUID.fromString(r.getStudentId()))
-                                .toList();
+                // --- Step 1: De-duplicate incoming records ---
+                // If frontend sends the same studentId twice, keep only the first occurrence
+                Map<UUID, SaveAttendanceRequest.AttendanceRecord> uniqueRecords = new LinkedHashMap<>();
+                for (SaveAttendanceRequest.AttendanceRecord record : request.getRecords()) {
+                        UUID sid = UUID.fromString(record.getStudentId());
+                        uniqueRecords.putIfAbsent(sid, record);
+                }
+
+                List<UUID> studentIds = new ArrayList<>(uniqueRecords.keySet());
+                if (studentIds.isEmpty()) {
+                        return new SaveAttendanceResultDto(0, List.of());
+                }
+
+                // --- Step 2: Bulk-fetch students ---
                 Map<UUID, Student> studentMap = studentRepository.findAllById(studentIds).stream()
                                 .collect(Collectors.toMap(Student::getId, Function.identity()));
 
-                // Query existing records by student+date+slot (matches unique constraint)
-                // This avoids missing records that were bulk-inserted with a different
-                // classroom_id
-                Map<UUID, Attendance> existingMap = new HashMap<>();
-                for (UUID sId : studentIds) {
-                        Student s = studentMap.get(sId);
-                        if (s != null) {
-                                attendanceRepository.findByStudentAndDateAndSlotIndex(s, date, slotIndex)
-                                                .ifPresent(a -> existingMap.put(sId, a));
-                        }
-                }
+                // --- Step 3: Bulk-fetch existing attendance records ---
+                // One query matches the unique constraint (student_id, attendance_date,
+                // slot_index)
+                Map<UUID, Attendance> existingMap = attendanceRepository
+                                .findAllByStudentIdInAndDateAndSlotIndex(studentIds, date, slotIndex)
+                                .stream()
+                                .collect(Collectors.toMap(
+                                                a -> a.getStudent().getId(),
+                                                Function.identity(),
+                                                (a, b) -> a)); // handle unlikely duplicates
 
-                // --- Upsert ---
+                // --- Step 4: Upsert ---
                 List<Attendance> toSave = new ArrayList<>();
                 List<SaveAttendanceResultDto.SkippedStudentDto> skipped = new ArrayList<>();
 
-                for (SaveAttendanceRequest.AttendanceRecord record : request.getRecords()) {
-                        UUID sId = UUID.fromString(record.getStudentId());
-                        Student student = studentMap.get(sId);
+                for (Map.Entry<UUID, SaveAttendanceRequest.AttendanceRecord> entry : uniqueRecords.entrySet()) {
+                        UUID sid = entry.getKey();
+                        SaveAttendanceRequest.AttendanceRecord record = entry.getValue();
+                        Student student = studentMap.get(sid);
+
                         if (student == null) {
-                                log.warn("Student {} not found during attendance save", sId);
+                                log.warn("Student {} not found during attendance save", sid);
                                 skipped.add(new SaveAttendanceResultDto.SkippedStudentDto(
-                                                record.getStudentId(), "Học sinh không tồn tại trong hệ thống."));
+                                                sid.toString(), "Học sinh không tồn tại trong hệ thống."));
                                 continue;
                         }
 
-                        Attendance attendance = existingMap.get(sId);
+                        Attendance attendance = existingMap.get(sid);
                         if (attendance != null) {
-                                // Update existing record (also fix classroom/subject if needed)
+                                // UPDATE existing record
                                 attendance.setStatus(record.getStatus());
                                 attendance.setRemarks(record.getRemarks());
                                 attendance.setTeacher(teacher);
                                 attendance.setClassRoom(classRoom);
                                 attendance.setSubject(detail.getSubject());
                         } else {
-                                // Create new
+                                // INSERT new record
                                 attendance = Attendance.builder()
                                                 .student(student)
                                                 .classRoom(classRoom)
@@ -189,6 +214,10 @@ public class AttendanceService {
                 }
 
                 attendanceRepository.saveAll(toSave);
+
+                log.info("Saved attendance: {} records for slot {} on {} by teacher {}",
+                                toSave.size(), slotIndex, date, email);
+
                 return new SaveAttendanceResultDto(toSave.size(), skipped);
         }
 
@@ -361,7 +390,7 @@ public class AttendanceService {
                                 .build();
         }
 
-        // ==================== ADMIN STUBS ====================
+        // ==================== ADMIN: GET / SAVE ATTENDANCE ====================
 
         public List<AttendanceDto> getAttendanceForSlotAsAdmin(School school, UUID classRoomId,
                         LocalDate date, int slotIndex) {
@@ -374,14 +403,20 @@ public class AttendanceService {
                 List<ClassEnrollment> enrollments = classEnrollmentRepository
                                 .findAllByClassRoomAndAcademicYear(classRoom, year);
 
-                // 2. Existing records
-                Map<UUID, Attendance> savedMap = attendanceRepository
-                                .findAllByClassRoomAndDateAndSlotIndex(classRoom, date, slotIndex)
-                                .stream()
-                                .collect(Collectors.toMap(
-                                                a -> a.getStudent().getId(),
-                                                Function.identity(),
-                                                (a, b) -> a));
+                // 2. Existing records — bulk lookup by student IDs
+                List<UUID> studentIds = enrollments.stream()
+                                .map(e -> e.getStudent().getId())
+                                .toList();
+
+                Map<UUID, Attendance> savedMap = studentIds.isEmpty()
+                                ? Collections.emptyMap()
+                                : attendanceRepository
+                                                .findAllByStudentIdInAndDateAndSlotIndex(studentIds, date, slotIndex)
+                                                .stream()
+                                                .collect(Collectors.toMap(
+                                                                a -> a.getStudent().getId(),
+                                                                Function.identity(),
+                                                                (a, b) -> a));
 
                 // 3. Merge
                 return enrollments.stream()
@@ -409,8 +444,7 @@ public class AttendanceService {
                                                 "Lớp học không tồn tại."));
 
                 Timetable timetable = timetableRepository
-                                .findFirstBySchoolAndStatusOrderByCreatedAtDesc(school,
-                                                com.schoolmanagement.backend.domain.timetable.TimetableStatus.OFFICIAL)
+                                .findFirstBySchoolAndStatusOrderByCreatedAtDesc(school, TimetableStatus.OFFICIAL)
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                                                 "Chưa có thời khóa biểu chính thức."));
 
@@ -420,33 +454,65 @@ public class AttendanceService {
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                                                 "Không có tiết học này trong thời khóa biểu."));
 
-                List<Attendance> toSave = new ArrayList<>();
+                // De-duplicate
+                Map<UUID, SaveAttendanceRequest.AttendanceRecord> uniqueRecords = new LinkedHashMap<>();
                 for (SaveAttendanceRequest.AttendanceRecord item : request.getRecords()) {
-                        UUID studentId = UUID.fromString(item.getStudentId());
-                        Student student = studentRepository.findById(studentId)
-                                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                                                        "Không tìm thấy học sinh ID: " + studentId));
+                        UUID sid = UUID.fromString(item.getStudentId());
+                        uniqueRecords.putIfAbsent(sid, item);
+                }
 
-                        // Find or create
-                        Attendance attendance = attendanceRepository
-                                        .findByStudentAndDateAndSlotIndex(student, request.getDate(),
-                                                        request.getSlotIndex())
-                                        .orElseGet(() -> Attendance.builder()
-                                                        .student(student)
-                                                        .classRoom(classRoom)
-                                                        .subject(detail.getSubject())
-                                                        .attendanceDate(request.getDate())
-                                                        .slotIndex(request.getSlotIndex())
-                                                        .build());
+                List<UUID> studentIds = new ArrayList<>(uniqueRecords.keySet());
 
-                        attendance.setStatus(item.getStatus());
-                        attendance.setRemarks(item.getRemarks());
+                // Bulk fetch students
+                Map<UUID, Student> studentMap = studentRepository.findAllById(studentIds).stream()
+                                .collect(Collectors.toMap(Student::getId, Function.identity()));
+
+                // Bulk fetch existing records
+                Map<UUID, Attendance> existingMap = attendanceRepository
+                                .findAllByStudentIdInAndDateAndSlotIndex(studentIds, request.getDate(),
+                                                request.getSlotIndex())
+                                .stream()
+                                .collect(Collectors.toMap(
+                                                a -> a.getStudent().getId(),
+                                                Function.identity(),
+                                                (a, b) -> a));
+
+                List<Attendance> toSave = new ArrayList<>();
+                List<SaveAttendanceResultDto.SkippedStudentDto> skipped = new ArrayList<>();
+
+                for (Map.Entry<UUID, SaveAttendanceRequest.AttendanceRecord> entry : uniqueRecords.entrySet()) {
+                        UUID sid = entry.getKey();
+                        SaveAttendanceRequest.AttendanceRecord item = entry.getValue();
+                        Student student = studentMap.get(sid);
+
+                        if (student == null) {
+                                skipped.add(new SaveAttendanceResultDto.SkippedStudentDto(
+                                                sid.toString(), "Không tìm thấy học sinh."));
+                                continue;
+                        }
+
+                        Attendance attendance = existingMap.get(sid);
+                        if (attendance != null) {
+                                attendance.setStatus(item.getStatus());
+                                attendance.setRemarks(item.getRemarks());
+                                attendance.setClassRoom(classRoom);
+                                attendance.setSubject(detail.getSubject());
+                        } else {
+                                attendance = Attendance.builder()
+                                                .student(student)
+                                                .classRoom(classRoom)
+                                                .subject(detail.getSubject())
+                                                .attendanceDate(request.getDate())
+                                                .slotIndex(request.getSlotIndex())
+                                                .status(item.getStatus())
+                                                .remarks(item.getRemarks())
+                                                .build();
+                        }
                         toSave.add(attendance);
                 }
 
                 attendanceRepository.saveAll(toSave);
-
-                return new SaveAttendanceResultDto(toSave.size(), new ArrayList<>());
+                return new SaveAttendanceResultDto(toSave.size(), skipped);
         }
 
         public List<TimetableDetail> getTimetableSlotsForClassOnDate(School school, UUID classRoomId, LocalDate date) {
@@ -455,8 +521,7 @@ public class AttendanceService {
                                                 "Lớp học không tồn tại."));
 
                 Timetable timetable = timetableRepository
-                                .findFirstBySchoolAndStatusOrderByCreatedAtDesc(school,
-                                                com.schoolmanagement.backend.domain.timetable.TimetableStatus.OFFICIAL)
+                                .findFirstBySchoolAndStatusOrderByCreatedAtDesc(school, TimetableStatus.OFFICIAL)
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                                                 "Chưa có thời khóa biểu chính thức."));
 
@@ -511,7 +576,7 @@ public class AttendanceService {
          * - Cannot save for past dates (auto-locked after midnight)
          * - Cannot save for future dates
          * - Cannot save for closed semesters
-         * - Cannot save before slot start time (with grace period)
+         * - Cannot save before slot start time
          */
         private void validateAttendanceDate(LocalDate date, Teacher teacher, int slotIndex) {
                 LocalDate today = LocalDate.now(VIETNAM_ZONE);

@@ -7,7 +7,10 @@ import com.schoolmanagement.backend.domain.entity.teacher.Teacher;
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.classes.Subject;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -33,15 +36,15 @@ public class Attendance {
         private Student student;
 
         @ManyToOne(fetch = FetchType.LAZY)
-        @JoinColumn(name = "classroom_id")
+        @JoinColumn(name = "classroom_id", nullable = false)
         private ClassRoom classRoom;
 
         @ManyToOne(fetch = FetchType.LAZY)
-        @JoinColumn(name = "subject_id", nullable = false)
+        @JoinColumn(name = "subject_id")
         private Subject subject;
 
         @ManyToOne(fetch = FetchType.LAZY)
-        @JoinColumn(name = "teacher_id", nullable = true)
+        @JoinColumn(name = "teacher_id")
         private Teacher teacher;
 
         @Column(name = "attendance_date", nullable = false)
@@ -56,4 +59,12 @@ public class Attendance {
 
         @Column(columnDefinition = "TEXT")
         private String remarks;
+
+        @CreationTimestamp
+        @Column(name = "created_at", nullable = false, updatable = false)
+        private Instant createdAt;
+
+        @UpdateTimestamp
+        @Column(name = "updated_at")
+        private Instant updatedAt;
 }
