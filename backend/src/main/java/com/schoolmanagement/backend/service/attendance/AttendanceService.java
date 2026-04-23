@@ -120,17 +120,6 @@ public class AttendanceService {
 
         // ==================== TEACHER: SAVE ATTENDANCE ====================
 
-        /**
-         * Saves attendance for a specific slot.
-         * 
-         * Flow:
-         * 1. Validate teacher owns this slot on this date
-         * 2. Validate date/time constraints
-         * 3. De-duplicate incoming records (prevent same student appearing twice)
-         * 4. Bulk-fetch existing DB records (one query, not N queries)
-         * 5. Upsert: update existing or create new
-         * 6. SaveAll in a single batch
-         */
         @Transactional
         public SaveAttendanceResultDto saveAttendance(String email, SaveAttendanceRequest request) {
                 User user = findUserByEmail(email);
@@ -146,7 +135,6 @@ public class AttendanceService {
                 validateAttendanceDate(date, teacher, slotIndex);
 
                 // --- Step 1: De-duplicate incoming records ---
-                // If frontend sends the same studentId twice, keep only the first occurrence
                 Map<UUID, SaveAttendanceRequest.AttendanceRecord> uniqueRecords = new LinkedHashMap<>();
                 for (SaveAttendanceRequest.AttendanceRecord record : request.getRecords()) {
                         UUID sid = UUID.fromString(record.getStudentId());
@@ -158,67 +146,46 @@ public class AttendanceService {
                         return new SaveAttendanceResultDto(0, List.of());
                 }
 
-                // --- Step 2: Bulk-fetch students ---
+                // --- Step 2: Validate students exist ---
                 Map<UUID, Student> studentMap = studentRepository.findAllById(studentIds).stream()
                                 .collect(Collectors.toMap(Student::getId, Function.identity()));
 
-                // --- Step 3: Bulk-fetch existing attendance records ---
-                // One query matches the unique constraint (student_id, attendance_date,
-                // slot_index)
-                Map<UUID, Attendance> existingMap = attendanceRepository
-                                .findAllByStudentIdInAndDateAndSlotIndex(studentIds, date, slotIndex)
-                                .stream()
-                                .collect(Collectors.toMap(
-                                                a -> a.getStudent().getId(),
-                                                Function.identity(),
-                                                (a, b) -> a)); // handle unlikely duplicates
+                // --- Step 3: Atomic upsert per student ---
+                // Uses ON CONFLICT DO UPDATE so concurrent duplicate submits never cause 409
+                UUID classRoomId = classRoom.getId();
+                UUID subjectId = detail.getSubject().getId();
+                UUID teacherId = teacher.getId();
 
-                // --- Step 4: Upsert ---
-                List<Attendance> toSave = new ArrayList<>();
                 List<SaveAttendanceResultDto.SkippedStudentDto> skipped = new ArrayList<>();
+                int savedCount = 0;
 
                 for (Map.Entry<UUID, SaveAttendanceRequest.AttendanceRecord> entry : uniqueRecords.entrySet()) {
                         UUID sid = entry.getKey();
                         SaveAttendanceRequest.AttendanceRecord record = entry.getValue();
-                        Student student = studentMap.get(sid);
 
-                        if (student == null) {
+                        if (!studentMap.containsKey(sid)) {
                                 log.warn("Student {} not found during attendance save", sid);
                                 skipped.add(new SaveAttendanceResultDto.SkippedStudentDto(
                                                 sid.toString(), "Học sinh không tồn tại trong hệ thống."));
                                 continue;
                         }
 
-                        Attendance attendance = existingMap.get(sid);
-                        if (attendance != null) {
-                                // UPDATE existing record
-                                attendance.setStatus(record.getStatus());
-                                attendance.setRemarks(record.getRemarks());
-                                attendance.setTeacher(teacher);
-                                attendance.setClassRoom(classRoom);
-                                attendance.setSubject(detail.getSubject());
-                        } else {
-                                // INSERT new record
-                                attendance = Attendance.builder()
-                                                .student(student)
-                                                .classRoom(classRoom)
-                                                .subject(detail.getSubject())
-                                                .teacher(teacher)
-                                                .attendanceDate(date)
-                                                .slotIndex(slotIndex)
-                                                .status(record.getStatus())
-                                                .remarks(record.getRemarks())
-                                                .build();
-                        }
-                        toSave.add(attendance);
+                        attendanceRepository.upsertAttendanceRecord(
+                                        sid,
+                                        classRoomId,
+                                        subjectId,
+                                        teacherId,
+                                        date,
+                                        slotIndex,
+                                        record.getStatus().name(),
+                                        record.getRemarks() != null ? record.getRemarks() : "");
+                        savedCount++;
                 }
 
-                attendanceRepository.saveAll(toSave);
-
                 log.info("Saved attendance: {} records for slot {} on {} by teacher {}",
-                                toSave.size(), slotIndex, date, email);
+                                savedCount, slotIndex, date, email);
 
-                return new SaveAttendanceResultDto(toSave.size(), skipped);
+                return new SaveAttendanceResultDto(savedCount, skipped);
         }
 
         // ==================== HOMEROOM: DAILY SUMMARY ====================

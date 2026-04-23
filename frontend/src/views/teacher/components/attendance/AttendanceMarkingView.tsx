@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { format, startOfDay, isBefore, isEqual, isAfter } from "date-fns";
 import { vi } from "date-fns/locale";
 import { attendanceService, AttendanceStatus } from "../../../../services/attendanceService";
@@ -27,6 +27,7 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
 
     const [skippedStudents, setSkippedStudents] = useState<{ studentId: string; reason: string; studentName?: string; studentCode?: string }[]>([]);
     const [showSkippedModal, setShowSkippedModal] = useState(false);
+    const savingRef = useRef(false);
 
 
     // Lock attendance for non-today days (past = auto-locked, future = not allowed)
@@ -135,6 +136,8 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
     };
 
     const handleSave = async () => {
+        if (savingRef.current) return;
+        savingRef.current = true;
         try {
             setSaving(true);
             const dateStr = format(date, "yyyy-MM-dd");
@@ -181,6 +184,7 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
 
             toast.error(errorMessage);
         } finally {
+            savingRef.current = false;
             setSaving(false);
         }
     };

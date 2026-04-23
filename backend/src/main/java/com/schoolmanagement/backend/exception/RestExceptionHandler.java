@@ -119,7 +119,7 @@ public class RestExceptionHandler {
 
         if (rootCause != null) {
             String detail = rootCause.getMessage();
-            if (detail != null && detail.contains("idx_attendance_unique")) {
+            if (detail != null && (detail.contains("uq_attendance_student_date_slot") || detail.contains("idx_attendance_unique"))) {
                 message = "Điểm danh đã tồn tại cho học sinh này tại tiết học này. Vui lòng tải lại trang.";
             } else if (detail != null && detail.contains("idx_room_name_building_school")) {
                 message = "Phòng học này đã tồn tại trong tòa nhà này.";

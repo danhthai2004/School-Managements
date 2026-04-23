@@ -154,6 +154,34 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
                         @Param("startDate") LocalDate startDate,
                         @Param("endDate") LocalDate endDate);
 
+        // ==================== Upsert ====================
+
+        /**
+         * Atomic upsert: INSERT on first save, UPDATE on conflict with (student_id, attendance_date, slot_index).
+         * Prevents DataIntegrityViolationException from concurrent duplicate submissions.
+         */
+        @Modifying
+        @Query(value = """
+                INSERT INTO attendance (id, student_id, classroom_id, subject_id, teacher_id, attendance_date, slot_index, status, remarks, created_at, updated_at)
+                VALUES (gen_random_uuid(), :studentId, :classRoomId, :subjectId, :teacherId, :date, :slotIndex, :status, :remarks, NOW(), NOW())
+                ON CONFLICT (student_id, attendance_date, slot_index) DO UPDATE SET
+                    status     = EXCLUDED.status,
+                    remarks    = EXCLUDED.remarks,
+                    teacher_id = EXCLUDED.teacher_id,
+                    classroom_id = EXCLUDED.classroom_id,
+                    subject_id = EXCLUDED.subject_id,
+                    updated_at = NOW()
+                """, nativeQuery = true)
+        void upsertAttendanceRecord(
+                @Param("studentId") UUID studentId,
+                @Param("classRoomId") UUID classRoomId,
+                @Param("subjectId") UUID subjectId,
+                @Param("teacherId") UUID teacherId,
+                @Param("date") java.time.LocalDate date,
+                @Param("slotIndex") int slotIndex,
+                @Param("status") String status,
+                @Param("remarks") String remarks);
+
         // ==================== Admin / Cleanup Methods ====================
 
         @Modifying

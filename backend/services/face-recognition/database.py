@@ -3,6 +3,7 @@ Database connection and pgVector-backed face embeddings table.
 Shares PostgreSQL with the main SpringBoot app but owns its own table.
 """
 
+import logging
 import os
 from sqlalchemy import (
     create_engine, Column, String, Float, Boolean, Integer, DateTime, func, text
@@ -10,13 +11,17 @@ from sqlalchemy import (
 from sqlalchemy.orm import sessionmaker, declarative_base
 from pgvector.sqlalchemy import Vector
 
-# Default matches docker-compose.yml credentials (postgres/postgres)
+logger = logging.getLogger(__name__)
+
+# Default: local docker-compose postgres. Override via DATABASE_URL env var.
+# For Supabase session pooler: postgresql://user:pass@host:5432/postgres?sslmode=require
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql://postgres:postgres@postgres:5432/school_db"
 )
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_size=5)
+# pool_size=3 for cloud poolers; pool_pre_ping validates connections before use
+engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_size=3, max_overflow=5)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -41,13 +46,16 @@ class FaceEmbedding(Base):
 
 
 def init_db():
-    """Create pgVector extension and tables if they don't exist."""
-    # Enable pgvector extension (requires pgvector/pgvector:pg16 image)
-    with engine.connect() as conn:
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        conn.commit()
+    """Enable pgvector extension (if not already) and create tables."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            conn.commit()
+    except Exception as e:
+        # Supabase enables pgvector by default — this is a no-op there.
+        # Log and continue; table creation below will fail if extension truly missing.
+        logger.warning("pgvector extension setup: %s", e)
 
-    # Create face_embeddings table
     Base.metadata.create_all(bind=engine)
 
 

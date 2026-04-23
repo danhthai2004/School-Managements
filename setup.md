@@ -273,3 +273,18 @@ cd backend
 ./mvnw clean install -DskipTests
 ./mvnw spring-boot:run
 ```
+
+
+#### setup by Na
+câu lệnh mỗi lần build lại prj:
+1. sử dụng db local
+   docker compose up -d --build
+
+2. sử dụng db supabase
+   docker compose --env-file .env --env-file .env.supabase up -d --build
+
+
+#### Thêm tên service nếu chỉ muốn build một service cụ thể
+  docker compose up -d --build backend
+  docker compose up -d --build frontend
+  

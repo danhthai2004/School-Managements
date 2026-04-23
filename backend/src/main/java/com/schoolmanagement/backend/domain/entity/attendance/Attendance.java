@@ -23,7 +23,7 @@ import java.util.UUID;
 @Table(name = "attendance", indexes = {
         @Index(name = "idx_attendance_date", columnList = "attendance_date"),
         @Index(name = "idx_attendance_student", columnList = "student_id"),
-        @Index(name = "idx_attendance_unique", columnList = "student_id, attendance_date, slot_index", unique = true)
+        @Index(name = "uq_attendance_student_date_slot", columnList = "student_id, attendance_date, slot_index", unique = true)
 })
 public class Attendance {
     @Id
