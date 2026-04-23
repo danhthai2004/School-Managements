@@ -399,6 +399,8 @@ public class StudentAccountService {
                 currentClassName,
                 currentClassId,
                 student.getUser() != null,
+                student.getPreferredCombination() != null ? student.getPreferredCombination().getId() : null,
+                student.getPreferredCombination() != null ? student.getPreferredCombination().getName() : null,
                 guardianDto);
     }
 

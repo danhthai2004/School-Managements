@@ -100,6 +100,10 @@ function StudentDetailModal({ isOpen, student, onClose, onEdit }: StudentDetailM
                                 <p className="text-sm font-medium text-gray-900">{student.currentClassName || '—'}</p>
                             </div>
                             <div>
+                                <span className="text-xs text-gray-500">Tổ hợp mong muốn</span>
+                                <p className="text-sm font-medium text-blue-600 font-bold">{student.combinationName || '—'}</p>
+                            </div>
+                            <div>
                                 <span className="text-xs text-gray-500">Ngày nhập học</span>
                                 <p className="text-sm font-medium text-gray-900">{formatDate(student.enrollmentDate)}</p>
                             </div>

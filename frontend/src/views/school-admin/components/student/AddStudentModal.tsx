@@ -38,6 +38,7 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes, combinations, de
     const [assignmentMode, setAssignmentMode] = useState<'MANUAL' | 'AUTO'>("MANUAL");
     const [autoGrade, setAutoGrade] = useState<number>(10);
     const [autoCombinationId, setAutoCombinationId] = useState("");
+    const [manualCombinationId, setManualCombinationId] = useState("");
 
     const [guardianName, setGuardianName] = useState("");
     const [guardianPhone, setGuardianPhone] = useState("");
@@ -136,7 +137,7 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes, combinations, de
                 classId: assignmentMode === 'MANUAL' ? (classId || undefined) : undefined,
                 academicYear: academicYear,
                 grade: assignmentMode === 'AUTO' ? autoGrade : undefined,
-                combinationId: assignmentMode === 'AUTO' ? (autoCombinationId || undefined) : undefined,
+                combinationId: assignmentMode === 'AUTO' ? (autoCombinationId || undefined) : (manualCombinationId || undefined),
                 guardian: guardianName ? {
                     fullName: guardianName.trim(),
                     phone: guardianPhone.trim() || undefined,
@@ -147,7 +148,7 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes, combinations, de
             await schoolAdminService.createStudent(req);
             setFullName(""); setDateOfBirth(null); setDateInputValue(""); setGender("MALE");
             setBirthPlace(""); setAddress(""); setEmail(""); setPhone("");
-            setClassId(""); setAssignmentMode("MANUAL"); setAutoGrade(10); setAutoCombinationId("");
+            setClassId(""); setAssignmentMode("MANUAL"); setAutoGrade(10); setAutoCombinationId(""); setManualCombinationId("");
             setGuardianName(""); setGuardianPhone(""); setGuardianEmail(""); setGuardianRelationship("");
             onSuccess();
             onClose();
@@ -384,17 +385,32 @@ function AddStudentModal({ isOpen, onClose, onSuccess, classes, combinations, de
                                     </div>
 
                                     {assignmentMode === 'MANUAL' ? (
-                                        <div className="md:col-span-2">
-                                            <label className="block text-sm font-medium text-slate-600 mb-1.5">Lớp học</label>
-                                            <select
-                                                value={classId}
-                                                onChange={(e) => setClassId(e.target.value)}
-                                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
-                                            >
-                                                <option value="">-- Chọn lớp --</option>
-                                                {filteredClasses.map((c) => <option key={c.id} value={c.id}>{c.name} (Khối {c.grade})</option>)}
-                                                {filteredClasses.length === 0 && <option value="" disabled>Không có lớp nào trong năm học này</option>}
-                                            </select>
+                                        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-600 mb-1.5">Lớp học</label>
+                                                <select
+                                                    value={classId}
+                                                    onChange={(e) => setClassId(e.target.value)}
+                                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
+                                                >
+                                                    <option value="">-- Chưa xếp lớp --</option>
+                                                    {filteredClasses.map((c) => <option key={c.id} value={c.id}>{c.name} (Khối {c.grade})</option>)}
+                                                    {filteredClasses.length === 0 && <option value="" disabled>Không có lớp nào trong năm học này</option>}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-600 mb-1.5">Tổ hợp đăng ký</label>
+                                                <select
+                                                    value={manualCombinationId}
+                                                    onChange={(e) => setManualCombinationId(e.target.value)}
+                                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
+                                                >
+                                                    <option value="">-- Chọn tổ hợp --</option>
+                                                    {combinations.map((c) => (
+                                                        <option key={c.id} value={c.id}>{c.name} {c.code ? `(${c.code})` : ''}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
                                         </div>
                                     ) : (
                                         <>

@@ -31,4 +31,5 @@ public class ExamSessionDto {
     private LocalDate endDate;
 
     private ExamSessionStatus status;
+    private com.schoolmanagement.backend.domain.exam.ExamType type;
 }
