@@ -40,9 +40,9 @@ services:
       - "8081:8081"
       - "5005:5005"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/school_db
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/school_db}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET}
       SYSTEM_ADMIN_EMAIL: ${SYSTEM_ADMIN_EMAIL}
       SYSTEM_ADMIN_PASSWORD: ${SYSTEM_ADMIN_PASSWORD}
@@ -52,6 +52,10 @@ services:
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS}
       LLM_API_KEY: ${LLM_API_KEY:-}
       RISK_AI_API_KEY: ${RISK_AI_API_KEY:-}
+      FACE_RECOGNITION_SERVICE_URL: http://face-recognition:8000
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
     develop:
       watch:
         - action: sync
@@ -67,6 +71,7 @@ services:
     command: ./mvnw spring-boot:run
     depends_on:
       - postgres
+      - face-recognition
     networks:
       - school_net
     env_file: .env
@@ -93,20 +98,26 @@ services:
       - school_net
     env_file: .env
 
-#   face-recognition:
-#     build: ./backend/services/face-recognition
-#     container_name: school_face_recognition
-#     ports:
-#       - "8001:8000"
-#     environment:
-#       # Dùng Supabase URL — lấy từ .env
-#       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/school_db
-#     volumes:
-#       - insightface_models:/root/.insightface
-#     depends_on:
-#       - postgres
-#     networks:
-#       - school_net
+  face-recognition:
+    build: ./backend/services/face-recognition
+    container_name: school_face_recognition
+    ports:
+      - "8001:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/school_db}
+    volumes:
+      - insightface_models:/root/.insightface
+    depends_on:
+      - postgres
+    networks:
+      - school_net
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
 
 volumes:
   postgres_data:

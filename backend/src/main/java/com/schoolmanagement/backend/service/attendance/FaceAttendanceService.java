@@ -121,6 +121,11 @@ public class FaceAttendanceService {
 
             return response != null ? response : Map.of("success", false, "message", "No response");
         } catch (Exception e) {
+            if (isFaceServiceUnavailable(e)) {
+                log.warn("Face recognition service is not running at {}", faceServiceUrl);
+                throw new RuntimeException(
+                        "Dịch vụ nhận diện khuôn mặt chưa được khởi động. Vui lòng liên hệ quản trị viên.");
+            }
             log.error("Face registration failed", e);
             throw new RuntimeException("Đăng ký khuôn mặt thất bại: " + e.getMessage());
         }
@@ -192,6 +197,11 @@ public class FaceAttendanceService {
 
             return response;
         } catch (Exception e) {
+            if (isFaceServiceUnavailable(e)) {
+                log.warn("Face recognition service is not running at {}", faceServiceUrl);
+                throw new RuntimeException(
+                        "Dịch vụ nhận diện khuôn mặt chưa được khởi động. Vui lòng liên hệ quản trị viên.");
+            }
             log.error("Batch recognition failed", e);
             throw new RuntimeException("Nhận diện khuôn mặt thất bại: " + e.getMessage());
         }
@@ -347,6 +357,11 @@ public class FaceAttendanceService {
                     students, students.size(), registered, students.size() - registered);
 
         } catch (Exception e) {
+            if (isFaceServiceUnavailable(e)) {
+                log.warn("Face recognition service is not running at {}", faceServiceUrl);
+                throw new RuntimeException(
+                        "Dịch vụ nhận diện khuôn mặt chưa được khởi động. Vui lòng liên hệ quản trị viên.");
+            }
             log.error("Failed to get class registration status", e);
             throw new RuntimeException("Không thể lấy trạng thái đăng ký: " + e.getMessage());
         }
@@ -363,6 +378,11 @@ public class FaceAttendanceService {
                     .bodyToMono(Void.class)
                     .block();
         } catch (Exception e) {
+            if (isFaceServiceUnavailable(e)) {
+                log.warn("Face recognition service is not running at {}", faceServiceUrl);
+                throw new RuntimeException(
+                        "Dịch vụ nhận diện khuôn mặt chưa được khởi động. Vui lòng liên hệ quản trị viên.");
+            }
             log.error("Failed to delete face data for student {}", studentId, e);
             throw new RuntimeException("Không thể xoá dữ liệu khuôn mặt: " + e.getMessage());
         }
@@ -372,5 +392,14 @@ public class FaceAttendanceService {
      * Simple record for confirmed attendance entries from teacher.
      */
     public record ConfirmedStudent(String studentId, String status, double confidence) {
+    }
+
+    private boolean isFaceServiceUnavailable(Exception e) {
+        String msg = e.getMessage();
+        if (msg == null) {
+            Throwable cause = e.getCause();
+            msg = cause != null ? cause.getMessage() : "";
+        }
+        return msg != null && (msg.contains("Connection refused") || msg.contains("finishConnect"));
     }
 }
