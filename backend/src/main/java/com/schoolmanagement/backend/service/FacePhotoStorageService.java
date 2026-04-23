@@ -108,7 +108,12 @@ public class FacePhotoStorageService {
                         enrollments.size() - registered,
                         cls.getHomeroomTeacher() != null ? cls.getHomeroomTeacher().getFullName() : null));
             } catch (Exception e) {
-                log.warn("Failed to get face status for class {}: {}", cls.getName(), e.getMessage());
+                if (e.getMessage() != null && (e.getMessage().contains("Connection refused")
+                        || e.getMessage().contains("finishConnect"))) {
+                    log.debug("Face service unavailable at {}: {}", faceServiceUrl, e.getMessage());
+                } else {
+                    log.warn("Failed to get face status for class {}: {}", cls.getName(), e.getMessage());
+                }
                 classStatuses.add(new ClassFaceStatusDto(
                         cls.getId().toString(),
                         cls.getName(),
@@ -176,7 +181,12 @@ public class FacePhotoStorageService {
                     }
                 }
             } catch (Exception e) {
-                log.warn("Failed to get face status for class: {}", e.getMessage());
+                if (e.getMessage() != null && (e.getMessage().contains("Connection refused")
+                        || e.getMessage().contains("finishConnect"))) {
+                    log.debug("Face service unavailable at {}: {}", faceServiceUrl, e.getMessage());
+                } else {
+                    log.warn("Failed to get face status for class: {}", e.getMessage());
+                }
                 // Fall back to showing all students as unregistered
                 for (var enrollment : enrollments) {
                     Student student = enrollment.getStudent();
