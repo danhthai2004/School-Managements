@@ -21,9 +21,17 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import javax.imageio.ImageIO;
 
 /**
  * Service for School Admin to manage student face photos.
@@ -289,13 +297,13 @@ public class FacePhotoStorageService {
             if (imageUrl != null && !imageUrl.isBlank()) {
                 builder.part("image_url", imageUrl);
             }
-            builder.part("file", new ByteArrayResource(file.getBytes()) {
+            byte[] resizedBytes = resizeForFaceRecognition(file.getBytes());
+            builder.part("file", new ByteArrayResource(resizedBytes) {
                 @Override
                 public String getFilename() {
                     return file.getOriginalFilename();
                 }
-            }).contentType(MediaType.parseMediaType(
-                    file.getContentType() != null ? file.getContentType() : "image/jpeg"));
+            }).contentType(MediaType.IMAGE_JPEG);
 
             @SuppressWarnings("unchecked")
             Map<String, Object> result = webClient().post()
@@ -315,6 +323,90 @@ public class FacePhotoStorageService {
             return new UploadFacePhotoResult(success, message, imageUrl, count);
         } catch (IOException e) {
             log.error("Upload face photo failed", e);
+            throw new RuntimeException("Upload ảnh thất bại: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Bulk upload face photos: Cloudinary uploads in parallel, then one FastAPI call.
+     */
+    public BulkUploadFaceResult bulkUploadFacePhotos(School school, UUID studentId, List<MultipartFile> files) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy học sinh"));
+        if (!student.getSchool().getId().equals(school.getId())) {
+            throw new RuntimeException("Học sinh không thuộc trường này");
+        }
+
+        // 1. Upload all files to Cloudinary in parallel (optional)
+        String folder = "face-photos/" + school.getId() + "/" + studentId;
+        List<CompletableFuture<String>> cloudinaryFutures = files.stream()
+                .map(file -> CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return fileStorageService.uploadFile(file, folder);
+                    } catch (Exception e) {
+                        log.warn("Cloudinary upload skipped: {}", e.getMessage());
+                        return null;
+                    }
+                }))
+                .toList();
+
+        List<String> imageUrls = cloudinaryFutures.stream()
+                .map(f -> {
+                    try { return f.get(15, TimeUnit.SECONDS); }
+                    catch (Exception e) { return null; }
+                })
+                .toList();
+
+        // 2. Send all files to FastAPI /register-bulk in one request
+        try {
+            MultipartBodyBuilder builder = new MultipartBodyBuilder();
+            builder.part("student_id", studentId.toString());
+            builder.part("student_code", student.getStudentCode() != null ? student.getStudentCode() : "");
+            builder.part("student_name", student.getFullName() != null ? student.getFullName() : "");
+            builder.part("image_urls", imageUrls.stream()
+                    .map(u -> u != null ? u : "")
+                    .collect(Collectors.joining(",")));
+
+            for (MultipartFile file : files) {
+                byte[] resized = resizeForFaceRecognition(file.getBytes());
+                builder.part("files", new ByteArrayResource(resized) {
+                    @Override public String getFilename() { return file.getOriginalFilename(); }
+                }).contentType(MediaType.IMAGE_JPEG);
+            }
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = webClient().post()
+                    .uri("/register-bulk")
+                    .contentType(MediaType.MULTIPART_FORM_DATA)
+                    .body(BodyInserters.fromMultipartData(builder.build()))
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block();
+
+            int embeddingCount = response != null && response.get("embedding_count") != null
+                    ? ((Number) response.get("embedding_count")).intValue() : 0;
+
+            List<UploadFacePhotoResult> results = new ArrayList<>();
+            int successCount = 0, failCount = 0;
+
+            if (response != null) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> items = (List<Map<String, Object>>) response.get("results");
+                if (items != null) {
+                    for (Map<String, Object> item : items) {
+                        boolean ok = Boolean.TRUE.equals(item.get("success"));
+                        String msg = (String) item.get("message");
+                        String imgUrl = (String) item.get("image_url");
+                        results.add(new UploadFacePhotoResult(ok, ok ? "OK" : msg, imgUrl, embeddingCount));
+                        if (ok) successCount++;
+                        else failCount++;
+                    }
+                }
+            }
+
+            return new BulkUploadFaceResult(files.size(), successCount, failCount, results);
+        } catch (IOException e) {
+            log.error("Bulk upload face photos failed", e);
             throw new RuntimeException("Upload ảnh thất bại: " + e.getMessage());
         }
     }
@@ -381,6 +473,34 @@ public class FacePhotoStorageService {
     }
 
     // ─── Helpers ─────────────────────────────────────────
+
+    /**
+     * Resize image to max 800px on the longer side before sending to FastAPI.
+     * InsightFace uses 640x640 detection internally, so 800px is sufficient.
+     * Returns original bytes if already small enough or if resize fails.
+     */
+    private byte[] resizeForFaceRecognition(byte[] imageBytes) {
+        try {
+            BufferedImage original = ImageIO.read(new ByteArrayInputStream(imageBytes));
+            if (original == null) return imageBytes;
+            int maxDim = 800;
+            if (original.getWidth() <= maxDim && original.getHeight() <= maxDim) return imageBytes;
+            double scale = Math.min((double) maxDim / original.getWidth(), (double) maxDim / original.getHeight());
+            int w = (int) (original.getWidth() * scale);
+            int h = (int) (original.getHeight() * scale);
+            BufferedImage resized = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+            Graphics2D g = resized.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.drawImage(original, 0, 0, w, h, null);
+            g.dispose();
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            ImageIO.write(resized, "jpeg", out);
+            return out.toByteArray();
+        } catch (Exception e) {
+            log.warn("Image resize skipped: {}", e.getMessage());
+            return imageBytes;
+        }
+    }
 
     private Map<String, Object> callClassStatus(List<String> studentIds) {
         MultipartBodyBuilder builder = new MultipartBodyBuilder();
@@ -499,5 +619,12 @@ public class FacePhotoStorageService {
             String message,
             String imageUrl,
             int embeddingCount) {
+    }
+
+    public record BulkUploadFaceResult(
+            int totalFiles,
+            int successCount,
+            int failCount,
+            List<UploadFacePhotoResult> results) {
     }
 }
