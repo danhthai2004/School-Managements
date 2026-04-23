@@ -16,17 +16,19 @@ _face_app: Optional[FaceAnalysis] = None
 
 
 def get_face_app() -> FaceAnalysis:
-    """Lazy-load InsightFace model (buffalo_l). Downloads on first run."""
+    """Lazy-load InsightFace model (buffalo_sc). Optimized for low RAM (512MB)."""
     global _face_app
     if _face_app is None:
-        logger.info("Loading InsightFace model (buffalo_l)...")
+        logger.info("Loading InsightFace model (buffalo_sc - LIGHT version)...")
         t0 = time.time()
+        # 'buffalo_sc' uses MobileFaceNet, much smaller than ResNet50-based buffalo_l
         _face_app = FaceAnalysis(
-            name="buffalo_l",
+            name="buffalo_sc",
             providers=["CPUExecutionProvider"],
         )
-        _face_app.prepare(ctx_id=0, det_size=(640, 640))
-        logger.info("InsightFace model loaded in %.1fs", time.time() - t0)
+        # Reduced det_size (320x320) further reduces RAM usage during analysis
+        _face_app.prepare(ctx_id=0, det_size=(320, 320))
+        logger.info("InsightFace light model loaded in %.1fs", time.time() - t0)
     return _face_app
 
 
