@@ -31,9 +31,9 @@ public class FirebaseConfig {
                     java.io.File configFile = new java.io.File(firebaseConfigPath);
                     if (configFile.exists()) {
                         credentials = GoogleCredentials.fromStream(new FileInputStream(configFile));
-                        log.info("🔥 Khởi tạo Firebase Admin SDK bằng file config: {}", firebaseConfigPath);
+                        log.info("Khởi tạo Firebase Admin SDK bằng file config: {}", firebaseConfigPath);
                     } else {
-                        log.warn("⚠️ File cấu hình Firebase không tồn tại tại đường dẫn: {}. Push notification sẽ không hoạt động.", firebaseConfigPath);
+                        log.warn("File cấu hình Firebase không tồn tại tại đường dẫn: {}. Push notification sẽ không hoạt động.", firebaseConfigPath);
                         return;
                     }
                 } else {
@@ -42,9 +42,9 @@ public class FirebaseConfig {
                     if (resource.exists()) {
                         InputStream serviceAccount = resource.getInputStream();
                         credentials = GoogleCredentials.fromStream(serviceAccount);
-                        log.info("🔥 Khởi tạo Firebase Admin SDK bằng classpath resource.");
+                        log.info("Khởi tạo Firebase Admin SDK bằng classpath resource.");
                     } else {
-                        log.warn("⚠️ File 'firebase-service-account.json' không tồn tại trong resources. Push notification sẽ không hoạt động.");
+                        log.warn("File 'firebase-service-account.json' không tồn tại trong resources. Push notification sẽ không hoạt động.");
                         return;
                     }
                 }
@@ -54,10 +54,10 @@ public class FirebaseConfig {
                         .build();
 
                 FirebaseApp.initializeApp(options);
-                log.info("✅ Firebase Admin SDK đã được khởi tạo thành công.");
+                log.info("Firebase Admin SDK đã được khởi tạo thành công.");
             }
         } catch (IOException e) {
-            log.warn("⚠️ Không thể khởi tạo Firebase Admin SDK (Push notification sẽ không hoạt động): {}", e.getMessage());
+            log.warn("Không thể khởi tạo Firebase Admin SDK (Push notification sẽ không hoạt động): {}", e.getMessage());
         }
     }
 }
