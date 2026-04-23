@@ -186,7 +186,8 @@ public class NotificationService {
                 .createdBy(createdBy)
                 .build();
 
-        notification = notificationRepository.save(notification);
+        // saveAndFlush ensures the notification row is in the DB before the native FK-referencing INSERT runs
+        notification = notificationRepository.saveAndFlush(notification);
 
         // Phân phát thông báo tới các recipients
         List<User> targetUsers = resolveTargetUsers(request.targetGroup(), request.referenceId());
@@ -224,7 +225,7 @@ public class NotificationService {
                         : String.valueOf(exam.getGrade()))
                 .build();
 
-        notification = notificationRepository.save(notification);
+        notification = notificationRepository.saveAndFlush(notification);
         batchCreateRecipients(notification, targetUsers);
         log.info("Đã gửi thông báo lịch thi tới {} tài khoản.", targetUsers.size());
     }
@@ -255,7 +256,7 @@ public class NotificationService {
                 .referenceId(classRoom.getId().toString())
                 .build();
 
-        notification = notificationRepository.save(notification);
+        notification = notificationRepository.saveAndFlush(notification);
         batchCreateRecipients(notification, targetUsers);
         log.info("Đã gửi thông báo TKB lớp {} tới {} tài khoản.", classRoom.getName(), targetUsers.size());
     }
@@ -288,7 +289,7 @@ public class NotificationService {
                 .referenceId(teacher.getId().toString())
                 .build();
 
-        notification = notificationRepository.save(notification);
+        notification = notificationRepository.saveAndFlush(notification);
         batchCreateRecipients(notification, targetUsers);
         log.info("Đã gửi thông báo lịch dạy cho GV {}.", teacher.getFullName());
     }
@@ -376,7 +377,7 @@ public class NotificationService {
                 .createdBy(teacherUser)
                 .build();
 
-        notification = notificationRepository.save(notification);
+        notification = notificationRepository.saveAndFlush(notification);
 
         List<User> targetUsers = resolveClassUsers(request.referenceId());
         batchCreateRecipients(notification, targetUsers);
@@ -524,21 +525,16 @@ public class NotificationService {
         if (users == null || users.isEmpty())
             return;
 
-        java.util.Map<UUID, User> uniqueUsers = new java.util.HashMap<>();
-        for (User u : users) {
-            if (u != null && u.getId() != null) {
-                uniqueUsers.putIfAbsent(u.getId(), u);
-            }
-        }
-
-        List<NotificationRecipient> recipients = uniqueUsers.values().stream()
-                .map(user -> NotificationRecipient.builder()
-                        .notification(notification)
-                        .user(user)
-                        .build())
+        List<UUID> userIds = users.stream()
+                .filter(u -> u != null && u.getId() != null)
+                .map(User::getId)
+                .distinct()
                 .toList();
 
-        recipientRepository.saveAll(recipients);
+        if (userIds.isEmpty()) return;
+
+        // ON CONFLICT DO NOTHING handles any stale unique constraints in the DB
+        recipientRepository.batchInsertByUserIds(notification.getId(), userIds);
 
         // Fetch FCM tokens and push
         List<String> fcmTokens = deviceTokenRepository.findFcmTokensByUsers(users);

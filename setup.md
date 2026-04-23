@@ -30,7 +30,7 @@ description: Thiết lập và chạy dự án School-Managements (Full Stack - 
 # Từ thư mục gốc dự án
 docker compose up -d postgres
 
- docker compose up postgres pgadmin backend frontend -d --build 
+ docker compose up postgres pgadmin backend frontend -d --build
 ```
 
 ### Bước 2: Chạy Backend (Port 8081)

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -30,4 +31,12 @@ public interface NotificationRecipientRepository extends JpaRepository<Notificat
     Optional<NotificationRecipient> findByIdAndUserId(UUID id, UUID userId);
 
     Optional<NotificationRecipient> findByNotificationIdAndUserId(UUID notificationId, UUID userId);
+
+    @Modifying
+    @Query(value = "INSERT INTO notification_recipients (id, notification_id, user_id, is_read) " +
+                   "SELECT gen_random_uuid(), :notificationId, u.id, false " +
+                   "FROM users u WHERE u.id IN (:userIds) " +
+                   "ON CONFLICT DO NOTHING",
+           nativeQuery = true)
+    void batchInsertByUserIds(@Param("notificationId") UUID notificationId, @Param("userIds") List<UUID> userIds);
 }

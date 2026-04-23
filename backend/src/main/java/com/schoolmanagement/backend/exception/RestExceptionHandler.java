@@ -128,7 +128,7 @@ public class RestExceptionHandler {
             }
         }
 
-        log.error("Data integrity violation: {}", message, ex);
+        log.error("Data integrity violation — root cause: {}", rootCause != null ? rootCause.getMessage() : "null", ex);
         var status = HttpStatus.CONFLICT;
         var body = new ApiError(Instant.now(), status.value(), status.getReasonPhrase(), message, req.getRequestURI());
         return ResponseEntity.status(status).body(body);
