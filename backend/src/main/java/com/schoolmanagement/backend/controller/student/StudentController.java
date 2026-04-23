@@ -1,6 +1,10 @@
 package com.schoolmanagement.backend.controller.student;
 
 import com.schoolmanagement.backend.dto.student.StudentProfileDto;
+import com.schoolmanagement.backend.dto.student.StudentPageResponse;
+import com.schoolmanagement.backend.dto.grade.ScoreDto;
+import com.schoolmanagement.backend.dto.admin.BulkDeleteResponse;
+import com.schoolmanagement.backend.dto.admin.BulkDeleteRequest;
 
 import com.schoolmanagement.backend.dto.admin.BulkPromoteResponse;
 import com.schoolmanagement.backend.dto.student.ImportStudentResult;
@@ -48,7 +52,7 @@ public class StudentController {
 
     @GetMapping("/students")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public com.schoolmanagement.backend.dto.student.StudentPageResponse listStudents(
+    public StudentPageResponse listStudents(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) UUID classId,
             @RequestParam(defaultValue = "0") int page,
@@ -57,13 +61,14 @@ public class StudentController {
             @RequestParam(required = false) Integer grade,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "fullName") String sortBy,
-            @RequestParam(defaultValue = "asc") String sortDir) {
+            @RequestParam(defaultValue = "asc") String sortDir,
+            @RequestParam(required = false) Boolean unassigned) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
         return studentManagementService.listStudents(
-                admin.getSchool(), classId, page, size, search, grade, status, sortBy, sortDir);
+                admin.getSchool(), classId, page, size, search, grade, status, sortBy, sortDir, unassigned);
     }
 
     @GetMapping("/students/{id}")
@@ -89,9 +94,9 @@ public class StudentController {
 
     @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     @PostMapping("/students/bulk-delete") // Changed to POST for reliable body payload support
-    public com.schoolmanagement.backend.dto.admin.BulkDeleteResponse bulkDeleteStudents(
+    public BulkDeleteResponse bulkDeleteStudents(
             @AuthenticationPrincipal UserPrincipal principal,
-            @Valid @RequestBody com.schoolmanagement.backend.dto.admin.BulkDeleteRequest request) {
+            @Valid @RequestBody BulkDeleteRequest request) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
@@ -143,6 +148,18 @@ public class StudentController {
         return studentManagementService.promoteStudents(admin.getSchool(), request);
     }
 
+    @Transactional
+    @PostMapping("/students/bulk-enroll")
+    public com.schoolmanagement.backend.dto.student.BulkEnrollResponse bulkEnrollStudents(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody com.schoolmanagement.backend.dto.student.BulkEnrollRequest request) {
+        var admin = userLookup.requireById(principal.getId());
+        if (admin.getSchool() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
+        }
+        return studentManagementService.bulkEnrollStudents(admin.getSchool(), request);
+    }
+
     /**
      * Import students from Excel file with auto class assignment
      * Excel columns: fullName (required), dateOfBirth, gender, department,
@@ -181,7 +198,7 @@ public class StudentController {
     }
 
     @GetMapping("/students/{id}/scores")
-    public List<com.schoolmanagement.backend.dto.grade.ScoreDto> getStudentScores(
+    public List<ScoreDto> getStudentScores(
             @PathVariable("id") UUID studentId,
             @RequestParam(required = false) String semesterId) {
         return studentPortalService.getScores(studentId, semesterId);

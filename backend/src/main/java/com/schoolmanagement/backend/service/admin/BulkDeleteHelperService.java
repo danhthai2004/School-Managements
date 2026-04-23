@@ -61,12 +61,12 @@ public class BulkDeleteHelperService {
         if (gradeRepo.existsByStudent(student)) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
-                    "Không thể xóa do học sinh đã có dữ liệu điểm số.");
+                    "Học sinh " + student.getFullName() + ": Không thể xóa do đã có dữ liệu điểm số.");
         }
         if (attendanceRepo.existsByStudent(student)) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
-                    "Không thể xóa do học sinh đã có dữ liệu điểm danh.");
+                    "Học sinh " + student.getFullName() + ": Không thể xóa do đã có dữ liệu điểm danh.");
         }
 
         // 3. Cleanup Garbage Data

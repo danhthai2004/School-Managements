@@ -7,33 +7,27 @@ import {
     type ImportStudentResult,
     type CombinationDto
 } from "../../../services/schoolAdminService";
+import { useToast } from "../../../context/ToastContext";
 import { PlusIcon } from "../SchoolAdminIcons";
 import { StatusBadge } from '../../../components/common/StatusBadge';
 import BatchDeleteModal from '../../../components/common/BatchDeleteModal';
 import { formatDate } from "../../../utils/dateHelpers";
 import Pagination from "../../../components/common/Pagination";
-// ... (imports)
 import { NoAcademicYearState } from "../../../components/common/EmptyState";
-import { useToast } from "../../../context/ToastContext";
 import { vietnameseNameSort } from "../../../utils/sortUtils";
-
-
-
-
-
-// Extracted modal components
 import ImportStudentResultModal from "../components/student/ImportStudentResultModal";
 import AddStudentModal from "../components/student/AddStudentModal";
 import StudentDetailModal from "../components/student/StudentDetailModal";
-
 import EditStudentModal from "../components/student/EditStudentModal";
 import ImportExcelModal from "../components/student/ImportExcelModal";
+import BulkAssignClassModal from "../components/student/BulkAssignClassModal";
 
 // ==================== PAGE COMPONENT ====================
 
 const StudentManagement = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
+    const { showSuccess, toast } = useToast();
 
     // Data states
     const [students, setStudents] = useState<StudentDto[]>([]);
@@ -64,9 +58,8 @@ const StudentManagement = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [importToastResult, setImportToastResult] = useState<ImportStudentResult | null>(null);
     const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
+    const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
     const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
-
-    const { showSuccess, toast } = useToast();
 
     // Debounce search
     useEffect(() => {
@@ -126,14 +119,16 @@ const StudentManagement = () => {
                 page,
                 size: pageSize,
                 search: debouncedSearch || undefined,
-                grade: gradeFilter ? parseInt(gradeFilter) : undefined,
+                grade: gradeFilter && gradeFilter !== 'UNASSIGNED' ? parseInt(gradeFilter) : undefined,
                 classId: classFilter || undefined,
                 status: statusFilter || undefined,
                 sortBy: sortConfig?.key || 'fullName',
-                sortDir: sortConfig?.direction || 'asc'
+                sortDir: sortConfig?.direction || 'asc',
+                unassigned: gradeFilter === 'UNASSIGNED' || undefined
             });
 
             let content = response.content;
+
             if (sortConfig?.key === 'fullName') {
                 content = [...content].sort((a, b) => {
                     return sortConfig.direction === 'asc'
@@ -210,12 +205,10 @@ const StudentManagement = () => {
             if (result.deleted > 0) {
                 fetchStudents(true);
                 setSelectedStudentIds(new Set());
-                showSuccess(`Đã xóa thành công ${result.deleted} học sinh`);
             }
             return result;
         } catch (error) {
-            toast.error("Có lỗi xảy ra khi xóa học sinh");
-            return { deleted: 0, failed: selectedStudentIds.size, errors: ["Lỗi hệ thống"] };
+            return { deleted: 0, failed: selectedStudentIds.size, errors: ["Lỗi hệ thống hoặc mất kết nối"] };
         }
     };
 
@@ -240,15 +233,26 @@ const StudentManagement = () => {
                 <h2 className="text-lg font-semibold text-gray-900">Danh sách học sinh</h2>
                 <div className="flex items-center gap-3">
                     {selectedStudentIds.size > 0 && (
-                        <button
-                            onClick={() => setShowBatchDeleteModal(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-all border border-red-200"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            <span>Xóa {selectedStudentIds.size} mục</span>
-                        </button>
+                        <>
+                            <button
+                                onClick={() => setShowBulkAssignModal(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg text-sm font-medium hover:bg-emerald-100 transition-all border border-emerald-200"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                                <span>Xếp lớp cho {selectedStudentIds.size} HS</span>
+                            </button>
+                            <button
+                                onClick={() => setShowBatchDeleteModal(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-all border border-red-200"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                <span>Xóa {selectedStudentIds.size} mục</span>
+                            </button>
+                        </>
                     )}
                     <button
                         onClick={async () => {
@@ -311,12 +315,17 @@ const StudentManagement = () => {
                 <select
                     value={gradeFilter}
                     onChange={(e) => { setGradeFilter(e.target.value); setPage(0); }}
-                    className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm focus:border-blue-500 outline-none"
+                    className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm focus:border-blue-500 outline-none font-medium text-slate-700"
                 >
-                    <option value="">Tất cả khối</option>
-                    <option value="10">Khối 10</option>
-                    <option value="11">Khối 11</option>
-                    <option value="12">Khối 12</option>
+                    <optgroup label="Cơ bản">
+                        <option value="">Tất cả khối</option>
+                        <option value="10">Khối 10</option>
+                        <option value="11">Khối 11</option>
+                        <option value="12">Khối 12</option>
+                    </optgroup>
+                    <optgroup label="Lọc nhanh">
+                        <option value="UNASSIGNED" className="font-bold">HS tự do (Chưa xếp lớp)</option>
+                    </optgroup>
                 </select>
 
                 <select
@@ -366,6 +375,7 @@ const StudentManagement = () => {
                                 <SortHeader label="Họ tên" sortKey="fullName" />
                                 <SortHeader label="Giới tính" sortKey="gender" />
                                 <SortHeader label="Ngày sinh" sortKey="dateOfBirth" />
+                                <SortHeader label="Tổ hợp" sortKey="combinationName" />
                                 <SortHeader label="Lớp" sortKey="currentClassName" />
                                 <SortHeader label="Trạng thái" sortKey="status" />
                             </tr>
@@ -395,7 +405,23 @@ const StudentManagement = () => {
                                         {stu.gender === 'MALE' ? 'Nam' : stu.gender === 'FEMALE' ? 'Nữ' : 'Khác'}
                                     </td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{formatDate(stu.dateOfBirth)}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">{stu.currentClassName || '—'}</td>
+                                    <td className="px-6 py-4">
+                                        {stu.combinationName ? (
+                                            <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold ${stu.combinationName.toLowerCase().includes('tự nhiên') ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' : 'bg-rose-50 text-rose-700 border border-rose-100'
+                                                }`}>
+                                                {stu.combinationName}
+                                            </span>
+                                        ) : (
+                                            <span className="text-gray-400 text-xs italic">Chưa chọn</span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-600 font-medium">
+                                        {stu.currentClassName ? (
+                                            <span className="text-blue-700">{stu.currentClassName}</span>
+                                        ) : (
+                                            <span className="text-orange-500 bg-orange-50 px-2 py-0.5 rounded text-xs">Phòng chờ</span>
+                                        )}
+                                    </td>
                                     <td className="px-6 py-4">
                                         <StatusBadge status={stu.status || 'ACTIVE'} />
                                     </td>
@@ -403,7 +429,7 @@ const StudentManagement = () => {
                             ))}
                             {students.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                                         Không tìm thấy học sinh nào phù hợp với bộ lọc.
                                     </td>
                                 </tr>
@@ -453,6 +479,7 @@ const StudentManagement = () => {
                 isOpen={showEditModal}
                 student={editingStudent}
                 classes={classes}
+                combinations={combinations}
                 onClose={() => {
                     setShowEditModal(false);
                     setEditingStudent(null);
@@ -461,6 +488,16 @@ const StudentManagement = () => {
                     fetchStudents();
                     showSuccess("Cập nhật thông tin học sinh thành công!");
                 }}
+            />
+            <BulkAssignClassModal
+                isOpen={showBulkAssignModal}
+                onClose={() => setShowBulkAssignModal(false)}
+                onSuccess={() => {
+                    fetchStudents();
+                    setSelectedStudentIds(new Set());
+                }}
+                selectedStudents={students.filter(s => selectedStudentIds.has(s.id))}
+                classes={sortedClasses}
             />
             <ImportExcelModal
                 isOpen={showImportModal}

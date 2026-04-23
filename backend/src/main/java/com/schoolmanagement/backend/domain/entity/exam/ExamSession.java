@@ -5,6 +5,7 @@ import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.admin.Semester;
 
 import com.schoolmanagement.backend.domain.exam.ExamSessionStatus;
+import com.schoolmanagement.backend.domain.exam.ExamType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -53,6 +54,10 @@ public class ExamSession {
     @Column(nullable = false, length = 20)
     @Builder.Default
     private ExamSessionStatus status = ExamSessionStatus.DRAFT;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "exam_type", nullable = false, length = 20)
+    private ExamType type; // MIDTERM or FINAL
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "school_id", nullable = false)
