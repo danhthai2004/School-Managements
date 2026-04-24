@@ -53,27 +53,39 @@ def compute_quality_score(face) -> float:
 
 def extract_embedding(image_data: bytes) -> dict:
     """
-    Detect the largest face and return its 512-d embedding as a Python list.
-    Returns: {success, embedding, quality_score, bbox, message}
+    Detect the largest face and return its 512-d embedding.
+    Provides detailed error statuses for different failure modes.
     """
-    img = image_bytes_to_cv2(image_data)
-    faces = get_face_app().get(img)
+    try:
+        img = image_bytes_to_cv2(image_data)
+        if img is None or img.size == 0:
+             return {"success": False, "message": "File ảnh bị hỏng hoặc không đúng định dạng", "error_code": "INVALID_IMAGE"}
+             
+        faces = get_face_app().get(img)
 
-    if not faces:
-        return {"success": False, "message": "Không phát hiện khuôn mặt trong ảnh"}
+        if not faces:
+            return {"success": False, "message": "Không phát hiện khuôn mặt trong ảnh. Vui lòng chụp rõ mặt và đủ ánh sáng.", "error_code": "NO_FACE_DETECTED"}
 
-    # Pick largest face
-    face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
-    quality = compute_quality_score(face)
-    bbox = face.bbox.astype(int).tolist()
+        # Pick largest face
+        face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+        quality = compute_quality_score(face)
+        
+        # Quality threshold: Avoid registering blurry or tiny faces
+        if quality < 0.25:
+             return {"success": False, "message": "Chất lượng ảnh quá thấp hoặc mặt quá mờ. Vui lòng thử lại.", "error_code": "LOW_QUALITY", "quality_score": quality}
 
-    return {
-        "success": True,
-        "embedding": face.embedding.tolist(),   # list[float] length 512
-        "quality_score": quality,
-        "bbox": bbox,
-        "message": "OK",
-    }
+        bbox = face.bbox.astype(int).tolist()
+
+        return {
+            "success": True,
+            "embedding": face.embedding.tolist(),
+            "quality_score": quality,
+            "bbox": bbox,
+            "message": "OK",
+        }
+    except Exception as e:
+        logger.error(f"Lỗi xử lý ảnh: {str(e)}")
+        return {"success": False, "message": f"Lỗi hệ thống khi xử lý ảnh: {str(e)}", "error_code": "SYSTEM_ERROR"}
 
 
 def detect_and_embed_all(image_data: bytes) -> list[dict]:

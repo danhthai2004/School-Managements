@@ -77,52 +77,59 @@ public class FacePhotoStorageService {
      */
     public FaceOverviewResponse getSchoolOverview(School school) {
         List<ClassRoom> classes = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(school);
-        long totalStudents = studentRepository.countBySchool(school);
 
+        // 1. Get all enrollments for the school in one go to avoid N+1
+        List<ClassEnrollment> allEnrollments = classEnrollmentRepository.findAllByClassRoomIn(classes);
+
+        // 2. Map student IDs to their registration status from FastAPI in ONE call
+        List<String> allStudentIds = allEnrollments.stream()
+                .map(e -> e.getStudent().getId().toString())
+                .toList();
+
+        Map<String, Boolean> registrationMap = new HashMap<>();
+        if (!allStudentIds.isEmpty()) {
+            try {
+                var status = callClassStatus(allStudentIds);
+                if (status != null && status.get("students") != null) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> studentList = (List<Map<String, Object>>) status.get("students");
+                    for (Map<String, Object> s : studentList) {
+                        registrationMap.put((String) s.get("student_id"), Boolean.TRUE.equals(s.get("is_registered")));
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Failed to get bulk face status: {}", e.getMessage());
+            }
+        }
+
+        // 3. Process classes using the pre-fetched registration map
         List<ClassFaceStatusDto> classStatuses = new ArrayList<>();
         int totalRegistered = 0;
+        int totalStudents = allEnrollments.size();
+
+        // Group enrollments by class for efficient processing
+        Map<UUID, List<ClassEnrollment>> enrollmentsByClass = allEnrollments.stream()
+                .collect(Collectors.groupingBy(e -> e.getClassRoom().getId()));
 
         for (ClassRoom cls : classes) {
-            var enrollments = classEnrollmentRepository.findAllByClassRoom(cls);
+            List<ClassEnrollment> enrollments = enrollmentsByClass.getOrDefault(cls.getId(), List.of());
             if (enrollments.isEmpty())
                 continue;
 
-            List<String> studentIds = enrollments.stream()
-                    .map(e -> e.getStudent().getId().toString())
-                    .toList();
+            int registeredInClass = (int) enrollments.stream()
+                    .filter(e -> registrationMap.getOrDefault(e.getStudent().getId().toString(), false))
+                    .count();
 
-            try {
-                var status = callClassStatus(studentIds);
-                int registered = 0;
-                if (status != null && status.get("total_registered") != null) {
-                    registered = ((Number) status.get("total_registered")).intValue();
-                }
-                totalRegistered += registered;
+            totalRegistered += registeredInClass;
 
-                classStatuses.add(new ClassFaceStatusDto(
-                        cls.getId().toString(),
-                        cls.getName(),
-                        cls.getGrade(),
-                        enrollments.size(),
-                        registered,
-                        enrollments.size() - registered,
-                        cls.getHomeroomTeacher() != null ? cls.getHomeroomTeacher().getFullName() : null));
-            } catch (Exception e) {
-                if (e.getMessage() != null && (e.getMessage().contains("Connection refused")
-                        || e.getMessage().contains("finishConnect"))) {
-                    log.debug("Face service unavailable at {}: {}", faceServiceUrl, e.getMessage());
-                } else {
-                    log.warn("Failed to get face status for class {}: {}", cls.getName(), e.getMessage());
-                }
-                classStatuses.add(new ClassFaceStatusDto(
-                        cls.getId().toString(),
-                        cls.getName(),
-                        cls.getGrade(),
-                        enrollments.size(),
-                        0,
-                        enrollments.size(),
-                        cls.getHomeroomTeacher() != null ? cls.getHomeroomTeacher().getFullName() : null));
-            }
+            classStatuses.add(new ClassFaceStatusDto(
+                    cls.getId().toString(),
+                    cls.getName(),
+                    cls.getGrade(),
+                    enrollments.size(),
+                    registeredInClass,
+                    enrollments.size() - registeredInClass,
+                    cls.getHomeroomTeacher() != null ? cls.getHomeroomTeacher().getFullName() : null));
         }
 
         return new FaceOverviewResponse(

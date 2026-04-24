@@ -9,7 +9,6 @@ import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.exam.ExamSession;
 import com.schoolmanagement.backend.domain.exam.ExamSessionStatus;
 import com.schoolmanagement.backend.domain.exam.ExamStatus;
-import com.schoolmanagement.backend.domain.exam.ExamType;
 import com.schoolmanagement.backend.repo.classes.SubjectRepository;
 
 import com.schoolmanagement.backend.dto.exam.ExamScheduleDetailDto;

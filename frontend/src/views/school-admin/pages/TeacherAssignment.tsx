@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { schoolAdminService, type ClassRoomDto } from "../../../services/schoolAdminService";
 import type { TeacherAssignmentDto } from "../../../services/dtos/TeacherAssignmentDto";
-import { RefreshCw, CheckCircle, Filter as FilterIcon } from "lucide-react";
+import { CheckCircle, Filter as FilterIcon } from "lucide-react";
 import { useToast } from "../../../context/ToastContext";
 import { useConfirmation } from "../../../hooks/useConfirmation";
+import { useAutoRefresh } from "../../../hooks/useAutoRefresh";
 
 export default function TeacherAssignment() {
     const { showSuccess, toast } = useToast();
-    const { confirm, ConfirmationDialog } = useConfirmation();
+    const { ConfirmationDialog } = useConfirmation();
 
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>("");
@@ -56,8 +57,8 @@ export default function TeacherAssignment() {
         }
     };
 
-    const fetchAssignments = async (classId: string) => {
-        setLoading(true);
+    const fetchAssignments = async (classId: string, silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const data = await schoolAdminService.listAssignments(classId);
             setAssignments(data);
@@ -76,42 +77,21 @@ export default function TeacherAssignment() {
             console.error(error);
             console.error("Không thể tải phân công chuyên môn", error);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
-    const handleInit = async () => {
-        confirm({
-            title: "Khởi tạo dữ liệu phân công",
-            message: (
-                <span>
-                    Hệ thống sẽ tự động tạo danh sách phân công cho tất cả các lớp dựa trên <strong>Tổ hợp môn</strong>.<br />
-                    <span className="text-sm text-gray-500 mt-2 block">
-                        Lưu ý: Các phân công đã có sẽ không bị ảnh hưởng.
-                    </span>
-                </span>
-            ),
-            confirmText: "Khởi tạo ngay",
-            onConfirm: async () => {
-                try {
-                    setLoading(true);
-                    await schoolAdminService.initializeAssignments();
-                    showSuccess("Khởi tạo dữ liệu thành công!");
-                    if (selectedClassId) fetchAssignments(selectedClassId);
-                } catch (error) {
-                    console.error(error);
-                    // keep simple alert or use a error toast if available, sticking to console/alert for error is distinct from confirmation request
-                    toast.error("Lỗi khởi tạo dữ liệu");
-                } finally {
-                    setLoading(false);
-                }
-            }
-        });
-    };
+
 
     const hasChanges = () => {
         return assignments.some(a => (a.teacherId || "") !== pendingAssignments[a.id]);
     };
+
+    useAutoRefresh(() => {
+        if (selectedClassId && !hasChanges()) {
+            fetchAssignments(selectedClassId, true);
+        }
+    }, { interval: 60000, revalidateOnFocus: true });
 
     const handleSaveAll = async () => {
         if (!hasChanges()) return;
@@ -172,13 +152,6 @@ export default function TeacherAssignment() {
                     <p className="text-gray-500">Gán giáo viên phụ trách cho từng môn học của lớp</p>
                 </div>
                 <div className="flex gap-3">
-                    <button
-                        onClick={handleInit}
-                        className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-                    >
-                        <RefreshCw className="w-5 h-5" />
-                        Khởi tạo lại Dữ liệu
-                    </button>
                     {hasChanges() && (
                         <button
                             onClick={handleSaveAll}
@@ -260,10 +233,7 @@ export default function TeacherAssignment() {
                 </div>
             ) : assignments.length === 0 ? (
                 <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300">
-                    <p className="text-gray-500 mb-4">Chưa có dữ liệu phân công cho lớp này.</p>
-                    <button onClick={handleInit} className="text-blue-600 font-medium hover:underline">
-                        Click để khởi tạo
-                    </button>
+                    <p className="text-gray-500 mb-4">Chưa có dữ liệu phân công cho lớp này. Hãy chắc chắn lớp này đã được gán tổ hợp môn.</p>
                 </div>
             ) : (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

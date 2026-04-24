@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -95,23 +94,16 @@ public class FacePhotoManagementController {
             @RequestPart List<MultipartFile> files) {
         var school = requireSchool(principal);
 
-        List<UploadFacePhotoResult> results = new ArrayList<>();
-        int successCount = 0;
-        int failCount = 0;
-
-        for (MultipartFile file : files) {
+        List<UploadFacePhotoResult> results = files.parallelStream().map(file -> {
             try {
-                var result = facePhotoService.uploadFacePhoto(school, studentId, file);
-                results.add(result);
-                if (result.success())
-                    successCount++;
-                else
-                    failCount++;
+                return facePhotoService.uploadFacePhoto(school, studentId, file);
             } catch (Exception e) {
-                failCount++;
-                results.add(new UploadFacePhotoResult(false, e.getMessage(), null, 0));
+                return new UploadFacePhotoResult(false, e.getMessage(), null, 0);
             }
-        }
+        }).toList();
+
+        int successCount = (int) results.stream().filter(UploadFacePhotoResult::success).count();
+        int failCount = results.size() - successCount;
 
         return ResponseEntity.ok(new BulkUploadResult(
                 files.size(), successCount, failCount, results));

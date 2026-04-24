@@ -296,8 +296,12 @@ export const schoolAdminService = {
 
     // Teachers
     listTeachers: async (): Promise<UserDto[]> => {
-        const res = await api.get<UserDto[]>("/school/teachers");
-        return res.data;
+        const res = await api.get<any>("/school/teachers");
+        // If it's a paginated response, extract content. If it's already an array, return it.
+        if (res.data && res.data.content) {
+            return res.data.content;
+        }
+        return Array.isArray(res.data) ? res.data : [];
     },
 
     listTeacherProfiles: async (page = 0, size = 50, search?: string): Promise<PageResponse<TeacherDto>> => {
