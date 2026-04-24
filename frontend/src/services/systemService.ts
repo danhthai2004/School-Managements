@@ -67,6 +67,16 @@ export type ActivityLogDto = {
   createdAt: string;
 };
 
+export type SystemStatsDto = {
+  totalSchools: number;
+  pendingDeleteSchools: number;
+  totalUsers: number;
+  pendingDeleteUsers: number;
+  totalStudents: number;
+  totalGuardians: number;
+  totalTeachers: number;
+};
+
 export type CreateSchoolRequest = {
   schoolName: string;
   schoolCode: string;
@@ -137,6 +147,12 @@ export type PageResponse<T> = {
 // ========== SERVICE ==========
 
 export const systemService = {
+  // Stats
+  getStats: async (): Promise<SystemStatsDto> => {
+    const res = await api.get<SystemStatsDto>("/system/stats");
+    return res.data;
+  },
+
   // Schools
   listSchools: async (page = 0, size = 20): Promise<PageResponse<SchoolDto>> => {
     const res = await api.get<PageResponse<SchoolDto>>("/system/schools", {

@@ -4,6 +4,7 @@ import com.schoolmanagement.backend.domain.auth.Role;
 import com.schoolmanagement.backend.domain.entity.auth.User;
 import com.schoolmanagement.backend.dto.admin.SchoolDetailDto;
 import com.schoolmanagement.backend.dto.admin.SchoolDto;
+import com.schoolmanagement.backend.dto.admin.SystemStatsDto;
 import com.schoolmanagement.backend.dto.auth.UserDto;
 import com.schoolmanagement.backend.dto.auth.UserListDto;
 import com.schoolmanagement.backend.dto.admin.CreateSchoolAdminForSchoolRequest;
@@ -35,6 +36,13 @@ public class SystemAdminController {
     public SystemAdminController(SystemAdminService systemAdmin, UserRepository users) {
         this.systemAdmin = systemAdmin;
         this.users = users;
+    }
+
+    // ========== STATS ==========
+
+    @GetMapping("/stats")
+    public SystemStatsDto getStats() {
+        return systemAdmin.getSystemStats();
     }
 
     // ========== SCHOOLS ==========

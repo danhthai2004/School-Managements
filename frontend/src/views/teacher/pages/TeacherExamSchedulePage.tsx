@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { teacherService } from "../../../services/teacherService";
 import type { ExamScheduleDto } from "../../../services/studentService";
-import { Calendar, Filter, RefreshCw } from "lucide-react";
+import { Calendar, Filter } from "lucide-react";
 import { useSemester } from "../../../context/SemesterContext";
 import SemesterSelector from "../../../components/common/SemesterSelector";
+import { useAutoRefresh } from "../../../hooks/useAutoRefresh";
 
 const examTypeLabels: Record<string, string> = {
     MIDTERM: "Giữa kỳ",
@@ -30,16 +31,16 @@ export default function TeacherExamSchedulePage() {
     // Filters
     const [selectedType, setSelectedType] = useState<string | "all">("all");
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (silent = false) => {
         if (!selectedSemesterId) return;
-        setLoading(true);
+        if (!silent) setLoading(true);
         try {
             const data = await teacherService.getExamSchedule(selectedSemesterId);
             setExams(data);
         } catch (error) {
             console.error("Error fetching exams:", error);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [selectedSemesterId]);
 
@@ -48,6 +49,11 @@ export default function TeacherExamSchedulePage() {
             fetchData();
         }
     }, [fetchData, isContextLoading, selectedSemesterId]);
+
+    // Auto-refresh when window regains focus or after 60 seconds silently
+    useAutoRefresh(() => {
+        if (selectedSemesterId) fetchData(true);
+    }, { interval: 60000, revalidateOnFocus: true });
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
@@ -133,13 +139,6 @@ export default function TeacherExamSchedulePage() {
                     <h1 className="text-2xl font-bold text-gray-900">Lịch coi thi</h1>
                     <p className="text-sm text-gray-500 mt-1">Theo dõi lịch phân công coi thi</p>
                 </div>
-                <button
-                    onClick={fetchData}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                >
-                    <RefreshCw className="w-4 h-4" />
-                    Làm mới
-                </button>
             </div>
 
             {/* Filters - Inline */}

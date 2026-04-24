@@ -55,15 +55,21 @@ function PromotionModal({ isOpen, onClose, onSuccess, classData, allClasses }: P
         setLoadingYears(true);
         try {
             const years = await semesterService.listAcademicYears();
+            if (!Array.isArray(years)) {
+                setAcademicYears([]);
+                return;
+            }
             // Promoting usually goes to UPCOMING, but allow ACTIVE just in case
             const filtered = years.filter(y => y.status === 'ACTIVE' || y.status === 'UPCOMING');
             setAcademicYears(filtered);
         } catch (err) {
             console.error("Failed to fetch academic years", err);
+            setAcademicYears([]);
         } finally {
             setLoadingYears(false);
         }
     };
+
 
     // Check if target classes exist
     const targetClassesExist = allClasses.some(c =>
@@ -159,11 +165,12 @@ function PromotionModal({ isOpen, onClose, onSuccess, classData, allClasses }: P
                                         className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none text-sm bg-white cursor-pointer disabled:bg-slate-50"
                                     >
                                         <option value="">-- Chọn năm học --</option>
-                                        {academicYears.map(y => (
+                                        {Array.isArray(academicYears) && academicYears.map(y => (
                                             <option key={y.id} value={y.name}>
                                                 {y.name}
                                             </option>
                                         ))}
+
                                         {/* Fallback if computed year is not in list */}
                                         {targetAcademicYear && !academicYears.some(y => y.name === targetAcademicYear) && (
                                             <option value={targetAcademicYear}>{targetAcademicYear}</option>
@@ -221,7 +228,7 @@ function PromotionModal({ isOpen, onClose, onSuccess, classData, allClasses }: P
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-50">
-                                                {students.map(s => (
+                                                {Array.isArray(students) && students.map(s => (
                                                     <tr key={s.id}
                                                         className={`hover:bg-blue-50/50 cursor-pointer transition-colors ${selectedIds.has(s.id) ? 'bg-blue-50/30' : ''}`}
                                                         onClick={() => toggleOne(s.id)}
@@ -242,6 +249,7 @@ function PromotionModal({ isOpen, onClose, onSuccess, classData, allClasses }: P
                                                         </td>
                                                     </tr>
                                                 ))}
+
                                             </tbody>
                                         </table>
                                     </div>

@@ -44,8 +44,7 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
                         "(:role IS NULL OR u.role = :role) AND " +
                         "(:schoolId IS NULL OR u.school.id = :schoolId) AND " +
                         "(:enabled IS NULL OR u.enabled = :enabled) AND " +
-                        "(:pendingDelete = false OR u.pendingDeleteAt IS NOT NULL) AND " +
-                        "(:pendingDelete = true OR u.pendingDeleteAt IS NULL)")
+                        "((:pendingDelete = true AND u.pendingDeleteAt IS NOT NULL) OR (:pendingDelete = false AND u.pendingDeleteAt IS NULL))")
         List<User> findWithFilters(
                         @Param("role") Role role,
                         @Param("schoolId") UUID schoolId,
@@ -56,8 +55,7 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
                         "(:role IS NULL OR u.role = :role) AND " +
                         "(:schoolId IS NULL OR u.school.id = :schoolId) AND " +
                         "(:enabled IS NULL OR u.enabled = :enabled) AND " +
-                        "(:pendingDelete = false OR u.pendingDeleteAt IS NOT NULL) AND " +
-                        "(:pendingDelete = true OR u.pendingDeleteAt IS NULL)")
+                        "((:pendingDelete = true AND u.pendingDeleteAt IS NOT NULL) OR (:pendingDelete = false AND u.pendingDeleteAt IS NULL))")
         org.springframework.data.domain.Page<User> findWithFilters(
                         @Param("role") Role role,
                         @Param("schoolId") UUID schoolId,

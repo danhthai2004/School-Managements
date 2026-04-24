@@ -185,9 +185,10 @@ function EditClassModal({ isOpen, classData, onClose, onSuccess, teachers, combi
                                         className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm bg-white"
                                     >
                                         <option value="">-- Chọn tổ hợp môn --</option>
-                                        {combinations.map((c) => (
+                                        {Array.isArray(combinations) && combinations.map((c) => (
                                             <option key={c.id} value={c.id}>{c.name}</option>
                                         ))}
+
                                     </select>
                                 </div>
                                 <div>
@@ -198,9 +199,10 @@ function EditClassModal({ isOpen, classData, onClose, onSuccess, teachers, combi
                                         className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm bg-white"
                                     >
                                         <option value="">-- Chọn phòng học --</option>
-                                        {rooms.filter(r => r.status === 'ACTIVE').map((r) => (
+                                        {Array.isArray(rooms) && rooms.filter(r => r.status === 'ACTIVE').map((r) => (
                                             <option key={r.id} value={r.id}>{r.name} {r.building ? `(${r.building})` : ''} - {r.capacity} chỗ</option>
                                         ))}
+
                                     </select>
                                 </div>
                             </div>
@@ -222,7 +224,8 @@ function EditClassModal({ isOpen, classData, onClose, onSuccess, teachers, combi
                                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm bg-white"
                             >
                                 <option value="">-- Chọn giáo viên --</option>
-                                {teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+                                {Array.isArray(teachers) && teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+
                             </select>
                         </div>
                     </div>

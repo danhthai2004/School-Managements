@@ -40,8 +40,8 @@ export default function SchoolsListPage() {
     try {
       setLoading(true);
       const data = await systemService.listSchools(currentPage, pageSize);
-      setSchools(data.content);
-      setTotalItems(data.totalElements);
+      setSchools(Array.isArray(data.content) ? data.content : []);
+      setTotalItems(data.totalElements || 0);
     } catch (e) {
       console.error(e);
     } finally {
@@ -129,7 +129,7 @@ export default function SchoolsListPage() {
             to="/system/schools/pending"
             className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-700 rounded-xl font-medium hover:bg-amber-200 transition-colors"
           >
-            ⏳ Trường chờ xóa
+            Trường chờ xóa
           </Link>
           {showCreate ? (
             <button

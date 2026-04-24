@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { studentService, type ExamScheduleDto } from "../../services/studentService";
-import { Calendar, Filter, RefreshCw } from "lucide-react";
+import { Calendar, Filter, FileText, Trophy, Clock, CheckCircle } from "lucide-react";
 import { useSemester } from "../../context/SemesterContext";
 import SemesterSelector from "../../components/common/SemesterSelector";
+import { useAutoRefresh } from "../../hooks/useAutoRefresh";
+
 
 const examTypeLabels: Record<string, string> = {
     REGULAR: "Thường xuyên",
@@ -30,16 +32,16 @@ export default function StudentExamSchedulePage() {
     // Filters
     const [selectedType, setSelectedType] = useState<string | "all">("all");
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (silent = false) => {
         if (!selectedSemesterId) return;
-        setLoading(true);
+        if (!silent) setLoading(true);
         try {
             const data = await studentService.getExamSchedule(selectedSemesterId);
             setExams(data);
         } catch (error) {
             console.error("Error fetching exams:", error);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [selectedSemesterId]);
 
@@ -48,6 +50,11 @@ export default function StudentExamSchedulePage() {
             fetchData();
         }
     }, [fetchData, isContextLoading, selectedSemesterId]);
+
+    // Auto-refresh seamlessly
+    useAutoRefresh(() => {
+        if (selectedSemesterId) fetchData(true);
+    }, { interval: 60000, revalidateOnFocus: true });
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
@@ -133,13 +140,6 @@ export default function StudentExamSchedulePage() {
                     <h1 className="text-2xl font-bold text-gray-900">Lịch kiểm tra</h1>
                     <p className="text-sm text-gray-500 mt-1">Theo dõi lịch thi và kiểm tra sắp tới</p>
                 </div>
-                <button
-                    onClick={fetchData}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                >
-                    <RefreshCw className="w-4 h-4" />
-                    Làm mới
-                </button>
             </div>
 
             {/* Filters - Inline */}
@@ -174,24 +174,36 @@ export default function StudentExamSchedulePage() {
                 </div>
             </div>
 
-            {/* Summary Cards - Styled with visible background colors and drop shadow */}
+            {/* Summary Cards - Premium Style with Icons and Animations */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-blue-50 rounded-xl p-4 border border-blue-200 shadow-md hover:shadow-lg transition-shadow flex flex-col justify-between h-24">
-                    <div className="text-2xl font-bold text-blue-800">{examSummary.midterm}</div>
-                    <div className="text-sm text-blue-600 font-medium">Giữa kỳ</div>
-                </div>
-                <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-200 shadow-md hover:shadow-lg transition-shadow flex flex-col justify-between h-24">
-                    <div className="text-2xl font-bold text-indigo-800">{examSummary.final}</div>
-                    <div className="text-sm text-indigo-600 font-medium">Cuối kỳ</div>
-                </div>
-                <div className="bg-amber-50 rounded-xl p-4 border border-amber-200 shadow-md hover:shadow-lg transition-shadow flex flex-col justify-between h-24">
-                    <div className="text-2xl font-bold text-amber-800">{examSummary.upcoming}</div>
-                    <div className="text-sm text-amber-600 font-medium">Sắp diễn ra</div>
-                </div>
-                <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200 shadow-md hover:shadow-lg transition-shadow flex flex-col justify-between h-24">
-                    <div className="text-2xl font-bold text-emerald-800">{examSummary.completed}</div>
-                    <div className="text-sm text-emerald-600 font-medium">Hoàn thành</div>
-                </div>
+                <StatCard
+                    title="Giữa kỳ"
+                    value={examSummary.midterm}
+                    icon={<FileText className="w-5 h-5" />}
+                    color="blue"
+                    delay={0}
+                />
+                <StatCard
+                    title="Cuối kỳ"
+                    value={examSummary.final}
+                    icon={<Trophy className="w-5 h-5" />}
+                    color="indigo"
+                    delay={100}
+                />
+                <StatCard
+                    title="Sắp diễn ra"
+                    value={examSummary.upcoming}
+                    icon={<Clock className="w-5 h-5" />}
+                    color="amber"
+                    delay={200}
+                />
+                <StatCard
+                    title="Hoàn thành"
+                    value={examSummary.completed}
+                    icon={<CheckCircle className="w-5 h-5" />}
+                    color="emerald"
+                    delay={300}
+                />
             </div>
 
             {/* Exam List - Dashboard Style List */}
@@ -204,7 +216,8 @@ export default function StudentExamSchedulePage() {
                             const isUrgent = !isCompleted && daysUntil <= 2 && daysUntil >= 0;
 
                             return (
-                                <div key={exam.id} className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl transition-colors ${isCompleted ? 'bg-gray-50 opacity-70' : 'bg-gray-50 hover:bg-blue-50/50'}`}>
+                                <div key={exam.id} className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border transition-all ${isCompleted ? 'bg-gray-50/50 border-gray-100 opacity-60' : 'bg-white border-gray-100 hover:border-blue-200 hover:shadow-sm'}`}>
+
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <h4 className="font-medium text-gray-900">{exam.subjectName}</h4>
@@ -253,3 +266,74 @@ export default function StudentExamSchedulePage() {
         </div>
     );
 }
+
+// ==================== HELPER COMPONENTS ====================
+
+const AnimatedCounter = ({ value, duration = 1000 }: { value: number | string; duration?: number }) => {
+    const [displayValue, setDisplayValue] = useState(0);
+    const isNumeric = typeof value === "number" || (!isNaN(Number(value)) && String(value).trim() !== "");
+    const numericValue = isNumeric ? Number(value) : 0;
+
+    useEffect(() => {
+        if (!isNumeric) return;
+        const startTime = Date.now();
+        const animate = () => {
+            const now = Date.now();
+            const progress = Math.min((now - startTime) / duration, 1);
+            const easeOutQuad = 1 - (1 - progress) * (1 - progress);
+            const currentValue = Math.floor(numericValue * easeOutQuad);
+            setDisplayValue(currentValue);
+            if (progress < 1) requestAnimationFrame(animate);
+        };
+        requestAnimationFrame(animate);
+    }, [numericValue, duration, isNumeric]);
+
+    if (!isNumeric) return <span>{value}</span>;
+    return <span>{displayValue.toLocaleString()}</span>;
+};
+
+function StatCard({
+    title,
+    value,
+    subtitle,
+    icon,
+    color,
+    delay = 0,
+}: {
+    title: string;
+    value: string | number;
+    subtitle?: string;
+    icon: React.ReactNode;
+    color: "blue" | "indigo" | "amber" | "emerald";
+    delay?: number;
+}) {
+    const colorClasses = {
+        blue: { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-100" },
+        indigo: { bg: "bg-indigo-50", text: "text-indigo-600", border: "border-indigo-100" },
+        amber: { bg: "bg-amber-50", text: "text-amber-600", border: "border-amber-100" },
+        emerald: { bg: "bg-emerald-50", text: "text-emerald-600", border: "border-emerald-100" },
+    };
+
+    const classes = colorClasses[color];
+
+    return (
+        <div
+            className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md hover:-translate-y-1 transition-all duration-300 animate-in fade-in slide-in-from-bottom-4"
+            style={{ animationDelay: `${delay}ms`, animationFillMode: 'both' }}
+        >
+            <div className="flex items-center justify-between mb-4">
+                <div className={`w-10 h-10 ${classes.bg} ${classes.text} rounded-xl flex items-center justify-center shadow-sm border ${classes.border}`}>
+                    {icon}
+                </div>
+            </div>
+            <div>
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">{title}</p>
+                <p className="text-2xl font-black text-gray-900 mt-1 leading-none">
+                    <AnimatedCounter value={value} />
+                </p>
+                {subtitle && <p className="text-[10px] text-gray-400 mt-2 font-medium">{subtitle}</p>}
+            </div>
+        </div>
+    );
+}
+

@@ -57,7 +57,6 @@ public class FaceAttendanceService {
     private final StudentRepository studentRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final AttendanceRepository attendanceRepository;
-    private final AttendanceSessionRepository attendanceSessionRepository;
     private final FacialRecognitionLogRepository facialRecognitionLogRepository;
     private final TimetableDetailRepository timetableDetailRepository;
     private final TimetableRepository timetableRepository;

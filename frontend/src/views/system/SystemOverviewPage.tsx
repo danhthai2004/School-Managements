@@ -9,22 +9,20 @@ import {
 } from "../../components/layout/SystemIcons";
 
 export default function SystemOverviewPage() {
-  const [totalSchools, setTotalSchools] = useState(0);
-  const [totalUsers, setTotalUsers] = useState(0);
-  const [totalStudents, setTotalStudents] = useState(0);
+  const [stats, setStats] = useState({
+    totalSchools: 0,
+    totalUsers: 0,
+    totalStudents: 0,
+    totalTeachers: 0,
+    totalGuardians: 0,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [schoolsPage, usersPage, studentsPage] = await Promise.all([
-          systemService.listSchools(0, 1),
-          systemService.listUsers({ page: 0, size: 1 }),
-          systemService.listUsers({ role: "STUDENT", page: 0, size: 1 }),
-        ]);
-        setTotalSchools(schoolsPage.totalElements);
-        setTotalUsers(usersPage.totalElements);
-        setTotalStudents(studentsPage.totalElements);
+        const data = await systemService.getStats();
+        setStats(data);
       } catch (e) {
         console.error(e);
       } finally {
@@ -61,24 +59,36 @@ export default function SystemOverviewPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
         <StatCard
           title="Tổng số trường"
-          value={totalSchools}
+          value={stats.totalSchools}
           icon={<SchoolIcon className="w-6 h-6" />}
           color="blue"
         />
         <StatCard
           title="Tổng số tài khoản"
-          value={totalUsers}
+          value={stats.totalUsers}
           icon={<UsersIcon className="w-6 h-6" />}
           color="emerald"
         />
         <StatCard
           title="Số học sinh"
-          value={totalStudents}
+          value={stats.totalStudents}
           icon={<StudentIcon className="w-6 h-6" />}
           color="purple"
+        />
+        <StatCard
+          title="Số giáo viên"
+          value={stats.totalTeachers}
+          icon={<UsersIcon className="w-6 h-6" />}
+          color="blue"
+        />
+        <StatCard
+          title="Số phụ huynh"
+          value={stats.totalGuardians}
+          icon={<UsersIcon className="w-6 h-6" />}
+          color="emerald"
         />
       </div>
 

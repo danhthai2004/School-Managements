@@ -71,41 +71,62 @@ async def register_face(
     image_url: str    = Form(""),
     db: Session       = Depends(get_db),
 ):
-    image_data = await file.read()
-    result = extract_embedding(image_data)
+    logger.info(f"Yêu cầu đăng ký khuôn mặt: StudentID={student_id}, Name={student_name}")
+    
+    try:
+        image_data = await file.read()
+        if not image_data:
+             return JSONResponse(status_code=400, content={"success": False, "message": "Không nhận được dữ liệu file ảnh"})
 
-    if not result["success"]:
-        return JSONResponse(
-            status_code=400,
-            content={"success": False, "student_id": student_id, "message": result["message"]},
+        # AI Processing
+        result = extract_embedding(image_data)
+
+        if not result["success"]:
+            logger.warning(f"AI Extraction failed for {student_id}: {result['message']}")
+            return RegisterResponse(
+                success=False,
+                student_id=student_id,
+                message=result["message"],
+                embedding_count=0
+            )
+
+        # Database Strategy
+        record = FaceEmbedding(
+            student_id=student_id,
+            student_code=student_code or "",
+            student_name=student_name or "",
+            embedding=result["embedding"],
+            image_url=image_url or None,
+            quality_score=result.get("quality_score"),
         )
+        db.add(record)
+        db.flush()
+        embedding_id = record.id
 
-    record = FaceEmbedding(
-        student_id=student_id,
-        student_code=student_code or "",
-        student_name=student_name or "",
-        embedding=result["embedding"],
-        image_url=image_url or None,
-        quality_score=result.get("quality_score"),
-    )
-    db.add(record)
-    db.flush()
-    embedding_id = record.id
+        # Get total active embeddings for this student
+        count = db.query(FaceEmbedding).filter(
+            FaceEmbedding.student_id == student_id,
+            FaceEmbedding.is_active == True,
+        ).count()
+        
+        db.commit()
+        logger.info(f"Đăng ký thành công cho {student_id}. Tổng số ảnh: {count}")
 
-    count = db.query(FaceEmbedding).filter(
-        FaceEmbedding.student_id == student_id,
-        FaceEmbedding.is_active == True,
-    ).count()
-    db.commit()
-
-    return RegisterResponse(
-        success=True,
-        student_id=student_id,
-        message="Đăng ký khuôn mặt thành công",
-        embedding_count=count,
-        embedding_id=embedding_id,
-        image_url=image_url or None,
-    )
+        return RegisterResponse(
+            success=True,
+            student_id=student_id,
+            message="Đăng ký khuôn mặt thành công",
+            embedding_count=count,
+            embedding_id=embedding_id,
+            image_url=image_url or None,
+        )
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Lỗi nghiêm trọng trong /register cho {student_id}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": f"Lỗi máy chủ nội bộ: {str(e)}"}
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════

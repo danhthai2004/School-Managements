@@ -94,6 +94,47 @@ public class TeacherAssignmentService {
     }
 
     /**
+     * Optimized: Initialize assignments ONLY for a specific class.
+     * Prevents loading the entire school's assignments into memory when just one
+     * class is updated.
+     */
+    @Transactional
+    public void initializeAssignmentsForClass(ClassRoom classRoom) {
+        Combination combo = classRoom.getCombination();
+        if (combo == null)
+            return;
+
+        List<TeacherAssignment> existingAssignments = assignments.findAllByClassRoom(classRoom);
+        Set<UUID> existingSubjectIds = existingAssignments.stream()
+                .map(a -> a.getSubject().getId())
+                .collect(Collectors.toSet());
+
+        List<TeacherAssignment> newAssignments = new ArrayList<>();
+        Set<UUID> seenSubjectIds = new HashSet<>();
+
+        for (Subject subject : combo.getSubjects()) {
+            if (!seenSubjectIds.add(subject.getId()))
+                continue;
+
+            if (!existingSubjectIds.contains(subject.getId())) {
+                TeacherAssignment assignment = TeacherAssignment.builder()
+                        .classRoom(classRoom)
+                        .subject(subject)
+                        .school(classRoom.getSchool())
+                        .teacher(null)
+                        .lessonsPerWeek(subject.getTotalLessons() != null ? subject.getTotalLessons() : 2)
+                        .build();
+                newAssignments.add(assignment);
+                existingSubjectIds.add(subject.getId());
+            }
+        }
+
+        if (!newAssignments.isEmpty()) {
+            assignments.saveAll(newAssignments);
+        }
+    }
+
+    /**
      * Remove duplicate TeacherAssignment records (same classRoom + subject).
      * Keeps the one with a teacher assigned if possible, otherwise keeps the first.
      */
