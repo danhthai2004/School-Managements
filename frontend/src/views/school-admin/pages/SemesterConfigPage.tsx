@@ -6,12 +6,24 @@ import type { AcademicYearDto, SemesterDto, CreateAcademicYearRequest, UpdateSem
 import { semesterService } from '../../../services/semesterService';
 import { useSemester } from '../../../context/SemesterContext';
 import { useToast } from '../../../context/ToastContext';
-import { formatDate } from '../../../utils/dateHelpers';
 import { useConfirmation } from '../../../hooks/useConfirmation';
-import DatePicker from "react-datepicker";
+import DatePicker, { registerLocale } from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { formatDateInput, parseDateDDMMYYYY } from '../../../utils/dateHelpers';
-import CustomDateInput from '../../../components/common/CustomDateInput';
+import { vi } from 'date-fns/locale';
+import { formatDate, parseDateDDMMYYYY, formatDateInput } from "../../../utils/dateHelpers";
+import CustomDateInput from "../../../components/common/CustomDateInput";
+
+registerLocale('vi', vi);
+
+// Helper to parse YYYY-MM-DD string to local Date object (avoids UTC timezone shift)
+const parseISOToLocal = (iso?: string | null) => {
+    if (!iso) return null;
+    const parts = iso.split('-');
+    if (parts.length !== 3) return null;
+    const [y, m, d] = parts.map(Number);
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+    return new Date(y, m - 1, d);
+};
 
 const SemesterConfigPage: React.FC = () => {
     const { refreshSemesters } = useSemester();
@@ -36,8 +48,6 @@ const SemesterConfigPage: React.FC = () => {
     });
 
     // Date input raw values
-    const [yearStartInput, setYearStartInput] = useState('');
-    const [yearEndInput, setYearEndInput] = useState('');
     const [semStartInput, setSemStartInput] = useState('');
     const [semEndInput, setSemEndInput] = useState('');
     const [semDeadlineInput, setSemDeadlineInput] = useState('');
@@ -73,18 +83,32 @@ const SemesterConfigPage: React.FC = () => {
 
     // ===== Academic Year Handlers =====
     const handleCreateYear = async () => {
-        if (!yearForm.name || !yearForm.startDate || !yearForm.endDate) {
-            toast.error("Vui lòng điền đủ thông tin năm học");
+        if (!yearForm.name.trim()) {
+            toast.error("Vui lòng nhập tên năm học");
             return;
         }
+        if (!yearForm.startDate) {
+            toast.error("Vui lòng nhập ngày bắt đầu hợp lệ (dd/mm/yyyy)");
+            return;
+        }
+        if (!yearForm.endDate) {
+            toast.error("Vui lòng nhập ngày kết thúc hợp lệ (dd/mm/yyyy)");
+            return;
+        }
+
+        const start = new Date(yearForm.startDate);
+        const end = new Date(yearForm.endDate);
+        if (start >= end) {
+            toast.error("Ngày bắt đầu phải trước ngày kết thúc");
+            return;
+        }
+
         try {
             setIsSaving(true);
             await semesterService.createAcademicYear(yearForm);
-            toast.success('Tạo năm học thành công! Học kỳ 1 và Học kỳ 2 đã được tự động tạo.');
+            toast.success('Tạo năm học thành công!');
             setShowYearModal(false);
-            setEditingYear(null);
             loadData();
-            refreshSemesters();
         } catch (err: any) {
             toast.error(err?.response?.data?.message || 'Lỗi tạo năm học');
         } finally {
@@ -94,10 +118,26 @@ const SemesterConfigPage: React.FC = () => {
 
     const handleUpdateYear = async () => {
         if (!editingYear) return;
-        if (!yearForm.name || !yearForm.startDate || !yearForm.endDate) {
-            toast.error("Vui lòng điền đủ thông tin năm học");
+        if (!yearForm.name.trim()) {
+            toast.error("Vui lòng nhập tên năm học");
             return;
         }
+        if (!yearForm.startDate) {
+            toast.error("Vui lòng nhập ngày bắt đầu hợp lệ (dd/mm/yyyy)");
+            return;
+        }
+        if (!yearForm.endDate) {
+            toast.error("Vui lòng nhập ngày kết thúc hợp lệ (dd/mm/yyyy)");
+            return;
+        }
+
+        const start = new Date(yearForm.startDate);
+        const end = new Date(yearForm.endDate);
+        if (start >= end) {
+            toast.error("Ngày bắt đầu phải trước ngày kết thúc");
+            return;
+        }
+
         try {
             setIsSaving(true);
             await semesterService.updateAcademicYear(editingYear.id, yearForm);
@@ -170,6 +210,34 @@ const SemesterConfigPage: React.FC = () => {
     // ===== Semester Handlers (only update, activate, close) =====
     const handleUpdateSemester = async () => {
         if (!editingSemester) return;
+        if (!semesterForm.name.trim()) {
+            toast.error("Vui lòng nhập tên học kỳ");
+            return;
+        }
+        if (!semesterForm.startDate) {
+            toast.error("Vui lòng nhập ngày bắt đầu hợp lệ (dd/mm/yyyy)");
+            return;
+        }
+        if (!semesterForm.endDate) {
+            toast.error("Vui lòng nhập ngày kết thúc hợp lệ (dd/mm/yyyy)");
+            return;
+        }
+
+        const start = new Date(semesterForm.startDate);
+        const end = new Date(semesterForm.endDate);
+        if (start >= end) {
+            toast.error("Ngày bắt đầu phải trước ngày kết thúc");
+            return;
+        }
+
+        if (semesterForm.gradeDeadline) {
+            const deadline = new Date(semesterForm.gradeDeadline);
+            if (deadline < start || deadline > end) {
+                toast.error("Hạn nhập điểm phải nằm trong thời gian học kỳ");
+                return;
+            }
+        }
+
         try {
             setIsSaving(true);
             await semesterService.updateSemester(editingSemester.id, semesterForm);
@@ -226,18 +294,19 @@ const SemesterConfigPage: React.FC = () => {
     const openEditYear = (year: AcademicYearDto, e: React.MouseEvent) => {
         e.stopPropagation();
         setEditingYear(year);
-        setYearForm({ name: year.name, startDate: year.startDate, endDate: year.endDate });
-        setYearStartInput(formatDate(year.startDate));
-        setYearEndInput(formatDate(year.endDate));
+        // Ensure dates are strings for the form if they come as arrays
+        const startDate = Array.isArray(year.startDate) ? (year.startDate as any).join('-') : year.startDate;
+        const endDate = Array.isArray(year.endDate) ? (year.endDate as any).join('-') : year.endDate;
+        setYearForm({ name: year.name, startDate, endDate });
         setShowYearModal(true);
+        setShowSemesterModal(false);
     };
 
     const openNewYear = () => {
         setEditingYear(null);
         setYearForm({ name: '', startDate: '', endDate: '' });
-        setYearStartInput('');
-        setYearEndInput('');
         setShowYearModal(true);
+        setShowSemesterModal(false); // Ensure only one modal is open
     };
 
     const openEditSemester = (sem: SemesterDto) => {
@@ -251,6 +320,7 @@ const SemesterConfigPage: React.FC = () => {
         setSemEndInput(formatDate(sem.endDate));
         setSemDeadlineInput(sem.gradeDeadline ? formatDate(sem.gradeDeadline) : '');
         setShowSemesterModal(true);
+        setShowYearModal(false); // Ensure only one modal is open
     };
 
     const getStatusBadge = (status: string) => {
@@ -424,7 +494,7 @@ const SemesterConfigPage: React.FC = () => {
                                             <td className="px-6 py-4 whitespace-nowrap text-gray-600">{sem.semesterNumber}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-gray-600">{formatDate(sem.startDate)}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-gray-600">{formatDate(sem.endDate)}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-gray-600">{formatDate(sem.gradeDeadline) || '—'}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-gray-600">{formatDate(sem.gradeDeadline) || <span className="text-gray-300 italic text-xs">dd/mm/yyyy</span>}</td>
                                             <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(sem.status)}</td>
                                             <td className="px-6 py-4 whitespace-nowrap flex justify-center gap-2">
                                                 <button
@@ -468,9 +538,12 @@ const SemesterConfigPage: React.FC = () => {
             {showYearModal && createPortal(
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-gradient-to-br from-slate-900/70 to-slate-800/70 backdrop-blur-sm" onClick={() => setShowYearModal(false)} />
-                    <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col z-[100] animate-in zoom-in-95 duration-300">
+                    <div
+                        className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-visible flex flex-col z-[100] animate-in zoom-in-95 duration-300"
+                        onClick={e => e.stopPropagation()}
+                    >
                         {/* Header */}
-                        <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500 px-8 py-5 flex-none">
+                        <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500 px-8 py-5 flex-none rounded-t-3xl">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
@@ -498,7 +571,7 @@ const SemesterConfigPage: React.FC = () => {
                                         <input
                                             type="text"
                                             value={yearForm.name}
-                                            onChange={e => setYearForm({ ...yearForm, name: e.target.value })}
+                                            onChange={e => setYearForm(prev => ({ ...prev, name: e.target.value }))}
                                             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                                             placeholder="VD: 2025-2026"
                                         />
@@ -507,65 +580,47 @@ const SemesterConfigPage: React.FC = () => {
                                         <div>
                                             <label className="block text-sm font-medium text-slate-600 mb-1.5">Ngày bắt đầu <span className="text-red-500">*</span></label>
                                             <DatePicker
-                                                selected={yearForm.startDate ? new Date(yearForm.startDate) : null}
+                                                selected={parseISOToLocal(yearForm.startDate)}
                                                 onChange={(date: Date | null) => {
                                                     if (date) {
                                                         const y = date.getFullYear();
                                                         const m = String(date.getMonth() + 1).padStart(2, '0');
                                                         const d = String(date.getDate()).padStart(2, '0');
                                                         const iso = `${y}-${m}-${d}`;
-                                                        setYearForm({ ...yearForm, startDate: iso });
-                                                        setYearStartInput(`${d}/${m}/${y}`);
+                                                        setYearForm(prev => ({ ...prev, startDate: iso }));
                                                     } else {
-                                                        setYearForm({ ...yearForm, startDate: '' });
-                                                        setYearStartInput('');
-                                                    }
-                                                }}
-                                                onChangeRaw={(e) => {
-                                                    if (!e) return;
-                                                    const target = e.target as HTMLInputElement;
-                                                    const formatted = formatDateInput(target.value);
-                                                    setYearStartInput(formatted);
-                                                    const parsed = parseDateDDMMYYYY(formatted);
-                                                    if (parsed && formatted.length >= 10) {
-                                                        setYearForm({ ...yearForm, startDate: parsed });
+                                                        setYearForm(prev => ({ ...prev, startDate: '' }));
                                                     }
                                                 }}
                                                 dateFormat="dd/MM/yyyy"
+                                                locale="vi"
                                                 placeholderText="dd/mm/yyyy"
-                                                customInput={<CustomDateInput rawValue={yearStartInput} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all" />}
+                                                popperClassName="z-[10000]"
+                                                popperProps={{ strategy: 'fixed' }}
+                                                customInput={<CustomDateInput value={formatDate(yearForm.startDate)} rawValue={formatDate(yearForm.startDate)} placeholder="dd/mm/yyyy" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400" />}
                                             />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-slate-600 mb-1.5">Ngày kết thúc <span className="text-red-500">*</span></label>
                                             <DatePicker
-                                                selected={yearForm.endDate ? new Date(yearForm.endDate) : null}
+                                                selected={parseISOToLocal(yearForm.endDate)}
                                                 onChange={(date: Date | null) => {
                                                     if (date) {
                                                         const y = date.getFullYear();
                                                         const m = String(date.getMonth() + 1).padStart(2, '0');
                                                         const d = String(date.getDate()).padStart(2, '0');
                                                         const iso = `${y}-${m}-${d}`;
-                                                        setYearForm({ ...yearForm, endDate: iso });
-                                                        setYearEndInput(`${d}/${m}/${y}`);
+                                                        setYearForm(prev => ({ ...prev, endDate: iso }));
                                                     } else {
-                                                        setYearForm({ ...yearForm, endDate: '' });
-                                                        setYearEndInput('');
-                                                    }
-                                                }}
-                                                onChangeRaw={(e) => {
-                                                    if (!e) return;
-                                                    const target = e.target as HTMLInputElement;
-                                                    const formatted = formatDateInput(target.value);
-                                                    setYearEndInput(formatted);
-                                                    const parsed = parseDateDDMMYYYY(formatted);
-                                                    if (parsed && formatted.length >= 10) {
-                                                        setYearForm({ ...yearForm, endDate: parsed });
+                                                        setYearForm(prev => ({ ...prev, endDate: '' }));
                                                     }
                                                 }}
                                                 dateFormat="dd/MM/yyyy"
+                                                locale="vi"
                                                 placeholderText="dd/mm/yyyy"
-                                                customInput={<CustomDateInput rawValue={yearEndInput} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all" />}
+                                                popperClassName="z-[10000]"
+                                                popperProps={{ strategy: 'fixed' }}
+                                                customInput={<CustomDateInput value={formatDate(yearForm.endDate)} rawValue={formatDate(yearForm.endDate)} placeholder="dd/mm/yyyy" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400" />}
                                             />
                                         </div>
                                     </div>
@@ -613,9 +668,12 @@ const SemesterConfigPage: React.FC = () => {
             {showSemesterModal && editingSemester && createPortal(
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-gradient-to-br from-slate-900/70 to-slate-800/70 backdrop-blur-sm" onClick={() => setShowSemesterModal(false)} />
-                    <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col z-[100] animate-in zoom-in-95 duration-300">
+                    <div
+                        className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-visible flex flex-col z-[100] animate-in zoom-in-95 duration-300"
+                        onClick={e => e.stopPropagation()}
+                    >
                         {/* Header */}
-                        <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500 px-8 py-5 flex-none">
+                        <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500 px-8 py-5 flex-none rounded-t-3xl">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
@@ -641,7 +699,7 @@ const SemesterConfigPage: React.FC = () => {
                                         <input
                                             type="text"
                                             value={semesterForm.name}
-                                            onChange={e => setSemesterForm({ ...semesterForm, name: e.target.value })}
+                                            onChange={e => setSemesterForm(prev => ({ ...prev, name: e.target.value }))}
                                             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                                             placeholder="VD: Học kỳ 1"
                                         />
@@ -650,49 +708,42 @@ const SemesterConfigPage: React.FC = () => {
                                         <div>
                                             <label className="block text-sm font-medium text-slate-600 mb-1.5">Ngày bắt đầu</label>
                                             <DatePicker
-                                                selected={semesterForm.startDate ? new Date(semesterForm.startDate) : null}
+                                                selected={parseISOToLocal(semesterForm.startDate)}
                                                 onChange={(date: Date | null) => {
                                                     if (date) {
                                                         const y = date.getFullYear();
                                                         const m = String(date.getMonth() + 1).padStart(2, '0');
                                                         const d = String(date.getDate()).padStart(2, '0');
                                                         const iso = `${y}-${m}-${d}`;
-                                                        setSemesterForm({ ...semesterForm, startDate: iso });
+                                                        setSemesterForm(prev => ({ ...prev, startDate: iso }));
                                                         setSemStartInput(`${d}/${m}/${y}`);
                                                     } else {
-                                                        setSemesterForm({ ...semesterForm, startDate: '' });
+                                                        setSemesterForm(prev => ({ ...prev, startDate: '' }));
                                                         setSemStartInput('');
                                                     }
                                                 }}
-                                                onChangeRaw={(e) => {
-                                                    if (!e) return;
-                                                    const target = e.target as HTMLInputElement;
-                                                    const formatted = formatDateInput(target.value);
-                                                    setSemStartInput(formatted);
-                                                    const parsed = parseDateDDMMYYYY(formatted);
-                                                    if (parsed && formatted.length >= 10) {
-                                                        setSemesterForm({ ...semesterForm, startDate: parsed });
-                                                    }
-                                                }}
                                                 dateFormat="dd/MM/yyyy"
+                                                locale="vi"
                                                 placeholderText="dd/mm/yyyy"
-                                                customInput={<CustomDateInput rawValue={semStartInput} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all" />}
+                                                popperClassName="z-[10000]"
+                                                popperProps={{ strategy: 'fixed' }}
+                                                customInput={<CustomDateInput value={semStartInput} rawValue={semStartInput} placeholder="dd/mm/yyyy" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400" />}
                                             />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-slate-600 mb-1.5">Ngày kết thúc</label>
                                             <DatePicker
-                                                selected={semesterForm.endDate ? new Date(semesterForm.endDate) : null}
+                                                selected={parseISOToLocal(semesterForm.endDate)}
                                                 onChange={(date: Date | null) => {
                                                     if (date) {
                                                         const y = date.getFullYear();
                                                         const m = String(date.getMonth() + 1).padStart(2, '0');
                                                         const d = String(date.getDate()).padStart(2, '0');
                                                         const iso = `${y}-${m}-${d}`;
-                                                        setSemesterForm({ ...semesterForm, endDate: iso });
+                                                        setSemesterForm(prev => ({ ...prev, endDate: iso }));
                                                         setSemEndInput(`${d}/${m}/${y}`);
                                                     } else {
-                                                        setSemesterForm({ ...semesterForm, endDate: '' });
+                                                        setSemesterForm(prev => ({ ...prev, endDate: '' }));
                                                         setSemEndInput('');
                                                     }
                                                 }}
@@ -703,29 +754,32 @@ const SemesterConfigPage: React.FC = () => {
                                                     setSemEndInput(formatted);
                                                     const parsed = parseDateDDMMYYYY(formatted);
                                                     if (parsed && formatted.length >= 10) {
-                                                        setSemesterForm({ ...semesterForm, endDate: parsed });
+                                                        setSemesterForm(prev => ({ ...prev, endDate: parsed }));
                                                     }
                                                 }}
                                                 dateFormat="dd/MM/yyyy"
+                                                locale="vi"
                                                 placeholderText="dd/mm/yyyy"
-                                                customInput={<CustomDateInput rawValue={semEndInput} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all" />}
+                                                popperClassName="z-[10000]"
+                                                popperProps={{ strategy: 'fixed' }}
+                                                customInput={<CustomDateInput value={semEndInput} rawValue={semEndInput} placeholder="dd/mm/yyyy" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400" />}
                                             />
                                         </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-slate-600 mb-1.5">Hạn cuối nhập điểm</label>
                                         <DatePicker
-                                            selected={semesterForm.gradeDeadline ? new Date(semesterForm.gradeDeadline) : null}
+                                            selected={parseISOToLocal(semesterForm.gradeDeadline)}
                                             onChange={(date: Date | null) => {
                                                 if (date) {
                                                     const y = date.getFullYear();
                                                     const m = String(date.getMonth() + 1).padStart(2, '0');
                                                     const d = String(date.getDate()).padStart(2, '0');
                                                     const iso = `${y}-${m}-${d}`;
-                                                    setSemesterForm({ ...semesterForm, gradeDeadline: iso });
+                                                    setSemesterForm(prev => ({ ...prev, gradeDeadline: iso }));
                                                     setSemDeadlineInput(`${d}/${m}/${y}`);
                                                 } else {
-                                                    setSemesterForm({ ...semesterForm, gradeDeadline: '' });
+                                                    setSemesterForm(prev => ({ ...prev, gradeDeadline: '' }));
                                                     setSemDeadlineInput('');
                                                 }
                                             }}
@@ -736,12 +790,15 @@ const SemesterConfigPage: React.FC = () => {
                                                 setSemDeadlineInput(formatted);
                                                 const parsed = parseDateDDMMYYYY(formatted);
                                                 if (parsed && formatted.length >= 10) {
-                                                    setSemesterForm({ ...semesterForm, gradeDeadline: parsed });
+                                                    setSemesterForm(prev => ({ ...prev, gradeDeadline: parsed }));
                                                 }
                                             }}
                                             dateFormat="dd/MM/yyyy"
+                                            locale="vi"
                                             placeholderText="dd/mm/yyyy"
-                                            customInput={<CustomDateInput rawValue={semDeadlineInput} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all" />}
+                                            popperClassName="z-[10000]"
+                                            popperProps={{ strategy: 'fixed' }}
+                                            customInput={<CustomDateInput value={semDeadlineInput} rawValue={semDeadlineInput} placeholder="dd/mm/yyyy" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400" />}
                                         />
                                     </div>
                                 </div>
