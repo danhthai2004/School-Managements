@@ -34,13 +34,19 @@ public class ClassManagementService {
     private final com.schoolmanagement.backend.repo.classes.RoomRepository rooms;
     private final SemesterService semesterService;
     private final TeacherAssignmentService teacherAssignmentService;
+    private final com.schoolmanagement.backend.repo.timetable.TimetableDetailRepository timetableDetailRepository;
+    private final com.schoolmanagement.backend.repo.teacher.TeacherAssignmentRepository teacherAssignmentRepository;
+    private final com.schoolmanagement.backend.repo.classes.ClassSeatMapRepository classSeatMapRepository;
 
     public ClassManagementService(ClassRoomRepository classRooms, UserRepository users,
             ClassEnrollmentRepository enrollments,
             com.schoolmanagement.backend.repo.classes.CombinationRepository combinations,
             com.schoolmanagement.backend.repo.classes.RoomRepository rooms,
             SemesterService semesterService,
-            TeacherAssignmentService teacherAssignmentService) {
+            TeacherAssignmentService teacherAssignmentService,
+            com.schoolmanagement.backend.repo.timetable.TimetableDetailRepository timetableDetailRepository,
+            com.schoolmanagement.backend.repo.teacher.TeacherAssignmentRepository teacherAssignmentRepository,
+            com.schoolmanagement.backend.repo.classes.ClassSeatMapRepository classSeatMapRepository) {
         this.classRooms = classRooms;
         this.users = users;
         this.enrollments = enrollments;
@@ -48,6 +54,9 @@ public class ClassManagementService {
         this.rooms = rooms;
         this.semesterService = semesterService;
         this.teacherAssignmentService = teacherAssignmentService;
+        this.timetableDetailRepository = timetableDetailRepository;
+        this.teacherAssignmentRepository = teacherAssignmentRepository;
+        this.classSeatMapRepository = classSeatMapRepository;
     }
 
     // ==================== CLASS ROOM MANAGEMENT ====================
@@ -272,6 +281,11 @@ public class ClassManagementService {
                     "Không thể xóa lớp đang có " + studentCount
                             + " học sinh. Hãy chuyển học sinh sang lớp khác trước.");
         }
+
+        // Cleanup dependent records manually to prevent FK constraint violations
+        timetableDetailRepository.deleteAllByClassRoom(classRoom);
+        teacherAssignmentRepository.deleteAllByClassRoom(classRoom);
+        classSeatMapRepository.deleteByClassRoomId(classId);
 
         classRooms.delete(classRoom);
     }

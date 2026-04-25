@@ -196,7 +196,7 @@ export default function TimetableManagement() {
             message: (
                 <span>
                     Hệ thống sẽ tự động sắp xếp thời khóa biểu cho <strong>{timetable.name}</strong> dựa trên dữ liệu hiện tại.<br />
-                    <span className="text-xs text-gray-500 mt-2 block">Quá trình này có thể mất vài phút.</span>
+                    <span className="text-xs text-gray-500 mt-2 block">Quá trình này chạy nền, bạn có thể theo dõi tiến trình.</span>
                 </span>
             ),
             confirmText: "Xác nhận",
@@ -204,10 +204,34 @@ export default function TimetableManagement() {
                 setGenerating(timetable.id);
                 setError(null);
                 try {
-                    await api.post(`/school-admin/timetables/${timetable.id}/generate`);
-                    showSuccess(`Đã xếp lịch thành công cho: ${timetable.name}`);
-                    fetchTimetables();
-                } catch (error) {
+                    // Step 1: Kick off async generation — returns immediately with jobId
+                    const startRes = await api.post<{ jobId: string; status: string; message: string }>(
+                        `/school-admin/timetables/${timetable.id}/generate`
+                    );
+                    const jobId = startRes.data.jobId;
+
+                    // Step 2: Poll until DONE or ERROR (max 3 minutes, poll every 2s)
+                    const MAX_POLLS = 90;
+                    for (let i = 0; i < MAX_POLLS; i++) {
+                        await new Promise(r => setTimeout(r, 2000));
+                        const statusRes = await api.get<{ jobId: string; status: string; message: string }>(
+                            `/school-admin/timetables/generate/status/${jobId}`
+                        );
+                        const { status, message } = statusRes.data;
+
+                        if (status === "DONE") {
+                            showSuccess(`Đã xếp lịch thành công cho: ${timetable.name}`);
+                            fetchTimetables();
+                            return;
+                        }
+                        if (status === "ERROR") {
+                            setError(`Lỗi khi xếp TKB: ${message}`);
+                            return;
+                        }
+                    }
+                    // Timeout after max polls
+                    setError("Xếp TKB quá thời gian chờ. Vui lòng kiểm tra lại.");
+                } catch (err: any) {
                     setError(`Lỗi khi xếp TKB: ${timetable.name}. Vui lòng thử lại.`);
                 } finally {
                     setGenerating(null);

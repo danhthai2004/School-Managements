@@ -239,6 +239,28 @@ public class TeacherAssignmentService {
             }
         }
 
+        // --- CONFLICT CHECK ---
+        // If a timetable is already generated, we must check if putting this teacher
+        // into
+        // the required slots will cause a schedule conflict for the teacher.
+        if (teacher != null) {
+            List<com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail> existingSlots = timetableDetailRepository
+                    .findByClassRoomAndSubject(assignment.getClassRoom(), assignment.getSubject());
+            for (com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail slot : existingSlots) {
+                boolean isBusy = timetableDetailRepository.existsByTimetableAndTeacherAndDayOfWeekAndSlotIndex(
+                        slot.getTimetable(), teacher, slot.getDayOfWeek(), slot.getSlotIndex());
+                if (isBusy) {
+                    if (slot.getTeacher() == null || !slot.getTeacher().getId().equals(teacher.getId())) {
+                        throw new ApiException(HttpStatus.CONFLICT,
+                                "Trùng lịch TKB: Giáo viên " + teacher.getFullName() +
+                                        " đã có lịch dạy khác vào " + slot.getDayOfWeek() + " (Tiết "
+                                        + slot.getSlotIndex() +
+                                        ") trong TKB '" + slot.getTimetable().getName() + "'.");
+                    }
+                }
+            }
+        }
+
         assignment.setTeacher(teacher);
         assignment = assignments.save(assignment);
 
