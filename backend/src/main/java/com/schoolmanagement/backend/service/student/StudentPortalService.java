@@ -148,7 +148,10 @@ public class StudentPortalService {
 
                         slots = details.stream()
                                         .map(this::toSlotDto)
-                                        .sorted(Comparator.comparingInt(TimetableSlotDto::getDayOfWeek)
+                                        // Always sort Mon -> Sun (not alphabetic)
+                                        .sorted(Comparator
+                                                        .comparingInt((TimetableSlotDto s) -> DayOfWeek
+                                                                        .valueOf(s.getDayOfWeek()).getValue())
                                                         .thenComparingInt(TimetableSlotDto::getSlotIndex))
                                         .collect(Collectors.toList());
                 } else {
@@ -171,10 +174,10 @@ public class StudentPortalService {
         @Transactional(readOnly = true)
         public List<TimetableSlotDto> getTodaySchedule(UUID userId, String semesterId) {
                 StudentTimetableDto timetable = getTimetable(userId, semesterId);
-                int todayDayOfWeek = getTodayDayOfWeek();
+                String todayDayOfWeek = getTodayDayOfWeekName();
 
                 return timetable.getSlots().stream()
-                                .filter(slot -> slot.getDayOfWeek() == todayDayOfWeek)
+                                .filter(slot -> todayDayOfWeek.equalsIgnoreCase(slot.getDayOfWeek()))
                                 .sorted(Comparator.comparingInt(TimetableSlotDto::getSlotIndex))
                                 .collect(Collectors.toList());
         }
@@ -690,12 +693,9 @@ public class StudentPortalService {
         }
 
         private TimetableSlotDto toSlotDto(TimetableDetail detail) {
-                // Convert Java DayOfWeek (MONDAY=1) to Vietnamese convention (2=Mon...7=Sat)
-                int dayOfWeek = detail.getDayOfWeek().getValue() + 1;
-
                 return TimetableSlotDto.builder()
                                 .id(detail.getId().toString())
-                                .dayOfWeek(dayOfWeek)
+                                .dayOfWeek(detail.getDayOfWeek().name())
                                 .slotIndex(detail.getSlotIndex())
                                 .subjectName(detail.getSubject().getName())
                                 .teacherName(detail.getTeacher() != null ? detail.getTeacher().getFullName()
@@ -709,9 +709,9 @@ public class StudentPortalService {
         // getCurrentAcademicYear() and getCurrentSemester() removed — now using
         // SemesterService
 
-        private int getTodayDayOfWeek() {
+        private String getTodayDayOfWeekName() {
                 DayOfWeek dow = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).getDayOfWeek();
-                return dow.getValue() + 1;
+                return dow.name();
         }
 
         private ExamScheduleDto toExamScheduleDto(ExamSchedule exam, String roomName, LocalDate today) {
@@ -778,7 +778,7 @@ public class StudentPortalService {
 
         private TimetableSlotDto toTimetableSlotDto(TimetableDetail detail) {
                 return TimetableSlotDto.builder()
-                                .dayOfWeek(detail.getDayOfWeek().getValue() + 1) // Convert to 2-8
+                                .dayOfWeek(detail.getDayOfWeek().name())
                                 .slotIndex(detail.getSlotIndex())
                                 .subjectName(detail.getSubject() != null ? detail.getSubject().getName() : "")
                                 .roomName(detail.getClassRoom() != null ? detail.getClassRoom().getName() : "")

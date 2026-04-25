@@ -4,11 +4,13 @@ import com.schoolmanagement.backend.domain.auth.Role;
 import com.schoolmanagement.backend.domain.entity.auth.User;
 import com.schoolmanagement.backend.domain.entity.classes.ClassEnrollment;
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
+import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.entity.exam.ExamSchedule;
 import com.schoolmanagement.backend.domain.entity.notification.DeviceToken;
 import com.schoolmanagement.backend.domain.entity.notification.Notification;
 import com.schoolmanagement.backend.domain.entity.notification.NotificationRecipient;
 import com.schoolmanagement.backend.domain.entity.teacher.Teacher;
+import com.schoolmanagement.backend.domain.entity.attendance.Attendance;
 import com.schoolmanagement.backend.domain.entity.timetable.Timetable;
 import com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail;
 import com.schoolmanagement.backend.domain.timetable.TimetableStatus;
@@ -16,6 +18,7 @@ import com.schoolmanagement.backend.domain.entity.teacher.TeacherAssignment;
 import com.schoolmanagement.backend.domain.notification.NotificationStatus;
 import com.schoolmanagement.backend.domain.notification.NotificationType;
 import com.schoolmanagement.backend.domain.notification.TargetGroup;
+import com.schoolmanagement.backend.domain.attendance.AttendanceStatus;
 import com.schoolmanagement.backend.dto.notification.CreateNotificationRequest;
 import com.schoolmanagement.backend.dto.notification.DeviceTokenRequest;
 import com.schoolmanagement.backend.dto.notification.NotificationDto;
@@ -64,6 +67,7 @@ public class NotificationService {
     private final TimetableDetailRepository timetableDetailRepository;
     private final ActivityLogService activityLog;
     private final FirebaseMessagingService firebaseMessagingService;
+    private final ExpoPushService expoPushService;
 
     public NotificationService(NotificationRepository notificationRepository,
             NotificationRecipientRepository recipientRepository,
@@ -76,7 +80,8 @@ public class NotificationService {
             TimetableRepository timetableRepository,
             TimetableDetailRepository timetableDetailRepository,
             ActivityLogService activityLog,
-            FirebaseMessagingService firebaseMessagingService) {
+            FirebaseMessagingService firebaseMessagingService,
+            ExpoPushService expoPushService) {
         this.notificationRepository = notificationRepository;
         this.recipientRepository = recipientRepository;
         this.deviceTokenRepository = deviceTokenRepository;
@@ -89,6 +94,7 @@ public class NotificationService {
         this.timetableDetailRepository = timetableDetailRepository;
         this.activityLog = activityLog;
         this.firebaseMessagingService = firebaseMessagingService;
+        this.expoPushService = expoPushService;
     }
 
     // ─────────────────────────────────────────────────────────
@@ -292,6 +298,77 @@ public class NotificationService {
         notification = notificationRepository.save(notification);
         batchCreateRecipients(notification, targetUsers);
         log.info("Đã gửi thông báo lịch dạy cho GV {}.", teacher.getFullName());
+    }
+
+    /**
+     * [MOBILE] Gửi thông báo điểm danh cho từng học sinh và phụ huynh tương ứng,
+     * sau khi giáo viên lưu điểm danh cho 1 tiết học.
+     *
+     * Mỗi học sinh sẽ nhận 1 notification riêng (nội dung có trạng thái của học sinh đó),
+     * và phụ huynh (guardian) của học sinh cũng nhận cùng notification.
+     */
+    @Transactional
+    public void sendAttendanceSavedNotifications(
+            Teacher teacher,
+            ClassRoom classRoom,
+            TimetableDetail timetableDetail,
+            LocalDate date,
+            int slotIndex,
+            List<Attendance> savedAttendances) {
+        if (savedAttendances == null || savedAttendances.isEmpty()) {
+            return;
+        }
+
+        User createdBy = teacher != null ? teacher.getUser() : null;
+        String className = classRoom != null ? classRoom.getName() : "";
+        String subjectName = (timetableDetail != null && timetableDetail.getSubject() != null)
+                ? timetableDetail.getSubject().getName()
+                : "";
+
+        for (Attendance a : savedAttendances) {
+            if (a == null || a.getStudent() == null) continue;
+
+            Student student = a.getStudent();
+            String studentName = student.getFullName();
+            AttendanceStatus status = a.getStatus();
+            String statusLabel = toVietnameseAttendanceStatus(status);
+
+            List<User> recipients = new ArrayList<>();
+            if (student.getUser() != null) recipients.add(student.getUser());
+            if (student.getGuardian() != null && student.getGuardian().getUser() != null) {
+                recipients.add(student.getGuardian().getUser());
+            }
+            if (recipients.isEmpty()) continue;
+
+            String title = "Điểm danh T" + slotIndex + (className.isBlank() ? "" : (" - " + className));
+            String content = String.format("Ngày %s, môn %s: %s - %s.",
+                    date,
+                    subjectName.isBlank() ? "N/A" : subjectName,
+                    studentName,
+                    statusLabel);
+
+            Notification notification = Notification.builder()
+                    .title(title)
+                    .content(content)
+                    .type(NotificationType.OTHER)
+                    .targetGroup(TargetGroup.STUDENT)
+                    .referenceId(student.getId() != null ? student.getId().toString() : null)
+                    .createdBy(createdBy)
+                    .build();
+
+            notification = notificationRepository.save(notification);
+            batchCreateRecipients(notification, recipients);
+        }
+    }
+
+    private String toVietnameseAttendanceStatus(AttendanceStatus status) {
+        if (status == null) return "Không xác định";
+        return switch (status) {
+            case PRESENT -> "Có mặt";
+            case LATE -> "Muộn";
+            case ABSENT_EXCUSED -> "Vắng (có phép)";
+            case ABSENT_UNEXCUSED -> "Vắng (không phép)";
+        };
     }
 
     /**
@@ -547,8 +624,29 @@ public class NotificationService {
         log.info("Saved {}/{} recipients for notification '{}'", savedCount, uniqueUsers.size(),
                 notification.getTitle());
 
-        // Fetch FCM tokens and push
-        List<String> fcmTokens = deviceTokenRepository.findFcmTokensByUsers(users);
+        // Fetch device tokens and push.
+        // Supports both FCM tokens and Expo push tokens (Expo Go).
+        List<String> deviceTokens = deviceTokenRepository.findFcmTokensByUsers(users);
+        if (deviceTokens == null || deviceTokens.isEmpty()) return;
+
+        List<String> expoTokens = new ArrayList<>();
+        List<String> fcmTokens = new ArrayList<>();
+        for (String t : deviceTokens) {
+            if (t == null || t.isBlank()) continue;
+            if (t.startsWith("ExponentPushToken[") || t.startsWith("ExpoPushToken[")) {
+                expoTokens.add(t);
+            } else {
+                fcmTokens.add(t);
+            }
+        }
+
+        if (!expoTokens.isEmpty()) {
+            expoPushService.sendMulticast(
+                    notification.getTitle(),
+                    notification.getContent(),
+                    notification.getActionUrl(),
+                    expoTokens);
+        }
         if (!fcmTokens.isEmpty()) {
             firebaseMessagingService.sendMulticast(
                     notification.getTitle(),

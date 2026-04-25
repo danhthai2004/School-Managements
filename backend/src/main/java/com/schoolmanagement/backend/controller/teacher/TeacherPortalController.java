@@ -171,6 +171,20 @@ public class TeacherPortalController {
         return ResponseEntity.ok(summary);
     }
 
+    /**
+     * Lightweight slot status for subject teachers (non-homeroom).
+     * Used by mobile app to show "Đã/Chưa điểm danh" per period.
+     */
+    @GetMapping("/attendance/daily-slot-status")
+    public ResponseEntity<TeacherDailySlotStatusDto> getDailySlotStatus(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam String date) {
+        TeacherDailySlotStatusDto dto = attendanceService.getTeacherDailySlotStatus(
+                userDetails.getUsername(),
+                java.time.LocalDate.parse(date));
+        return ResponseEntity.ok(dto);
+    }
+
     @GetMapping("/attendance/report")
     public ResponseEntity<com.schoolmanagement.backend.dto.attendance.AttendanceReportSummaryDto> getAttendanceReport(
             @AuthenticationPrincipal UserDetails userDetails,
