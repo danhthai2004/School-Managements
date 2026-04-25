@@ -2,6 +2,7 @@ package com.schoolmanagement.backend.domain.entity.student;
 
 import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.auth.User;
+import com.schoolmanagement.backend.domain.entity.classes.Combination;
 
 import com.schoolmanagement.backend.domain.student.Gender;
 import com.schoolmanagement.backend.domain.student.StudentStatus;
@@ -76,4 +77,9 @@ public class Student {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "guardian_id")
     private Guardian guardian;
+
+    // Tổ hợp nguyện vọng (lưu trữ vĩnh viễn, không phụ thuộc việc xếp lớp)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "preferred_combination_id")
+    private Combination preferredCombination;
 }

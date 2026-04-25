@@ -9,7 +9,6 @@ import com.schoolmanagement.backend.repo.auth.UserRepository;
 import com.schoolmanagement.backend.repo.student.StudentRepository;
 import com.schoolmanagement.backend.repo.teacher.TeacherRepository;
 import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
-import com.schoolmanagement.backend.repo.attendance.AttendanceSessionRepository;
 import com.schoolmanagement.backend.repo.attendance.AttendanceRepository;
 
 import com.schoolmanagement.backend.domain.chat.ChatIntent;
@@ -36,20 +35,17 @@ public class QuickStatsHandler implements ChatHandler {
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
     private final ClassRoomRepository classRoomRepository;
-    private final AttendanceSessionRepository attendanceSessionRepository;
     private final AttendanceRepository attendanceRepository;
 
     public QuickStatsHandler(UserRepository userRepository,
             StudentRepository studentRepository,
             TeacherRepository teacherRepository,
             ClassRoomRepository classRoomRepository,
-            AttendanceSessionRepository attendanceSessionRepository,
             AttendanceRepository attendanceRepository) {
         this.userRepository = userRepository;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
         this.classRoomRepository = classRoomRepository;
-        this.attendanceSessionRepository = attendanceSessionRepository;
         this.attendanceRepository = attendanceRepository;
     }
 

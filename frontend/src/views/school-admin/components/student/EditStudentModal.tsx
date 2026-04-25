@@ -7,7 +7,8 @@ import {
     schoolAdminService,
     type StudentDto,
     type ClassRoomDto,
-    type UpdateStudentRequest
+    type UpdateStudentRequest,
+    type CombinationDto
 } from "../../../../services/schoolAdminService";
 import { XIcon } from "../../SchoolAdminIcons";
 import { formatDateInput, parseDateDDMMYYYY } from "../../../../utils/dateHelpers";
@@ -17,11 +18,12 @@ interface EditStudentModalProps {
     isOpen: boolean;
     student: StudentDto | null;
     classes: ClassRoomDto[];
+    combinations: CombinationDto[];
     onClose: () => void;
     onSuccess: () => void;
 }
 
-function EditStudentModal({ isOpen, student, classes, onClose, onSuccess }: EditStudentModalProps) {
+function EditStudentModal({ isOpen, student, classes, combinations, onClose, onSuccess }: EditStudentModalProps) {
     const [fullName, setFullName] = useState("");
     const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
     const [dateInputValue, setDateInputValue] = useState("");
@@ -32,6 +34,7 @@ function EditStudentModal({ isOpen, student, classes, onClose, onSuccess }: Edit
     const [phone, setPhone] = useState("");
     const [status, setStatus] = useState<'ACTIVE' | 'GRADUATED' | 'TRANSFERRED' | 'SUSPENDED'>("ACTIVE");
     const [classId, setClassId] = useState("");
+    const [combinationId, setCombinationId] = useState("");
     const [guardianName, setGuardianName] = useState("");
     const [guardianPhone, setGuardianPhone] = useState("");
     const [guardianEmail, setGuardianEmail] = useState("");
@@ -50,6 +53,7 @@ function EditStudentModal({ isOpen, student, classes, onClose, onSuccess }: Edit
             setPhone(student.phone || "");
             setStatus((student.status as 'ACTIVE' | 'GRADUATED' | 'TRANSFERRED' | 'SUSPENDED') || "ACTIVE");
             setClassId(student.currentClassId || "");
+            setCombinationId(student.combinationId || "");
 
             // Set date of birth
             if (student.dateOfBirth) {
@@ -146,6 +150,7 @@ function EditStudentModal({ isOpen, student, classes, onClose, onSuccess }: Edit
                 phone: phone.trim() || undefined,
                 status,
                 classId: classId || undefined,
+                combinationId: combinationId || undefined,
                 guardian: guardianName ? {
                     id: student.guardian?.id,
                     fullName: guardianName.trim(),
@@ -342,13 +347,25 @@ function EditStudentModal({ isOpen, student, classes, onClose, onSuccess }: Edit
                                 </div>
                                 <h3 className="font-semibold text-gray-800">Thông tin học tập</h3>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-600 mb-1.5">Lớp học</label>
-                                <select value={classId} onChange={(e) => setClassId(e.target.value)}
-                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer">
-                                    <option value="">-- Chọn lớp --</option>
-                                    {classes.map((c) => <option key={c.id} value={c.id}>{c.name} (Khối {c.grade})</option>)}
-                                </select>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-600 mb-1.5">Lớp học</label>
+                                    <select value={classId} onChange={(e) => setClassId(e.target.value)}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer">
+                                        <option value="">-- Chưa xếp lớp --</option>
+                                        {classes.map((c) => <option key={c.id} value={c.id}>{c.name} (Khối {c.grade})</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-600 mb-1.5">Tổ hợp đăng ký</label>
+                                    <select value={combinationId} onChange={(e) => setCombinationId(e.target.value)}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer">
+                                        <option value="">-- Chọn tổ hợp --</option>
+                                        {combinations.map((c) => (
+                                            <option key={c.id} value={c.id}>{c.name} {c.code ? `(${c.code})` : ''}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                         </div>
 

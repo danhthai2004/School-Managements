@@ -9,6 +9,67 @@ import {
     type PhotoDto,
 } from "../../../services/schoolAdminService";
 import { Camera, Upload, Trash2, ChevronLeft, ChevronRight, X, Search, Users, CheckCircle, AlertCircle, Image, Eye, RefreshCw } from "lucide-react";
+import { useAutoRefresh } from "../../../hooks/useAutoRefresh";
+
+// ─── Helper Functions ────────────────────────────────
+
+// Compress image before upload to speed up transfer & backend processing
+async function compressImage(file: File): Promise<File> {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new window.Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                const MAX_WIDTH = 1024;
+                const MAX_HEIGHT = 1024;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext("2d");
+                if (ctx) {
+                    ctx.drawImage(img, 0, 0, width, height);
+                    canvas.toBlob(
+                        (blob) => {
+                            if (blob) {
+                                // Keep original filename but ensure extension reflects format if we convert
+                                const newFile = new File([blob], file.name, {
+                                    type: "image/jpeg",
+                                    lastModified: Date.now(),
+                                });
+                                resolve(newFile);
+                            } else {
+                                resolve(file); // fallback
+                            }
+                        },
+                        "image/jpeg",
+                        0.8 // 80% quality
+                    );
+                } else {
+                    resolve(file); // fallback
+                }
+            };
+            img.onerror = () => resolve(file); // fallback
+        };
+        reader.onerror = () => resolve(file); // fallback
+    });
+}
 
 // ─── Helper Components ────────────────────────────────
 
@@ -61,6 +122,18 @@ export default function FacePhotoManagement() {
     const [previewImages, setPreviewImages] = useState<{ file: File; url: string }[]>([]);
     const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
     const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+    const [confirmModal, setConfirmModal] = useState<{
+        open: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        isDanger?: boolean;
+    }>({
+        open: false,
+        title: "",
+        message: "",
+        onConfirm: () => { },
+    });
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Breadcrumb navigation history
@@ -68,8 +141,8 @@ export default function FacePhotoManagement() {
 
     // ─── Data Loading ─────────────────────────────────
 
-    const loadOverview = useCallback(async () => {
-        setLoading(true);
+    const loadOverview = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         setError(null);
         try {
             const data = await facePhotoService.getOverview();
@@ -77,12 +150,12 @@ export default function FacePhotoManagement() {
         } catch (e: any) {
             setError(e?.response?.data?.message || "Không thể tải dữ liệu tổng quan");
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, []);
 
-    const loadClassDetail = useCallback(async (classId: string) => {
-        setLoading(true);
+    const loadClassDetail = useCallback(async (classId: string, silent = false) => {
+        if (!silent) setLoading(true);
         setError(null);
         try {
             const data = await facePhotoService.getClassDetail(classId);
@@ -91,12 +164,12 @@ export default function FacePhotoManagement() {
         } catch (e: any) {
             setError(e?.response?.data?.message || "Không thể tải chi tiết lớp");
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, []);
 
-    const loadStudentPhotos = useCallback(async (studentId: string) => {
-        setLoading(true);
+    const loadStudentPhotos = useCallback(async (studentId: string, silent = false) => {
+        if (!silent) setLoading(true);
         setError(null);
         try {
             const data = await facePhotoService.getStudentPhotos(studentId);
@@ -105,11 +178,22 @@ export default function FacePhotoManagement() {
         } catch (e: any) {
             setError(e?.response?.data?.message || "Không thể tải ảnh học sinh");
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, []);
 
     useEffect(() => { loadOverview(); }, [loadOverview]);
+
+    // Auto-refresh seamlessly on window focus or interval
+    useAutoRefresh(() => {
+        if (viewMode === "overview") {
+            loadOverview(true);
+        } else if (viewMode === "class-detail" && classDetail) {
+            loadClassDetail(classDetail.classId, true);
+        } else if (viewMode === "student-photos" && studentPhotos) {
+            loadStudentPhotos(studentPhotos.studentId, true);
+        }
+    }, { interval: 60000, revalidateOnFocus: true }); // Mức 1 + Mức 2 (Focus + 60s)
 
     // Toast auto-hide
     useEffect(() => {
@@ -149,16 +233,21 @@ export default function FacePhotoManagement() {
             let successCount = 0;
             let failCount = 0;
             let errorMessage = "";
-            if (previewImages.length === 1) {
-                const result = await facePhotoService.uploadPhoto(uploadStudentId, previewImages[0].file);
+            // Compress all images in parallel before sending
+            const compressedFiles = await Promise.all(
+                previewImages.map(p => compressImage(p.file))
+            );
+
+            if (compressedFiles.length === 1) {
+                const result = await facePhotoService.uploadPhoto(uploadStudentId, compressedFiles[0]);
                 if (result.success) {
-                    successCount = 1; 
+                    successCount = 1;
                 } else {
                     failCount = 1;
                     errorMessage = result.message;
                 }
             } else {
-                const result = await facePhotoService.bulkUpload(uploadStudentId, previewImages.map(p => p.file));
+                const result = await facePhotoService.bulkUpload(uploadStudentId, compressedFiles);
                 successCount = result.successCount;
                 failCount = result.failCount;
                 if (failCount > 0 && result.results) {
@@ -192,32 +281,60 @@ export default function FacePhotoManagement() {
 
     // ─── Delete Logic ─────────────────────────────────
 
-    const handleDeletePhoto = async (studentId: string, photo: PhotoDto) => {
-        if (!confirm("Bạn có chắc muốn xóa ảnh này?")) return;
-        try {
-            await facePhotoService.deletePhoto(studentId, photo.id);
-            setToast({ type: "success", message: "Đã xóa ảnh" });
-            loadStudentPhotos(studentId);
-            loadOverview();
-        } catch (e: any) {
-            setToast({ type: "error", message: "Xóa thất bại" });
-        }
+    const handleDeletePhoto = (studentId: string, photo: PhotoDto) => {
+        setConfirmModal({
+            open: true,
+            title: "Xác nhận xóa ảnh",
+            message: "Bạn có chắc chắn muốn xóa ảnh khuôn mặt này? Hành động này không thể hoàn tác.",
+            isDanger: true,
+            onConfirm: async () => {
+                const originalPhotos = studentPhotos;
+                try {
+                    // Optimistic UI update
+                    if (studentPhotos) {
+                        setStudentPhotos({
+                            ...studentPhotos,
+                            photos: studentPhotos.photos.filter(p => p.id !== photo.id),
+                            totalPhotos: studentPhotos.totalPhotos - 1
+                        });
+                    }
+
+                    await facePhotoService.deletePhoto(studentId, photo.id);
+                    setToast({ type: "success", message: "Đã xóa ảnh thành công" });
+                    loadOverview();
+                } catch (e: any) {
+                    setStudentPhotos(originalPhotos); // Rollback
+                    setToast({ type: "error", message: "Không thể xóa ảnh. Vui lòng thử lại." });
+                } finally {
+                    setConfirmModal(prev => ({ ...prev, open: false }));
+                }
+            }
+        });
     };
 
-    const handleDeleteAllPhotos = async (studentId: string, studentName: string) => {
-        if (!confirm(`Bạn có chắc muốn xóa TẤT CẢ ảnh của ${studentName}?`)) return;
-        try {
-            await facePhotoService.deleteAllPhotos(studentId);
-            setToast({ type: "success", message: `Đã xóa tất cả ảnh của ${studentName}` });
-            if (viewMode === "student-photos") {
-                loadStudentPhotos(studentId);
-            } else if (classDetail) {
-                loadClassDetail(classDetail.classId);
+    const handleDeleteAllPhotos = (studentId: string, studentName: string) => {
+        setConfirmModal({
+            open: true,
+            title: "Xóa toàn bộ ảnh",
+            message: `Bạn có chắc chắn muốn xóa TẤT CẢ ảnh khuôn mặt của học sinh ${studentName}? Học sinh sẽ không thể điểm danh bằng khuôn mặt sau khi xóa.`,
+            isDanger: true,
+            onConfirm: async () => {
+                try {
+                    await facePhotoService.deleteAllPhotos(studentId);
+                    setToast({ type: "success", message: `Đã xóa toàn bộ ảnh của ${studentName}` });
+                    if (viewMode === "student-photos") {
+                        loadStudentPhotos(studentId);
+                    } else if (classDetail) {
+                        loadClassDetail(classDetail.classId);
+                    }
+                    loadOverview();
+                } catch (e: any) {
+                    setToast({ type: "error", message: "Không thể xóa ảnh. Vui lòng thử lại." });
+                } finally {
+                    setConfirmModal(prev => ({ ...prev, open: false }));
+                }
             }
-            loadOverview();
-        } catch (e: any) {
-            setToast({ type: "error", message: "Xóa thất bại" });
-        }
+        });
     };
 
     // ─── Render ───────────────────────────────────────
@@ -401,6 +518,45 @@ export default function FacePhotoManagement() {
                                         )}
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Confirm Modal */}
+            {confirmModal.open && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className={`h-2 ${confirmModal.isDanger ? "bg-red-500" : "bg-blue-500"}`} />
+                        <div className="p-6">
+                            <div className="flex items-start gap-4">
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${confirmModal.isDanger ? "bg-red-100 dark:bg-red-900/30" : "bg-blue-100 dark:bg-blue-900/30"}`}>
+                                    <AlertCircle className={`w-6 h-6 ${confirmModal.isDanger ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"}`} />
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                                        {confirmModal.title}
+                                    </h3>
+                                    <p className="mt-2 text-gray-500 dark:text-gray-400 leading-relaxed">
+                                        {confirmModal.message}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="mt-8 flex gap-3">
+                                <button
+                                    onClick={() => setConfirmModal(prev => ({ ...prev, open: false }))}
+                                    className="flex-1 px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all border border-gray-200 dark:border-gray-600"
+                                >
+                                    Hủy bỏ
+                                </button>
+                                <button
+                                    onClick={confirmModal.onConfirm}
+                                    className={`flex-1 px-4 py-3 text-sm font-semibold text-white rounded-xl shadow-lg transition-all transform active:scale-95 ${confirmModal.isDanger ? "bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 shadow-red-200 dark:shadow-red-900/20" : "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-blue-200 dark:shadow-blue-900/20"}`}
+                                >
+                                    Xác nhận
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -627,7 +783,7 @@ function ClassDetailView({
                                     <div className="flex items-center gap-3">
                                         <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
                                             {s.avatarUrl ? (
-                                                <img src={s.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                                <img src={s.avatarUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
                                             ) : (
                                                 <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{(s.studentName || "?")[0]}</span>
                                             )}
@@ -759,7 +915,7 @@ function StudentPhotosView({
                         <div key={p.id} className="group relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                             <div className="aspect-square bg-gray-100 dark:bg-gray-700 cursor-pointer" onClick={() => p.imageUrl && onImageClick(p.imageUrl)}>
                                 {p.imageUrl ? (
-                                    <img src={p.imageUrl} alt="" className="w-full h-full object-cover" />
+                                    <img src={p.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center">
                                         <Image className="w-10 h-10 text-gray-300 dark:text-gray-600" />

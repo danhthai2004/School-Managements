@@ -46,7 +46,7 @@ const TeacherManagement = () => {
 
 
     // Success toast state - Replaced by global useToast
-    const { showSuccess, toast } = useToast();
+    const { showSuccess } = useToast();
 
     // New State for Filter & Sort
     const [subjects, setSubjects] = useState<any[]>([]);
@@ -121,14 +121,12 @@ const TeacherManagement = () => {
             if (result.deleted > 0) {
                 await fetchData(true); // Silent refresh
                 setSelectedTeacherIds(new Set());
-                showSuccess(`Đã xóa thành công ${result.deleted} giáo viên`);
             }
 
             return result;
         } catch (error) {
             console.error("Failed to delete teachers:", error);
-            toast.error("Có lỗi xảy ra khi xóa giáo viên");
-            return { deleted: 0, failed: selectedTeacherIds.size, errors: ["Lỗi hệ thống"] };
+            return { deleted: 0, failed: selectedTeacherIds.size, errors: ["Lỗi hệ thống hoặc mất kết nối"] };
         }
     };
 

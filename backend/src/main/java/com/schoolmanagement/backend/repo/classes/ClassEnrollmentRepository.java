@@ -79,4 +79,14 @@ public interface ClassEnrollmentRepository extends JpaRepository<ClassEnrollment
         @org.springframework.data.jpa.repository.Modifying
         @Query("DELETE FROM ClassEnrollment c WHERE c.student.id = :studentId")
         void deleteByStudentId(@Param("studentId") UUID studentId);
+
+        @Query("SELECT ce FROM ClassEnrollment ce JOIN FETCH ce.classRoom WHERE ce.student IN :students")
+        List<ClassEnrollment> findAllByStudentIn(@Param("students") java.util.Collection<Student> students);
+
+        /**
+         * Batch-fetch all enrollments for multiple classrooms in ONE query.
+         * JOIN FETCH student to avoid N+1 when accessing student data.
+         */
+        @Query("SELECT ce FROM ClassEnrollment ce JOIN FETCH ce.student WHERE ce.classRoom IN :classRooms")
+        List<ClassEnrollment> findAllByClassRoomIn(@Param("classRooms") List<ClassRoom> classRooms);
 }

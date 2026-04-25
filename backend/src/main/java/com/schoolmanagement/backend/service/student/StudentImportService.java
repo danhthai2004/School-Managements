@@ -346,6 +346,7 @@ public class StudentImportService {
                             .status(StudentStatus.ACTIVE)
                             .school(school)
                             .guardian(guardian) // Set guardian reference directly (may be null)
+                            .preferredCombination(combination) // Lưu trữ tổ hợp nguyện vọng
                             .build();
 
                     studentsToSave.add(student);

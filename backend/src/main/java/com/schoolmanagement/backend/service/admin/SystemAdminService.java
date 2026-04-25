@@ -23,6 +23,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import com.schoolmanagement.backend.dto.admin.SystemStatsDto;
+import com.schoolmanagement.backend.repo.student.StudentRepository;
+import com.schoolmanagement.backend.repo.student.GuardianRepository;
+import com.schoolmanagement.backend.repo.teacher.TeacherRepository;
 import com.schoolmanagement.backend.util.RandomUtil;
 
 import java.time.Instant;
@@ -30,6 +34,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@Transactional
 public class SystemAdminService {
 
     private final SchoolRepository schools;
@@ -37,15 +42,37 @@ public class SystemAdminService {
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
     private final ActivityLogService activityLog;
+    private final StudentRepository students;
+    private final GuardianRepository guardians;
+    private final TeacherRepository teachers;
 
     public SystemAdminService(SchoolRepository schools,
             UserRepository users, PasswordEncoder passwordEncoder, MailService mailService,
-            ActivityLogService activityLog) {
+            ActivityLogService activityLog, StudentRepository students,
+            GuardianRepository guardians, TeacherRepository teachers) {
         this.schools = schools;
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
         this.activityLog = activityLog;
+        this.students = students;
+        this.guardians = guardians;
+        this.teachers = teachers;
+    }
+
+    // ========== STATS ==========
+
+    public SystemStatsDto getSystemStats() {
+        long totalSchools = schools.count();
+        long pendingDeleteSchools = schools.findByPendingDeleteAtIsNotNull().size();
+        long totalUsers = users.count();
+        long pendingDeleteUsers = users.findByPendingDeleteAtIsNotNull().size();
+        long totalStudents = students.count();
+        long totalGuardians = guardians.count();
+        long totalTeachers = teachers.count();
+
+        return new SystemStatsDto(totalSchools, pendingDeleteSchools, totalUsers, pendingDeleteUsers, totalStudents,
+                totalGuardians, totalTeachers);
     }
 
     // ========== SCHOOL MANAGEMENT ==========
@@ -90,6 +117,7 @@ public class SystemAdminService {
         return "SCH-" + randomNum;
     }
 
+    @Transactional(readOnly = true)
     public Page<SchoolDto> listSchools(Pageable pageable) {
         return schools.findByPendingDeleteAtIsNull(pageable)
                 .map(this::toSchoolDto);
@@ -153,6 +181,7 @@ public class SystemAdminService {
                 s.getPendingDeleteAt());
     }
 
+    @Transactional(readOnly = true)
     public Page<SchoolDto> listPendingDeleteSchools(Pageable pageable) {
         return schools.findByPendingDeleteAtIsNotNull(pageable)
                 .map(this::toSchoolDto);
@@ -223,12 +252,14 @@ public class SystemAdminService {
                 school.getCode(), user.isEnabled());
     }
 
+    @Transactional(readOnly = true)
     public Page<UserListDto> listUsers(Role role, UUID schoolId, Boolean enabled, boolean pendingDelete,
             Pageable pageable) {
         return users.findWithFilters(role, schoolId, enabled, pendingDelete, pageable)
                 .map(this::toUserListDto);
     }
 
+    @Transactional(readOnly = true)
     public Page<UserListDto> listPendingDeleteUsers(Pageable pageable) {
         return users.findByPendingDeleteAtIsNotNull(pageable)
                 .map(this::toUserListDto);

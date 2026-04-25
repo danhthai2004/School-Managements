@@ -45,9 +45,9 @@ export default function SystemUsersPage() {
         }),
         systemService.listSchools(0, 1000), // Get all schools for filter
       ]);
-      setUsers(usersData.content);
-      setTotalItems(usersData.totalElements);
-      setSchools(schoolsData.content);
+      setUsers(Array.isArray(usersData.content) ? usersData.content : []);
+      setTotalItems(usersData.totalElements || 0);
+      setSchools(Array.isArray(schoolsData.content) ? schoolsData.content : []);
     } catch (e) {
       console.error(e);
     } finally {

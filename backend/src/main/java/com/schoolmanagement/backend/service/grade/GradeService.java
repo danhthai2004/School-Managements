@@ -21,13 +21,11 @@ import com.schoolmanagement.backend.service.admin.SemesterService;
 import com.schoolmanagement.backend.domain.entity.grade.Grade;
 import com.schoolmanagement.backend.domain.entity.admin.Semester;
 import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
-import com.schoolmanagement.backend.repo.admin.SemesterRepository;
 import java.util.function.Function;
 import com.schoolmanagement.backend.util.StudentSortUtils;
 
 import com.schoolmanagement.backend.dto.grade.GradeBookDto;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -55,7 +53,6 @@ public class GradeService {
         private final UserRepository userRepository;
         private final StudentRepository studentRepository;
         private final SemesterService semesterService;
-        private final SemesterRepository semesterRepository;
 
         public GradeBookDto getGradeBook(String email, UUID classId, UUID subjectId, String semesterId) {
                 User user = userRepository.findByEmailIgnoreCaseWithSchool(email)

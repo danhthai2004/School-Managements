@@ -1,8 +1,7 @@
 package com.schoolmanagement.backend.service.student;
 
-import com.schoolmanagement.backend.dto.student.StudentProfileDto;
-
 import com.schoolmanagement.backend.domain.auth.Role;
+import com.schoolmanagement.backend.dto.student.StudentProfileDto;
 
 import com.schoolmanagement.backend.service.common.FileStorageService;
 import com.schoolmanagement.backend.service.admin.BulkDeleteHelperService;
@@ -11,6 +10,7 @@ import com.schoolmanagement.backend.domain.classes.ClassRoomStatus;
 import com.schoolmanagement.backend.domain.student.StudentStatus;
 import com.schoolmanagement.backend.domain.entity.classes.ClassEnrollment;
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
+import com.schoolmanagement.backend.domain.entity.classes.Combination;
 import com.schoolmanagement.backend.domain.entity.student.Guardian;
 import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.student.Student;
@@ -55,6 +55,7 @@ public class StudentManagementService {
     private final StudentAccountService studentAccountService;
     private final com.schoolmanagement.backend.repo.auth.UserRepository users;
     private final SemesterService semesterService;
+    private final com.schoolmanagement.backend.repo.classes.CombinationRepository combinations;
 
     @org.springframework.beans.factory.annotation.Autowired
     private FileStorageService fileStorageService;
@@ -66,7 +67,8 @@ public class StudentManagementService {
             ClassRoomRepository classRooms, ClassEnrollmentRepository enrollments,
             StudentAccountService studentAccountService,
             com.schoolmanagement.backend.repo.auth.UserRepository users,
-            SemesterService semesterService) {
+            SemesterService semesterService,
+            com.schoolmanagement.backend.repo.classes.CombinationRepository combinations) {
         this.students = students;
         this.guardians = guardians;
         this.classRooms = classRooms;
@@ -74,6 +76,7 @@ public class StudentManagementService {
         this.studentAccountService = studentAccountService;
         this.users = users;
         this.semesterService = semesterService;
+        this.combinations = combinations;
     }
 
     // ==================== STUDENT MANAGEMENT ====================
@@ -124,6 +127,9 @@ public class StudentManagementService {
                 .enrollmentDate(req.enrollmentDate() != null ? req.enrollmentDate() : java.time.LocalDate.now())
                 .status(StudentStatus.ACTIVE)
                 .school(school)
+                .preferredCombination(req.combinationId() != null
+                        ? combinations.findById(req.combinationId()).orElse(null)
+                        : null)
                 .build();
 
         // Process Guardian
@@ -246,7 +252,7 @@ public class StudentManagementService {
     public com.schoolmanagement.backend.dto.student.StudentPageResponse listStudents(
             School school, UUID classId, int page, int size,
             String search, Integer grade, String status,
-            String sortBy, String sortDir) {
+            String sortBy, String sortDir, Boolean unassigned) {
 
         AcademicYear currentYear = semesterService.getActiveAcademicYearSafe(school.getId());
         Sort.Direction direction = "desc".equalsIgnoreCase(sortDir) ? Sort.Direction.DESC : Sort.Direction.ASC;
@@ -274,6 +280,16 @@ public class StudentManagementService {
                     predicates.add(cb.equal(root.get("status"), StudentStatus.valueOf(status)));
                 } catch (Exception ignored) {
                 }
+            }
+
+            // Unassigned filter: students NOT having an enrollment in currentYear
+            if (Boolean.TRUE.equals(unassigned) && currentYear != null) {
+                Subquery<UUID> subquery = query.subquery(UUID.class);
+                Root<ClassEnrollment> enrollmentRoot = subquery.from(ClassEnrollment.class);
+                subquery.select(enrollmentRoot.get("student").get("id"));
+                subquery.where(cb.equal(enrollmentRoot.get("academicYear"), currentYear));
+
+                predicates.add(cb.not(root.get("id").in(subquery)));
             }
 
             // Grade and ClassId filters require join with ClassEnrollment for currentYear
@@ -386,8 +402,34 @@ public class StudentManagementService {
      */
     public com.schoolmanagement.backend.dto.admin.BulkDeleteResponse deleteStudents(School school,
             com.schoolmanagement.backend.dto.admin.BulkDeleteRequest request) {
-        log.info("Processing bulk delete for {} students using batch optimization", request.ids().size());
-        return bulkDeleteHelper.deleteBatchStudents(school, request.ids());
+        int deleted = 0;
+        int failed = 0;
+        List<String> errors = new java.util.ArrayList<>();
+
+        for (UUID id : request.ids()) {
+            Student student = null;
+            try {
+                student = students.findByIdAndSchool(id, school)
+                        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy học sinh"));
+
+                bulkDeleteHelper.deleteSingleStudent(id);
+                deleted++;
+            } catch (ApiException e) {
+                failed++;
+                errors.add(e.getMessage());
+            } catch (org.springframework.dao.DataIntegrityViolationException
+                    | jakarta.persistence.PersistenceException e) {
+                failed++;
+                String name = (student != null) ? student.getFullName() : "không xác định";
+                errors.add("Học sinh " + name + ": Không thể xóa do có dữ liệu liên kết (hồ sơ/học bạ).");
+            } catch (Exception e) {
+                failed++;
+                String name = (student != null) ? student.getFullName() : id.toString();
+                errors.add("Học sinh " + name + ": Lỗi hệ thống khi xử lý xóa.");
+                log.error("Error deleting student {}", id, e);
+            }
+        }
+        return new com.schoolmanagement.backend.dto.admin.BulkDeleteResponse(deleted, failed, errors);
     }
 
     @Transactional
@@ -409,7 +451,6 @@ public class StudentManagementService {
         student.setDateOfBirth(req.dateOfBirth());
         student.setGender(req.gender());
         student.setBirthPlace(req.birthPlace());
-        student.setAddress(req.address());
         student.setAddress(req.address());
 
         // Validate Email Update
@@ -446,6 +487,13 @@ public class StudentManagementService {
         // Update status if provided
         if (req.status() != null) {
             student.setStatus(req.status());
+        }
+
+        // Update preferred combination if provided
+        if (req.combinationId() != null) {
+            Combination combination = combinations.findById(req.combinationId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy tổ hợp môn"));
+            student.setPreferredCombination(combination);
         }
 
         // Update guardian
@@ -646,6 +694,8 @@ public class StudentManagementService {
                 currentClassName,
                 currentClassId,
                 student.getUser() != null,
+                student.getPreferredCombination() != null ? student.getPreferredCombination().getId() : null,
+                student.getPreferredCombination() != null ? student.getPreferredCombination().getName() : null,
                 guardianDto);
     }
 
@@ -839,6 +889,116 @@ public class StudentManagementService {
         return getStudentProfile(school, studentId);
     }
 
+    // ==================== BULK ENROLLMENT ====================
+
+    /**
+     * Enroll multiple students into a single class in one batch operation.
+     * Validates: class ownership, status, capacity, and duplicate enrollment.
+     */
+    @Transactional
+    public com.schoolmanagement.backend.dto.student.BulkEnrollResponse bulkEnrollStudents(
+            School school, com.schoolmanagement.backend.dto.student.BulkEnrollRequest req) {
+
+        int enrolled = 0;
+        int skipped = 0;
+        List<String> errors = new ArrayList<>();
+
+        // Validate class
+        ClassRoom classRoom = classRooms.findById(req.classRoomId())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học"));
+
+        if (!classRoom.getSchool().getId().equals(school.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Lớp học không thuộc trường này");
+        }
+
+        if (classRoom.getStatus() != ClassRoomStatus.ACTIVE) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Lớp không đang hoạt động");
+        }
+
+        AcademicYear academicYear = classRoom.getAcademicYear();
+        long currentCount = enrollments.countByClassRoom(classRoom);
+        long maxCapacity = classRoom.getMaxCapacity();
+
+        // Prepare lists for batch processing
+        List<Student> validStudents = new ArrayList<>();
+
+        // Fetch all students in one query instead of N+1
+        List<Student> existingStudents = students.findAllById(req.studentIds());
+        Map<UUID, Student> studentMap = existingStudents.stream()
+                .filter(s -> s.getSchool().getId().equals(school.getId()))
+                .collect(Collectors.toMap(Student::getId, s -> s));
+
+        // Fetch all current enrollments for these students in the current academic year
+        // in one query
+        List<ClassEnrollment> currentEnrollments = enrollments.findAllByStudentInAndAcademicYear(
+                new ArrayList<>(studentMap.values()), academicYear);
+
+        Map<UUID, ClassEnrollment> enrollmentMap = currentEnrollments.stream()
+                .collect(Collectors.toMap(e -> e.getStudent().getId(), e -> e, (e1, e2) -> e1)); // Merge function just
+                                                                                                 // in case
+
+        List<ClassEnrollment> newEnrollments = new ArrayList<>();
+        List<ClassEnrollment> oldEnrollmentsToRemove = new ArrayList<>();
+
+        for (UUID studentId : req.studentIds()) {
+            Student student = studentMap.get(studentId);
+            if (student == null) {
+                skipped++;
+                errors.add("Không tìm thấy học sinh (ID: " + studentId + ")");
+                continue;
+            }
+
+            // Check if already enrolled in this exact class
+            ClassEnrollment existingEnrollment = enrollmentMap.get(studentId);
+            if (existingEnrollment != null && existingEnrollment.getClassRoom().getId().equals(classRoom.getId())) {
+                skipped++;
+                errors.add(student.getFullName() + ": Đã thuộc lớp " + classRoom.getName());
+                continue;
+            }
+
+            // Check capacity
+            if (currentCount >= maxCapacity) {
+                skipped++;
+                errors.add(student.getFullName() + ": Lớp đã đầy (" + maxCapacity + " HS)");
+                continue;
+            }
+
+            // Prepare for removing old enrollment if enrolled in another class for this
+            // year
+            if (existingEnrollment != null) {
+                oldEnrollmentsToRemove.add(existingEnrollment);
+            }
+
+            // Prepare new enrollment
+            ClassEnrollment enrollment = ClassEnrollment.builder()
+                    .student(student)
+                    .classRoom(classRoom)
+                    .academicYear(academicYear)
+                    .enrolledAt(java.time.Instant.now())
+                    .build();
+
+            newEnrollments.add(enrollment);
+
+            currentCount++;
+            enrolled++;
+        }
+
+        // Execute DB operations in batch
+        if (!oldEnrollmentsToRemove.isEmpty()) {
+            enrollments.deleteAllInBatch(oldEnrollmentsToRemove);
+        }
+
+        if (!newEnrollments.isEmpty()) {
+            enrollments.saveAll(newEnrollments);
+        }
+
+        log.info("Bulk enrollment completed: {} enrolled, {} skipped into class {}",
+                enrolled, skipped, classRoom.getName());
+
+        return new com.schoolmanagement.backend.dto.student.BulkEnrollResponse(req.studentIds().size(), enrolled,
+                skipped, errors);
+    }
+
     // ==================== BULK PROMOTION ====================
 
     /**
@@ -874,66 +1034,79 @@ public class StudentManagementService {
             counts.put(c.getId(), enrollments.countByClassRoom(c));
         }
 
+        // Fetch all students in batch
+        List<Student> allStudents = students.findAllById(request.studentIds());
+        Map<UUID, Student> studentMap = allStudents.stream()
+                .filter(s -> s.getSchool().getId().equals(school.getId()))
+                .collect(Collectors.toMap(Student::getId, s -> s));
+
+        // Fetch all existing enrollments for these students in targetYear to skip
+        // duplicates
+        List<ClassEnrollment> existingEnrollments = enrollments.findAllByStudentInAndAcademicYear(
+                new ArrayList<>(studentMap.values()), targetYear);
+        Set<UUID> alreadyPromotedStudentIds = existingEnrollments.stream()
+                .map(e -> e.getStudent().getId())
+                .collect(Collectors.toSet());
+
+        List<ClassEnrollment> newEnrollments = new ArrayList<>();
+
         for (UUID studentId : request.studentIds()) {
-            try {
-                Student student = students.findByIdAndSchool(studentId, school)
-                        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
-                                "Không tìm thấy học sinh (ID: " + studentId + ")"));
-
-                // Skip if not ACTIVE
-                if (student.getStatus() != StudentStatus.ACTIVE) {
-                    skipped++;
-                    errors.add(student.getFullName() + ": Trạng thái không phải Đang học");
-                    continue;
-                }
-
-                // Skip if already has enrollment in target academic year
-                Optional<ClassEnrollment> existing = enrollments
-                        .findTopByStudentAndAcademicYearOrderByEnrolledAtDesc(
-                                student, targetYear);
-                if (existing.isPresent()) {
-                    skipped++;
-                    errors.add(student.getFullName() + ": Đã có lớp ("
-                            + existing.get().getClassRoom().getName() + ") trong năm học "
-                            + targetYear.getName());
-                    continue;
-                }
-
-                // Find a class with available capacity (load-balanced: pick least filled)
-                List<ClassRoom> sorted = targetClasses.stream()
-                        .sorted(java.util.Comparator.comparingLong(c -> counts.get(c.getId())))
-                        .toList();
-
-                boolean assigned = false;
-                for (ClassRoom c : sorted) {
-                    if (counts.get(c.getId()) < c.getMaxCapacity()) {
-                        ClassEnrollment enrollment = ClassEnrollment.builder()
-                                .student(student)
-                                .classRoom(c)
-                                .academicYear(targetYear)
-                                .enrolledAt(Instant.now())
-                                .build();
-                        enrollments.save(enrollment);
-                        counts.put(c.getId(), counts.get(c.getId()) + 1);
-                        promoted++;
-                        assigned = true;
-                        break;
-                    }
-                }
-
-                if (!assigned) {
-                    skipped++;
-                    errors.add(student.getFullName() + ": Tất cả lớp khối "
-                            + request.targetGrade() + " đã đầy");
-                }
-            } catch (ApiException e) {
+            Student student = studentMap.get(studentId);
+            if (student == null) {
                 skipped++;
-                errors.add(e.getMessage());
-            } catch (Exception e) {
-                skipped++;
-                errors.add("Lỗi khi xử lý HS (ID: " + studentId + "): " + e.getMessage());
-                log.error("Error promoting student {}", studentId, e);
+                errors.add("Không tìm thấy học sinh (ID: " + studentId + ")");
+                continue;
             }
+
+            // Skip if not ACTIVE
+            if (student.getStatus() != StudentStatus.ACTIVE) {
+                skipped++;
+                errors.add(student.getFullName() + ": Trạng thái không phải Đang học");
+                continue;
+            }
+
+            // Skip if already promoted
+            if (alreadyPromotedStudentIds.contains(studentId)) {
+                skipped++;
+                // We don't need to add an error message for every already promoted student to
+                // keep response clean,
+                // or we can add it if needed. Let's keep it consistent with previous logic.
+                errors.add(student.getFullName() + ": Đã có lớp trong năm học " + targetYear.getName());
+                continue;
+            }
+
+            // Find a class with available capacity (load-balanced: pick least filled)
+            List<ClassRoom> sorted = targetClasses.stream()
+                    .sorted(java.util.Comparator.comparingLong(c -> counts.get(c.getId())))
+                    .toList();
+
+            boolean assigned = false;
+            for (ClassRoom c : sorted) {
+                if (counts.get(c.getId()) < c.getMaxCapacity()) {
+                    ClassEnrollment enrollment = ClassEnrollment.builder()
+                            .student(student)
+                            .classRoom(c)
+                            .academicYear(targetYear)
+                            .enrolledAt(Instant.now())
+                            .build();
+
+                    newEnrollments.add(enrollment);
+                    counts.put(c.getId(), counts.get(c.getId()) + 1);
+                    promoted++;
+                    assigned = true;
+                    break;
+                }
+            }
+
+            if (!assigned) {
+                skipped++;
+                errors.add(student.getFullName() + ": Tất cả lớp khối " + request.targetGrade() + " đã đầy");
+            }
+        }
+
+        // Batch save new enrollments
+        if (!newEnrollments.isEmpty()) {
+            enrollments.saveAll(newEnrollments);
         }
 
         log.info("Bulk promotion completed: {} promoted, {} skipped out of {} total",

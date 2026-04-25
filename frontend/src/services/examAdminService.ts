@@ -10,6 +10,7 @@ export type ExamSessionDto = {
     startDate: string;
     endDate: string;
     status: "DRAFT" | "PUBLISHED" | "COMPLETED";
+    type: string;
 };
 
 export type CreateExamSessionRequest = {
@@ -19,6 +20,7 @@ export type CreateExamSessionRequest = {
     startDate: string;
     endDate: string;
     status?: "DRAFT" | "PUBLISHED" | "COMPLETED";
+    type: string;
 };
 
 export type ExamScheduleDetailDto = {
@@ -28,7 +30,7 @@ export type ExamScheduleDetailDto = {
     examDate: string;
     startTime: string;
     endTime: string;
-    examType: string;
+    examType?: string;
     note: string;
 };
 

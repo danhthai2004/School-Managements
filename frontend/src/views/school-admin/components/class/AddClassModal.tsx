@@ -43,6 +43,10 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, roo
         setLoadingYears(true);
         try {
             const years = await semesterService.listAcademicYears();
+            if (!Array.isArray(years)) {
+                setAcademicYears([]);
+                return;
+            }
             // Filter: only show ACTIVE or UPCOMING
             const filtered = years.filter(y => y.status === 'ACTIVE' || y.status === 'UPCOMING');
             setAcademicYears(filtered);
@@ -56,10 +60,12 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, roo
             }
         } catch (err) {
             console.error("Failed to fetch academic years", err);
+            setAcademicYears([]);
         } finally {
             setLoadingYears(false);
         }
     };
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -174,12 +180,13 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, roo
                                         disabled={loadingYears}
                                         className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm bg-white disabled:bg-gray-50"
                                     >
-                                        {academicYears.length === 0 && <option value="">Đang tải...</option>}
-                                        {academicYears.map(y => (
+                                        {academicYears && academicYears.length === 0 && <option value="">Đang tải...</option>}
+                                        {Array.isArray(academicYears) && academicYears.map(y => (
                                             <option key={y.id} value={y.name}>
                                                 {y.name}
                                             </option>
                                         ))}
+
                                     </select>
                                 </div>
                                 <div className="col-span-2 sm:col-span-1">
@@ -217,9 +224,10 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, roo
                                         className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm bg-white"
                                     >
                                         <option value="">-- Chọn tổ hợp môn --</option>
-                                        {combinations.map((c) => (
+                                        {Array.isArray(combinations) && combinations.map((c) => (
                                             <option key={c.id} value={c.id}>{c.name} {c.code ? `(${c.code})` : ''}</option>
                                         ))}
+
                                     </select>
                                     <p className="text-xs text-gray-500 mt-1">Chọn tổ hợp thay cho phân ban truyền thống</p>
                                 </div>
@@ -231,9 +239,10 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, roo
                                         className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm bg-white"
                                     >
                                         <option value="">-- Chọn phòng học --</option>
-                                        {rooms.filter(r => r.status === 'ACTIVE').map((r) => (
+                                        {Array.isArray(rooms) && rooms.filter(r => r.status === 'ACTIVE').map((r) => (
                                             <option key={r.id} value={r.id}>{r.name} {r.building ? `(${r.building})` : ''} - {r.capacity} chỗ</option>
                                         ))}
+
                                     </select>
                                     <p className="text-xs text-gray-500 mt-1">Quản lý phòng học tại mục Phòng học</p>
                                 </div>
@@ -256,7 +265,8 @@ function AddClassModal({ isOpen, onClose, onSuccess, teachers, combinations, roo
                                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm bg-white"
                             >
                                 <option value="">-- Chọn giáo viên --</option>
-                                {teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+                                {Array.isArray(teachers) && teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+
                             </select>
                         </div>
                     </div>

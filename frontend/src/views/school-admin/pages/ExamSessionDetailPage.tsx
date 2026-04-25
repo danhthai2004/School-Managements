@@ -31,7 +31,7 @@ export default function ExamSessionDetailPage() {
     const [currentSchedule, setCurrentSchedule] = useState<ExamScheduleDetailDto | null>(null);
     const [subjects, setSubjects] = useState<SubjectDto[]>([]);
     const [newSchedules, setNewSchedules] = useState<Partial<ExamScheduleDetailDto>[]>([
-        { subjectName: "", grade: 10, examDate: "", startTime: "07:30", endTime: "09:00", examType: "MIDTERM", note: "" }
+        { subjectName: "", grade: 10, examDate: "", startTime: "07:30", endTime: "09:00", note: "" }
     ]);
     const [saving, setSaving] = useState(false);
 
@@ -59,7 +59,7 @@ export default function ExamSessionDetailPage() {
     }, [id]);
 
     const handleAddRow = () => {
-        setNewSchedules([...newSchedules, { subjectName: "", grade: 10, examDate: "", startTime: "07:30", endTime: "09:00", examType: "MIDTERM", note: "" }]);
+        setNewSchedules([...newSchedules, { subjectName: "", grade: 10, examDate: "", startTime: "07:30", endTime: "09:00", note: "" }]);
     };
 
     const handleRemoveRow = (index: number) => {
@@ -80,7 +80,7 @@ export default function ExamSessionDetailPage() {
             await examAdminService.createSchedules(id, newSchedules as ExamScheduleDetailDto[]);
             toast.success("Đã tạo lịch thi thành công");
             setCreateModal(false);
-            setNewSchedules([{ subjectName: "", grade: 10, examDate: "", startTime: "07:30", endTime: "09:00", examType: "MIDTERM", note: "" }]);
+            setNewSchedules([{ subjectName: "", grade: 10, examDate: "", startTime: "07:30", endTime: "09:00", note: "" }]);
             loadData();
         } catch (e: any) {
             toast.error(e?.response?.data?.message || "Lỗi khi tạo lịch thi");
@@ -265,19 +265,18 @@ export default function ExamSessionDetailPage() {
 
                         <div className="p-6 flex-1 overflow-y-auto">
                             <div className="space-y-4">
-                                <div className="grid grid-cols-12 gap-3 text-xs font-bold text-gray-400 uppercase px-3">
+                                <div className="grid grid-cols-11 gap-3 text-xs font-bold text-gray-400 uppercase px-3">
                                     <div className="col-span-2">Môn thi</div>
                                     <div className="col-span-1 text-center">Khối</div>
-                                    <div className="col-span-1">Loại</div>
                                     <div className="col-span-2">Ngày thi</div>
                                     <div className="col-span-2">Bắt đầu</div>
                                     <div className="col-span-2">Kết thúc</div>
-                                    <div className="col-span-2">Ghi chú</div>
+                                    <div className="col-span-1">Ghi chú</div>
                                     <div className="col-span-1"></div>
                                 </div>
 
                                 {newSchedules.map((row, idx) => (
-                                    <div key={idx} className="grid grid-cols-12 gap-3 items-center group">
+                                    <div key={idx} className="grid grid-cols-11 gap-3 items-center group">
                                         <div className="col-span-2">
                                             <select value={row.subjectName} onChange={e => {
                                                 const rows = [...newSchedules];
@@ -297,16 +296,6 @@ export default function ExamSessionDetailPage() {
                                                 <option value={10}>10</option>
                                                 <option value={11}>11</option>
                                                 <option value={12}>12</option>
-                                            </select>
-                                        </div>
-                                        <div className="col-span-1">
-                                            <select value={row.examType} onChange={e => {
-                                                const rows = [...newSchedules];
-                                                rows[idx].examType = e.target.value;
-                                                setNewSchedules(rows);
-                                            }} className="w-full px-2 py-2 border border-gray-200 rounded-xl text-sm">
-                                                <option value="MIDTERM">Giữa kỳ</option>
-                                                <option value="FINAL">Cuối kỳ</option>
                                             </select>
                                         </div>
                                         <div className="col-span-2">
@@ -333,12 +322,12 @@ export default function ExamSessionDetailPage() {
                                                 setNewSchedules(rows);
                                             }} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm" />
                                         </div>
-                                        <div className="col-span-2">
+                                        <div className="col-span-1">
                                             <input value={row.note} onChange={e => {
                                                 const rows = [...newSchedules];
                                                 rows[idx].note = e.target.value;
                                                 setNewSchedules(rows);
-                                            }} placeholder="VD: HS khuyết tật..." className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm" />
+                                            }} placeholder="VD: Khuyết tật..." className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm" />
                                         </div>
                                         <div className="col-span-1 text-right">
                                             {newSchedules.length > 1 && (
@@ -398,14 +387,6 @@ export default function ExamSessionDetailPage() {
                                         <option value={10}>10</option>
                                         <option value={11}>11</option>
                                         <option value={12}>12</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Loại kỳ thi</label>
-                                    <select value={currentSchedule.examType} onChange={e => setCurrentSchedule({ ...currentSchedule, examType: e.target.value })}
-                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm">
-                                        <option value="MIDTERM">Giữa kỳ</option>
-                                        <option value="FINAL">Cuối kỳ</option>
                                     </select>
                                 </div>
                             </div>

@@ -46,7 +46,7 @@ export default function ExamSessionManagement() {
     const [sessionModal, setSessionModal] = useState(false);
     const [editSession, setEditSession] = useState<ExamSessionDto | null>(null);
     const [sessionForm, setSessionForm] = useState<CreateExamSessionRequest>({
-        name: "", academicYear: "", semester: 1, startDate: "", endDate: "", status: "DRAFT",
+        name: "", academicYear: "", semester: 1, startDate: "", endDate: "", status: "DRAFT", type: "MIDTERM"
     });
     const [saving, setSaving] = useState(false);
 
@@ -87,14 +87,15 @@ export default function ExamSessionManagement() {
             semester: selectedSemester?.semesterNumber || 1,
             startDate: "",
             endDate: "",
-            status: "DRAFT"
+            status: "DRAFT",
+            type: "MIDTERM"
         });
         setEditSession(null);
         setSessionModal(true);
     };
 
     const openEditSession = (s: ExamSessionDto) => {
-        setSessionForm({ name: s.name, academicYear: s.academicYear, semester: s.semester, startDate: s.startDate, endDate: s.endDate, status: s.status });
+        setSessionForm({ name: s.name, academicYear: s.academicYear, semester: s.semester, startDate: s.startDate, endDate: s.endDate, status: s.status, type: s.type });
         setEditSession(s);
         setSessionModal(true);
     };
@@ -227,7 +228,12 @@ export default function ExamSessionManagement() {
                                     <div className="flex items-start justify-between mb-3">
                                         <div>
                                             <h3 className="font-semibold text-gray-900">{s.name}</h3>
-                                            <p className="text-xs text-gray-500 mt-0.5">{s.academicYear} — HK{s.semester}</p>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <p className="text-xs text-gray-500">{s.academicYear} — HK{s.semester}</p>
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${s.type === 'MIDTERM' ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-purple-50 text-purple-600 border-purple-200'}`}>
+                                                    {s.type === 'MIDTERM' ? 'GIỮA KỲ' : 'CUỐI KỲ'}
+                                                </span>
+                                            </div>
                                         </div>
                                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_MAP[s.status]?.cls || "bg-gray-100"}`}>
                                             {STATUS_MAP[s.status]?.label || s.status}
@@ -293,11 +299,21 @@ export default function ExamSessionManagement() {
                             </div>
                         </div>
                         <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Tên kỳ thi *</label>
-                                <input value={sessionForm.name} onChange={e => setSessionForm({ ...sessionForm, name: e.target.value })}
-                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
-                                    placeholder="VD: Giữa kỳ 1, Cuối kỳ 2" />
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="col-span-1">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tên kỳ thi *</label>
+                                    <input value={sessionForm.name} onChange={e => setSessionForm({ ...sessionForm, name: e.target.value })}
+                                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                                        placeholder="VD: HK1, HK2" />
+                                </div>
+                                <div className="col-span-1">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Loại kỳ thi *</label>
+                                    <select value={sessionForm.type} onChange={e => setSessionForm({ ...sessionForm, type: e.target.value })}
+                                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm">
+                                        <option value="MIDTERM">Giữa kỳ</option>
+                                        <option value="FINAL">Cuối kỳ</option>
+                                    </select>
+                                </div>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>

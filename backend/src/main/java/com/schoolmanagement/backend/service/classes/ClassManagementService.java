@@ -16,9 +16,10 @@ import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.auth.UserRepository;
 import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
 import com.schoolmanagement.backend.service.admin.SemesterService;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import com.schoolmanagement.backend.service.teacher.TeacherAssignmentService;
 
 import java.util.List;
 import java.util.UUID;
@@ -32,18 +33,21 @@ public class ClassManagementService {
     private final com.schoolmanagement.backend.repo.classes.CombinationRepository combinations;
     private final com.schoolmanagement.backend.repo.classes.RoomRepository rooms;
     private final SemesterService semesterService;
+    private final TeacherAssignmentService teacherAssignmentService;
 
     public ClassManagementService(ClassRoomRepository classRooms, UserRepository users,
             ClassEnrollmentRepository enrollments,
             com.schoolmanagement.backend.repo.classes.CombinationRepository combinations,
             com.schoolmanagement.backend.repo.classes.RoomRepository rooms,
-            SemesterService semesterService) {
+            SemesterService semesterService,
+            TeacherAssignmentService teacherAssignmentService) {
         this.classRooms = classRooms;
         this.users = users;
         this.enrollments = enrollments;
         this.combinations = combinations;
         this.rooms = rooms;
         this.semesterService = semesterService;
+        this.teacherAssignmentService = teacherAssignmentService;
     }
 
     // ==================== CLASS ROOM MANAGEMENT ====================
@@ -58,7 +62,8 @@ public class ClassManagementService {
 
         // Validation #3: Không cho tạo lớp trong năm học đã đóng
         if (academicYear.getStatus() == AcademicYearStatus.CLOSED) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Không thể tạo lớp trong năm học đã đóng: " + academicYear.getName());
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Không thể tạo lớp trong năm học đã đóng: " + academicYear.getName());
         }
 
         // Kiểm tra trùng tên lớp trong cùng năm học
@@ -94,15 +99,18 @@ public class ClassManagementService {
             if (!room.getSchool().getId().equals(school.getId())) {
                 throw new ApiException(HttpStatus.FORBIDDEN, "Phòng học không thuộc trường này.");
             }
-            // Validation #5: Không cho gán phòng đã được sử dụng bởi lớp khác trong cùng năm học
+            // Validation #5: Không cho gán phòng đã được sử dụng bởi lớp khác trong cùng
+            // năm học
             if (classRooms.existsByRoomAndAcademicYear(room, academicYear)) {
                 throw new ApiException(HttpStatus.CONFLICT,
-                        "Phòng '" + room.getName() + "' đã được gán cho lớp khác trong năm học " + academicYear.getName() + ".");
+                        "Phòng '" + room.getName() + "' đã được gán cho lớp khác trong năm học "
+                                + academicYear.getName() + ".");
             }
             // Validation #6: Sĩ số tối đa không được vượt quá sức chứa phòng
             if (req.maxCapacity() > room.getCapacity()) {
                 throw new ApiException(HttpStatus.BAD_REQUEST,
-                        "Sĩ số tối đa (" + req.maxCapacity() + ") không thể vượt quá sức chứa phòng học (" + room.getCapacity() + ").");
+                        "Sĩ số tối đa (" + req.maxCapacity() + ") không thể vượt quá sức chứa phòng học ("
+                                + room.getCapacity() + ").");
             }
         }
 
@@ -122,9 +130,14 @@ public class ClassManagementService {
                 .build();
 
         classRoom = classRooms.save(classRoom);
-        return
 
-        toClassRoomDto(classRoom);
+        // Auto-initialize assignments when a class is created (specifically useful when
+        // it has a combination)
+        if (classRoom.getCombination() != null) {
+            teacherAssignmentService.initializeAssignmentsForClass(classRoom);
+        }
+
+        return toClassRoomDto(classRoom);
     }
 
     @Transactional
@@ -145,7 +158,8 @@ public class ClassManagementService {
 
         // Validation #3: Không cho sửa lớp trong năm học đã đóng
         if (academicYear.getStatus() == AcademicYearStatus.CLOSED) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Không thể chỉnh sửa lớp trong năm học đã đóng: " + academicYear.getName());
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Không thể chỉnh sửa lớp trong năm học đã đóng: " + academicYear.getName());
         }
 
         long currentStudentCount = enrollments.countByClassRoom(classRoom);
@@ -162,7 +176,8 @@ public class ClassManagementService {
                 throw new ApiException(HttpStatus.BAD_REQUEST,
                         "Không thể đổi khối lớp khi lớp đã có " + currentStudentCount + " học sinh theo học.");
             }
-            if (classRoom.getAcademicYear() != null && !classRoom.getAcademicYear().getName().equals(req.academicYear())) {
+            if (classRoom.getAcademicYear() != null
+                    && !classRoom.getAcademicYear().getName().equals(req.academicYear())) {
                 throw new ApiException(HttpStatus.BAD_REQUEST,
                         "Không thể đổi năm học khi lớp đã có " + currentStudentCount + " học sinh theo học.");
             }
@@ -208,12 +223,14 @@ public class ClassManagementService {
             var existingRoomClass = classRooms.findByRoomAndAcademicYear(room, academicYear);
             if (existingRoomClass.isPresent() && !existingRoomClass.get().getId().equals(classRoom.getId())) {
                 throw new ApiException(HttpStatus.CONFLICT,
-                        "Phòng '" + room.getName() + "' đã được gán cho lớp khác trong năm học " + academicYear.getName() + ".");
+                        "Phòng '" + room.getName() + "' đã được gán cho lớp khác trong năm học "
+                                + academicYear.getName() + ".");
             }
             // Validation #6: Sĩ số tối đa không được vượt quá sức chứa phòng
             if (req.maxCapacity() > room.getCapacity()) {
                 throw new ApiException(HttpStatus.BAD_REQUEST,
-                        "Sĩ số tối đa (" + req.maxCapacity() + ") không thể vượt quá sức chứa phòng học (" + room.getCapacity() + ").");
+                        "Sĩ số tối đa (" + req.maxCapacity() + ") không thể vượt quá sức chứa phòng học ("
+                                + room.getCapacity() + ").");
             }
         }
 
@@ -230,6 +247,12 @@ public class ClassManagementService {
         classRoom.setCombination(combination);
 
         classRoom = classRooms.save(classRoom);
+
+        // Auto-initialize assignments when a class combination is updated
+        if (classRoom.getCombination() != null) {
+            teacherAssignmentService.initializeAssignmentsForClass(classRoom);
+        }
+
         return toClassRoomDto(classRoom);
     }
 
@@ -246,7 +269,8 @@ public class ClassManagementService {
         long studentCount = enrollments.countByClassRoom(classRoom);
         if (studentCount > 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST,
-                    "Không thể xóa lớp đang có " + studentCount + " học sinh. Hãy chuyển học sinh sang lớp khác trước.");
+                    "Không thể xóa lớp đang có " + studentCount
+                            + " học sinh. Hãy chuyển học sinh sang lớp khác trước.");
         }
 
         classRooms.delete(classRoom);

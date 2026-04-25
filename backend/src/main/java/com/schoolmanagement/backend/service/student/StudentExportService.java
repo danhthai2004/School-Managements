@@ -1,6 +1,8 @@
 package com.schoolmanagement.backend.service.student;
 
 import com.schoolmanagement.backend.domain.entity.admin.School;
+import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
+import com.schoolmanagement.backend.service.admin.SemesterService;
 import com.schoolmanagement.backend.domain.entity.classes.ClassEnrollment;
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.student.Student;
@@ -27,6 +29,7 @@ public class StudentExportService {
     private final StudentRepository studentRepository;
     private final ClassRoomRepository classRoomRepository;
     private final ClassEnrollmentRepository enrollmentRepository;
+    private final SemesterService semesterService;
 
     // --- Custom colors (RGB) ---
     private static final byte[] COLOR_HEADER_BG = { (byte) 30, (byte) 80, (byte) 160 }; // Deep blue
@@ -149,6 +152,23 @@ public class StudentExportService {
             sheet.setColumnWidth(i, widths[i] * 256);
         }
 
+        // --- OPTIMIZATION: Fetch enrollments in batch to avoid N+1 ---
+        AcademicYear currentYear = semesterService.getActiveAcademicYearSafe(school);
+
+        java.util.Map<java.util.UUID, String> studentClassMap = new java.util.HashMap<>();
+        if (!studentsList.isEmpty()) {
+            List<ClassEnrollment> allEnrollments;
+            if (currentYear != null) {
+                allEnrollments = enrollmentRepository.findAllByStudentInAndAcademicYear(studentsList, currentYear);
+            } else {
+                allEnrollments = enrollmentRepository.findAllByStudentIn(studentsList);
+            }
+
+            for (ClassEnrollment enr : allEnrollments) {
+                studentClassMap.putIfAbsent(enr.getStudent().getId(), enr.getClassRoom().getName());
+            }
+        }
+
         // Data
         for (int i = 0; i < studentsList.size(); i++) {
             Student st = studentsList.get(i);
@@ -166,13 +186,8 @@ public class StudentExportService {
             setCell(row, col++, translateGender(st.getGender()), center);
             setCell(row, col++, st.getDateOfBirth() != null ? st.getDateOfBirth().toString() : "", center);
 
-            // Current class
-            String className = "";
-            List<ClassEnrollment> enrs = enrollmentRepository.findAllByStudent(st);
-            if (enrs != null && !enrs.isEmpty()) {
-                className = enrs.get(0).getClassRoom().getName();
-            }
-            setCell(row, col++, className, center);
+            // Current class (Optimized)
+            setCell(row, col++, studentClassMap.getOrDefault(st.getId(), ""), center);
 
             setCell(row, col++, st.getPhone(), center);
             setCell(row, col++, st.getEmail(), left);

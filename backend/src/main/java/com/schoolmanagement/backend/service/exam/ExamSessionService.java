@@ -9,7 +9,6 @@ import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.exam.ExamSession;
 import com.schoolmanagement.backend.domain.exam.ExamSessionStatus;
 import com.schoolmanagement.backend.domain.exam.ExamStatus;
-import com.schoolmanagement.backend.domain.exam.ExamType;
 import com.schoolmanagement.backend.repo.classes.SubjectRepository;
 
 import com.schoolmanagement.backend.dto.exam.ExamScheduleDetailDto;
@@ -80,6 +79,7 @@ public class ExamSessionService {
                                 .startDate(dto.getStartDate())
                                 .endDate(dto.getEndDate())
                                 .status(dto.getStatus() != null ? dto.getStatus() : ExamSessionStatus.DRAFT)
+                                .type(dto.getType())
                                 .school(school)
                                 .build();
 
@@ -108,6 +108,9 @@ public class ExamSessionService {
                 session.setEndDate(dto.getEndDate());
                 if (dto.getStatus() != null) {
                         session.setStatus(dto.getStatus());
+                }
+                if (dto.getType() != null) {
+                        session.setType(dto.getType());
                 }
 
                 return toDto(examSessionRepo.save(session));
@@ -212,10 +215,7 @@ public class ExamSessionService {
                                                         : null)
                                         .duration(60) // Default 60 mins
                                         .note(dto.getNote())
-                                        .examType(dto.getExamType() != null && !dto.getExamType().isBlank()
-                                                        ? ExamType.valueOf(dto.getExamType().toUpperCase())
-                                                        : (session.getName().contains("Giữa") ? ExamType.MIDTERM
-                                                                        : ExamType.FINAL))
+                                        .examType(session.getType())
                                         .status(ExamStatus.UPCOMING)
                                         .school(session.getSchool())
                                         .academicYear(session.getAcademicYear())
@@ -251,9 +251,8 @@ public class ExamSessionService {
                                 ? LocalTime.parse(dto.getEndTime())
                                 : null);
                 schedule.setNote(dto.getNote());
-                if (dto.getExamType() != null && !dto.getExamType().isBlank()) {
-                        schedule.setExamType(ExamType.valueOf(dto.getExamType().toUpperCase()));
-                }
+                // Always inherit from session type
+                schedule.setExamType(schedule.getExamSession().getType());
 
                 return toDetailDto(examScheduleRepo.save(schedule));
         }
@@ -287,6 +286,7 @@ public class ExamSessionService {
                                 .startDate(examSession.getStartDate())
                                 .endDate(examSession.getEndDate())
                                 .status(examSession.getStatus())
+                                .type(examSession.getType())
                                 .build();
         }
 }

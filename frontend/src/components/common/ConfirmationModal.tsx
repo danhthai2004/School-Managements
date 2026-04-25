@@ -71,7 +71,7 @@ export default function ConfirmationModal({
             />
 
             {/* Modal Content */}
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300 p-6 text-center">
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-6 text-center">
                 <div className={`w-16 h-16 ${isLoading ? 'bg-blue-50' : config.circleBg} rounded-full flex items-center justify-center mx-auto mb-4`}>
                     {isLoading ? (
                         <div className="w-8 h-8 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />

@@ -84,6 +84,8 @@ export type StudentDto = {
     currentClassName: string | null;
     currentClassId: string | null;
     hasAccount: boolean;
+    combinationId: string | null;
+    combinationName: string | null;
     guardian: GuardianDto | null;
 };
 
@@ -143,6 +145,7 @@ export type UpdateStudentRequest = {
     status?: 'ACTIVE' | 'GRADUATED' | 'TRANSFERRED' | 'SUSPENDED';
     classId?: string;
     academicYear?: string;
+    combinationId?: string;
     guardian?: UpdateGuardianRequest;
 };
 
@@ -195,6 +198,18 @@ export type BulkPromoteRequest = {
 
 export type BulkPromoteResponse = {
     promoted: number;
+    skipped: number;
+    errors: string[];
+};
+
+export type BulkEnrollRequest = {
+    classRoomId: string;
+    studentIds: string[];
+};
+
+export type BulkEnrollResponse = {
+    total: number;
+    enrolled: number;
     skipped: number;
     errors: string[];
 };
@@ -281,8 +296,12 @@ export const schoolAdminService = {
 
     // Teachers
     listTeachers: async (): Promise<UserDto[]> => {
-        const res = await api.get<UserDto[]>("/school/teachers");
-        return res.data;
+        const res = await api.get<any>("/school/teachers");
+        // If it's a paginated response, extract content. If it's already an array, return it.
+        if (res.data && res.data.content) {
+            return res.data.content;
+        }
+        return Array.isArray(res.data) ? res.data : [];
     },
 
     listTeacherProfiles: async (page = 0, size = 50, search?: string): Promise<PageResponse<TeacherDto>> => {
@@ -356,6 +375,7 @@ export const schoolAdminService = {
         status?: string;
         sortBy?: string;
         sortDir?: string;
+        unassigned?: boolean;
     } = {}): Promise<StudentPageResponse> => {
         const res = await api.get<StudentPageResponse>("/school/students", { params });
         return res.data;
@@ -447,6 +467,12 @@ export const schoolAdminService = {
 
     bulkDeleteStudents: async (ids: string[]): Promise<BulkDeleteResponse> => {
         const res = await api.post<BulkDeleteResponse>("/school/students/bulk-delete", { ids });
+        return res.data;
+    },
+
+    // Bulk Enroll Students into a Class
+    bulkEnrollStudents: async (req: BulkEnrollRequest): Promise<BulkEnrollResponse> => {
+        const res = await api.post<BulkEnrollResponse>("/school/students/bulk-enroll", req);
         return res.data;
     },
 
