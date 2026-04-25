@@ -372,7 +372,7 @@ public class SemesterService {
      */
     public SemesterDto getCurrentSemester(School school) {
         LocalDate today = LocalDate.now();
-        return semesterRepository.findCurrentBySchoolAndDate(school, today)
+        return semesterRepository.findCurrentBySchoolAndDate(school, today).stream().findFirst()
                 .map(this::toDto)
                 .orElseGet(() ->
                 // Fallback: lấy học kỳ ACTIVE
@@ -389,7 +389,7 @@ public class SemesterService {
         return semesterRepository.findBySchoolAndStatus(school, SemesterStatus.ACTIVE)
                 .orElseGet(() -> {
                     LocalDate today = LocalDate.now();
-                    return semesterRepository.findCurrentBySchoolAndDate(school, today)
+                    return semesterRepository.findCurrentBySchoolAndDate(school, today).stream().findFirst()
                             .orElse(null);
                 });
     }
@@ -447,7 +447,7 @@ public class SemesterService {
      * thấy.
      */
     public AcademicYear getAcademicYearByDate(School school, LocalDate date) {
-        return academicYearRepository.findCurrentBySchoolAndDate(school, date)
+        return academicYearRepository.findCurrentBySchoolAndDate(school, date).stream().findFirst()
                 .orElseGet(() -> getActiveAcademicYear(school));
     }
 
@@ -456,7 +456,7 @@ public class SemesterService {
      * kỳ).
      */
     public Semester getSemesterByDate(School school, LocalDate date) {
-        return semesterRepository.findCurrentBySchoolAndDate(school, date).orElse(null);
+        return semesterRepository.findCurrentBySchoolAndDate(school, date).stream().findFirst().orElse(null);
     }
 
     /**

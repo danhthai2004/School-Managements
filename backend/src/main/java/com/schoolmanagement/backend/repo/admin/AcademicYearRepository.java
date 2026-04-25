@@ -31,8 +31,8 @@ public interface AcademicYearRepository extends JpaRepository<AcademicYear, UUID
     /**
      * Tìm năm học chứa ngày truyền vào.
      */
-    @Query("SELECT a FROM AcademicYear a WHERE a.school = :school AND a.startDate <= :date AND a.endDate >= :date")
-    Optional<AcademicYear> findCurrentBySchoolAndDate(
+    @Query("SELECT a FROM AcademicYear a WHERE a.school = :school AND a.startDate <= :date AND a.endDate >= :date ORDER BY a.status ASC, a.startDate DESC")
+    List<AcademicYear> findCurrentBySchoolAndDate(
             @org.springframework.data.repository.query.Param("school") School school,
             @org.springframework.data.repository.query.Param("date") java.time.LocalDate date);
 }
