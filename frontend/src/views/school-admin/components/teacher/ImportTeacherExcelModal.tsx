@@ -25,12 +25,8 @@ const ImportTeacherExcelModal: React.FC<ImportTeacherExcelModalProps> = ({
     const { showError } = useToast();
 
     const handleFileSelect = (selectedFile: File) => {
-        const validTypes = [
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "application/vnd.ms-excel"
-        ];
-        if (!validTypes.includes(selectedFile.type) && !selectedFile.name.match(/\.(xlsx|xls)$/i)) {
-            setError("Vui lòng chọn file Excel (.xlsx hoặc .xls)");
+        if (!selectedFile.name.match(/\.csv$/i) && selectedFile.type !== "text/csv") {
+            setError("Vui lòng chọn file CSV (.csv)");
             return;
         }
         setFile(selectedFile);
@@ -47,7 +43,7 @@ const ImportTeacherExcelModal: React.FC<ImportTeacherExcelModalProps> = ({
 
     const handleSubmit = async () => {
         if (!file) {
-            setError("Vui lòng chọn file Excel");
+            setError("Vui lòng chọn file CSV");
             return;
         }
 
@@ -75,7 +71,7 @@ const ImportTeacherExcelModal: React.FC<ImportTeacherExcelModalProps> = ({
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', 'Mau_Import_GiaoVien.xlsx');
+            link.setAttribute('download', 'Mau_Import_GiaoVien.csv');
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -106,11 +102,11 @@ const ImportTeacherExcelModal: React.FC<ImportTeacherExcelModalProps> = ({
                                 <FileSpreadsheet className="w-5 h-5 text-emerald-50" />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold tracking-tight">Import giáo viên từ Excel</h1>
+                                <h1 className="text-xl font-bold tracking-tight">Import giáo viên từ CSV</h1>
                                 <p className="text-emerald-50/80 text-xs font-medium mt-0.5">Thêm mới giáo viên vào hệ thống</p>
                             </div>
                         </div>
-                        <button onClick={handleClose} className="p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all">
+                        <button onClick={handleClose} title="Đóng" aria-label="Đóng" className="p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all">
                             <X className="w-5 h-5" />
                         </button>
                     </div>
@@ -149,8 +145,10 @@ const ImportTeacherExcelModal: React.FC<ImportTeacherExcelModalProps> = ({
                         <input
                             ref={fileInputRef}
                             type="file"
-                            accept=".xlsx,.xls"
+                            accept=".csv"
                             className="hidden"
+                            aria-label="Chọn file CSV giáo viên"
+                            title="Chọn file CSV giáo viên"
                             onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
                         />
                         {file ? (
@@ -175,8 +173,8 @@ const ImportTeacherExcelModal: React.FC<ImportTeacherExcelModalProps> = ({
                                     <Upload className="w-8 h-8" />
                                 </div>
                                 <div>
-                                    <p className="text-sm text-slate-600 font-bold">Kéo thả file Excel vào đây</p>
-                                    <p className="text-xs text-slate-400 font-medium mt-1">hoặc click để chọn file từ máy tính</p>
+                                    <p className="text-sm text-slate-600 font-bold">Kéo thả file CSV vào đây</p>
+                                    <p className="text-xs text-slate-400 font-medium mt-1">hoặc click để chọn file .csv từ máy tính</p>
                                 </div>
                             </div>
                         )}

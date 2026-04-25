@@ -60,6 +60,10 @@ public class Teacher {
     @Column(nullable = false, length = 20)
     private String status = "ACTIVE"; // ACTIVE, INACTIVE
 
+    @Builder.Default
+    @Column(name = "max_periods_per_week", nullable = false)
+    private Integer maxPeriodsPerWeek = 20;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "school_id", nullable = false)
     private School school;

@@ -240,11 +240,30 @@ public class FaceAttendanceService {
             }
         }
 
+        // Deduplicate by studentId — keep entry with highest confidence
+        // This prevents duplicate key violations when the same student is detected
+        // in multiple photos sent in the same batch.
+        Map<String, ConfirmedStudent> deduped = new LinkedHashMap<>();
         for (ConfirmedStudent cs : confirmedStudents) {
-            UUID studentUUID = UUID.fromString(cs.studentId);
-            Student student = studentRepository.findById(studentUUID).orElse(null);
-            if (student == null)
+            deduped.merge(cs.studentId, cs,
+                    (existing, incoming) -> incoming.confidence() > existing.confidence() ? incoming : existing);
+        }
+        log.info("confirmFaceAttendance: {} raw entries → {} unique students after dedup",
+                confirmedStudents.size(), deduped.size());
+
+        for (ConfirmedStudent cs : deduped.values()) {
+            UUID studentUUID;
+            try {
+                studentUUID = UUID.fromString(cs.studentId);
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid studentId format: {}", cs.studentId);
                 continue;
+            }
+            Student student = studentRepository.findById(studentUUID).orElse(null);
+            if (student == null) {
+                log.warn("Student not found: {}", studentUUID);
+                continue;
+            }
 
             // Upsert attendance record
             var existing = attendanceRepository
@@ -270,7 +289,7 @@ public class FaceAttendanceService {
                 attendanceRepository.save(attendance);
             }
 
-            // Save recognition log
+            // Save recognition log (always append — one log per confirm action)
             FacialRecognitionLog frLog = FacialRecognitionLog.builder()
                     .attendance(attendance)
                     .recognizedStudent(student)
