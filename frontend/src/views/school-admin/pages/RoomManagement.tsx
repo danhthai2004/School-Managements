@@ -90,10 +90,6 @@ export default function RoomManagement() {
 
     useEffect(() => { fetchRooms(); }, []);
 
-    const openCreate = () => {
-        setForm({ name: "", capacity: 40, building: "", status: "ACTIVE" });
-        setModal({ open: true, room: null });
-    };
 
     const openEdit = (room: RoomDto) => {
         setForm({ name: room.name, capacity: room.capacity, building: room.building || "", status: room.status });
@@ -185,11 +181,15 @@ export default function RoomManagement() {
                 return;
             }
         }
-        // Check for duplicate names within the form
-        const names = validRows.map(r => r.name.trim().toLowerCase());
-        const duplicates = names.filter((name, idx) => names.indexOf(name) !== idx);
+        // Check for duplicate rooms (same name AND same building) within the form
+        const roomKeys = validRows.map(r => `${r.name.trim().toLowerCase()}|${r.building.trim().toLowerCase()}`);
+        const duplicates = roomKeys.filter((key, idx) => roomKeys.indexOf(key) !== idx);
         if (duplicates.length > 0) {
-            toast.error(`Trùng tên phòng trong danh sách: ${[...new Set(duplicates)].join(", ")}`);
+            const duplicateNames = duplicates.map(key => {
+                const [name, building] = key.split('|');
+                return building ? `${name} (Tòa ${building})` : name;
+            });
+            toast.error(`Trùng phòng trong danh sách: ${[...new Set(duplicateNames)].join(", ")}`);
             return;
         }
 
@@ -236,12 +236,9 @@ export default function RoomManagement() {
                 </div>
                 <div className="flex items-center gap-2">
                     <button onClick={openBulk}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all">
-                        <Copy className="w-4 h-4" /> Thêm nhiều phòng
-                    </button>
-                    <button onClick={openCreate}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all">
-                        <Plus className="w-4 h-4" /> Thêm phòng
+                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5 transition-all active:scale-95">
+                        <Plus className="w-4 h-4" />
+                        <span>Thêm phòng học</span>
                     </button>
                 </div>
             </div>
@@ -254,7 +251,7 @@ export default function RoomManagement() {
                     <div className="p-12 text-center">
                         <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                         <p className="text-gray-500">Chưa có phòng học nào</p>
-                        <button onClick={openCreate} className="mt-3 text-blue-600 text-sm hover:underline">+ Thêm phòng mới</button>
+                        <button onClick={openBulk} className="mt-3 text-blue-600 text-sm font-bold hover:underline">+ Thêm phòng mới</button>
                     </div>
                 ) : (
                     <table className="w-full">

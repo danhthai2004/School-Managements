@@ -27,13 +27,15 @@ public interface SemesterRepository extends JpaRepository<Semester, UUID> {
      * Tìm học kỳ hiện tại dựa trên ngày thực tế.
      * So sánh ngày hiện tại với startDate/endDate của học kỳ.
      */
-    @Query("SELECT s FROM Semester s WHERE s.school = :school AND s.startDate <= :date AND s.endDate >= :date")
-    Optional<Semester> findCurrentBySchoolAndDate(@Param("school") School school, @Param("date") LocalDate date);
+    @Query("SELECT s FROM Semester s WHERE s.school = :school AND s.startDate <= :date AND s.endDate >= :date ORDER BY s.status ASC, s.startDate DESC")
+    List<Semester> findCurrentBySchoolAndDate(@Param("school") School school, @Param("date") LocalDate date);
 
     /**
-     * Tìm tất cả học kỳ ACTIVE cùng trường (để chuyển sang CLOSED khi activate mới).
+     * Tìm tất cả học kỳ ACTIVE cùng trường (để chuyển sang CLOSED khi activate
+     * mới).
      */
-    List<Semester> findBySchoolAndStatus(School school, SemesterStatus status, org.springframework.data.domain.Sort sort);
+    List<Semester> findBySchoolAndStatus(School school, SemesterStatus status,
+            org.springframework.data.domain.Sort sort);
 
     List<Semester> findByAcademicYearAndStatus(AcademicYear academicYear, SemesterStatus status);
 
