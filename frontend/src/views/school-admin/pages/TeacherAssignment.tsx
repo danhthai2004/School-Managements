@@ -7,7 +7,7 @@ import { useConfirmation } from "../../../hooks/useConfirmation";
 import { useAutoRefresh } from "../../../hooks/useAutoRefresh";
 
 export default function TeacherAssignment() {
-    const { showSuccess, toast } = useToast();
+    const { showSuccess, showError } = useToast();
     const { ConfirmationDialog } = useConfirmation();
 
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
@@ -109,9 +109,9 @@ export default function TeacherAssignment() {
                 showSuccess("Đã lưu tất cả thay đổi thành công!");
                 fetchAssignments(selectedClassId);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast.error("Lỗi khi lưu phân công");
+            showError(error?.response?.data?.message || "Lỗi khi lưu phân công");
         } finally {
             setIsSaving(false);
         }

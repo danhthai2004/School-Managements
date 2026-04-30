@@ -171,10 +171,10 @@ export default function GuardianDashboardPage() {
                     value={attendance ? `${(attendance.attendanceRate).toFixed(1)}%` : "--"}
                     icon={<CheckCircle className="w-5 h-5" />}
                     color="green"
-                    subtitle={`Vắng ${attendance?.absentDays || 0} buổi`}
+                    subtitle={`Vắng ${attendance?.absentDays || 0} tiết`}
                 />
                 <StatCard
-                    title="Số ngày có mặt"
+                    title="Số tiết có mặt"
                     value={attendance ? `${attendance.presentDays}/${attendance.totalDays}` : "--"}
                     icon={<BookOpen className="w-5 h-5" />}
                     color="purple"

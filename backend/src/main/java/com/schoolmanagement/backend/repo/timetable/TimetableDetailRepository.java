@@ -67,6 +67,10 @@ public interface TimetableDetailRepository extends JpaRepository<TimetableDetail
 
         List<TimetableDetail> findByClassRoom(ClassRoom classRoom);
 
+        @Query("SELECT td FROM TimetableDetail td WHERE td.classRoom = :classRoom AND td.subject = :subject")
+        List<TimetableDetail> findByClassRoomAndSubject(@Param("classRoom") ClassRoom classRoom,
+                        @Param("subject") com.schoolmanagement.backend.domain.entity.classes.Subject subject);
+
         // --- Method added for Teacher Portal (fuuko branch) ---
 
         Optional<TimetableDetail> findByTimetableAndTeacherAndDayOfWeekAndSlotIndex(

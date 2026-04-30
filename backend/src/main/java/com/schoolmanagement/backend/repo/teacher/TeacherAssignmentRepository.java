@@ -14,9 +14,19 @@ import java.util.UUID;
 public interface TeacherAssignmentRepository extends JpaRepository<TeacherAssignment, UUID> {
         List<TeacherAssignment> findAllBySchool(School school);
 
+        @org.springframework.data.jpa.repository.Query("SELECT ta FROM TeacherAssignment ta " +
+                        "LEFT JOIN FETCH ta.teacher t " +
+                        "LEFT JOIN FETCH ta.subject s " +
+                        "LEFT JOIN FETCH ta.classRoom c " +
+                        "WHERE ta.school = :school")
+        List<TeacherAssignment> findAllBySchoolWithDetails(
+                        @org.springframework.data.repository.query.Param("school") School school);
+
         List<TeacherAssignment> findAllByClassRoom(ClassRoom classRoom);
 
         List<TeacherAssignment> findAllByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
+
+        void deleteAllByClassRoom(ClassRoom classRoom);
 
         Optional<TeacherAssignment> findByClassRoomAndSubject(ClassRoom classRoom,
                         com.schoolmanagement.backend.domain.entity.classes.Subject subject);

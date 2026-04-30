@@ -52,7 +52,7 @@ public class TeacherTimetableHandler implements ChatHandler {
     }
 
     @Override
-    public ChatContext handle(UUID userId, String message) {
+    public ChatContext handle(UUID userId, String message, Map<String, String> parameters) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
@@ -97,8 +97,12 @@ public class TeacherTimetableHandler implements ChatHandler {
         // Đóng gói dữ liệu
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("teacherName", teacher.getFullName());
-        data.put("academicYear", officialTimetable.getSemester() != null && officialTimetable.getSemester().getAcademicYear() != null ? officialTimetable.getSemester().getAcademicYear().getName() : "");
-        data.put("semester", officialTimetable.getSemester() != null ? officialTimetable.getSemester().getSemesterNumber() : "");
+        data.put("academicYear",
+                officialTimetable.getSemester() != null && officialTimetable.getSemester().getAcademicYear() != null
+                        ? officialTimetable.getSemester().getAcademicYear().getName()
+                        : "");
+        data.put("semester",
+                officialTimetable.getSemester() != null ? officialTimetable.getSemester().getSemesterNumber() : "");
         data.put("totalSlots", details.size());
 
         // Nhóm theo ngày
