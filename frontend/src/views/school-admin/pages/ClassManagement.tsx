@@ -15,11 +15,13 @@ import PromotionModal from "../components/class/PromotionModal";
 import { useConfirmation } from "../../../hooks/useConfirmation";
 import { NoAcademicYearState } from "../../../components/common/EmptyState";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "../../../context/ToastContext";
 
 // ==================== PAGE COMPONENT ====================
 
 const ClassManagement = () => {
     const navigate = useNavigate();
+    const { showSuccess, showError } = useToast();
     const [searchParams, setSearchParams] = useSearchParams();
     const [classes, setClasses] = useState<ClassRoomDto[]>([]);
     const [teachers, setTeachers] = useState<UserDto[]>([]);
@@ -191,9 +193,10 @@ const ClassManagement = () => {
                                                     onConfirm: async () => {
                                                         try {
                                                             await schoolAdminService.deleteClass(cls.id);
+                                                            showSuccess(`Đã xóa lớp ${cls.name} thành công.`);
                                                             fetchData();
                                                         } catch (err: any) {
-                                                            setError(err?.response?.data?.message || "Không thể xóa lớp học.");
+                                                            showError(err?.response?.data?.message || "Không thể xóa lớp học.");
                                                         }
                                                     }
                                                 });

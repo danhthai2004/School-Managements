@@ -55,6 +55,7 @@
     opacity: 0;
     transform: translateY(20px) scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -124,7 +125,59 @@
   font-size: 14px;
   line-height: 1.5;
   word-wrap: break-word;
-  white-space: pre-wrap;
+}
+
+/* Markdown Specifics */
+.chatbot-msg.bot table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 13px;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
+}
+
+.chatbot-msg.bot th,
+.chatbot-msg.bot td {
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.chatbot-msg.bot th {
+  background: #f9fafb;
+  font-weight: 600;
+  color: #374151;
+}
+
+.chatbot-msg.bot tr:nth-child(even) {
+  background: #fbfbfb;
+}
+
+.chatbot-msg.bot p {
+  margin-bottom: 8px;
+}
+
+.chatbot-msg.bot p:last-child {
+  margin-bottom: 0;
+}
+
+.chatbot-msg.bot ul,
+.chatbot-msg.bot ol {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+.chatbot-msg.bot li {
+  margin-bottom: 4px;
+}
+
+.chatbot-msg.bot strong {
+  color: #4f46e5;
+  font-weight: 600;
 }
 
 .chatbot-msg.user {
@@ -132,6 +185,7 @@
   background: linear-gradient(135deg, #6366f1, #8b5cf6);
   color: white;
   border-bottom-right-radius: 4px;
+  white-space: pre-wrap;
 }
 
 .chatbot-msg.bot {
@@ -166,12 +220,27 @@
   animation: chatbot-bounce 1.4s infinite ease-in-out;
 }
 
-.chatbot-typing span:nth-child(2) { animation-delay: 0.16s; }
-.chatbot-typing span:nth-child(3) { animation-delay: 0.32s; }
+.chatbot-typing span:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.chatbot-typing span:nth-child(3) {
+  animation-delay: 0.32s;
+}
 
 @keyframes chatbot-bounce {
-  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
-  40% { transform: scale(1); opacity: 1; }
+
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 /* ──── Student Options (Clarification) ──── */
@@ -197,6 +266,36 @@
 .chatbot-option-btn:hover {
   background: #eef2ff;
   border-color: #6366f1;
+}
+
+/* ──── Quick Replies ──── */
+.chatbot-quick-replies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 16px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.chatbot-quick-btn {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: #4f46e5;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.chatbot-quick-btn:hover {
+  background: #6366f1;
+  color: white;
+  border-color: #6366f1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }
 
 /* ──── Input Area ──── */

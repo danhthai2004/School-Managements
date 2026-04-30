@@ -468,7 +468,11 @@
 
 /* ==================== REACT-DATEPICKER PORTAL FIX ==================== */
 .react-datepicker-popper {
-  z-index: 200 !important;
+  z-index: 999999 !important;
+}
+
+.react-datepicker-popper * {
+  pointer-events: auto !important;
 }
 
 /* ==================== DARK MODE SCROLLBAR ==================== */

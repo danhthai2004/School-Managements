@@ -7,7 +7,6 @@ import com.schoolmanagement.backend.dto.timetable.SlotValidationResponse;
 import com.schoolmanagement.backend.dto.timetable.SwapSlotRequest;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.repo.timetable.TimetableDetailRepository;
-import com.schoolmanagement.backend.repo.timetable.TimetableRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -33,7 +32,6 @@ import java.util.UUID;
 public class TimetableAdjustmentService {
 
     private final TimetableDetailRepository detailRepo;
-    private final TimetableRepository timetableRepo;
 
     // ──────────────────────────────────────────────────────────
     // 1. VALIDATE MOVE — Kiểm tra di chuyển đến ô trống

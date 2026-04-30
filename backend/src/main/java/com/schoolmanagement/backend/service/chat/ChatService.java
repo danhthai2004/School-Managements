@@ -11,15 +11,21 @@ import com.schoolmanagement.backend.service.common.FallbackHandler;
 
 import com.schoolmanagement.backend.domain.chat.ChatIntent;
 import com.schoolmanagement.backend.domain.auth.Role;
-import com.schoolmanagement.backend.domain.entity.chat.ChatMessage;
 import com.schoolmanagement.backend.domain.entity.auth.User;
+import com.schoolmanagement.backend.domain.entity.chat.ChatMessage;
 import com.schoolmanagement.backend.dto.chat.ChatContext;
 import com.schoolmanagement.backend.dto.chat.ChatResponse;
+import com.schoolmanagement.backend.dto.chat.RoutingDecision;
 import com.schoolmanagement.backend.repo.chat.ChatMessageRepository;
 import com.schoolmanagement.backend.repo.auth.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -35,6 +41,8 @@ import java.util.UUID;
  */
 @Service
 public class ChatService {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
     private final UserRepository userRepository;
     private final ChatMessageRepository chatMessageRepository;
@@ -83,66 +91,86 @@ public class ChatService {
     }
 
     /**
-     * Xử lý tin nhắn chat theo luồng 6 bước.
+     * Xử lý tin nhắn chat theo luồng mới (Dynamic LLM Routing).
      */
+    @Transactional
     public ChatResponse process(String message, UUID userId, Role role) {
+        // ──── Lookup User 1 lần duy nhất, tái sử dụng xuyên suốt ────
+        User user = userRepository.findById(userId).orElse(null);
+        String userName = user != null ? user.getFullName() : "Khách";
 
-        // ──── Bước 1: Phân loại ý định (Intent Classification) ────
-        ChatIntent intent;
-        if (isAiEnabled()) {
-            intent = intentClassifier.classify(message);
-        } else {
-            intent = fallbackClassify(message);
-        }
+        // ──── Bước 1: LLM Dynamic Routing ────
+        RoutingDecision decision = intentClassifier.classify(message, userName, role.name());
 
-        // ──── Bước 2: Điều hướng đến Handler (Intent Router) ────
-        ChatContext context = routeIntent(intent, userId, message);
-
-        // ──── Bước 3: Sinh ngôn ngữ tự nhiên (NLG) ────
+        // ──── Bước 2: Phân nhánh xử lý ────
+        ChatIntent intent = ChatIntent.UNKNOWN;
         String answer;
-        if (isAiEnabled()) {
-            boolean isFirstMessage = checkIsFirstMessage(userId);
-            answer = nlgService.generate(context, message, isFirstMessage, role);
+
+        if ("SMALL_TALK".equals(decision.routingType()) || "REJECT".equals(decision.routingType())) {
+            // Nếu là trò chuyện phiếm hoặc từ chối, lấy luôn câu trả lời từ Router
+            answer = decision.reply() != null ? decision.reply() : "Xin lỗi, tôi không thể xử lý yêu cầu này.";
+            if ("REJECT".equals(decision.routingType()))
+                intent = ChatIntent.OUT_OF_SCOPE;
         } else {
-            answer = fallbackGenerateResponse(context, message);
+            // Nếu là FUNCTION_CALL (Yêu cầu Data)
+            intent = decision.function() != null ? decision.function() : ChatIntent.UNKNOWN;
+
+            // Lấy JSON data từ Handler
+            ChatContext context = routeIntent(intent, userId, message, decision.parameters());
+
+            // NlgService xử lý sinh câu trả lời (có AI hoặc fallback tự động)
+            boolean isFirstMessage = checkIsFirstMessage(user);
+            answer = nlgService.generate(context, message, isFirstMessage, role, isAiEnabled());
         }
 
-        // ──── Bước 4: Lưu log ────
-        saveLog(userId, message, intent, answer);
+        // Trình dọn dẹp cuối cùng: Đảm bảo không bao giờ trả về chuỗi rỗng
+        if (answer == null || answer.isBlank() || answer.equals("Không nhận được phản hồi từ AI.")) {
+            answer = "Dạ, em đã lấy được dữ liệu nhưng đang gặp chút khó khăn khi diễn đạt. Anh/Chị vui lòng thử lại hoặc hỏi ngắn gọn hơn nhé!";
+        }
 
-        // ──── Bước 5: Trả về response ────
-        return buildResponse(answer, context);
+        // ──── Bước 3: Lưu log & Trả kết quả ────
+        saveLog(user, message, intent, answer);
+
+        // Trả về đúng format
+        if ("REJECT".equals(decision.routingType())) {
+            return ChatResponse.denied(answer, intent);
+        }
+        return ChatResponse.ok(answer, intent);
     }
 
     // ═══════════════════════════════════════════════════
     // INTENT ROUTER (Switch-case — không cho AI tự quyết)
     // ═══════════════════════════════════════════════════
 
-    private ChatContext routeIntent(ChatIntent intent, UUID userId, String message) {
+    private ChatContext routeIntent(ChatIntent intent, UUID userId, String message,
+            java.util.Map<String, String> parameters) {
         return switch (intent) {
-            case ASK_SCORE -> scoreHandler.handle(userId, message);
-            case ASK_TIMETABLE -> timetableHandler.handle(userId, message);
-            case ASK_ABSENCE -> attendanceHandler.handle(userId, message);
-            case ASK_ANNOUNCEMENT -> announcementHandler.handle(userId, message);
-            case ASK_TEACHER_TIMETABLE -> teacherTimetableHandler.handle(userId, message);
-            case ASK_HOMEROOM_CLASS -> homeroomHandler.handle(userId, message);
-            case ASK_QUICK_STATS -> quickStatsHandler.handle(userId, message);
+            case ASK_SCORE -> scoreHandler.handle(userId, message, parameters);
+            case ASK_TIMETABLE -> timetableHandler.handle(userId, message, parameters);
+            case ASK_ABSENCE -> attendanceHandler.handle(userId, message, parameters);
+            case ASK_ANNOUNCEMENT -> announcementHandler.handle(userId, message, parameters);
+            case ASK_TEACHER_TIMETABLE -> teacherTimetableHandler.handle(userId, message, parameters);
+            case ASK_HOMEROOM_CLASS -> homeroomHandler.handle(userId, message, parameters);
+            case ASK_QUICK_STATS -> quickStatsHandler.handle(userId, message, parameters);
             case UNSUPPORTED_ACTION -> fallbackHandler.handleUnsupported();
             case OUT_OF_SCOPE -> fallbackHandler.handleOutOfScope();
-            case UNKNOWN -> fallbackHandler.handle(userId, message);
+            case UNKNOWN -> fallbackHandler.handle(userId, message, parameters);
         };
     }
 
-    private boolean checkIsFirstMessage(UUID userId) {
+    /**
+     * Kiểm tra tin nhắn đầu tiên trong phiên (dùng User đã lookup sẵn).
+     */
+    private boolean checkIsFirstMessage(User user) {
         try {
-            User user = userRepository.findById(userId).orElse(null);
             if (user == null) return true;
             List<ChatMessage> lastMessages = chatMessageRepository.findTop20ByUserOrderByCreatedAtDesc(user);
             if (lastMessages.isEmpty()) return true;
             ChatMessage latest = lastMessages.get(0);
-            java.time.Instant fiveMinsAgo = java.time.Instant.now().minus(5, java.time.temporal.ChronoUnit.MINUTES);
+            Instant fiveMinsAgo = Instant.now().minus(5, ChronoUnit.MINUTES);
             return latest.getCreatedAt().isBefore(fiveMinsAgo);
         } catch (Exception e) {
+            log.warn("Lỗi kiểm tra tin nhắn đầu phiên: {}", e.getMessage());
             return true;
         }
     }
@@ -157,202 +185,22 @@ public class ChatService {
     }
 
     /**
-     * Fallback intent classification (keyword-based) khi AI chưa cấu hình.
+     * Lưu log chat (dùng User đã lookup sẵn).
      */
-    private ChatIntent fallbackClassify(String message) {
-        String lower = message.toLowerCase();
-
-        if (lower.contains("điểm") || lower.contains("score") || lower.contains("kết quả")) {
-            return ChatIntent.ASK_SCORE;
-        }
-        if (lower.contains("thời khóa biểu") || lower.contains("lịch học") || lower.contains("tkb")) {
-            return ChatIntent.ASK_TIMETABLE;
-        }
-        if (lower.contains("điểm danh") || lower.contains("vắng") || lower.contains("nghỉ")
-                || lower.contains("đi học")) {
-            return ChatIntent.ASK_ABSENCE;
-        }
-        if (lower.contains("thông báo") || lower.contains("notification") || lower.contains("tin tức")) {
-            return ChatIntent.ASK_ANNOUNCEMENT;
-        }
-        if (lower.contains("lịch dạy") || lower.contains("dạy lớp nào") || lower.contains("tiết dạy")) {
-            return ChatIntent.ASK_TEACHER_TIMETABLE;
-        }
-        if (lower.contains("chủ nhiệm") || lower.contains("sĩ số") || lower.contains("lớp tôi")) {
-            return ChatIntent.ASK_HOMEROOM_CLASS;
-        }
-        if (lower.contains("thống kê") || lower.contains("bao nhiêu học sinh")
-                || lower.contains("toàn trường") || lower.contains("tổng quan")) {
-            return ChatIntent.ASK_QUICK_STATS;
-        }
-        if (lower.contains("xóa") || lower.contains("sửa") || lower.contains("thêm") ||
-                lower.contains("tạo") || lower.contains("cập nhật") || lower.contains("delete")) {
-            return ChatIntent.UNSUPPORTED_ACTION;
-        }
-        if (lower.contains("học phí") || lower.contains("tiền") || lower.contains("phí")) {
-            return ChatIntent.OUT_OF_SCOPE;
-        }
-
-        return ChatIntent.UNKNOWN;
-    }
-
-    /**
-     * Fallback NLG khi AI chưa cấu hình — format text đơn giản.
-     */
-    private String fallbackGenerateResponse(ChatContext context, String message) {
-        if (context.errorMessage() != null) {
-            return context.errorMessage();
-        }
-
-        if ("NEED_CLARIFICATION".equals(context.status()) && context.studentNames() != null) {
-            StringBuilder sb = new StringBuilder("Anh/chị muốn xem thông tin của bé nào?\n");
-            for (int i = 0; i < context.studentNames().size(); i++) {
-                sb.append(String.format("%d. %s\n", i + 1, context.studentNames().get(i)));
-            }
-            return sb.toString().trim();
-        }
-
-        if (context.data() != null) {
-            if (context.data().containsKey("message")) {
-                return context.data().get("message").toString();
-            }
-            return formatDataAsText(context);
-        }
-
-        return "Đang xử lý yêu cầu của bạn...";
-    }
-
-    /**
-     * Format data thô thành text đơn giản (fallback).
-     */
-    private String formatDataAsText(ChatContext context) {
-        StringBuilder sb = new StringBuilder();
-
-        if (context.data().containsKey("studentName")) {
-            sb.append("Học sinh: ").append(context.data().get("studentName")).append("\n");
-        }
-
-        if (context.intent() == ChatIntent.ASK_SCORE && context.data().containsKey("grades")) {
-            @SuppressWarnings("unchecked")
-            var grades = (java.util.List<java.util.Map<String, Object>>) context.data().get("grades");
-            sb.append("Bảng điểm:\n");
-            for (var g : grades) {
-                sb.append(String.format("  - %s (HK%s): TB = %s (%s)\n",
-                        g.get("subject"), g.get("semester"),
-                        g.get("average"), g.get("rank")));
-            }
-        }
-
-        if (context.intent() == ChatIntent.ASK_ABSENCE) {
-            sb.append(String.format("✅ Tổng buổi: %s | Có mặt: %s | Vắng: %s | Trễ: %s | Phép: %s\n",
-                    context.data().getOrDefault("totalSessions", "—"),
-                    context.data().getOrDefault("present", "—"),
-                    context.data().getOrDefault("absent", "—"),
-                    context.data().getOrDefault("late", "—"),
-                    context.data().getOrDefault("excused", "—")));
-            sb.append("Tỷ lệ đi học: ").append(context.data().getOrDefault("attendanceRate", "—")).append("\n");
-        }
-
-        if (context.intent() == ChatIntent.ASK_TIMETABLE && context.data().containsKey("schedule")) {
-            sb.append("Lớp: ").append(context.data().getOrDefault("className", "")).append("\n");
-            @SuppressWarnings("unchecked")
-            var schedule = (java.util.List<java.util.Map<String, Object>>) context.data().get("schedule");
-            for (var day : schedule) {
-                sb.append(day.get("day")).append(":\n");
-                @SuppressWarnings("unchecked")
-                var slots = (java.util.List<java.util.Map<String, Object>>) day.get("slots");
-                for (var slot : slots) {
-                    sb.append(String.format("  Tiết %s: %s\n", slot.get("slot"), slot.get("subject")));
-                }
-            }
-        }
-
-        if (context.intent() == ChatIntent.ASK_ANNOUNCEMENT && context.data().containsKey("notifications")) {
-            @SuppressWarnings("unchecked")
-            var notifications = (java.util.List<java.util.Map<String, Object>>) context.data().get("notifications");
-            sb.append("Thông báo:\n");
-            for (var n : notifications) {
-                sb.append(String.format("  [%s] %s\n  %s\n",
-                        n.get("date"), n.get("title"), n.get("content")));
-            }
-        }
-
-        if (context.intent() == ChatIntent.ASK_TEACHER_TIMETABLE && context.data().containsKey("schedule")) {
-            sb.append("GV: ").append(context.data().getOrDefault("teacherName", "")).append("\n");
-            sb.append(String.format("Tổng: %s tiết\n", context.data().getOrDefault("totalSlots", "—")));
-            @SuppressWarnings("unchecked")
-            var schedule = (java.util.List<java.util.Map<String, Object>>) context.data().get("schedule");
-            for (var day : schedule) {
-                sb.append(day.get("day")).append(":\n");
-                @SuppressWarnings("unchecked")
-                var slots = (java.util.List<java.util.Map<String, Object>>) day.get("slots");
-                for (var slot : slots) {
-                    sb.append(String.format("  Tiết %s: %s (%s)\n", slot.get("slot"), slot.get("subject"),
-                            slot.get("class")));
-                }
-            }
-        }
-
-        if (context.intent() == ChatIntent.ASK_HOMEROOM_CLASS) {
-            sb.append(String.format("Lớp: %s | Sĩ số: %s\n",
-                    context.data().getOrDefault("className", "—"),
-                    context.data().getOrDefault("totalStudents", "—")));
-            sb.append(String.format("Hôm nay (%s): Vắng %s | Trễ %s | Phép %s\n",
-                    context.data().getOrDefault("date", "—"),
-                    context.data().getOrDefault("absentToday", "0"),
-                    context.data().getOrDefault("lateToday", "0"),
-                    context.data().getOrDefault("excusedToday", "0")));
-            if (context.data().containsKey("absentStudents")) {
-                sb.append("HS vắng: ").append(context.data().get("absentStudents")).append("\n");
-            }
-        }
-
-        if (context.intent() == ChatIntent.ASK_QUICK_STATS) {
-            sb.append(String.format("%s — %s\n",
-                    context.data().getOrDefault("schoolName", ""),
-                    context.data().getOrDefault("date", "")));
-            sb.append(String.format("Tổng: %s HS | %s GV | %s lớp\n",
-                    context.data().getOrDefault("totalStudents", "—"),
-                    context.data().getOrDefault("totalTeachers", "—"),
-                    context.data().getOrDefault("totalClasses", "—")));
-            if (Boolean.TRUE.equals(context.data().get("hasAttendanceToday"))) {
-                sb.append(String.format("Điểm danh hôm nay: Có mặt %s | Vắng %s | Trễ %s | Phép %s\n",
-                        context.data().getOrDefault("presentToday", "0"),
-                        context.data().getOrDefault("absentToday", "0"),
-                        context.data().getOrDefault("lateToday", "0"),
-                        context.data().getOrDefault("excusedToday", "0")));
-                sb.append("Tỷ lệ đi học: ").append(context.data().getOrDefault("attendanceRate", "—")).append("\n");
-            } else {
-                sb.append("Chưa có dữ liệu điểm danh hôm nay.\n");
-            }
-        }
-
-        return sb.isEmpty() ? "Đã nhận được dữ liệu." : sb.toString().trim();
-    }
-
-    private void saveLog(UUID userId, String message, ChatIntent intent, String answer) {
+    private void saveLog(User user, String message, ChatIntent intent, String answer) {
         try {
-            User user = userRepository.findById(userId).orElse(null);
             if (user != null) {
-                ChatMessage log = ChatMessage.builder()
+                ChatMessage chatLog = ChatMessage.builder()
                         .user(user)
                         .message(message)
                         .intent(intent)
                         .response(answer)
                         .build();
-                chatMessageRepository.save(log);
+                chatMessageRepository.save(chatLog);
             }
         } catch (Exception e) {
-            System.err.println("Lỗi lưu chat log: " + e.getMessage());
+            log.error("Lỗi lưu chat log: {}", e.getMessage());
         }
     }
 
-    private ChatResponse buildResponse(String answer, ChatContext context) {
-        return switch (context.status()) {
-            case "OK" -> ChatResponse.ok(answer, context.intent());
-            case "NEED_CLARIFICATION" ->
-                ChatResponse.needClarification(answer, context.intent(), context.studentNames());
-            default -> ChatResponse.denied(answer, context.intent());
-        };
-    }
 }

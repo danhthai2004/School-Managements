@@ -44,20 +44,20 @@ public class ScoreHandler implements ChatHandler {
     }
 
     @Override
-    public ChatContext handle(UUID userId, String message) {
+    public ChatContext handle(UUID userId, String message, Map<String, String> parameters) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
         return switch (user.getRole()) {
-            case STUDENT -> handleStudent(user, message);
-            case GUARDIAN -> handleGuardian(user, message);
-            case TEACHER -> handleTeacher(user, message);
+            case STUDENT -> handleStudent(user, message, parameters);
+            case GUARDIAN -> handleGuardian(user, message, parameters);
+            case TEACHER -> handleTeacher(user, message, parameters);
             default -> ChatContext.denied(ChatIntent.ASK_SCORE,
                     "Vai trò của bạn không được hỗ trợ tra cứu điểm qua chatbot.");
         };
     }
 
-    private ChatContext handleStudent(User user, String message) {
+    private ChatContext handleStudent(User user, String message, Map<String, String> parameters) {
         Student student = studentRepository.findByUser(user)
                 .orElse(null);
         if (student == null) {
@@ -72,10 +72,10 @@ public class ScoreHandler implements ChatHandler {
                     "message", "Chưa có dữ liệu điểm số."));
         }
 
-        return ChatContext.ok(ChatIntent.ASK_SCORE, buildScoreData(student, grades, message));
+        return ChatContext.ok(ChatIntent.ASK_SCORE, buildScoreData(student, grades, message, parameters));
     }
 
-    private ChatContext handleGuardian(User user, String message) {
+    private ChatContext handleGuardian(User user, String message, Map<String, String> parameters) {
         Guardian guardian = guardianRepository.findByUser(user)
                 .orElse(null);
         if (guardian == null) {
@@ -89,6 +89,17 @@ public class ScoreHandler implements ChatHandler {
                     "Không tìm thấy học sinh nào liên kết với tài khoản phụ huynh.");
         }
 
+        // Ưu tiên tìm tên con từ parameters do AI bóc tách
+        String target = parameters.get("targetStudent");
+        if (target != null && !target.isBlank()) {
+            for (Student s : students) {
+                if (s.getFullName().toLowerCase().contains(target.toLowerCase())) {
+                    List<Grade> grades = gradeRepository.findAllByStudent(s);
+                    return ChatContext.ok(ChatIntent.ASK_SCORE, buildScoreData(s, grades, message, parameters));
+                }
+            }
+        }
+
         // Nếu chỉ có 1 con → query trực tiếp
         if (students.size() == 1) {
             Student student = students.get(0);
@@ -98,7 +109,7 @@ public class ScoreHandler implements ChatHandler {
                         "studentName", student.getFullName(),
                         "message", "Chưa có dữ liệu điểm số."));
             }
-            return ChatContext.ok(ChatIntent.ASK_SCORE, buildScoreData(student, grades, message));
+            return ChatContext.ok(ChatIntent.ASK_SCORE, buildScoreData(student, grades, message, parameters));
         }
 
         // Nếu có nhiều con → kiểm tra tên trong message
@@ -111,7 +122,7 @@ public class ScoreHandler implements ChatHandler {
                             "studentName", s.getFullName(),
                             "message", "Chưa có dữ liệu điểm số."));
                 }
-                return ChatContext.ok(ChatIntent.ASK_SCORE, buildScoreData(s, grades, message));
+                return ChatContext.ok(ChatIntent.ASK_SCORE, buildScoreData(s, grades, message, parameters));
             }
         }
 
@@ -120,7 +131,7 @@ public class ScoreHandler implements ChatHandler {
         return ChatContext.needClarification(ChatIntent.ASK_SCORE, names);
     }
 
-    private ChatContext handleTeacher(User user, String message) {
+    private ChatContext handleTeacher(User user, String message, Map<String, String> parameters) {
         // Teacher xem điểm: không hỗ trợ qua chatbot (quá phức tạp → dùng UI chính)
         return ChatContext.denied(ChatIntent.ASK_SCORE,
                 "Giáo viên vui lòng sử dụng chức năng Quản lý Điểm trên giao diện chính để tra cứu điểm.");
@@ -130,10 +141,14 @@ public class ScoreHandler implements ChatHandler {
      * Đóng gói dữ liệu điểm thành Map cho NLG xử lý.
      * Hỗ trợ lọc theo môn học nếu người dùng yêu cầu cụ thể.
      */
-    private Map<String, Object> buildScoreData(Student student, List<Grade> grades, String message) {
+    private Map<String, Object> buildScoreData(Student student, List<Grade> grades, String message,
+            Map<String, String> parameters) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("studentName", student.getFullName());
         data.put("studentCode", student.getStudentCode());
+
+        // Ưu tiên môn học từ parameters AI bóc tách
+        String targetSubject = parameters.get("subjectName");
 
         // Lọc theo môn học nếu message có nhắc đến tên môn cụ thể
         String lowerMsg = message.toLowerCase();
@@ -141,20 +156,19 @@ public class ScoreHandler implements ChatHandler {
 
         for (Grade g : grades) {
             String subjectName = g.getSubject() != null ? g.getSubject().getName() : "N/A";
-
-            // Nếu người dùng hỏi môn cụ thể (văn, toán, lý...) thì chỉ lấy điểm môn đó
-            // Hoặc nếu không hỏi môn cụ thể thì lấy bế cả (message không chứa "môn" hoặc
-            // tên môn nào)
             boolean shouldInclude = true;
 
-            // Danh sách các môn phổ biến để nhận diện (có thể mở rộng)
-            List<String> commonSubjects = List.of("toán", "văn", "anh", "vật lý", "hóa học", "sinh học", "lịch sử",
-                    "địa lý", "gdcd", "công nghệ", "tin học", "thể dục");
-
-            boolean userAskedSpecificSubject = commonSubjects.stream().anyMatch(lowerMsg::contains);
-
-            if (userAskedSpecificSubject) {
-                shouldInclude = lowerMsg.contains(subjectName.toLowerCase());
+            if (targetSubject != null && !targetSubject.isBlank()) {
+                shouldInclude = subjectName.toLowerCase().contains(targetSubject.toLowerCase())
+                        || targetSubject.toLowerCase().contains(subjectName.toLowerCase());
+            } else {
+                // Logic cũ dự phòng
+                List<String> commonSubjects = List.of("toán", "văn", "anh", "vật lý", "hóa học", "sinh học", "lịch sử",
+                        "địa lý", "gdcd", "công nghệ", "tin học", "thể dục");
+                boolean userAskedSpecificSubject = commonSubjects.stream().anyMatch(lowerMsg::contains);
+                if (userAskedSpecificSubject) {
+                    shouldInclude = lowerMsg.contains(subjectName.toLowerCase());
+                }
             }
 
             if (shouldInclude) {
