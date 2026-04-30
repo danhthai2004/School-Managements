@@ -4,10 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -23,6 +26,9 @@ public class LlmClient {
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
+
+    private static final Logger log = LoggerFactory.getLogger(LlmClient.class);
+    private static final Duration LLM_TIMEOUT = Duration.ofSeconds(15);
 
     @Value("${app.llm.api-key:}")
     private String apiKey;
@@ -65,15 +71,16 @@ public class LlmClient {
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(String.class)
+                    .timeout(LLM_TIMEOUT)
                     .block();
 
             return extractText(responseJson);
 
         } catch (WebClientResponseException e) {
-            System.err.println("LLM API lỗi: " + e.getStatusCode() + " — " + e.getResponseBodyAsString());
+            log.error("LLM API lỗi: {} — {}", e.getStatusCode(), e.getResponseBodyAsString());
             throw new RuntimeException("LLM API lỗi: " + e.getStatusCode(), e);
         } catch (Exception e) {
-            System.err.println("LLM API lỗi: " + e.getMessage());
+            log.error("LLM API lỗi: {}", e.getMessage());
             throw new RuntimeException("Không thể kết nối đến LLM API", e);
         }
     }

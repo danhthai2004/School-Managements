@@ -25,5 +25,5 @@ public interface ChatHandler {
      *                nếu cần)
      * @return ChatContext chứa dữ liệu thô hoặc trạng thái lỗi
      */
-    ChatContext handle(UUID userId, String message);
+    ChatContext handle(UUID userId, String message, java.util.Map<String, String> parameters);
 }

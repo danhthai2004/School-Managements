@@ -46,28 +46,28 @@ public class AttendanceHandler implements ChatHandler {
     }
 
     @Override
-    public ChatContext handle(UUID userId, String message) {
+    public ChatContext handle(UUID userId, String message, Map<String, String> parameters) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
         return switch (user.getRole()) {
-            case STUDENT -> handleStudent(user, message);
-            case GUARDIAN -> handleGuardian(user, message);
+            case STUDENT -> handleStudent(user, message, parameters);
+            case GUARDIAN -> handleGuardian(user, message, parameters);
             default -> ChatContext.denied(ChatIntent.ASK_ABSENCE,
                     "Vai trò của bạn không được hỗ trợ tra cứu điểm danh qua chatbot.");
         };
     }
 
-    private ChatContext handleStudent(User user, String message) {
+    private ChatContext handleStudent(User user, String message, Map<String, String> parameters) {
         Student student = studentRepository.findByUser(user).orElse(null);
         if (student == null) {
             return ChatContext.denied(ChatIntent.ASK_ABSENCE,
                     "Không tìm thấy hồ sơ học sinh liên kết với tài khoản của bạn.");
         }
-        return buildAttendanceContext(student);
+        return buildAttendanceContext(student, parameters);
     }
 
-    private ChatContext handleGuardian(User user, String message) {
+    private ChatContext handleGuardian(User user, String message, Map<String, String> parameters) {
         Guardian guardian = guardianRepository.findByUser(user).orElse(null);
         if (guardian == null) {
             return ChatContext.denied(ChatIntent.ASK_ABSENCE,
@@ -81,14 +81,24 @@ public class AttendanceHandler implements ChatHandler {
         }
 
         if (students.size() == 1) {
-            return buildAttendanceContext(students.get(0));
+            return buildAttendanceContext(students.get(0), parameters);
+        }
+
+        // Ưu tiên tìm tên con từ parameters do AI bóc tách
+        String target = parameters.get("targetStudent");
+        if (target != null && !target.isBlank()) {
+            for (Student s : students) {
+                if (s.getFullName().toLowerCase().contains(target.toLowerCase())) {
+                    return buildAttendanceContext(s, parameters);
+                }
+            }
         }
 
         // Nhiều con → tìm tên trong message
         String lowerMessage = message.toLowerCase();
         for (Student s : students) {
             if (lowerMessage.contains(s.getFullName().toLowerCase())) {
-                return buildAttendanceContext(s);
+                return buildAttendanceContext(s, parameters);
             }
         }
 
@@ -96,13 +106,46 @@ public class AttendanceHandler implements ChatHandler {
         return ChatContext.needClarification(ChatIntent.ASK_ABSENCE, names);
     }
 
-    private ChatContext buildAttendanceContext(Student student) {
-        List<Attendance> records = attendanceRepository.findAllByStudent(student);
+    private ChatContext buildAttendanceContext(Student student, Map<String, String> parameters) {
+        // ── Tính date range từ parameters (push filtering xuống DB) ──
+        String timeRange = parameters.get("timeRange");
+        java.time.LocalDate now = java.time.LocalDate.now();
+        java.time.LocalDate startDate;
+        java.time.LocalDate endDate = now;
+        String timeLabel;
+
+        if (timeRange != null) {
+            switch (timeRange) {
+                case "today" -> {
+                    startDate = now;
+                    timeLabel = "hôm nay";
+                }
+                case "this_week" -> {
+                    startDate = now.with(java.time.DayOfWeek.MONDAY);
+                    timeLabel = "tuần này";
+                }
+                case "this_month" -> {
+                    startDate = now.withDayOfMonth(1);
+                    timeLabel = "tháng này";
+                }
+                default -> {
+                    startDate = java.time.LocalDate.of(2020, 1, 1);
+                    timeLabel = "tất cả thời gian";
+                }
+            }
+        } else {
+            startDate = java.time.LocalDate.of(2020, 1, 1);
+            timeLabel = "tất cả thời gian";
+        }
+
+        // ── Query DB trực tiếp với date range (không load hết rồi filter Java) ──
+        List<Attendance> records = attendanceRepository.findByStudentAndDateRange(student, startDate, endDate);
 
         if (records.isEmpty()) {
             return ChatContext.ok(ChatIntent.ASK_ABSENCE, Map.of(
                     "studentName", student.getFullName(),
-                    "message", "Chưa có dữ liệu điểm danh."));
+                    "timeLabel", timeLabel,
+                    "message", "Không có dữ liệu điểm danh trong " + timeLabel + "."));
         }
 
         // Thống kê theo trạng thái
@@ -114,17 +157,18 @@ public class AttendanceHandler implements ChatHandler {
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("studentName", student.getFullName());
-        data.put("totalSessions", total);
-        data.put("present", present);
-        data.put("absent", absent);
-        data.put("late", late);
-        data.put("excused", excused);
+        data.put("timeLabel", timeLabel);
+        data.put("totalRecordedSlots", total);
+        data.put("presentSlots", present);
+        data.put("absentSlots", absent);
+        data.put("lateSlots", late);
+        data.put("excusedSlots", excused);
 
         // Tính tỷ lệ đi học (Đi muộn vẫn tính là có mặt trong tỷ lệ đi học)
         double attendanceRate = total > 0 ? (double) (present + late) / total * 100 : 0;
         data.put("attendanceRate", String.format("%.1f%%", attendanceRate));
 
-        // Lấy 5 lần vắng gần nhất (nếu có)
+        // Lấy 5 lần vắng/muộn gần nhất trong đoạn được lọc
         List<Map<String, Object>> recentAbsences = records.stream()
                 .filter(a -> AttendanceStatus.ABSENT_UNEXCUSED.equals(a.getStatus())
                         || AttendanceStatus.LATE.equals(a.getStatus()))
@@ -134,7 +178,6 @@ public class AttendanceHandler implements ChatHandler {
                     Map<String, Object> item = new LinkedHashMap<>();
                     item.put("date", a.getAttendanceDate().toString());
                     item.put("status", a.getStatus().name());
-                    item.put("subject", "N/A");
                     item.put("note", a.getRemarks() != null ? a.getRemarks() : "");
                     return item;
                 })
