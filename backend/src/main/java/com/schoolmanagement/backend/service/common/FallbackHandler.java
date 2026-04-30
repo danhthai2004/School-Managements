@@ -16,24 +16,24 @@ import java.util.UUID;
 @Component
 public class FallbackHandler implements ChatHandler {
 
-    @Override
-    public ChatContext handle(UUID userId, String message) {
-        return ChatContext.denied(ChatIntent.UNKNOWN,
-                "Xin lỗi, tôi không hiểu câu hỏi của bạn. " +
-                        "Bạn có thể hỏi về: điểm số, thời khóa biểu, điểm danh, hoặc thông báo nhà trường.");
-    }
+        @Override
+        public ChatContext handle(UUID userId, String message, java.util.Map<String, String> parameters) {
+                return ChatContext.denied(ChatIntent.UNKNOWN,
+                                "Xin lỗi, tôi không hiểu câu hỏi của bạn. " +
+                                                "Bạn có thể hỏi về: điểm số, thời khóa biểu, điểm danh, hoặc thông báo nhà trường.");
+        }
 
-    /** Trả về context từ chối cho hành động không hỗ trợ */
-    public ChatContext handleUnsupported() {
-        return ChatContext.denied(ChatIntent.UNSUPPORTED_ACTION,
-                "Xin lỗi, tôi chỉ hỗ trợ tra cứu thông tin. " +
-                        "Tôi không thể thực hiện các hành động như thêm, sửa, xóa dữ liệu.");
-    }
+        /** Trả về context từ chối cho hành động không hỗ trợ */
+        public ChatContext handleUnsupported() {
+                return ChatContext.denied(ChatIntent.UNSUPPORTED_ACTION,
+                                "Xin lỗi, tôi chỉ hỗ trợ tra cứu thông tin. " +
+                                                "Tôi không thể thực hiện các hành động như thêm, sửa, xóa dữ liệu.");
+        }
 
-    /** Trả về context từ chối cho câu hỏi ngoài phạm vi */
-    public ChatContext handleOutOfScope() {
-        return ChatContext.denied(ChatIntent.OUT_OF_SCOPE,
-                "Xin lỗi, câu hỏi này nằm ngoài phạm vi hỗ trợ của tôi. " +
-                        "Tôi chỉ quản lý thông tin về điểm số, thời khóa biểu, điểm danh, và thông báo của nhà trường.");
-    }
+        /** Trả về context từ chối cho câu hỏi ngoài phạm vi */
+        public ChatContext handleOutOfScope() {
+                return ChatContext.denied(ChatIntent.OUT_OF_SCOPE,
+                                "Xin lỗi, câu hỏi này nằm ngoài phạm vi hỗ trợ của tôi. " +
+                                                "Tôi chỉ quản lý thông tin về điểm số, thời khóa biểu, điểm danh, và thông báo của nhà trường.");
+        }
 }

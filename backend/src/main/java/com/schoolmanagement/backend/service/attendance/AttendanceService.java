@@ -9,6 +9,8 @@ import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.attendance.Attendance;
 import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
 import com.schoolmanagement.backend.domain.entity.admin.School;
+import com.schoolmanagement.backend.domain.entity.admin.Semester;
+import com.schoolmanagement.backend.domain.admin.SemesterStatus;
 
 import com.schoolmanagement.backend.repo.attendance.AttendanceRepository;
 import com.schoolmanagement.backend.repo.timetable.TimetableRepository;
@@ -618,11 +620,40 @@ public class AttendanceService {
         }
 
         private TimetableDetail findTimetableDetail(Teacher teacher, LocalDate date, int slotIndex) {
-                Timetable timetable = timetableRepository
-                                .findFirstBySchoolAndStatusOrderByCreatedAtDesc(
-                                                teacher.getUser().getSchool(), TimetableStatus.OFFICIAL)
-                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                                "Chưa có thời khóa biểu chính thức."));
+                School school = teacher.getUser().getSchool();
+
+                // Strategy: try multiple semesters to find an OFFICIAL timetable
+                // Priority: 1) Active semester 2) Date-based semester 3) Any official TKB in
+                // school
+                Semester activeSemester = semesterService.getActiveSemesterEntity(school);
+                Semester dateSemester = semesterService.getSemesterByDate(school, date);
+
+                Timetable timetable = null;
+
+                // 1. Try active semester first (highest priority)
+                if (activeSemester != null) {
+                        timetable = timetableRepository
+                                        .findFirstBySchoolAndSemesterAndStatusOrderByCreatedAtDesc(
+                                                        school, activeSemester, TimetableStatus.OFFICIAL)
+                                        .orElse(null);
+                }
+
+                // 2. If active semester has no TKB, try the date-based semester
+                if (timetable == null && dateSemester != null && !dateSemester.equals(activeSemester)) {
+                        timetable = timetableRepository
+                                        .findFirstBySchoolAndSemesterAndStatusOrderByCreatedAtDesc(
+                                                        school, dateSemester, TimetableStatus.OFFICIAL)
+                                        .orElse(null);
+                }
+
+                // 3. Last resort: any official timetable in the school (regardless of semester)
+                if (timetable == null) {
+                        timetable = timetableRepository
+                                        .findFirstBySchoolAndStatusOrderByCreatedAtDesc(school,
+                                                        TimetableStatus.OFFICIAL)
+                                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                                        "Chưa có thời khóa biểu chính thức nào trong trường."));
+                }
 
                 return timetableDetailRepository
                                 .findByTimetableAndTeacherAndDayOfWeekAndSlotIndex(
@@ -654,7 +685,7 @@ public class AttendanceService {
                 // Check semester status
                 var semester = semesterService.getSemesterByDate(teacher.getUser().getSchool(), date);
                 if (semester != null
-                                && semester.getStatus() == com.schoolmanagement.backend.domain.admin.SemesterStatus.CLOSED) {
+                                && semester.getStatus() == SemesterStatus.CLOSED) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                                         "Học kỳ đã chốt sổ. Chỉ Giám thị hoặc Admin mới được phép chỉnh sửa.");
                 }

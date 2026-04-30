@@ -10,8 +10,7 @@ import { useConfirmation } from '../../../hooks/useConfirmation';
 import DatePicker, { registerLocale } from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { vi } from 'date-fns/locale';
-import { formatDate, parseDateDDMMYYYY, formatDateInput } from "../../../utils/dateHelpers";
-import CustomDateInput from "../../../components/common/CustomDateInput";
+import { formatDate } from "../../../utils/dateHelpers";
 
 registerLocale('vi', vi);
 
@@ -47,10 +46,7 @@ const SemesterConfigPage: React.FC = () => {
         name: '', startDate: '', endDate: '', gradeDeadline: ''
     });
 
-    // Date input raw values
-    const [semStartInput, setSemStartInput] = useState('');
-    const [semEndInput, setSemEndInput] = useState('');
-    const [semDeadlineInput, setSemDeadlineInput] = useState('');
+
 
     const loadData = async () => {
         try {
@@ -306,7 +302,7 @@ const SemesterConfigPage: React.FC = () => {
         setEditingYear(null);
         setYearForm({ name: '', startDate: '', endDate: '' });
         setShowYearModal(true);
-        setShowSemesterModal(false); // Ensure only one modal is open
+        setShowSemesterModal(false);
     };
 
     const openEditSemester = (sem: SemesterDto) => {
@@ -316,11 +312,8 @@ const SemesterConfigPage: React.FC = () => {
             startDate: sem.startDate, endDate: sem.endDate,
             gradeDeadline: sem.gradeDeadline || ''
         });
-        setSemStartInput(formatDate(sem.startDate));
-        setSemEndInput(formatDate(sem.endDate));
-        setSemDeadlineInput(sem.gradeDeadline ? formatDate(sem.gradeDeadline) : '');
         setShowSemesterModal(true);
-        setShowYearModal(false); // Ensure only one modal is open
+        setShowYearModal(false);
     };
 
     const getStatusBadge = (status: string) => {
@@ -536,11 +529,19 @@ const SemesterConfigPage: React.FC = () => {
 
             {/* Academic Year Modal */}
             {showYearModal && createPortal(
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-gradient-to-br from-slate-900/70 to-slate-800/70 backdrop-blur-sm" onClick={() => setShowYearModal(false)} />
+                <>
+                {/* Backdrop layer - separate element so its stacking context has no children */}
+                <div className="fixed inset-0 z-[100] bg-gradient-to-br from-slate-900/70 to-slate-800/70 backdrop-blur-sm" />
+                {/* Content layer - NO backdrop-filter, so datepicker popups can escape */}
+                <div
+                    className="fixed inset-0 z-[101] flex items-center justify-center p-4"
+                    onMouseDown={(e) => {
+                        if (e.target === e.currentTarget) setShowYearModal(false);
+                    }}
+                >
                     <div
-                        className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-visible flex flex-col z-[100] animate-in zoom-in-95 duration-300"
-                        onClick={e => e.stopPropagation()}
+                        className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-visible flex flex-col animate-in zoom-in-95 duration-300"
+                        onMouseDown={(e) => e.stopPropagation()}
                     >
                         {/* Header */}
                         <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500 px-8 py-5 flex-none rounded-t-3xl">
@@ -586,8 +587,7 @@ const SemesterConfigPage: React.FC = () => {
                                                         const y = date.getFullYear();
                                                         const m = String(date.getMonth() + 1).padStart(2, '0');
                                                         const d = String(date.getDate()).padStart(2, '0');
-                                                        const iso = `${y}-${m}-${d}`;
-                                                        setYearForm(prev => ({ ...prev, startDate: iso }));
+                                                        setYearForm(prev => ({ ...prev, startDate: `${y}-${m}-${d}` }));
                                                     } else {
                                                         setYearForm(prev => ({ ...prev, startDate: '' }));
                                                     }
@@ -595,9 +595,12 @@ const SemesterConfigPage: React.FC = () => {
                                                 dateFormat="dd/MM/yyyy"
                                                 locale="vi"
                                                 placeholderText="dd/mm/yyyy"
-                                                popperClassName="z-[10000]"
-                                                popperProps={{ strategy: 'fixed' }}
-                                                customInput={<CustomDateInput value={formatDate(yearForm.startDate)} rawValue={formatDate(yearForm.startDate)} placeholder="dd/mm/yyyy" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400" />}
+                                                showMonthDropdown
+                                                showYearDropdown
+                                                dropdownMode="select"
+                                                autoComplete="off"
+                                                popperProps={{ strategy: "fixed" }}
+                                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400"
                                             />
                                         </div>
                                         <div>
@@ -609,8 +612,7 @@ const SemesterConfigPage: React.FC = () => {
                                                         const y = date.getFullYear();
                                                         const m = String(date.getMonth() + 1).padStart(2, '0');
                                                         const d = String(date.getDate()).padStart(2, '0');
-                                                        const iso = `${y}-${m}-${d}`;
-                                                        setYearForm(prev => ({ ...prev, endDate: iso }));
+                                                        setYearForm(prev => ({ ...prev, endDate: `${y}-${m}-${d}` }));
                                                     } else {
                                                         setYearForm(prev => ({ ...prev, endDate: '' }));
                                                     }
@@ -618,9 +620,12 @@ const SemesterConfigPage: React.FC = () => {
                                                 dateFormat="dd/MM/yyyy"
                                                 locale="vi"
                                                 placeholderText="dd/mm/yyyy"
-                                                popperClassName="z-[10000]"
-                                                popperProps={{ strategy: 'fixed' }}
-                                                customInput={<CustomDateInput value={formatDate(yearForm.endDate)} rawValue={formatDate(yearForm.endDate)} placeholder="dd/mm/yyyy" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400" />}
+                                                showMonthDropdown
+                                                showYearDropdown
+                                                dropdownMode="select"
+                                                autoComplete="off"
+                                                popperProps={{ strategy: "fixed" }}
+                                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400"
                                             />
                                         </div>
                                     </div>
@@ -660,17 +665,26 @@ const SemesterConfigPage: React.FC = () => {
                             </div>
                         </div>
                     </div>
-                </div>,
+                </div>
+                </>,
                 document.body
             )}
 
             {/* Semester Edit Modal */}
             {showSemesterModal && editingSemester && createPortal(
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-gradient-to-br from-slate-900/70 to-slate-800/70 backdrop-blur-sm" onClick={() => setShowSemesterModal(false)} />
+                <>
+                {/* Backdrop layer - separate element so its stacking context has no children */}
+                <div className="fixed inset-0 z-[100] bg-gradient-to-br from-slate-900/70 to-slate-800/70 backdrop-blur-sm" />
+                {/* Content layer - NO backdrop-filter, so datepicker popups can escape */}
+                <div
+                    className="fixed inset-0 z-[101] flex items-center justify-center p-4"
+                    onMouseDown={(e) => {
+                        if (e.target === e.currentTarget) setShowSemesterModal(false);
+                    }}
+                >
                     <div
-                        className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-visible flex flex-col z-[100] animate-in zoom-in-95 duration-300"
-                        onClick={e => e.stopPropagation()}
+                        className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-visible flex flex-col animate-in zoom-in-95 duration-300"
+                        onMouseDown={(e) => e.stopPropagation()}
                     >
                         {/* Header */}
                         <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500 px-8 py-5 flex-none rounded-t-3xl">
@@ -714,20 +728,20 @@ const SemesterConfigPage: React.FC = () => {
                                                         const y = date.getFullYear();
                                                         const m = String(date.getMonth() + 1).padStart(2, '0');
                                                         const d = String(date.getDate()).padStart(2, '0');
-                                                        const iso = `${y}-${m}-${d}`;
-                                                        setSemesterForm(prev => ({ ...prev, startDate: iso }));
-                                                        setSemStartInput(`${d}/${m}/${y}`);
+                                                        setSemesterForm(prev => ({ ...prev, startDate: `${y}-${m}-${d}` }));
                                                     } else {
                                                         setSemesterForm(prev => ({ ...prev, startDate: '' }));
-                                                        setSemStartInput('');
                                                     }
                                                 }}
                                                 dateFormat="dd/MM/yyyy"
                                                 locale="vi"
                                                 placeholderText="dd/mm/yyyy"
-                                                popperClassName="z-[10000]"
-                                                popperProps={{ strategy: 'fixed' }}
-                                                customInput={<CustomDateInput value={semStartInput} rawValue={semStartInput} placeholder="dd/mm/yyyy" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400" />}
+                                                showMonthDropdown
+                                                showYearDropdown
+                                                dropdownMode="select"
+                                                autoComplete="off"
+                                                popperProps={{ strategy: "fixed" }}
+                                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400"
                                             />
                                         </div>
                                         <div>
@@ -739,30 +753,20 @@ const SemesterConfigPage: React.FC = () => {
                                                         const y = date.getFullYear();
                                                         const m = String(date.getMonth() + 1).padStart(2, '0');
                                                         const d = String(date.getDate()).padStart(2, '0');
-                                                        const iso = `${y}-${m}-${d}`;
-                                                        setSemesterForm(prev => ({ ...prev, endDate: iso }));
-                                                        setSemEndInput(`${d}/${m}/${y}`);
+                                                        setSemesterForm(prev => ({ ...prev, endDate: `${y}-${m}-${d}` }));
                                                     } else {
                                                         setSemesterForm(prev => ({ ...prev, endDate: '' }));
-                                                        setSemEndInput('');
-                                                    }
-                                                }}
-                                                onChangeRaw={(e) => {
-                                                    if (!e) return;
-                                                    const target = e.target as HTMLInputElement;
-                                                    const formatted = formatDateInput(target.value);
-                                                    setSemEndInput(formatted);
-                                                    const parsed = parseDateDDMMYYYY(formatted);
-                                                    if (parsed && formatted.length >= 10) {
-                                                        setSemesterForm(prev => ({ ...prev, endDate: parsed }));
                                                     }
                                                 }}
                                                 dateFormat="dd/MM/yyyy"
                                                 locale="vi"
                                                 placeholderText="dd/mm/yyyy"
-                                                popperClassName="z-[10000]"
-                                                popperProps={{ strategy: 'fixed' }}
-                                                customInput={<CustomDateInput value={semEndInput} rawValue={semEndInput} placeholder="dd/mm/yyyy" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400" />}
+                                                showMonthDropdown
+                                                showYearDropdown
+                                                dropdownMode="select"
+                                                autoComplete="off"
+                                                popperProps={{ strategy: "fixed" }}
+                                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400"
                                             />
                                         </div>
                                     </div>
@@ -775,30 +779,21 @@ const SemesterConfigPage: React.FC = () => {
                                                     const y = date.getFullYear();
                                                     const m = String(date.getMonth() + 1).padStart(2, '0');
                                                     const d = String(date.getDate()).padStart(2, '0');
-                                                    const iso = `${y}-${m}-${d}`;
-                                                    setSemesterForm(prev => ({ ...prev, gradeDeadline: iso }));
-                                                    setSemDeadlineInput(`${d}/${m}/${y}`);
+                                                    setSemesterForm(prev => ({ ...prev, gradeDeadline: `${y}-${m}-${d}` }));
                                                 } else {
                                                     setSemesterForm(prev => ({ ...prev, gradeDeadline: '' }));
-                                                    setSemDeadlineInput('');
-                                                }
-                                            }}
-                                            onChangeRaw={(e) => {
-                                                if (!e) return;
-                                                const target = e.target as HTMLInputElement;
-                                                const formatted = formatDateInput(target.value);
-                                                setSemDeadlineInput(formatted);
-                                                const parsed = parseDateDDMMYYYY(formatted);
-                                                if (parsed && formatted.length >= 10) {
-                                                    setSemesterForm(prev => ({ ...prev, gradeDeadline: parsed }));
                                                 }
                                             }}
                                             dateFormat="dd/MM/yyyy"
                                             locale="vi"
                                             placeholderText="dd/mm/yyyy"
-                                            popperClassName="z-[10000]"
-                                            popperProps={{ strategy: 'fixed' }}
-                                            customInput={<CustomDateInput value={semDeadlineInput} rawValue={semDeadlineInput} placeholder="dd/mm/yyyy" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400" />}
+                                            showMonthDropdown
+                                            showYearDropdown
+                                            dropdownMode="select"
+                                            isClearable
+                                            autoComplete="off"
+                                            popperProps={{ strategy: "fixed" }}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400"
                                         />
                                     </div>
                                 </div>
@@ -837,7 +832,8 @@ const SemesterConfigPage: React.FC = () => {
                             </div>
                         </div>
                     </div>
-                </div>,
+                </div>
+                </>,
                 document.body
             )}
 

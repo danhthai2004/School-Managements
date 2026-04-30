@@ -1,10 +1,12 @@
 package com.schoolmanagement.backend.controller.timetable;
 
+import com.schoolmanagement.backend.dto.timetable.GenerateJobDto;
 import com.schoolmanagement.backend.dto.timetable.MoveSlotRequest;
 import com.schoolmanagement.backend.dto.timetable.SlotValidationResponse;
 import com.schoolmanagement.backend.dto.timetable.SwapSlotRequest;
 import com.schoolmanagement.backend.dto.timetable.TimetableDto;
 import com.schoolmanagement.backend.service.timetable.AutoScheduleService;
+import com.schoolmanagement.backend.service.timetable.TimetableGenerationJobService;
 import com.schoolmanagement.backend.service.timetable.TimetableAdjustmentService;
 import com.schoolmanagement.backend.service.timetable.TimetableService;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,7 @@ public class TimetableController {
     private final AutoScheduleService autoScheduleService;
     private final TimetableAdjustmentService adjustmentService;
     private final UserLookupService userLookup;
+    private final TimetableGenerationJobService generationJobService;
 
     @GetMapping
     public ResponseEntity<List<TimetableDto>> getTimetables(
@@ -52,10 +55,28 @@ public class TimetableController {
         return ResponseEntity.ok(timetableService.getTimetable(admin.getSchool(), id));
     }
 
+    /**
+     * Starts timetable generation asynchronously.
+     * Returns immediately with a jobId — client should poll
+     * /generate/status/{jobId}.
+     */
     @PostMapping("/{id}/generate")
-    public ResponseEntity<Void> generateTimetable(@PathVariable UUID id) {
-        autoScheduleService.generateTimetable(id);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<GenerateJobDto> generateTimetable(@PathVariable UUID id) {
+        String jobId = generationJobService.startGeneration(id);
+        return ResponseEntity.accepted().body(
+                new GenerateJobDto(jobId, "RUNNING", "Đang sinh TKB, vui lòng đợi..."));
+    }
+
+    /**
+     * Poll the status of an async generation job.
+     * Returns: { jobId, status: RUNNING|DONE|ERROR, message }
+     */
+    @GetMapping("/generate/status/{jobId}")
+    public ResponseEntity<GenerateJobDto> getGenerationStatus(@PathVariable String jobId) {
+        return ResponseEntity.ok(new GenerateJobDto(
+                jobId,
+                generationJobService.getStatusString(jobId),
+                generationJobService.getStatusMessage(jobId)));
     }
 
     @DeleteMapping("/{id}")

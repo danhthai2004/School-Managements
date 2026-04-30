@@ -38,7 +38,7 @@ public class AnnouncementHandler implements ChatHandler {
     }
 
     @Override
-    public ChatContext handle(UUID userId, String message) {
+    public ChatContext handle(UUID userId, String message, Map<String, String> parameters) {
         userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 

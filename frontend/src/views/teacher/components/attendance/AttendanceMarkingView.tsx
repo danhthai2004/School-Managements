@@ -20,10 +20,39 @@ type Props = {
 export default function AttendanceMarkingView({ date, slotIndex, subjectName, className, slotStartTime, onClose }: Props) {
     const { toast } = useToast();
     const [students, setStudents] = useState<AttendanceDto[]>([]);
-    const [loading, setLoading] = useState(true);
+    // Initialize states based on whether the slot has already started
+    const [isSlotStarted, setIsSlotStarted] = useState(() => {
+        if (!slotStartTime) return true;
+        const today = startOfDay(new Date());
+        const selectedDay = startOfDay(date);
+        if (!isEqual(selectedDay, today)) return true; // Not today
+
+        const [hours, minutes] = slotStartTime.split(":").map(Number);
+        const now = new Date();
+        const slotStart = new Date();
+        slotStart.setHours(hours, minutes, 0, 0);
+        return now >= slotStart;
+    });
+
+    const [loading, setLoading] = useState(() => {
+        // Only start in loading state if the slot has already started or is locked (past/future)
+        const today = startOfDay(new Date());
+        const selectedDay = startOfDay(date);
+        const isLockedInit = isBefore(selectedDay, today) || isAfter(selectedDay, today);
+
+        // Return true (loading) if we expect to call loadData() immediately
+        if (isLockedInit) return true;
+
+        const [hours, minutes] = slotStartTime?.split(":").map(Number) || [0, 0];
+        const now = new Date();
+        const slotStart = new Date();
+        slotStart.setHours(hours, minutes, 0, 0);
+        const started = now >= slotStart;
+
+        return started;
+    });
     const [saving, setSaving] = useState(false);
     const [countdown, setCountdown] = useState<string>("");
-    const [isSlotStarted, setIsSlotStarted] = useState(true);
 
     const [skippedStudents, setSkippedStudents] = useState<{ studentId: string; reason: string; studentName?: string; studentCode?: string }[]>([]);
     const [showSkippedModal, setShowSkippedModal] = useState(false);
@@ -110,17 +139,29 @@ export default function AttendanceMarkingView({ date, slotIndex, subjectName, cl
             const data = await attendanceService.getAttendanceForSlot(dateStr, slotIndex);
             const sortedData = [...data].sort((a, b) => vietnameseNameSort(a.studentName, b.studentName));
             setStudents(sortedData);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to load attendance:", error);
-            toast.error("Không thể tải danh sách điểm danh");
+            // Only show error toast if it's actually time to load or already locked
+            // Extract the most meaningful message from backend
+            const data = error.response?.data;
+            const message = data?.message || data?.error || "Không thể tải danh sách điểm danh";
+
+            if (isSlotStarted || isLocked) {
+                toast.error(message);
+            }
         } finally {
             setLoading(false);
         }
-    }, [date, slotIndex, toast]);
+    }, [date, slotIndex, toast, isSlotStarted, isLocked]);
 
     useEffect(() => {
-        loadData();
-    }, [loadData]);
+        if (isSlotStarted || isLocked) {
+            loadData();
+        } else {
+            // If not started yet, don't show loading screen
+            setLoading(false);
+        }
+    }, [loadData, isSlotStarted, isLocked]);
 
     const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
         setStudents(prev => prev.map(s =>

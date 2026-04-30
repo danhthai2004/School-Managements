@@ -60,28 +60,28 @@ public class TimetableHandler implements ChatHandler {
     }
 
     @Override
-    public ChatContext handle(UUID userId, String message) {
+    public ChatContext handle(UUID userId, String message, Map<String, String> parameters) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
         return switch (user.getRole()) {
-            case STUDENT -> handleStudent(user, message);
-            case GUARDIAN -> handleGuardian(user, message);
+            case STUDENT -> handleStudent(user, message, parameters);
+            case GUARDIAN -> handleGuardian(user, message, parameters);
             default -> ChatContext.denied(ChatIntent.ASK_TIMETABLE,
                     "Vai trò của bạn không được hỗ trợ tra cứu thời khóa biểu qua chatbot.");
         };
     }
 
-    private ChatContext handleStudent(User user, String message) {
+    private ChatContext handleStudent(User user, String message, Map<String, String> parameters) {
         Student student = studentRepository.findByUser(user).orElse(null);
         if (student == null) {
             return ChatContext.denied(ChatIntent.ASK_TIMETABLE,
                     "Không tìm thấy hồ sơ học sinh liên kết với tài khoản của bạn.");
         }
-        return buildTimetableContext(student);
+        return buildTimetableContext(student, parameters);
     }
 
-    private ChatContext handleGuardian(User user, String message) {
+    private ChatContext handleGuardian(User user, String message, Map<String, String> parameters) {
         Guardian guardian = guardianRepository.findByUser(user).orElse(null);
         if (guardian == null) {
             return ChatContext.denied(ChatIntent.ASK_TIMETABLE,
@@ -94,15 +94,25 @@ public class TimetableHandler implements ChatHandler {
                     "Không tìm thấy học sinh nào liên kết với tài khoản phụ huynh.");
         }
 
+        // Ưu tiên con được chỉ định trong parameters
+        String target = parameters.get("targetStudent");
+        if (target != null && !target.isBlank()) {
+            for (Student s : students) {
+                if (s.getFullName().toLowerCase().contains(target.toLowerCase())) {
+                    return buildTimetableContext(s, parameters);
+                }
+            }
+        }
+
         if (students.size() == 1) {
-            return buildTimetableContext(students.get(0));
+            return buildTimetableContext(students.get(0), parameters);
         }
 
         // Nhiều con → tìm tên trong message
         String lowerMessage = message.toLowerCase();
         for (Student s : students) {
             if (lowerMessage.contains(s.getFullName().toLowerCase())) {
-                return buildTimetableContext(s);
+                return buildTimetableContext(s, parameters);
             }
         }
 
@@ -112,10 +122,8 @@ public class TimetableHandler implements ChatHandler {
 
     /**
      * Xây dựng context thời khóa biểu cho 1 học sinh.
-     * Luồng: Student → ClassEnrollment (mới nhất) → ClassRoom → TimetableDetail
-     * (OFFICIAL)
      */
-    private ChatContext buildTimetableContext(Student student) {
+    private ChatContext buildTimetableContext(Student student, Map<String, String> parameters) {
         // Tìm enrollment gần nhất
         List<ClassEnrollment> enrollments = classEnrollmentRepository.findAllByStudent(student);
         if (enrollments.isEmpty()) {
@@ -163,14 +171,32 @@ public class TimetableHandler implements ChatHandler {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("studentName", student.getFullName());
         data.put("className", classRoom.getName());
-        data.put("academicYear", officialTimetable.getSemester() != null && officialTimetable.getSemester().getAcademicYear() != null ? officialTimetable.getSemester().getAcademicYear().getName() : "");
-        data.put("semester", officialTimetable.getSemester() != null ? officialTimetable.getSemester().getSemesterNumber() : 1);
+        data.put("academicYear",
+                officialTimetable.getSemester() != null && officialTimetable.getSemester().getAcademicYear() != null
+                        ? officialTimetable.getSemester().getAcademicYear().getName()
+                        : "");
+        data.put("semester",
+                officialTimetable.getSemester() != null ? officialTimetable.getSemester().getSemesterNumber() : 1);
 
         // Nhóm theo ngày
         Map<DayOfWeek, List<TimetableDetail>> byDay = details.stream()
                 .sorted(Comparator.comparingInt(TimetableDetail::getSlotIndex))
                 .collect(Collectors.groupingBy(TimetableDetail::getDayOfWeek,
                         LinkedHashMap::new, Collectors.toList()));
+
+        // Lọc theo ngày nếu AI yêu cầu 'today'
+        String timeRange = parameters.get("timeRange");
+        if ("today".equals(timeRange)) {
+            DayOfWeek today = java.time.LocalDate.now().getDayOfWeek();
+            Map<DayOfWeek, List<TimetableDetail>> filtered = new LinkedHashMap<>();
+            if (byDay.containsKey(today)) {
+                filtered.put(today, byDay.get(today));
+            }
+            byDay = filtered;
+            data.put("timeLabel", "hôm nay");
+        } else {
+            data.put("timeLabel", "cả tuần");
+        }
 
         List<Map<String, Object>> schedule = new ArrayList<>();
         for (Map.Entry<DayOfWeek, List<TimetableDetail>> entry : byDay.entrySet()) {

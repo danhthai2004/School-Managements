@@ -40,6 +40,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -194,10 +195,12 @@ public class NotificationService {
 
         notification = notificationRepository.save(notification);
 
-        // Phân phát thông báo tới các recipients
+        // Phân phát thông báo tới các recipients (ASYNC)
         List<User> targetUsers = resolveTargetUsers(request.targetGroup(), request.referenceId(),
                 createdBy.getSchool() != null ? createdBy.getSchool().getId() : null);
-        batchCreateRecipients(notification, targetUsers);
+
+        // Kích hoạt gửi ngầm, không block người dùng
+        distributeNotificationAsync(notification, targetUsers);
 
         activityLog.log("NOTIFICATION_CREATED", createdBy, null,
                 "Notification: " + notification.getTitle() + ", Target: " + request.targetGroup());
@@ -232,8 +235,8 @@ public class NotificationService {
                 .build();
 
         notification = notificationRepository.save(notification);
-        batchCreateRecipients(notification, targetUsers);
-        log.info("Đã gửi thông báo lịch thi tới {} tài khoản.", targetUsers.size());
+        distributeNotificationAsync(notification, targetUsers);
+        log.info("Đã lên lịch gửi thông báo lịch thi tới {} tài khoản.", targetUsers.size());
     }
 
     /**
@@ -263,8 +266,8 @@ public class NotificationService {
                 .build();
 
         notification = notificationRepository.save(notification);
-        batchCreateRecipients(notification, targetUsers);
-        log.info("Đã gửi thông báo TKB lớp {} tới {} tài khoản.", classRoom.getName(), targetUsers.size());
+        distributeNotificationAsync(notification, targetUsers);
+        log.info("Đã lên lịch gửi thông báo TKB lớp {} tới {} tài khoản.", classRoom.getName(), targetUsers.size());
     }
 
     /**
@@ -296,8 +299,8 @@ public class NotificationService {
                 .build();
 
         notification = notificationRepository.save(notification);
-        batchCreateRecipients(notification, targetUsers);
-        log.info("Đã gửi thông báo lịch dạy cho GV {}.", teacher.getFullName());
+        distributeNotificationAsync(notification, targetUsers);
+        log.info("Đã lên lịch gửi thông báo lịch dạy cho GV {}.", teacher.getFullName());
     }
 
     /**
@@ -357,7 +360,7 @@ public class NotificationService {
                     .build();
 
             notification = notificationRepository.save(notification);
-            batchCreateRecipients(notification, recipients);
+            distributeNotificationAsync(notification, recipients);
         }
     }
 
@@ -457,7 +460,7 @@ public class NotificationService {
         notification = notificationRepository.save(notification);
 
         List<User> targetUsers = resolveClassUsers(request.referenceId());
-        batchCreateRecipients(notification, targetUsers);
+        distributeNotificationAsync(notification, targetUsers);
 
         activityLog.log("NOTIFICATION_CREATED", teacherUser, null,
                 "Teacher notification: " + notification.getTitle() + ", Class: " + classRoom.getName());
@@ -599,15 +602,20 @@ public class NotificationService {
     }
 
     /**
-     * Batch insert NotificationRecipient cho danh sách User và gửi FCM Push.
-     * Sử dụng native INSERT ... ON CONFLICT DO NOTHING để tránh lỗi unique
-     * constraint.
+     * Phân phát thông báo ngầm (Async).
+     * Batch insert NotificationRecipient + gửi Push (FCM & Expo).
+     * Sử dụng native INSERT ... ON CONFLICT DO NOTHING để tránh lỗi unique constraint.
      */
-    private void batchCreateRecipients(Notification notification, List<User> users) {
+    @Async
+    @Transactional
+    public void distributeNotificationAsync(Notification notification, List<User> users) {
         if (users == null || users.isEmpty())
             return;
 
-        // Deduplicate users by ID
+        log.info("🚀 [ASYNC] Khởi động tiến trình phân phát thông báo '{}' tới {} người nhận...",
+                notification.getTitle(), users.size());
+
+        // 1. Lọc trùng User
         java.util.Map<UUID, User> uniqueUsers = new java.util.LinkedHashMap<>();
         for (User u : users) {
             if (u != null && u.getId() != null) {
@@ -615,18 +623,22 @@ public class NotificationService {
             }
         }
 
+        // 2. Batch Insert Recipients (Native Query)
         int savedCount = 0;
         for (User user : uniqueUsers.values()) {
-            int inserted = recipientRepository.insertIgnoreDuplicate(
-                    UUID.randomUUID(), notification.getId(), user.getId());
-            savedCount += inserted;
+            try {
+                int inserted = recipientRepository.insertIgnoreDuplicate(
+                        UUID.randomUUID(), notification.getId(), user.getId());
+                savedCount += inserted;
+            } catch (Exception e) {
+                log.warn("Bỏ qua recipient lỗi: user={}, error={}", user.getId(), e.getMessage());
+            }
         }
-        log.info("Saved {}/{} recipients for notification '{}'", savedCount, uniqueUsers.size(),
-                notification.getTitle());
+        log.info("✅ [ASYNC] Đã lưu {}/{} recipients vào DB.", savedCount, uniqueUsers.size());
 
         // Fetch device tokens and push.
         // Supports both FCM tokens and Expo push tokens (Expo Go).
-        List<String> deviceTokens = deviceTokenRepository.findFcmTokensByUsers(users);
+        List<String> deviceTokens = deviceTokenRepository.findFcmTokensByUsers(new ArrayList<>(uniqueUsers.values()));
         if (deviceTokens == null || deviceTokens.isEmpty()) return;
 
         List<String> expoTokens = new ArrayList<>();
@@ -648,11 +660,16 @@ public class NotificationService {
                     expoTokens);
         }
         if (!fcmTokens.isEmpty()) {
-            firebaseMessagingService.sendMulticast(
-                    notification.getTitle(),
-                    notification.getContent(),
-                    notification.getActionUrl(),
-                    fcmTokens);
+            try {
+                firebaseMessagingService.sendMulticast(
+                        notification.getTitle(),
+                        notification.getContent(),
+                        notification.getActionUrl(),
+                        fcmTokens);
+                log.info("📲 [ASYNC] Đã gửi Push qua Firebase tới {} tokens.", fcmTokens.size());
+            } catch (Exception e) {
+                log.error("❌ [ASYNC] Lỗi khi gửi FCM Push: {}", e.getMessage());
+            }
         }
     }
 
