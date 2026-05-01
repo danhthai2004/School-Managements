@@ -17,7 +17,8 @@ import {
     LogOut,
     UserCircle,
     Lock,
-    SquareActivity
+    SquareActivity,
+    Camera
 } from "lucide-react";
 
 export default function TeacherLayout() {
@@ -62,6 +63,7 @@ export default function TeacherLayout() {
     const homeroomOnlyMenuItems = [
         { path: "/teacher/students", label: "Học sinh", icon: <Users size={20} strokeWidth={1.5} /> },
         { path: "/teacher/class-map", label: "Sơ đồ lớp", icon: <LayoutGrid size={20} strokeWidth={1.5} /> },
+        { path: "/teacher/face-data", label: "Dữ liệu khuôn mặt", icon: <Camera size={20} strokeWidth={1.5} /> },
         { path: "/teacher/risk-analytics", label: "AI phân tích học tập", icon: <SquareActivity size={20} strokeWidth={1.5} /> },
     ];
 
