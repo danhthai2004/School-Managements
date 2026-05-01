@@ -1,0 +1,9 @@
+version: "3"
+agent:
+  authtoken: 3BhV7cVb38t9dyqrw90BV2ZIVct_4QG4NAP2L6U6k9WeEybeC
+
+tunnels:
+  backend:
+    proto: http
+    addr: 127.0.0.1:8081
+    domain: rhinological-izabella-superbusily.ngrok-free.dev
