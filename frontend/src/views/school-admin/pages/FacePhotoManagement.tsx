@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
     facePhotoService,
     type FaceOverviewResponse,
@@ -8,68 +9,12 @@ import {
     type StudentPhotosDto,
     type PhotoDto,
 } from "../../../services/schoolAdminService";
-import { Camera, Upload, Trash2, ChevronLeft, ChevronRight, X, Search, Users, CheckCircle, AlertCircle, Image, Eye, RefreshCw } from "lucide-react";
+import { Camera, Upload, Trash2, ChevronLeft, ChevronRight, X, Search, Users, CheckCircle, AlertCircle, Image, ImagePlus, Loader2, RefreshCw } from "lucide-react";
 import { useAutoRefresh } from "../../../hooks/useAutoRefresh";
+import { useConfirmation } from "../../../hooks/useConfirmation";
+import { compressImage } from "../../../utils/imageUtils";
 
-// ─── Helper Functions ────────────────────────────────
 
-// Compress image before upload to speed up transfer & backend processing
-async function compressImage(file: File): Promise<File> {
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new window.Image();
-            img.src = event.target?.result as string;
-            img.onload = () => {
-                const canvas = document.createElement("canvas");
-                const MAX_WIDTH = 1024;
-                const MAX_HEIGHT = 1024;
-                let width = img.width;
-                let height = img.height;
-
-                if (width > height) {
-                    if (width > MAX_WIDTH) {
-                        height *= MAX_WIDTH / width;
-                        width = MAX_WIDTH;
-                    }
-                } else {
-                    if (height > MAX_HEIGHT) {
-                        width *= MAX_HEIGHT / height;
-                        height = MAX_HEIGHT;
-                    }
-                }
-                canvas.width = width;
-                canvas.height = height;
-
-                const ctx = canvas.getContext("2d");
-                if (ctx) {
-                    ctx.drawImage(img, 0, 0, width, height);
-                    canvas.toBlob(
-                        (blob) => {
-                            if (blob) {
-                                // Keep original filename but ensure extension reflects format if we convert
-                                const newFile = new File([blob], file.name, {
-                                    type: "image/jpeg",
-                                    lastModified: Date.now(),
-                                });
-                                resolve(newFile);
-                            } else {
-                                resolve(file); // fallback
-                            }
-                        },
-                        "image/jpeg",
-                        0.8 // 80% quality
-                    );
-                } else {
-                    resolve(file); // fallback
-                }
-            };
-            img.onerror = () => resolve(file); // fallback
-        };
-        reader.onerror = () => resolve(file); // fallback
-    });
-}
 
 // ─── Helper Components ────────────────────────────────
 
@@ -119,21 +64,13 @@ export default function FacePhotoManagement() {
     const [uploadModalOpen, setUploadModalOpen] = useState(false);
     const [uploadStudentId, setUploadStudentId] = useState<string | null>(null);
     const [uploadStudentName, setUploadStudentName] = useState<string>("");
+    const [uploadStudentCode, setUploadStudentCode] = useState<string>("");
     const [previewImages, setPreviewImages] = useState<{ file: File; url: string }[]>([]);
+    const [uploadResult, setUploadResult] = useState<{ success: number; fail: number } | null>(null);
+    const [errorDetail, setErrorDetail] = useState<string | null>(null);
     const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
     const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
-    const [confirmModal, setConfirmModal] = useState<{
-        open: boolean;
-        title: string;
-        message: string;
-        onConfirm: () => void;
-        isDanger?: boolean;
-    }>({
-        open: false,
-        title: "",
-        message: "",
-        onConfirm: () => { },
-    });
+    const { confirm, ConfirmationDialog } = useConfirmation();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Breadcrumb navigation history
@@ -205,10 +142,13 @@ export default function FacePhotoManagement() {
 
     // ─── Upload Logic ─────────────────────────────────
 
-    const openUploadModal = (studentId: string, studentName: string) => {
+    const openUploadModal = (studentId: string, studentName: string, studentCode: string = "") => {
         setUploadStudentId(studentId);
         setUploadStudentName(studentName);
+        setUploadStudentCode(studentCode);
         setPreviewImages([]);
+        setUploadResult(null);
+        setErrorDetail(null);
         setUploadModalOpen(true);
     };
 
@@ -256,24 +196,27 @@ export default function FacePhotoManagement() {
                 }
             }
 
-            if (failCount === 0) {
+            if (successCount > 0) {
                 setToast({ type: "success", message: `Đã upload ${successCount} ảnh thành công!` });
-            } else if (successCount > 0) {
-                setToast({ type: "success", message: `Upload ${successCount}/${successCount + failCount} ảnh thành công (${failCount} thất bại). ${errorMessage ? "Chi tiết lỗi: " + errorMessage : ""}` });
-            } else {
-                setToast({ type: "error", message: errorMessage || "Không thể upload ảnh. Vui lòng thử lại." });
             }
 
-            setUploadModalOpen(false);
+            if (failCount === 0) {
+                setTimeout(() => setUploadModalOpen(false), 500);
+            } else {
+                setUploadResult({ success: successCount, fail: failCount });
+                setErrorDetail(errorMessage || "Không thể upload ảnh");
+            }
+
             // Refresh current view
             if (viewMode === "student-photos") {
-                loadStudentPhotos(uploadStudentId);
+                loadStudentPhotos(uploadStudentId, true);
             } else if (viewMode === "class-detail" && classDetail) {
-                loadClassDetail(classDetail.classId);
+                loadClassDetail(classDetail.classId, true);
             }
-            loadOverview();
+            loadOverview(true);
         } catch (e: any) {
-            setToast({ type: "error", message: e?.response?.data?.message || e?.response?.data?.detail || "Upload thất bại" });
+            setUploadResult({ success: 0, fail: previewImages.length });
+            setErrorDetail(e?.response?.data?.message || e?.response?.data?.detail || "Không thể kết nối tới dịch vụ nhận diện khuôn mặt.");
         } finally {
             setUploading(false);
         }
@@ -282,11 +225,11 @@ export default function FacePhotoManagement() {
     // ─── Delete Logic ─────────────────────────────────
 
     const handleDeletePhoto = (studentId: string, photo: PhotoDto) => {
-        setConfirmModal({
-            open: true,
+        confirm({
             title: "Xác nhận xóa ảnh",
             message: "Bạn có chắc chắn muốn xóa ảnh khuôn mặt này? Hành động này không thể hoàn tác.",
-            isDanger: true,
+            variant: "danger",
+            confirmText: "Xóa",
             onConfirm: async () => {
                 const originalPhotos = studentPhotos;
                 try {
@@ -301,37 +244,33 @@ export default function FacePhotoManagement() {
 
                     await facePhotoService.deletePhoto(studentId, photo.id);
                     setToast({ type: "success", message: "Đã xóa ảnh thành công" });
-                    loadOverview();
+                    loadOverview(true);
                 } catch (e: any) {
                     setStudentPhotos(originalPhotos); // Rollback
                     setToast({ type: "error", message: "Không thể xóa ảnh. Vui lòng thử lại." });
-                } finally {
-                    setConfirmModal(prev => ({ ...prev, open: false }));
                 }
             }
         });
     };
 
     const handleDeleteAllPhotos = (studentId: string, studentName: string) => {
-        setConfirmModal({
-            open: true,
+        confirm({
             title: "Xóa toàn bộ ảnh",
             message: `Bạn có chắc chắn muốn xóa TẤT CẢ ảnh khuôn mặt của học sinh ${studentName}? Học sinh sẽ không thể điểm danh bằng khuôn mặt sau khi xóa.`,
-            isDanger: true,
+            variant: "danger",
+            confirmText: "Xóa tất cả",
             onConfirm: async () => {
                 try {
                     await facePhotoService.deleteAllPhotos(studentId);
                     setToast({ type: "success", message: `Đã xóa toàn bộ ảnh của ${studentName}` });
                     if (viewMode === "student-photos") {
-                        loadStudentPhotos(studentId);
+                        loadStudentPhotos(studentId, true);
                     } else if (classDetail) {
-                        loadClassDetail(classDetail.classId);
+                        loadClassDetail(classDetail.classId, true);
                     }
-                    loadOverview();
+                    loadOverview(true);
                 } catch (e: any) {
                     setToast({ type: "error", message: "Không thể xóa ảnh. Vui lòng thử lại." });
-                } finally {
-                    setConfirmModal(prev => ({ ...prev, open: false }));
                 }
             }
         });
@@ -351,12 +290,13 @@ export default function FacePhotoManagement() {
     return (
         <div className="space-y-6">
             {/* Toast */}
-            {toast && (
-                <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg text-white text-sm font-medium transition-all ${toast.type === "success" ? "bg-green-500" : "bg-red-500"}`}>
+            {toast && createPortal(
+                <div className={`fixed top-4 right-4 z-[99999] flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg text-white text-sm font-medium transition-all animate-fade-in-down ${toast.type === "success" ? "bg-green-500" : "bg-red-500"}`}>
                     {toast.type === "success" ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
                     {toast.message}
                     <button onClick={() => setToast(null)} className="ml-2 hover:opacity-70" title="Đóng thông báo"><X className="w-4 h-4" /></button>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Breadcrumb */}
@@ -411,18 +351,12 @@ export default function FacePhotoManagement() {
                         </p>
                     </div>
                 </div>
-                <button
-                    onClick={() => {
-                        if (viewMode === "overview") loadOverview();
-                        else if (viewMode === "class-detail" && classDetail) loadClassDetail(classDetail.classId);
-                        else if (viewMode === "student-photos" && studentPhotos) loadStudentPhotos(studentPhotos.studentId);
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    disabled={loading}
-                >
-                    <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                    Làm mới
-                </button>
+                {loading && (
+                    <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-medium text-sm animate-pulse">
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Đang cập nhật...
+                    </div>
+                )}
             </div>
 
             {error && (
@@ -433,54 +367,69 @@ export default function FacePhotoManagement() {
 
             {/* Views */}
             {viewMode === "overview" && <OverviewView overview={overview} loading={loading} filteredClasses={filteredClasses} searchTerm={searchTerm} setSearchTerm={setSearchTerm} gradeFilter={gradeFilter} setGradeFilter={setGradeFilter} grades={grades} onClassClick={(c) => { setSelectedClassName(c.className); loadClassDetail(c.classId); }} />}
-            {viewMode === "class-detail" && <ClassDetailView detail={classDetail} loading={loading} onStudentClick={(s) => loadStudentPhotos(s.studentId)} onUploadClick={(s) => openUploadModal(s.studentId, s.studentName)} onDeleteAll={(s) => handleDeleteAllPhotos(s.studentId, s.studentName)} />}
-            {viewMode === "student-photos" && <StudentPhotosView photos={studentPhotos} loading={loading} onUpload={() => { if (studentPhotos) openUploadModal(studentPhotos.studentId, studentPhotos.studentName); }} onDeletePhoto={(p) => { if (studentPhotos) handleDeletePhoto(studentPhotos.studentId, p); }} onDeleteAll={() => { if (studentPhotos) handleDeleteAllPhotos(studentPhotos.studentId, studentPhotos.studentName); }} onImageClick={(url) => setLightboxUrl(url)} />}
+            {viewMode === "class-detail" && <ClassDetailView detail={classDetail} loading={loading} onStudentClick={(s) => loadStudentPhotos(s.studentId)} onUploadClick={(s) => openUploadModal(s.studentId, s.studentName, s.studentCode)} onDeleteAll={(s) => handleDeleteAllPhotos(s.studentId, s.studentName)} />}
+            {viewMode === "student-photos" && <StudentPhotosView photos={studentPhotos} loading={loading} onUpload={() => { if (studentPhotos) openUploadModal(studentPhotos.studentId, studentPhotos.studentName, studentPhotos.studentCode); }} onDeletePhoto={(p) => { if (studentPhotos) handleDeletePhoto(studentPhotos.studentId, p); }} onDeleteAll={() => { if (studentPhotos) handleDeleteAllPhotos(studentPhotos.studentId, studentPhotos.studentName); }} onImageClick={(url) => setLightboxUrl(url)} />}
 
             {/* Upload Modal */}
-            {uploadModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
-                        <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Upload ảnh khuôn mặt</h3>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{uploadStudentName}</p>
-                            </div>
-                            <button onClick={() => setUploadModalOpen(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" title="Đóng cửa sổ">
-                                <X className="w-5 h-5 text-gray-500" />
+            {uploadModalOpen && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setUploadModalOpen(false)} />
+                    <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                        {/* Header */}
+                        <div className="bg-indigo-600 px-6 py-4 flex items-center justify-between">
+                            <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                                <Camera className="w-5 h-5" /> Upload ảnh khuôn mặt
+                            </h3>
+                            <button onClick={() => setUploadModalOpen(false)} className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors">
+                                <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <div className="p-6 space-y-4">
-                            {/* Drop zone */}
+                        {/* Body */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                            {/* Student info */}
+                            <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl px-4 py-3 border border-gray-100 dark:border-gray-700">
+                                <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center text-indigo-700 dark:text-indigo-400 font-bold">
+                                    {uploadStudentName[0]}
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-gray-900 dark:text-white">{uploadStudentName}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">Mã HS: {uploadStudentCode || uploadStudentId}</p>
+                                </div>
+                            </div>
+
+                            {/* Dropzone */}
                             <div
-                                className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors cursor-pointer"
+                                className="border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-indigo-400 dark:hover:border-indigo-500 rounded-xl p-8 text-center cursor-pointer transition-colors group"
                                 onClick={() => fileInputRef.current?.click()}
-                                onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add("border-blue-400"); }}
-                                onDragLeave={e => { e.currentTarget.classList.remove("border-blue-400"); }}
+                                onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add("border-indigo-400"); }}
+                                onDragLeave={e => { e.currentTarget.classList.remove("border-indigo-400"); }}
                                 onDrop={e => {
                                     e.preventDefault();
-                                    e.currentTarget.classList.remove("border-blue-400");
+                                    e.currentTarget.classList.remove("border-indigo-400");
                                     const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
                                     const newPreviews = files.map(f => ({ file: f, url: URL.createObjectURL(f) }));
                                     setPreviewImages(prev => [...prev, ...newPreviews].slice(0, 10));
                                 }}
                             >
-                                <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-                                <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">Kéo thả ảnh vào đây hoặc click để chọn</p>
-                                <p className="text-xs text-gray-400 mt-1">Tối đa 10 ảnh, mỗi ảnh ≤ 10MB. Nên chụp rõ mặt, đủ ánh sáng.</p>
+                                <ImagePlus className="w-10 h-10 mx-auto text-gray-400 group-hover:text-indigo-500 dark:text-gray-500 dark:group-hover:text-indigo-400 transition-colors" />
+                                <p className="text-sm text-gray-600 dark:text-gray-300 mt-3">
+                                    Kéo thả ảnh vào đây hoặc <span className="text-indigo-600 dark:text-indigo-400 font-semibold">nhấn để chọn</span>
+                                </p>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Tối đa 10 ảnh (JPG, PNG)</p>
                             </div>
                             <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileSelect} title="Chọn ảnh tải lên" />
 
                             {/* Previews */}
                             {previewImages.length > 0 && (
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-5 gap-3">
                                     {previewImages.map((p, i) => (
                                         <div key={i} className="relative group rounded-lg overflow-hidden aspect-square border border-gray-200 dark:border-gray-700">
-                                            <img src={p.url} alt="" className="w-full h-full object-cover" />
+                                            <img src={p.url} alt={`preview-${i}`} className="w-full h-full object-cover" />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity" />
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); removePreview(i); }}
-                                                className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                                title="Xóa ảnh này"
+                                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                                             >
                                                 <X className="w-3 h-3" />
                                             </button>
@@ -489,79 +438,50 @@ export default function FacePhotoManagement() {
                                 </div>
                             )}
 
-                            <div className="flex items-center justify-between pt-2">
-                                <p className="text-sm text-gray-500 dark:text-gray-400">
-                                    {previewImages.length} ảnh đã chọn
-                                </p>
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={() => setUploadModalOpen(false)}
-                                        className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                                    >
-                                        Hủy
-                                    </button>
-                                    <button
-                                        onClick={handleUpload}
-                                        disabled={uploading || previewImages.length === 0}
-                                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                                    >
-                                        {uploading ? (
-                                            <>
-                                                <RefreshCw className="w-4 h-4 animate-spin" />
-                                                Đang upload...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Upload className="w-4 h-4" />
-                                                Upload ({previewImages.length})
-                                            </>
-                                        )}
-                                    </button>
+                            {/* Result */}
+                            {uploadResult && (
+                                <div className={`rounded-xl p-4 text-sm font-medium ${uploadResult.fail === 0 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' : uploadResult.success === 0 ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'}`}>
+                                    {uploadResult.fail === 0
+                                        ? `✅ Upload thành công ${uploadResult.success} ảnh!`
+                                        : uploadResult.success === 0
+                                            ? `❌ Upload thất bại toàn bộ ${uploadResult.fail} ảnh.`
+                                            : `⚠️ Thành công ${uploadResult.success}/${uploadResult.success + uploadResult.fail} ảnh. ${uploadResult.fail} ảnh bị từ chối.`}
+                                    {errorDetail && (
+                                        <p className="mt-1 text-xs opacity-80">Chi tiết: {errorDetail}</p>
+                                    )}
                                 </div>
-                            </div>
+                            )}
                         </div>
-                    </div>
-                </div>
-            )}
 
-            {/* Confirm Modal */}
-            {confirmModal.open && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-                        <div className={`h-2 ${confirmModal.isDanger ? "bg-red-500" : "bg-blue-500"}`} />
-                        <div className="p-6">
-                            <div className="flex items-start gap-4">
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${confirmModal.isDanger ? "bg-red-100 dark:bg-red-900/30" : "bg-blue-100 dark:bg-blue-900/30"}`}>
-                                    <AlertCircle className={`w-6 h-6 ${confirmModal.isDanger ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"}`} />
-                                </div>
-                                <div className="flex-1">
-                                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                                        {confirmModal.title}
-                                    </h3>
-                                    <p className="mt-2 text-gray-500 dark:text-gray-400 leading-relaxed">
-                                        {confirmModal.message}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="mt-8 flex gap-3">
+                        {/* Footer */}
+                        <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/50">
+                            <p className="text-xs text-gray-400 dark:text-gray-500">{previewImages.length}/10 ảnh đã chọn</p>
+                            <div className="flex gap-3">
                                 <button
-                                    onClick={() => setConfirmModal(prev => ({ ...prev, open: false }))}
-                                    className="flex-1 px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all border border-gray-200 dark:border-gray-600"
+                                    onClick={() => setUploadModalOpen(false)}
+                                    className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
                                 >
-                                    Hủy bỏ
+                                    Đóng
                                 </button>
                                 <button
-                                    onClick={confirmModal.onConfirm}
-                                    className={`flex-1 px-4 py-3 text-sm font-semibold text-white rounded-xl shadow-lg transition-all transform active:scale-95 ${confirmModal.isDanger ? "bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 shadow-red-200 dark:shadow-red-900/20" : "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-blue-200 dark:shadow-blue-900/20"}`}
+                                    onClick={handleUpload}
+                                    disabled={uploading || previewImages.length === 0}
+                                    className="px-5 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors flex items-center gap-2 shadow-md shadow-indigo-100 dark:shadow-none"
                                 >
-                                    Xác nhận
+                                    {uploading ? (
+                                        <><Loader2 className="w-4 h-4 animate-spin" /> Đang tải lên...</>
+                                    ) : (
+                                        <><Upload className="w-4 h-4" /> Tải lên hệ thống</>
+                                    )}
                                 </button>
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
+
+            <ConfirmationDialog />
 
             {/* Lightbox */}
             {lightboxUrl && (
@@ -781,11 +701,11 @@ function ClassDetailView({
                             <tr key={s.studentId} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                 <td className="px-5 py-3.5">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                        <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${s.avatarUrl ? "border border-gray-200 dark:border-gray-700" : "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"}`}>
                                             {s.avatarUrl ? (
-                                                <img src={s.avatarUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                                <img src={s.avatarUrl} alt="" className="w-full h-full object-cover rounded-full" loading="lazy" />
                                             ) : (
-                                                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{(s.studentName || "?")[0]}</span>
+                                                <span className="text-sm font-bold uppercase">{(s.studentName || "?")[0]}</span>
                                             )}
                                         </div>
                                         <span className="font-medium text-gray-900 dark:text-white text-sm">{s.studentName}</span>
@@ -804,33 +724,28 @@ function ClassDetailView({
                                     )}
                                 </td>
                                 <td className="px-5 py-3.5 text-center">
-                                    <span className={`text-sm font-medium ${s.imageCount > 0 ? "text-blue-600 dark:text-blue-400" : "text-gray-400"}`}>
-                                        {s.imageCount} ảnh
-                                    </span>
+                                    <button 
+                                        onClick={() => onStudentClick(s)}
+                                        disabled={s.imageCount === 0}
+                                        className={`text-sm font-medium ${s.imageCount > 0 ? "text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer" : "text-gray-400 cursor-default"}`}
+                                    >
+                                        {s.imageCount > 0 ? `${s.imageCount} ảnh` : "-"}
+                                    </button>
                                 </td>
                                 <td className="px-5 py-3.5 text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                        <button
-                                            onClick={() => onStudentClick(s)}
-                                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                                            title="Xem ảnh"
-                                        >
-                                            <Eye className="w-4 h-4" />
-                                        </button>
+                                    <div className="flex items-center justify-center gap-2">
                                         <button
                                             onClick={(e) => { e.stopPropagation(); onUploadClick(s); }}
-                                            className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                                            title="Upload ảnh"
+                                            className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50"
                                         >
-                                            <Upload className="w-4 h-4" />
+                                            <Upload className="w-3.5 h-3.5" /> Upload
                                         </button>
                                         {s.isRegistered && (
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onDeleteAll(s); }}
-                                                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                                title="Xóa tất cả ảnh"
+                                                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
                                             >
-                                                <Trash2 className="w-4 h-4" />
+                                                <Trash2 className="w-3.5 h-3.5" /> Xóa
                                             </button>
                                         )}
                                     </div>
@@ -863,13 +778,13 @@ function StudentPhotosView({
             {/* Student Info */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
-                        {photos.avatarUrl ? (
-                            <img src={photos.avatarUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                            <span className="text-xl font-medium text-gray-500 dark:text-gray-400">{(photos.studentName || "?")[0]}</span>
-                        )}
-                    </div>
+                    {photos.avatarUrl ? (
+                        <img src={photos.avatarUrl} alt="" className="w-14 h-14 rounded-full object-cover border border-gray-200 dark:border-gray-700 shadow-sm" />
+                    ) : (
+                        <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center text-xl font-bold uppercase shadow-sm">
+                            {(photos.studentName || "?")[0]}
+                        </div>
+                    )}
                     <div>
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{photos.studentName}</h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Mã HS: {photos.studentCode}</p>

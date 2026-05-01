@@ -4,7 +4,6 @@ import com.schoolmanagement.backend.dto.timetable.TimetableScheduleSummaryDto.Sl
 
 import com.schoolmanagement.backend.dto.exam.ExamScheduleDto;
 
-import com.schoolmanagement.backend.domain.exam.ExamStatus;
 import java.util.Optional;
 import com.schoolmanagement.backend.domain.timetable.TimetableStatus;
 import java.util.Comparator;
@@ -24,12 +23,14 @@ import com.schoolmanagement.backend.dto.teacher.TeacherDashboardStatsDto;
 
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.auth.User;
-
+import com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail;
+import com.schoolmanagement.backend.domain.entity.admin.School;
 import com.schoolmanagement.backend.domain.entity.classes.ClassEnrollment;
 import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.entity.student.Guardian;
 import com.schoolmanagement.backend.repo.classes.ClassEnrollmentRepository;
 import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
+import com.schoolmanagement.backend.repo.student.StudentRepository;
 import com.schoolmanagement.backend.repo.teacher.TeacherAssignmentRepository;
 import com.schoolmanagement.backend.repo.teacher.TeacherRepository;
 import com.schoolmanagement.backend.repo.timetable.TimetableDetailRepository;
@@ -70,6 +71,7 @@ public class TeacherPortalService {
         private final ClassRoomRepository classRoomRepository;
         private final ClassEnrollmentRepository classEnrollmentRepository;
         private final TeacherAssignmentRepository teacherAssignmentRepository;
+        private final StudentRepository studentRepository;
         private final TeacherRepository teacherRepository;
         private final TimetableDetailRepository timetableDetailRepository;
         private final TimetableRepository timetableRepository;
@@ -492,6 +494,51 @@ public class TeacherPortalService {
                 return studentPortalService.getScores(studentId, semIdStr);
         }
 
+        // ==================== HOMEROOM FACE MANAGEMENT HELPERS ====================
+
+        /**
+         * Get the homeroom class ID for a teacher (used by face management endpoints).
+         * 
+         * @throws ResponseStatusException 403 if teacher is not a homeroom teacher.
+         */
+        public String getHomeroomClassId(String email) {
+                User teacher = findTeacherByEmail(email);
+                ClassRoom homeroom = findHomeroomClass(teacher)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                                                "Bạn không phải là giáo viên chủ nhiệm."));
+                return homeroom.getId().toString();
+        }
+
+        /**
+         * Verify that a student belongs to this teacher's homeroom class.
+         * 
+         * @throws ResponseStatusException 403 if student not in homeroom.
+         */
+        public void verifyStudentInHomeroom(String email, java.util.UUID studentId) {
+                User teacher = findTeacherByEmail(email);
+                ClassRoom homeroom = findHomeroomClass(teacher)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                                                "Bạn không phải là giáo viên chủ nhiệm."));
+
+                boolean isInHomeroom = classEnrollmentRepository
+                                .findAllByClassRoomAndAcademicYear(homeroom, homeroom.getAcademicYear())
+                                .stream().anyMatch(ce -> ce.getStudent().getId().equals(studentId));
+
+                if (!isInHomeroom) {
+                        throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                                        "Học sinh không thuộc lớp chủ nhiệm của bạn.");
+                }
+        }
+
+        /**
+         * Get student entity by ID.
+         */
+        public Student getStudentById(java.util.UUID studentId) {
+                return studentRepository.findById(studentId)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                                                "Không tìm thấy học sinh."));
+        }
+
         // ==================== HELPER METHODS ====================
 
         private User findTeacherByEmail(String email) {
@@ -598,9 +645,7 @@ public class TeacherPortalService {
                                 .build();
         }
 
-        private TodayScheduleItemDto mapToTodayScheduleItemDto(
-                        com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail detail,
-                        com.schoolmanagement.backend.domain.entity.admin.School school) {
+        private TodayScheduleItemDto mapToTodayScheduleItemDto(TimetableDetail detail, School school) {
 
                 String startTime = "00:00";
                 String endTime = "00:00";
