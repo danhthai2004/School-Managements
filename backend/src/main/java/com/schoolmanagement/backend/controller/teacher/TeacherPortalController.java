@@ -18,17 +18,25 @@ import com.schoolmanagement.backend.dto.teacher.SaveClassSeatMapRequest;
 import com.schoolmanagement.backend.service.ClassSeatMapService;
 import com.schoolmanagement.backend.service.HomeroomNotificationService;
 import com.schoolmanagement.backend.service.teacher.TeacherPortalService;
+import com.schoolmanagement.backend.service.FacePhotoStorageService;
+import com.schoolmanagement.backend.service.auth.UserLookupService;
+import com.schoolmanagement.backend.security.UserPrincipal;
+import com.schoolmanagement.backend.domain.entity.student.Student;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -46,6 +54,8 @@ public class TeacherPortalController {
     private final HomeroomStudentExportService homeroomStudentExportService;
     private final HomeroomNotificationService homeroomNotificationService;
     private final ClassSeatMapService classSeatMapService;
+    private final FacePhotoStorageService facePhotoStorageService;
+    private final UserLookupService userLookup;
 
     @GetMapping("/profile")
     public ResponseEntity<TeacherProfileDto> getProfile(
@@ -202,10 +212,9 @@ public class TeacherPortalController {
         return ResponseEntity.ok(detail);
     }
 
+    // ========================= HOMEROOM NOTIFICATIONS =========================
+
     /**
-     * // ========================= HOMEROOM NOTIFICATIONS =========================
-     * 
-     * /**
      * Create a notification for the homeroom class.
      */
     @PostMapping("/notifications")
@@ -267,6 +276,112 @@ public class TeacherPortalController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable UUID classId) {
         classSeatMapService.deleteClassSeatMap(userDetails.getUsername(), classId);
+        return ResponseEntity.ok().build();
+    }
+
+    // ========================= HOMEROOM FACE DATA MANAGEMENT =========================
+
+    /**
+     * Get face registration status for all students in homeroom class.
+     */
+    @GetMapping("/homeroom/face-status")
+    public ResponseEntity<com.schoolmanagement.backend.dto.teacher.FaceRegistrationStatusResponse> getHomeroomFaceStatus(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        String classId = teacherPortalService.getHomeroomClassId(principal.getUsername());
+        var teacherUser = userLookup.requireById(principal.getId());
+
+        var detail = facePhotoStorageService.getClassDetail(teacherUser.getSchool(), UUID.fromString(classId));
+        var dtoStudents = detail.students().stream().map(s ->
+            new com.schoolmanagement.backend.dto.teacher.FaceRegistrationStatusResponse.FaceRegistrationStatusDto(
+                s.studentId(), s.studentCode(), s.studentName(), s.avatarUrl(),
+                s.isRegistered(), s.imageCount(), s.lastUpdated()
+            )
+        ).toList();
+
+        var response = new com.schoolmanagement.backend.dto.teacher.FaceRegistrationStatusResponse(
+            dtoStudents, detail.totalStudents(), detail.totalRegistered(), detail.totalUnregistered()
+        );
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Register face data for a student in homeroom class (supports batch upload).
+     */
+    @PostMapping(value = "/homeroom/face-register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, Object>> registerHomeroomStudentFace(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam String studentId,
+            @RequestPart List<MultipartFile> files) {
+
+        teacherPortalService.verifyStudentInHomeroom(userDetails.getUsername(), UUID.fromString(studentId));
+        Student student = teacherPortalService.getStudentById(UUID.fromString(studentId));
+
+        List<Map<String, Object>> results = new ArrayList<>();
+        int successCount = 0;
+        int failCount = 0;
+
+        for (MultipartFile file : files) {
+            try {
+                var res = facePhotoStorageService.uploadFacePhoto(student.getSchool(), student.getId(), file);
+                results.add(Map.of(
+                        "success", res.success(),
+                        "message", res.message(),
+                        "fileName", file.getOriginalFilename() != null ? file.getOriginalFilename() : "unknown"
+                ));
+                if (res.success()) successCount++;
+                else failCount++;
+            } catch (Exception e) {
+                failCount++;
+                results.add(Map.of(
+                        "success", false,
+                        "fileName", file.getOriginalFilename() != null ? file.getOriginalFilename() : "unknown",
+                        "error", e.getMessage()));
+            }
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "totalFiles", files.size(),
+                "successCount", successCount,
+                "failCount", failCount,
+                "details", results));
+    }
+
+    /**
+     * Delete/reset all face data for a student in homeroom class.
+     */
+    @DeleteMapping("/homeroom/face/{studentId}")
+    public ResponseEntity<Void> resetHomeroomStudentFace(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID studentId) {
+        teacherPortalService.verifyStudentInHomeroom(userDetails.getUsername(), studentId);
+        Student student = teacherPortalService.getStudentById(studentId);
+        facePhotoStorageService.deleteAllStudentPhotos(student.getSchool(), studentId);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Get all face photos for a student in homeroom class.
+     */
+    @GetMapping("/homeroom/face/{studentId}/photos")
+    public ResponseEntity<FacePhotoStorageService.StudentPhotosDto> getHomeroomStudentPhotos(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID studentId) {
+        teacherPortalService.verifyStudentInHomeroom(userDetails.getUsername(), studentId);
+        Student student = teacherPortalService.getStudentById(studentId);
+        return ResponseEntity.ok(facePhotoStorageService.getStudentPhotos(student.getSchool(), studentId));
+    }
+
+    /**
+     * Delete a specific face photo/embedding for a student in homeroom class.
+     */
+    @DeleteMapping("/homeroom/face/{studentId}/photos/{embeddingId}")
+    public ResponseEntity<Void> deleteHomeroomStudentPhoto(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID studentId,
+            @PathVariable int embeddingId) {
+        teacherPortalService.verifyStudentInHomeroom(userDetails.getUsername(), studentId);
+        Student student = teacherPortalService.getStudentById(studentId);
+        facePhotoStorageService.deleteFacePhoto(student.getSchool(), studentId, embeddingId);
         return ResponseEntity.ok().build();
     }
 }

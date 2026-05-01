@@ -65,6 +65,7 @@ const TeacherNotificationsPage = lazy(() => import("../views/teacher/pages/Notif
 const TeacherSettingsPage = lazy(() => import("../views/teacher/pages/SettingsPage"));
 const TeacherExamSchedulePage = lazy(() => import("../views/teacher/pages/TeacherExamSchedulePage"));
 const ClassRiskManagementPage = lazy(() => import("../views/teacher/pages/ClassRiskManagementPage"));
+const TeacherFaceDataPage = lazy(() => import("../views/teacher/pages/FaceDataPage"));
 
 // Guardian pages
 const GuardianLayout = lazy(() => import("../components/layout/GuardianLayout"));
@@ -187,6 +188,7 @@ export default function AppRouter() {
           <Route path="settings" element={<TeacherSettingsPage />} />
           <Route path="exam-schedule" element={<TeacherExamSchedulePage />} />
           <Route path="risk-analytics" element={<ClassRiskManagementPage />} />
+          <Route path="face-data" element={<TeacherFaceDataPage />} />
           <Route path="profile" element={<ProfileSettingsPage />} />
         </Route>
 

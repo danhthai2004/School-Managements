@@ -26,6 +26,7 @@ public class FaceRegistrationStatusResponse {
         private String studentId;
         private String studentCode;
         private String studentName;
+        private String avatarUrl;
         private boolean isRegistered;
         private int imageCount;
         private String lastUpdated;
