@@ -14,10 +14,14 @@ import com.schoolmanagement.backend.dto.auth.VerifyResponse;
 
 import com.schoolmanagement.backend.security.UserPrincipal;
 import com.schoolmanagement.backend.service.auth.AuthService;
+import com.schoolmanagement.backend.service.auth.MobileOAuthService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -25,9 +29,11 @@ import java.util.UUID;
 public class AuthController {
 
     private final AuthService auth;
+    private final MobileOAuthService mobileOAuth;
 
-    public AuthController(AuthService auth) {
+    public AuthController(AuthService auth, MobileOAuthService mobileOAuth) {
         this.auth = auth;
+        this.mobileOAuth = mobileOAuth;
     }
 
     @PostMapping("/login")
@@ -38,6 +44,66 @@ public class AuthController {
     @PostMapping("/google")
     public AuthResponse google(@Valid @RequestBody GoogleLoginRequest req) {
         return auth.loginWithGoogle(req.idToken());
+    }
+
+    // ── Mobile OAuth (Expo Go) ──────────────────────────────────────────────
+
+    /**
+     * Step 1: Mobile opens this URL in WebBrowser → redirects to Google OAuth.
+     * GET /api/auth/google/mobile/start?sessionId=UUID
+     */
+    @GetMapping("/google/mobile/start")
+    public void mobileOAuthStart(
+            @RequestParam String sessionId,
+            HttpServletResponse response) throws IOException {
+        String googleUrl = mobileOAuth.buildGoogleAuthUrl(sessionId);
+        response.sendRedirect(googleUrl);
+    }
+
+    /**
+     * Step 2: Google redirects here after user authenticates.
+     * GET /api/auth/google/mobile/callback?code=...&state=sessionId
+     */
+    @GetMapping("/google/mobile/callback")
+    public void mobileOAuthCallback(
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String error,
+            HttpServletResponse response) throws IOException {
+        if (error != null || code == null || state == null) {
+            response.sendRedirect("https://rhinological-izabella-superbusily.ngrok-free.dev/api/auth/google/mobile/done?error=cancelled");
+            return;
+        }
+        mobileOAuth.handleCallback(code, state);
+        // Show success page - mobile is polling
+        response.setContentType("text/html;charset=UTF-8");
+        response.getWriter().write("""
+                <!DOCTYPE html><html><head><meta charset='utf-8'>
+                <meta name='viewport' content='width=device-width,initial-scale=1'>
+                <title>Đăng nhập thành công</title>
+                <style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;
+                height:100vh;margin:0;background:#1d4ed8;color:#fff;text-align:center;padding:20px}</style>
+                </head><body>
+                <div><h2>✅ Đăng nhập thành công!</h2>
+                <p>Quay lại ứng dụng để tiếp tục.</p>
+                <p style='font-size:14px;opacity:.7'>Bạn có thể đóng trang này.</p></div>
+                </body></html>
+                """);
+    }
+
+    /**
+     * Step 3: Mobile polls this endpoint until JWT is ready.
+     * GET /api/auth/google/mobile/poll?sessionId=UUID
+     * Returns 204 if still pending, 200+body if done, 401 if error.
+     */
+    @GetMapping("/google/mobile/poll")
+    public org.springframework.http.ResponseEntity<?> mobileOAuthPoll(@RequestParam String sessionId) {
+        AuthResponse result = mobileOAuth.poll(sessionId);
+        if (result == null) {
+            // Still pending
+            return org.springframework.http.ResponseEntity.noContent().build();
+        }
+        return org.springframework.http.ResponseEntity.ok(result);
     }
 
     @PostMapping("/forgot-password")

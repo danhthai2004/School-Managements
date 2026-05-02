@@ -150,11 +150,22 @@ public class TeacherManagementService {
         String teacherCode = req.teacherCode();
         if (teacherCode == null || teacherCode.isBlank()) {
             teacherCode = generateNextTeacherCode(school);
-        }
-
-        // Check duplicate teacher code
-        if (teachers.existsBySchoolAndTeacherCode(school, teacherCode)) {
-            throw new ApiException(HttpStatus.CONFLICT, "Mã giáo viên đã tồn tại: " + teacherCode);
+            // Nếu vẫn bị trùng (do concurrent insert hoặc mã không liên tục), tăng tiếp
+            int retryCount = 0;
+            while (teachers.existsBySchoolAndTeacherCode(school, teacherCode) && retryCount < 100) {
+                try {
+                    int num = Integer.parseInt(teacherCode.substring(2));
+                    teacherCode = String.format("GV%04d", num + 1);
+                } catch (NumberFormatException e) {
+                    teacherCode = generateNextTeacherCode(school);
+                }
+                retryCount++;
+            }
+        } else {
+            // Check duplicate teacher code khi user tự nhập
+            if (teachers.existsBySchoolAndTeacherCode(school, teacherCode)) {
+                throw new ApiException(HttpStatus.CONFLICT, "Mã giáo viên đã tồn tại: " + teacherCode);
+            }
         }
 
         // Validate date of birth
@@ -369,21 +380,19 @@ public class TeacherManagementService {
     }
 
     public String generateNextTeacherCode(School school) {
-        Optional<Teacher> latestTeacher = teachers.findTopBySchoolOrderByTeacherCodeDesc(school);
-        if (latestTeacher.isEmpty()) {
-            return "GV0001";
-        }
-        String lastCode = latestTeacher.get().getTeacherCode();
-        try {
-            if (lastCode.startsWith("GV")) {
-                int lastNumber = Integer.parseInt(lastCode.substring(2));
-                return String.format("GV%04d", lastNumber + 1);
+        // Lấy tất cả mã GVxxxx, tính max số thực sự (tránh sort alphabet)
+        List<String> allCodes = teachers.findAllTeacherCodesBySchool(school);
+        int maxNumber = 0;
+        for (String code : allCodes) {
+            if (code != null && code.startsWith("GV") && code.length() > 2) {
+                try {
+                    int num = Integer.parseInt(code.substring(2));
+                    if (num > maxNumber) maxNumber = num;
+                } catch (NumberFormatException ignored) {
+                }
             }
-        } catch (NumberFormatException ignored) {
         }
-
-        long count = teachers.count(); // fallback
-        return String.format("GV%04d", count + 1);
+        return String.format("GV%04d", maxNumber + 1);
     }
 
     private TeacherDto toTeacherDto(Teacher teacher) {

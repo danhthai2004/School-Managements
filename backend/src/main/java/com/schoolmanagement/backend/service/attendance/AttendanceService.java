@@ -24,6 +24,7 @@ import com.schoolmanagement.backend.repo.student.StudentRepository;
 import com.schoolmanagement.backend.domain.entity.auth.User;
 import com.schoolmanagement.backend.domain.entity.teacher.Teacher;
 import com.schoolmanagement.backend.domain.entity.timetable.TimetableDetail;
+import com.schoolmanagement.backend.service.notification.NotificationService;
 
 import com.schoolmanagement.backend.domain.attendance.AttendanceStatus;
 
@@ -33,6 +34,7 @@ import com.schoolmanagement.backend.dto.attendance.DailyAttendanceSummaryDto;
 import com.schoolmanagement.backend.dto.attendance.SaveAttendanceRequest;
 import com.schoolmanagement.backend.dto.attendance.SaveAttendanceResultDto;
 import com.schoolmanagement.backend.dto.attendance.StudentAttendanceDetailDto;
+import com.schoolmanagement.backend.dto.attendance.TeacherDailySlotStatusDto;
 import com.schoolmanagement.backend.dto.timetable.TimetableScheduleSummaryDto;
 
 import lombok.RequiredArgsConstructor;
@@ -67,6 +69,7 @@ public class AttendanceService {
         private final com.schoolmanagement.backend.service.admin.SemesterService semesterService;
         private final SchoolTimetableSettingsService settingsService;
         private final StudentRepository studentRepository;
+        private final NotificationService notificationService;
 
         // ==================== TEACHER: GET ATTENDANCE FOR SLOT ====================
 
@@ -220,6 +223,20 @@ public class AttendanceService {
                 log.info("Saved attendance: {} records for slot {} on {} by teacher {}",
                                 toSave.size(), slotIndex, date, email);
 
+                // Push notifications: students + guardians receive attendance result
+                try {
+                        notificationService.sendAttendanceSavedNotifications(
+                                        teacher,
+                                        classRoom,
+                                        detail,
+                                        date,
+                                        slotIndex,
+                                        toSave);
+                } catch (Exception ex) {
+                        // Do not fail attendance save if push notification fails
+                        log.warn("Failed to send attendance push notifications: {}", ex.getMessage(), ex);
+                }
+
                 return new SaveAttendanceResultDto(toSave.size(), skipped);
         }
 
@@ -268,6 +285,49 @@ public class AttendanceService {
                                 .date(date.toString())
                                 .isFinalized(isFinalized)
                                 .students(summaries)
+                                .build();
+        }
+
+        // ==================== TEACHER (SUBJECT): DAILY SLOT STATUS ====================
+
+        /**
+         * Lightweight daily slot status for subject teachers.
+         * Returns the list of slotIndex that already have attendance data
+         * for the current teacher's scheduled periods on the given date.
+         *
+         * This endpoint intentionally does NOT require homeroom teacher permission.
+         */
+        public TeacherDailySlotStatusDto getTeacherDailySlotStatus(String email, LocalDate date) {
+                User user = findUserByEmail(email);
+                Teacher teacher = findTeacher(user);
+
+                Timetable timetable = timetableRepository
+                                .findFirstBySchoolAndStatusOrderByCreatedAtDesc(
+                                                user.getSchool(), TimetableStatus.OFFICIAL)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                                "Chưa có thời khóa biểu chính thức."));
+
+                // Find teacher assignments for the day
+                List<TimetableDetail> details = timetableDetailRepository.findAllByTimetableAndTeacher(timetable, teacher)
+                                .stream()
+                                .filter(d -> d.getDayOfWeek() == date.getDayOfWeek())
+                                .toList();
+
+                // A slot is considered "finalized" if there is at least 1 attendance record saved for that class+slot+date.
+                // (Unique constraint is per-student, so non-empty list implies the slot has been marked.)
+                Set<Integer> finalized = new HashSet<>();
+                for (TimetableDetail d : details) {
+                        int slotIndex = d.getSlotIndex();
+                        if (slotIndex <= 0) continue;
+                        List<Attendance> records = attendanceRepository.findAllByClassRoomAndDateAndSlotIndex(
+                                        d.getClassRoom(), date, slotIndex);
+                        if (!records.isEmpty()) finalized.add(slotIndex);
+                }
+
+                List<Integer> sorted = finalized.stream().sorted().toList();
+                return TeacherDailySlotStatusDto.builder()
+                                .date(date.toString())
+                                .finalizedSlots(sorted)
                                 .build();
         }
 

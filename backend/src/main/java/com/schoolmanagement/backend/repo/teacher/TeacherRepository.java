@@ -33,7 +33,10 @@ public interface TeacherRepository extends JpaRepository<Teacher, UUID> {
 
         boolean existsBySchoolAndTeacherCode(School school, String teacherCode);
 
-        Optional<Teacher> findTopBySchoolOrderByTeacherCodeDesc(School school);
+        @org.springframework.data.jpa.repository.Query(
+                "SELECT t.teacherCode FROM Teacher t WHERE t.school = :school AND t.teacherCode LIKE 'GV%'")
+        List<String> findAllTeacherCodesBySchool(
+                @org.springframework.data.repository.query.Param("school") School school);
 
         boolean existsByEmailIgnoreCase(String email);
 

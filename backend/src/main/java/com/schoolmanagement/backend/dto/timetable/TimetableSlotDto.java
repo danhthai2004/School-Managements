@@ -7,7 +7,12 @@ import lombok.Data;
 @Builder
 public class TimetableSlotDto {
     private String id;
-    private int dayOfWeek; // 2-7 (Mon-Sat, Vietnamese convention)
+    /**
+     * Day of week in ISO enum name, e.g. MONDAY..SUNDAY.
+     * This matches admin/teacher timetable representations and avoids off-by-one issues
+     * when clients interpret numeric conventions differently.
+     */
+    private String dayOfWeek;
     private int slotIndex;
     private String subjectName;
     private String teacherName;

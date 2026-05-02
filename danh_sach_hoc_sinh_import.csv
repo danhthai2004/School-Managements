@@ -1,0 +1,201 @@
+﻿họ tên,ngày sinh,giới tính,nơi sinh,địa chỉ,email,sđt,tên phụ huynh,sđt phụ huynh,quan hệ,email phụ huynh
+Nguyễn Thanh Như,05/04/2007,Nữ,Vĩnh Long,"Số 27, đường 44, Vĩnh Long",hs001@school.edu.vn,0885582861,Lê Thị Linh,0400604502,Mẹ,ph001@gmail.com
+Nguyễn Minh Mạnh,23/11/2009,Nam,Bình Dương,"Số 108, đường 15, Bình Dương",hs002@school.edu.vn,0782334538,Võ Quốc Phát,0753778756,Bố,ph002@gmail.com
+Hoàng Trọng Bình,13/02/2007,Nam,TP.HCM,"Số 92, đường 23, TP.HCM",hs003@school.edu.vn,0948245888,Võ Công Mạnh,0434031070,Bố,ph003@gmail.com
+Hồ Tố Thảo,20/11/2008,Nữ,Huế,"Số 148, đường 13, Huế",hs004@school.edu.vn,0374684276,Trần Thanh Thảo,0549957310,Mẹ,ph004@gmail.com
+Hồ Bảo Phương,06/06/2009,Nữ,Huế,"Số 91, đường 14, Huế",hs005@school.edu.vn,0586665249,Lê Tố Như,0562863730,Mẹ,ph005@gmail.com
+Hồ Thanh Hải,11/11/2007,Nam,An Giang,"Số 199, đường 4, An Giang",hs006@school.edu.vn,0545938494,Trần Hữu Hải,0371069472,Cha,ph006@gmail.com
+Bùi Công Bình,15/11/2008,Nam,Đà Nẵng,"Số 68, đường 9, Đà Nẵng",hs007@school.edu.vn,0564814270,Võ Diễm Hằng,0688690725,Mẹ,ph007@gmail.com
+Hoàng Công Dũng,28/01/2007,Nam,TP.HCM,"Số 40, đường 41, TP.HCM",hs008@school.edu.vn,0471779360,Ngô Hữu Thịnh,0939830322,Bố,ph008@gmail.com
+Võ Thị Hạnh,04/12/2009,Nữ,Tiền Giang,"Số 138, đường 49, Tiền Giang",hs009@school.edu.vn,0586501362,Bùi Gia Việt,0469820594,Bố,ph009@gmail.com
+Võ Quốc Dũng,28/02/2009,Nam,Tiền Giang,"Số 77, đường 41, Tiền Giang",hs010@school.edu.vn,0845098869,Phan Thu Uyên,0473461957,Mẹ,ph010@gmail.com
+Nguyễn Thu Diệp,04/01/2008,Nữ,Huế,"Số 79, đường 16, Huế",hs011@school.edu.vn,0362196678,Vũ Đức Lâm,0821828280,Bố,ph011@gmail.com
+Hoàng Bảo Mai,09/03/2009,Nữ,Bình Dương,"Số 156, đường 28, Bình Dương",hs012@school.edu.vn,0527416584,Phan Hữu Trung,0997801251,Cha,ph012@gmail.com
+Dương Minh Đức,11/02/2007,Nam,Hà Nội,"Số 151, đường 36, Hà Nội",hs013@school.edu.vn,0547083812,Vũ Đức Phát,0977641645,Bố,ph013@gmail.com
+Lê Văn Giang,17/02/2008,Nam,Hải Phòng,"Số 72, đường 43, Hải Phòng",hs014@school.edu.vn,0821209849,Phan Diễm Chi,0807526654,Mẹ,ph014@gmail.com
+Lý Hữu Bảo,04/02/2007,Nam,Tiền Giang,"Số 111, đường 23, Tiền Giang",hs015@school.edu.vn,0754814084,Ngô Thị Nhi,0993830224,Mẹ,ph015@gmail.com
+Hồ Trọng Lâm,07/04/2007,Nam,Hải Phòng,"Số 138, đường 29, Hải Phòng",hs016@school.edu.vn,0450519597,Ngô Thanh Oanh,0568227631,Mẹ,ph016@gmail.com
+Lê Tố Oanh,21/01/2007,Nữ,Bình Dương,"Số 4, đường 6, Bình Dương",hs017@school.edu.vn,0553810544,Huỳnh Bảo Vân,0529509408,Mẹ,ph017@gmail.com
+Trần Kim Hoa,09/07/2007,Nữ,An Giang,"Số 117, đường 19, An Giang",hs018@school.edu.vn,0754200826,Lý Minh Yến,0533754555,Mẹ,ph018@gmail.com
+Trần Thu Như,19/01/2007,Nữ,Đồng Nai,"Số 129, đường 34, Đồng Nai",hs019@school.edu.vn,0469042105,Trần Quốc Hùng,0938914080,Bố,ph019@gmail.com
+Vũ Đức Thịnh,19/04/2009,Nam,Long An,"Số 11, đường 40, Long An",hs020@school.edu.vn,0388029013,Ngô Gia Bình,0637352358,Cha,ph020@gmail.com
+Hồ Gia Khoa,25/06/2008,Nam,TP.HCM,"Số 3, đường 30, TP.HCM",hs021@school.edu.vn,0966964667,Phạm Thanh Bình,0843189555,Bố,ph021@gmail.com
+Đỗ Đức Giang,10/06/2007,Nam,Đà Nẵng,"Số 113, đường 35, Đà Nẵng",hs022@school.edu.vn,0624825305,Nguyễn Đức Giang,0444193987,Cha,ph022@gmail.com
+Phạm Thanh Lâm,10/05/2007,Nam,Long An,"Số 54, đường 46, Long An",hs023@school.edu.vn,0668164906,Phan Thanh Khang,0569639388,Cha,ph023@gmail.com
+Trần Kim Thảo,01/01/2008,Nữ,Huế,"Số 198, đường 9, Huế",hs024@school.edu.vn,0984095277,Võ Bảo Hạnh,0759225330,Mẹ,ph024@gmail.com
+Phạm Phương Thảo,27/01/2009,Nữ,Huế,"Số 150, đường 36, Huế",hs025@school.edu.vn,0459014493,Ngô Thị Yến,0691541578,Mẹ,ph025@gmail.com
+Trần Thu Hiền,08/11/2007,Nữ,Tiền Giang,"Số 27, đường 23, Tiền Giang",hs026@school.edu.vn,0901170349,Ngô Minh Giang,0474484941,Mẹ,ph026@gmail.com
+Huỳnh Kim Hiền,24/03/2007,Nữ,Huế,"Số 106, đường 43, Huế",hs027@school.edu.vn,0566467544,Võ Ngọc Hằng,0341580226,Mẹ,ph027@gmail.com
+Vũ Bảo Ngọc,27/05/2008,Nữ,An Giang,"Số 59, đường 15, An Giang",hs028@school.edu.vn,0325409494,Phan Thu Phương,0374539964,Mẹ,ph028@gmail.com
+Võ Tố Thu,27/11/2008,Nữ,Bình Dương,"Số 85, đường 2, Bình Dương",hs029@school.edu.vn,0423847257,Võ Diễm Phương,0341078352,Mẹ,ph029@gmail.com
+Ngô Trọng Quang,17/10/2008,Nam,TP.HCM,"Số 99, đường 37, TP.HCM",hs030@school.edu.vn,0504095531,Võ Hữu Minh,0858260221,Bố,ph030@gmail.com
+Phan Kim Thu,11/11/2007,Nữ,Long An,"Số 81, đường 43, Long An",hs031@school.edu.vn,0433815413,Đặng Hữu Phong,0732074125,Cha,ph031@gmail.com
+Hoàng Kim Ngọc,22/07/2009,Nữ,Vĩnh Long,"Số 45, đường 40, Vĩnh Long",hs032@school.edu.vn,0911072118,Đặng Tố Dung,0300435874,Mẹ,ph032@gmail.com
+Phan Ngọc Việt,11/11/2009,Nam,Đồng Nai,"Số 114, đường 29, Đồng Nai",hs033@school.edu.vn,0529460134,Lý Ngọc Yến,0853462378,Mẹ,ph033@gmail.com
+Bùi Minh Thảo,08/05/2009,Nữ,An Giang,"Số 51, đường 10, An Giang",hs034@school.edu.vn,0326226563,Trần Bảo Diệp,0378198716,Mẹ,ph034@gmail.com
+Phan Hữu Phát,08/07/2008,Nam,Đà Nẵng,"Số 168, đường 45, Đà Nẵng",hs035@school.edu.vn,0305953697,Phạm Minh Hoa,0856152900,Mẹ,ph035@gmail.com
+Vũ Đức Hào,26/03/2008,Nam,Đồng Nai,"Số 171, đường 34, Đồng Nai",hs036@school.edu.vn,0900141462,Bùi Diễm Dung,0842001424,Mẹ,ph036@gmail.com
+Dương Quốc Giang,15/08/2009,Nam,Cần Thơ,"Số 193, đường 16, Cần Thơ",hs037@school.edu.vn,0984683755,Võ Minh Phương,0772309605,Mẹ,ph037@gmail.com
+Đặng Gia Long,18/06/2008,Nam,TP.HCM,"Số 36, đường 10, TP.HCM",hs038@school.edu.vn,0548315126,Hồ Minh Thảo,0745461013,Mẹ,ph038@gmail.com
+Dương Văn Việt,13/07/2007,Nam,An Giang,"Số 150, đường 45, An Giang",hs039@school.edu.vn,0320972273,Hồ Thị Thu,0620632895,Mẹ,ph039@gmail.com
+Ngô Tố Hạnh,16/04/2009,Nữ,Hải Phòng,"Số 70, đường 28, Hải Phòng",hs040@school.edu.vn,0821454127,Nguyễn Thu Nhi,0734131719,Mẹ,ph040@gmail.com
+Dương Phương Huyền,01/09/2009,Nữ,Nha Trang,"Số 152, đường 37, Nha Trang",hs041@school.edu.vn,0329100607,Lê Phương Giang,0795744935,Mẹ,ph041@gmail.com
+Võ Trọng Thịnh,11/08/2007,Nam,Huế,"Số 195, đường 25, Huế",hs042@school.edu.vn,0598775766,Ngô Đức Khang,0320812641,Cha,ph042@gmail.com
+Trần Minh Thu,25/02/2009,Nữ,Tiền Giang,"Số 11, đường 49, Tiền Giang",hs043@school.edu.vn,0333318206,Vũ Thị Diệp,0463619298,Mẹ,ph043@gmail.com
+Lý Đức Trung,15/04/2009,Nam,Vĩnh Long,"Số 66, đường 50, Vĩnh Long",hs044@school.edu.vn,0696098177,Huỳnh Quốc Tài,0416070149,Bố,ph044@gmail.com
+Đặng Kim Chi,07/12/2008,Nữ,TP.HCM,"Số 152, đường 45, TP.HCM",hs045@school.edu.vn,0973496394,Vũ Gia Dương,0944687060,Bố,ph045@gmail.com
+Trần Tố Thu,12/11/2008,Nữ,TP.HCM,"Số 130, đường 42, TP.HCM",hs046@school.edu.vn,0666394187,Nguyễn Bảo Lan,0765492204,Mẹ,ph046@gmail.com
+Dương Phương Quỳnh,24/03/2008,Nữ,Bình Dương,"Số 167, đường 18, Bình Dương",hs047@school.edu.vn,0961330848,Lý Kim Dung,0936164778,Mẹ,ph047@gmail.com
+Vũ Đức Cường,08/08/2008,Nam,An Giang,"Số 119, đường 37, An Giang",hs048@school.edu.vn,0955338677,Hồ Văn Khang,0648981305,Cha,ph048@gmail.com
+Phan Gia Quang,20/05/2008,Nam,Vĩnh Long,"Số 71, đường 36, Vĩnh Long",hs049@school.edu.vn,0310899674,Phan Minh Lâm,0736398872,Bố,ph049@gmail.com
+Vũ Công Phát,16/12/2009,Nam,Đồng Nai,"Số 5, đường 6, Đồng Nai",hs050@school.edu.vn,0615933049,Vũ Minh Yến,0924440558,Mẹ,ph050@gmail.com
+Đỗ Thanh Việt,23/06/2008,Nam,Đồng Nai,"Số 70, đường 20, Đồng Nai",hs051@school.edu.vn,0569942642,Vũ Minh Phong,0428370927,Bố,ph051@gmail.com
+Huỳnh Minh Ngọc,09/08/2009,Nữ,Vĩnh Long,"Số 151, đường 49, Vĩnh Long",hs052@school.edu.vn,0863324548,Đặng Minh Tài,0544258191,Bố,ph052@gmail.com
+Đặng Thanh Minh,02/05/2007,Nam,Hà Nội,"Số 142, đường 19, Hà Nội",hs053@school.edu.vn,0435591568,Lý Văn Thành,0605307028,Bố,ph053@gmail.com
+Dương Quốc Phong,28/05/2007,Nam,Đồng Nai,"Số 30, đường 5, Đồng Nai",hs054@school.edu.vn,0730256336,Lý Ngọc Kiên,0357562304,Bố,ph054@gmail.com
+Đặng Minh Hùng,25/09/2007,Nam,Nha Trang,"Số 156, đường 39, Nha Trang",hs055@school.edu.vn,0964021648,Vũ Bảo Huyền,0775368059,Mẹ,ph055@gmail.com
+Ngô Ngọc Tài,20/01/2009,Nam,Vĩnh Long,"Số 26, đường 49, Vĩnh Long",hs056@school.edu.vn,0523110563,Phan Đức Nam,0557553274,Cha,ph056@gmail.com
+Lê Văn Nam,23/08/2008,Nam,Long An,"Số 121, đường 19, Long An",hs057@school.edu.vn,0335046782,Vũ Gia Phát,0787512424,Cha,ph057@gmail.com
+Vũ Gia Hào,22/10/2009,Nam,An Giang,"Số 51, đường 28, An Giang",hs058@school.edu.vn,0423240112,Vũ Thanh Dung,0452725050,Mẹ,ph058@gmail.com
+Huỳnh Gia Bảo,27/12/2009,Nam,Long An,"Số 74, đường 29, Long An",hs059@school.edu.vn,0433523720,Dương Hữu Hải,0837377910,Cha,ph059@gmail.com
+Dương Diễm Thảo,24/07/2007,Nữ,Huế,"Số 155, đường 17, Huế",hs060@school.edu.vn,0327772220,Lê Diễm Chi,0322275263,Mẹ,ph060@gmail.com
+Võ Thị Chi,17/08/2007,Nữ,Tiền Giang,"Số 114, đường 18, Tiền Giang",hs061@school.edu.vn,0494872482,Ngô Ngọc Vân,0673620340,Mẹ,ph061@gmail.com
+Bùi Đức Trung,14/06/2007,Nam,Vĩnh Long,"Số 127, đường 19, Vĩnh Long",hs062@school.edu.vn,0729982328,Trần Ngọc Anh,0571011200,Mẹ,ph062@gmail.com
+Hồ Thanh Dương,28/11/2007,Nam,Bình Dương,"Số 119, đường 27, Bình Dương",hs063@school.edu.vn,0358201193,Phan Ngọc An,0835252889,Cha,ph063@gmail.com
+Trần Thanh Ngọc,10/03/2009,Nữ,Đồng Nai,"Số 179, đường 32, Đồng Nai",hs064@school.edu.vn,0430380269,Nguyễn Phương Yến,0891458887,Mẹ,ph064@gmail.com
+Ngô Minh Hùng,04/08/2007,Nam,Tiền Giang,"Số 40, đường 32, Tiền Giang",hs065@school.edu.vn,0613383963,Võ Bảo Vân,0561704064,Mẹ,ph065@gmail.com
+Hoàng Minh Thịnh,24/09/2009,Nam,Đà Nẵng,"Số 18, đường 18, Đà Nẵng",hs066@school.edu.vn,0745541033,Bùi Văn Tài,0620571903,Cha,ph066@gmail.com
+Lý Phương Giang,16/09/2008,Nữ,Huế,"Số 86, đường 36, Huế",hs067@school.edu.vn,0883503591,Hồ Thu Giang,0502563940,Mẹ,ph067@gmail.com
+Vũ Kim Chi,02/07/2007,Nữ,Huế,"Số 191, đường 31, Huế",hs068@school.edu.vn,0709343829,Hồ Bảo Hương,0435555899,Mẹ,ph068@gmail.com
+Bùi Ngọc Giang,17/02/2008,Nữ,Đồng Nai,"Số 4, đường 47, Đồng Nai",hs069@school.edu.vn,0454785699,Ngô Ngọc Vân,0584566044,Mẹ,ph069@gmail.com
+Hồ Đức Kiên,28/11/2008,Nam,Bình Dương,"Số 98, đường 21, Bình Dương",hs070@school.edu.vn,0973020489,Lý Ngọc Hùng,0552082631,Bố,ph070@gmail.com
+Đặng Ngọc Trang,25/02/2008,Nữ,Tiền Giang,"Số 181, đường 7, Tiền Giang",hs071@school.edu.vn,0776396216,Huỳnh Văn Tuấn,0648294647,Cha,ph071@gmail.com
+Đặng Thu Thu,08/03/2008,Nữ,Bình Dương,"Số 106, đường 37, Bình Dương",hs072@school.edu.vn,0493334613,Huỳnh Ngọc Diệp,0710753814,Mẹ,ph072@gmail.com
+Vũ Diễm Vân,15/04/2007,Nữ,Tiền Giang,"Số 66, đường 30, Tiền Giang",hs073@school.edu.vn,0574154962,Nguyễn Thanh Nhi,0886905284,Mẹ,ph073@gmail.com
+Dương Ngọc Quang,14/11/2008,Nam,Vĩnh Long,"Số 65, đường 30, Vĩnh Long",hs074@school.edu.vn,0624400672,Phan Bảo Lan,0554697684,Mẹ,ph074@gmail.com
+Đỗ Gia Thành,01/05/2009,Nam,Tiền Giang,"Số 102, đường 18, Tiền Giang",hs075@school.edu.vn,0308695125,Trần Thanh Uyên,0547087743,Mẹ,ph075@gmail.com
+Đỗ Minh Trang,22/05/2009,Nữ,An Giang,"Số 185, đường 50, An Giang",hs076@school.edu.vn,0446865585,Phạm Gia Bảo,0773330302,Bố,ph076@gmail.com
+Đỗ Quốc Lâm,11/05/2007,Nam,Vĩnh Long,"Số 107, đường 12, Vĩnh Long",hs077@school.edu.vn,0515601773,Hoàng Thanh Dũng,0592624015,Cha,ph077@gmail.com
+Võ Bảo Huyền,28/12/2008,Nữ,Huế,"Số 30, đường 30, Huế",hs078@school.edu.vn,0380852074,Hoàng Kim Giang,0898409868,Mẹ,ph078@gmail.com
+Hồ Gia Minh,15/02/2009,Nam,Huế,"Số 173, đường 48, Huế",hs079@school.edu.vn,0581493671,Hồ Đức Trung,0551064359,Cha,ph079@gmail.com
+Bùi Ngọc Hào,03/11/2007,Nam,Tiền Giang,"Số 119, đường 45, Tiền Giang",hs080@school.edu.vn,0624474225,Ngô Quốc Tuấn,0339956218,Bố,ph080@gmail.com
+Lý Đức Đức,05/09/2007,Nam,Nha Trang,"Số 117, đường 24, Nha Trang",hs081@school.edu.vn,0880027275,Ngô Kim Khánh,0406323670,Mẹ,ph081@gmail.com
+Ngô Thị Phương,07/06/2009,Nữ,Đồng Nai,"Số 114, đường 16, Đồng Nai",hs082@school.edu.vn,0689431174,Phạm Thanh Giang,0992377512,Cha,ph082@gmail.com
+Hồ Minh Hải,03/08/2007,Nam,Tiền Giang,"Số 55, đường 42, Tiền Giang",hs083@school.edu.vn,0986650291,Nguyễn Trọng Long,0435209737,Bố,ph083@gmail.com
+Phan Tố Thảo,07/10/2007,Nữ,Hải Phòng,"Số 85, đường 50, Hải Phòng",hs084@school.edu.vn,0458435089,Nguyễn Quốc Khoa,0880051935,Cha,ph084@gmail.com
+Huỳnh Văn Đức,12/01/2007,Nam,An Giang,"Số 61, đường 38, An Giang",hs085@school.edu.vn,0647646966,Nguyễn Thanh Hương,0436105947,Mẹ,ph085@gmail.com
+Phạm Ngọc Như,25/08/2008,Nữ,Huế,"Số 132, đường 38, Huế",hs086@school.edu.vn,0417095851,Dương Diễm Hương,0859903980,Mẹ,ph086@gmail.com
+Nguyễn Công Tuấn,22/07/2008,Nam,TP.HCM,"Số 126, đường 46, TP.HCM",hs087@school.edu.vn,0776271425,Lê Trọng Phúc,0459272239,Bố,ph087@gmail.com
+Võ Ngọc Phúc,11/12/2009,Nam,Nha Trang,"Số 153, đường 34, Nha Trang",hs088@school.edu.vn,0616644047,Dương Ngọc Châu,0422851168,Mẹ,ph088@gmail.com
+Phan Bảo Nhung,11/07/2007,Nữ,Đồng Nai,"Số 103, đường 27, Đồng Nai",hs089@school.edu.vn,0402097643,Bùi Thu Nhi,0573685835,Mẹ,ph089@gmail.com
+Hoàng Công Trung,27/02/2007,Nam,TP.HCM,"Số 24, đường 28, TP.HCM",hs090@school.edu.vn,0403685265,Đỗ Tố Hương,0929712082,Mẹ,ph090@gmail.com
+Bùi Ngọc Nhi,28/06/2008,Nữ,Tiền Giang,"Số 193, đường 28, Tiền Giang",hs091@school.edu.vn,0355239803,Đặng Trọng Đức,0920535283,Cha,ph091@gmail.com
+Hoàng Bảo Nhi,12/02/2007,Nữ,Bình Dương,"Số 95, đường 8, Bình Dương",hs092@school.edu.vn,0599110343,Vũ Tố Uyên,0967570850,Mẹ,ph092@gmail.com
+Nguyễn Thanh Diệp,09/03/2007,Nữ,Vĩnh Long,"Số 196, đường 20, Vĩnh Long",hs093@school.edu.vn,0664883950,Đỗ Quốc Dương,0453815116,Bố,ph093@gmail.com
+Hồ Phương Thảo,01/11/2009,Nữ,TP.HCM,"Số 192, đường 34, TP.HCM",hs094@school.edu.vn,0530997172,Hồ Bảo Anh,0469016920,Mẹ,ph094@gmail.com
+Bùi Ngọc An,02/02/2009,Nam,Đà Nẵng,"Số 41, đường 49, Đà Nẵng",hs095@school.edu.vn,0963398699,Trần Gia Hiếu,0755282394,Bố,ph095@gmail.com
+Dương Gia Việt,04/09/2007,Nam,Huế,"Số 111, đường 8, Huế",hs096@school.edu.vn,0604133583,Lý Văn Long,0724410834,Cha,ph096@gmail.com
+Trần Minh Linh,25/04/2008,Nữ,Đà Nẵng,"Số 196, đường 17, Đà Nẵng",hs097@school.edu.vn,0610791488,Bùi Văn Khang,0762412302,Bố,ph097@gmail.com
+Hồ Minh Mạnh,27/09/2009,Nam,Tiền Giang,"Số 91, đường 5, Tiền Giang",hs098@school.edu.vn,0726351920,Trần Thị Oanh,0383604337,Mẹ,ph098@gmail.com
+Ngô Kim Chi,14/11/2009,Nữ,Cần Thơ,"Số 30, đường 26, Cần Thơ",hs099@school.edu.vn,0322394554,Bùi Diễm Oanh,0688536370,Mẹ,ph099@gmail.com
+Phạm Hữu Long,17/07/2009,Nam,TP.HCM,"Số 102, đường 20, TP.HCM",hs100@school.edu.vn,0664549612,Vũ Quốc Hùng,0848127255,Cha,ph100@gmail.com
+Phan Thu Hiền,27/12/2008,Nữ,Tiền Giang,"Số 38, đường 16, Tiền Giang",hs101@school.edu.vn,0410385522,Hoàng Minh Nam,0946820987,Cha,ph101@gmail.com
+Lê Công Nam,25/10/2008,Nam,Long An,"Số 115, đường 44, Long An",hs102@school.edu.vn,0906118438,Bùi Quốc Hiếu,0373321814,Cha,ph102@gmail.com
+Đặng Gia Bảo,12/01/2009,Nam,Bình Dương,"Số 19, đường 20, Bình Dương",hs103@school.edu.vn,0795792218,Dương Văn Quang,0608246619,Bố,ph103@gmail.com
+Lê Ngọc Phúc,15/07/2009,Nam,Long An,"Số 142, đường 48, Long An",hs104@school.edu.vn,0344047803,Dương Thu Diệp,0810702777,Mẹ,ph104@gmail.com
+Trần Ngọc Oanh,03/12/2008,Nữ,Bình Dương,"Số 166, đường 12, Bình Dương",hs105@school.edu.vn,0342028540,Vũ Bảo Thùy,0861296425,Mẹ,ph105@gmail.com
+Đỗ Thanh Thu,25/07/2008,Nữ,Huế,"Số 174, đường 39, Huế",hs106@school.edu.vn,0356227043,Bùi Trọng Đức,0899108439,Bố,ph106@gmail.com
+Đặng Diễm Phương,03/06/2007,Nữ,Long An,"Số 170, đường 10, Long An",hs107@school.edu.vn,0675617211,Đặng Phương Diệp,0390966348,Mẹ,ph107@gmail.com
+Hồ Trọng Kiên,23/11/2007,Nam,Vĩnh Long,"Số 176, đường 34, Vĩnh Long",hs108@school.edu.vn,0400344359,Ngô Văn Quang,0631642423,Cha,ph108@gmail.com
+Phan Công Phong,05/04/2007,Nam,Đà Nẵng,"Số 20, đường 19, Đà Nẵng",hs109@school.edu.vn,0408599066,Trần Ngọc Khoa,0941288486,Cha,ph109@gmail.com
+Huỳnh Ngọc Nam,15/12/2007,Nam,Hà Nội,"Số 106, đường 24, Hà Nội",hs110@school.edu.vn,0555046107,Dương Công Long,0873390109,Cha,ph110@gmail.com
+Lý Minh Giang,19/11/2008,Nam,Đồng Nai,"Số 119, đường 50, Đồng Nai",hs111@school.edu.vn,0602550088,Hồ Phương Dung,0514423806,Mẹ,ph111@gmail.com
+Hoàng Thanh Giang,16/11/2007,Nữ,Huế,"Số 142, đường 7, Huế",hs112@school.edu.vn,0853953485,Phạm Đức An,0472134062,Cha,ph112@gmail.com
+Hoàng Hữu Cường,27/04/2007,Nam,Đồng Nai,"Số 90, đường 2, Đồng Nai",hs113@school.edu.vn,0745492166,Trần Tố Thu,0553164777,Mẹ,ph113@gmail.com
+Lê Minh Quang,04/06/2007,Nam,Vĩnh Long,"Số 167, đường 22, Vĩnh Long",hs114@school.edu.vn,0456819248,Hoàng Gia Hào,0807294618,Bố,ph114@gmail.com
+Hoàng Bảo Uyên,01/10/2008,Nữ,TP.HCM,"Số 5, đường 17, TP.HCM",hs115@school.edu.vn,0531557515,Hoàng Ngọc Uyên,0609346714,Mẹ,ph115@gmail.com
+Phạm Minh Tuấn,26/11/2008,Nam,Long An,"Số 118, đường 5, Long An",hs116@school.edu.vn,0419032752,Lý Thanh Thành,0559779090,Bố,ph116@gmail.com
+Đặng Thị Nhung,08/06/2009,Nữ,Long An,"Số 107, đường 12, Long An",hs117@school.edu.vn,0391927283,Đỗ Thanh Mạnh,0844738967,Bố,ph117@gmail.com
+Nguyễn Bảo Hằng,13/11/2007,Nữ,Huế,"Số 65, đường 48, Huế",hs118@school.edu.vn,0317439966,Đỗ Trọng Long,0974585778,Bố,ph118@gmail.com
+Bùi Văn Khoa,11/09/2008,Nam,Tiền Giang,"Số 45, đường 50, Tiền Giang",hs119@school.edu.vn,0798885034,Lý Phương Thảo,0791429705,Mẹ,ph119@gmail.com
+Phan Minh Tuấn,10/06/2007,Nam,Bình Dương,"Số 102, đường 35, Bình Dương",hs120@school.edu.vn,0808309128,Võ Minh Tài,0683298103,Bố,ph120@gmail.com
+Trần Thu Giang,26/02/2008,Nữ,Huế,"Số 112, đường 26, Huế",hs121@school.edu.vn,0772163615,Hồ Quốc Khang,0834211672,Cha,ph121@gmail.com
+Võ Đức Bảo,03/07/2009,Nam,Nha Trang,"Số 155, đường 12, Nha Trang",hs122@school.edu.vn,0885698675,Đặng Đức Hùng,0652101316,Cha,ph122@gmail.com
+Đặng Diễm Oanh,06/07/2009,Nữ,Vĩnh Long,"Số 114, đường 23, Vĩnh Long",hs123@school.edu.vn,0780101819,Trần Ngọc Việt,0594801573,Cha,ph123@gmail.com
+Trần Kim Thảo,26/09/2008,Nữ,Vĩnh Long,"Số 174, đường 11, Vĩnh Long",hs124@school.edu.vn,0333436988,Hoàng Thị Mai,0372191273,Mẹ,ph124@gmail.com
+Đỗ Hữu Quang,20/01/2009,Nam,Đà Nẵng,"Số 174, đường 29, Đà Nẵng",hs125@school.edu.vn,0698320110,Đỗ Ngọc Chi,0447848992,Mẹ,ph125@gmail.com
+Hồ Thanh Anh,01/02/2007,Nữ,Vĩnh Long,"Số 48, đường 32, Vĩnh Long",hs126@school.edu.vn,0855924752,Hồ Gia An,0579484009,Bố,ph126@gmail.com
+Phan Thanh Diệp,07/08/2009,Nữ,TP.HCM,"Số 35, đường 5, TP.HCM",hs127@school.edu.vn,0785377142,Huỳnh Ngọc Châu,0643154754,Mẹ,ph127@gmail.com
+Lê Tố Hạnh,28/05/2008,Nữ,Đà Nẵng,"Số 183, đường 46, Đà Nẵng",hs128@school.edu.vn,0984725186,Huỳnh Thanh Long,0430311939,Cha,ph128@gmail.com
+Hoàng Bảo Trang,18/06/2007,Nữ,Long An,"Số 95, đường 30, Long An",hs129@school.edu.vn,0892326390,Hoàng Đức Tài,0727521016,Bố,ph129@gmail.com
+Lý Kim Thùy,03/10/2008,Nữ,Đà Nẵng,"Số 82, đường 42, Đà Nẵng",hs130@school.edu.vn,0379634081,Dương Tố Thu,0437798236,Mẹ,ph130@gmail.com
+Huỳnh Phương Uyên,28/09/2008,Nữ,Hà Nội,"Số 32, đường 34, Hà Nội",hs131@school.edu.vn,0464299106,Đặng Phương Anh,0542096876,Mẹ,ph131@gmail.com
+Đặng Đức Dương,21/04/2008,Nam,Bình Dương,"Số 71, đường 9, Bình Dương",hs132@school.edu.vn,0971112648,Đặng Thanh Kiên,0481071418,Bố,ph132@gmail.com
+Hoàng Diễm Hoa,11/10/2009,Nữ,Long An,"Số 11, đường 2, Long An",hs133@school.edu.vn,0387212377,Trần Minh An,0914327645,Cha,ph133@gmail.com
+Nguyễn Thanh Khang,10/11/2008,Nam,Đồng Nai,"Số 63, đường 44, Đồng Nai",hs134@school.edu.vn,0736038528,Đặng Ngọc Quỳnh,0364331134,Mẹ,ph134@gmail.com
+Ngô Công Khang,20/06/2007,Nam,Đà Nẵng,"Số 81, đường 46, Đà Nẵng",hs135@school.edu.vn,0642863363,Đỗ Phương Uyên,0697864507,Mẹ,ph135@gmail.com
+Phạm Minh Anh,09/02/2008,Nữ,Đồng Nai,"Số 64, đường 10, Đồng Nai",hs136@school.edu.vn,0403950725,Trần Hữu Dương,0960756497,Cha,ph136@gmail.com
+Huỳnh Trọng Cường,11/12/2009,Nam,Hải Phòng,"Số 196, đường 11, Hải Phòng",hs137@school.edu.vn,0835008544,Dương Thanh Vân,0324885365,Mẹ,ph137@gmail.com
+Hồ Công Dũng,19/04/2007,Nam,Huế,"Số 13, đường 4, Huế",hs138@school.edu.vn,0602104065,Lý Thanh Hạnh,0308780419,Mẹ,ph138@gmail.com
+Ngô Thanh Mai,25/06/2009,Nữ,Nha Trang,"Số 94, đường 3, Nha Trang",hs139@school.edu.vn,0730121245,Trần Thu Hạnh,0609883716,Mẹ,ph139@gmail.com
+Dương Thanh An,22/10/2008,Nam,Long An,"Số 31, đường 9, Long An",hs140@school.edu.vn,0403810954,Hồ Trọng Mạnh,0692566853,Cha,ph140@gmail.com
+Phan Tố Diệp,02/09/2008,Nữ,Hà Nội,"Số 10, đường 9, Hà Nội",hs141@school.edu.vn,0657599735,Lý Phương Diệp,0853520069,Mẹ,ph141@gmail.com
+Bùi Hữu Nam,27/12/2009,Nam,Cần Thơ,"Số 152, đường 22, Cần Thơ",hs142@school.edu.vn,0844725317,Lý Công Cường,0317863798,Cha,ph142@gmail.com
+Phạm Ngọc Việt,28/12/2008,Nam,Vĩnh Long,"Số 162, đường 2, Vĩnh Long",hs143@school.edu.vn,0940926818,Lý Ngọc Thành,0544322679,Cha,ph143@gmail.com
+Lý Tố Hoa,20/12/2009,Nữ,An Giang,"Số 98, đường 10, An Giang",hs144@school.edu.vn,0560056579,Trần Minh Minh,0773561557,Bố,ph144@gmail.com
+Hoàng Minh Việt,25/09/2008,Nam,Long An,"Số 121, đường 48, Long An",hs145@school.edu.vn,0366874023,Hoàng Tố Anh,0813646933,Mẹ,ph145@gmail.com
+Bùi Bảo Hoa,18/06/2009,Nữ,Huế,"Số 174, đường 50, Huế",hs146@school.edu.vn,0990747887,Võ Minh Trang,0599580835,Mẹ,ph146@gmail.com
+Vũ Thanh Yến,23/04/2009,Nữ,Vĩnh Long,"Số 126, đường 21, Vĩnh Long",hs147@school.edu.vn,0815185000,Đỗ Gia Đức,0915766024,Cha,ph147@gmail.com
+Hồ Kim Hiền,10/03/2008,Nữ,Hà Nội,"Số 74, đường 46, Hà Nội",hs148@school.edu.vn,0384857208,Đỗ Thanh Như,0814407444,Mẹ,ph148@gmail.com
+Võ Thanh Hào,05/05/2009,Nam,TP.HCM,"Số 158, đường 48, TP.HCM",hs149@school.edu.vn,0930104453,Vũ Thị Nhi,0870201461,Mẹ,ph149@gmail.com
+Vũ Đức Tuấn,23/06/2008,Nam,Đồng Nai,"Số 26, đường 44, Đồng Nai",hs150@school.edu.vn,0447604106,Nguyễn Kim Khánh,0810778600,Mẹ,ph150@gmail.com
+Phan Gia An,21/05/2008,Nam,Hà Nội,"Số 197, đường 6, Hà Nội",hs151@school.edu.vn,0916470999,Vũ Quốc Việt,0488751681,Bố,ph151@gmail.com
+Trần Kim Dung,24/03/2008,Nữ,Cần Thơ,"Số 10, đường 1, Cần Thơ",hs152@school.edu.vn,0620396197,Phạm Gia Hiếu,0988603957,Cha,ph152@gmail.com
+Lý Phương Hiền,09/08/2009,Nữ,Hải Phòng,"Số 29, đường 22, Hải Phòng",hs153@school.edu.vn,0474476883,Dương Quốc Minh,0661971444,Cha,ph153@gmail.com
+Phan Diễm Hoa,27/07/2009,Nữ,Nha Trang,"Số 132, đường 21, Nha Trang",hs154@school.edu.vn,0393133974,Hồ Quốc Khoa,0812662437,Bố,ph154@gmail.com
+Vũ Gia Minh,15/04/2008,Nam,An Giang,"Số 69, đường 22, An Giang",hs155@school.edu.vn,0624211872,Nguyễn Trọng Phát,0553727962,Cha,ph155@gmail.com
+Phạm Gia Hiếu,22/07/2007,Nam,Bình Dương,"Số 181, đường 50, Bình Dương",hs156@school.edu.vn,0633910025,Phạm Trọng Phúc,0537135066,Cha,ph156@gmail.com
+Hoàng Quốc Khang,20/12/2008,Nam,Huế,"Số 107, đường 45, Huế",hs157@school.edu.vn,0889736058,Lý Minh Nhi,0939750911,Mẹ,ph157@gmail.com
+Lê Bảo Thùy,12/12/2009,Nữ,TP.HCM,"Số 145, đường 8, TP.HCM",hs158@school.edu.vn,0366312199,Phan Phương Anh,0858712474,Mẹ,ph158@gmail.com
+Phan Ngọc Phát,17/02/2008,Nam,Đồng Nai,"Số 15, đường 30, Đồng Nai",hs159@school.edu.vn,0441674152,Ngô Diễm Hương,0900003920,Mẹ,ph159@gmail.com
+Đặng Văn Lâm,27/05/2008,Nam,Hà Nội,"Số 191, đường 14, Hà Nội",hs160@school.edu.vn,0920956992,Lê Hữu Quang,0368461684,Bố,ph160@gmail.com
+Trần Ngọc Huyền,10/01/2008,Nữ,Nha Trang,"Số 47, đường 50, Nha Trang",hs161@school.edu.vn,0445415636,Ngô Hữu Hiếu,0705333621,Cha,ph161@gmail.com
+Hoàng Trọng Kiên,18/03/2007,Nam,Nha Trang,"Số 136, đường 9, Nha Trang",hs162@school.edu.vn,0539111798,Nguyễn Gia Hiếu,0884593732,Bố,ph162@gmail.com
+Hồ Minh Cường,12/08/2007,Nam,Đà Nẵng,"Số 71, đường 13, Đà Nẵng",hs163@school.edu.vn,0421166014,Trần Diễm Uyên,0316799547,Mẹ,ph163@gmail.com
+Lê Ngọc Đức,20/08/2007,Nam,Tiền Giang,"Số 181, đường 4, Tiền Giang",hs164@school.edu.vn,0562781292,Trần Bảo Trang,0879562681,Mẹ,ph164@gmail.com
+Trần Thanh Khoa,27/04/2008,Nam,Vĩnh Long,"Số 148, đường 21, Vĩnh Long",hs165@school.edu.vn,0920058859,Bùi Thanh Hiền,0453824712,Mẹ,ph165@gmail.com
+Vũ Thanh Nhung,18/01/2008,Nữ,Long An,"Số 189, đường 12, Long An",hs166@school.edu.vn,0972155012,Ngô Thị Thu,0990755362,Mẹ,ph166@gmail.com
+Bùi Kim Quỳnh,10/03/2008,Nữ,Nha Trang,"Số 48, đường 49, Nha Trang",hs167@school.edu.vn,0877596076,Lý Minh Yến,0454996504,Mẹ,ph167@gmail.com
+Trần Kim Hạnh,17/09/2008,Nữ,Đà Nẵng,"Số 100, đường 16, Đà Nẵng",hs168@school.edu.vn,0573799489,Phan Đức Hào,0782954920,Cha,ph168@gmail.com
+Lê Minh Hạnh,13/05/2007,Nữ,Tiền Giang,"Số 155, đường 39, Tiền Giang",hs169@school.edu.vn,0342463863,Lê Diễm Như,0900061135,Mẹ,ph169@gmail.com
+Phan Trọng Dương,07/01/2008,Nam,Hải Phòng,"Số 190, đường 8, Hải Phòng",hs170@school.edu.vn,0814237373,Vũ Kim Huyền,0556979659,Mẹ,ph170@gmail.com
+Đặng Bảo Hằng,12/11/2009,Nữ,Cần Thơ,"Số 67, đường 24, Cần Thơ",hs171@school.edu.vn,0850632566,Lý Ngọc Châu,0804111500,Mẹ,ph171@gmail.com
+Bùi Minh Huyền,14/06/2008,Nữ,Hà Nội,"Số 145, đường 15, Hà Nội",hs172@school.edu.vn,0456683320,Nguyễn Thanh Hào,0927099478,Cha,ph172@gmail.com
+Ngô Phương Yến,08/06/2007,Nữ,Nha Trang,"Số 146, đường 16, Nha Trang",hs173@school.edu.vn,0836120880,Bùi Công Lâm,0989014168,Cha,ph173@gmail.com
+Dương Thu Hoa,24/03/2007,Nữ,Bình Dương,"Số 126, đường 12, Bình Dương",hs174@school.edu.vn,0882115008,Trần Đức Cường,0352091933,Bố,ph174@gmail.com
+Ngô Minh Mai,05/12/2007,Nữ,Hà Nội,"Số 56, đường 33, Hà Nội",hs175@school.edu.vn,0789636644,Đỗ Ngọc Kiên,0961982621,Bố,ph175@gmail.com
+Lý Thị Linh,14/09/2009,Nữ,Hà Nội,"Số 5, đường 34, Hà Nội",hs176@school.edu.vn,0595000621,Đặng Thanh Cường,0762324458,Bố,ph176@gmail.com
+Huỳnh Ngọc Lan,08/03/2009,Nữ,Hải Phòng,"Số 159, đường 34, Hải Phòng",hs177@school.edu.vn,0571031968,Đỗ Hữu Hùng,0700561082,Cha,ph177@gmail.com
+Dương Minh Chi,10/04/2009,Nữ,Tiền Giang,"Số 21, đường 42, Tiền Giang",hs178@school.edu.vn,0997818850,Trần Hữu Thịnh,0704982743,Bố,ph178@gmail.com
+Trần Thị Khánh,03/03/2009,Nữ,Đồng Nai,"Số 112, đường 42, Đồng Nai",hs179@school.edu.vn,0655699119,Phạm Minh Bình,0908579840,Bố,ph179@gmail.com
+Trần Đức Hào,18/05/2009,Nam,Long An,"Số 169, đường 3, Long An",hs180@school.edu.vn,0492580427,Bùi Minh Thành,0454824511,Bố,ph180@gmail.com
+Hồ Ngọc Huyền,19/03/2008,Nữ,Hải Phòng,"Số 146, đường 25, Hải Phòng",hs181@school.edu.vn,0880424495,Bùi Phương Châu,0384211091,Mẹ,ph181@gmail.com
+Đỗ Ngọc Hương,27/04/2008,Nữ,TP.HCM,"Số 88, đường 39, TP.HCM",hs182@school.edu.vn,0959132774,Hồ Văn Kiên,0593482659,Cha,ph182@gmail.com
+Dương Minh Vân,13/09/2008,Nữ,Nha Trang,"Số 48, đường 44, Nha Trang",hs183@school.edu.vn,0929078621,Hồ Ngọc Tài,0564623437,Bố,ph183@gmail.com
+Lê Phương Phương,26/12/2008,Nữ,Tiền Giang,"Số 40, đường 48, Tiền Giang",hs184@school.edu.vn,0718353415,Bùi Đức Hùng,0305578324,Cha,ph184@gmail.com
+Dương Thanh Thu,03/03/2007,Nữ,Đà Nẵng,"Số 111, đường 29, Đà Nẵng",hs185@school.edu.vn,0898058121,Ngô Văn Hùng,0680012570,Bố,ph185@gmail.com
+Bùi Kim Giang,14/05/2007,Nữ,Nha Trang,"Số 200, đường 6, Nha Trang",hs186@school.edu.vn,0900797791,Vũ Kim Hoa,0449078381,Mẹ,ph186@gmail.com
+Võ Quốc Khang,14/03/2007,Nam,Cần Thơ,"Số 108, đường 20, Cần Thơ",hs187@school.edu.vn,0819939412,Lê Gia Long,0971124810,Cha,ph187@gmail.com
+Phan Đức Hiếu,01/05/2007,Nam,Nha Trang,"Số 86, đường 40, Nha Trang",hs188@school.edu.vn,0707903732,Bùi Thu Nhung,0999045497,Mẹ,ph188@gmail.com
+Hoàng Thu Yến,07/12/2009,Nữ,Đồng Nai,"Số 81, đường 12, Đồng Nai",hs189@school.edu.vn,0727606494,Bùi Công Thành,0560301107,Cha,ph189@gmail.com
+Võ Hữu Cường,19/02/2008,Nam,Hải Phòng,"Số 152, đường 35, Hải Phòng",hs190@school.edu.vn,0493195372,Nguyễn Minh Oanh,0612814503,Mẹ,ph190@gmail.com
+Lê Kim Dung,05/08/2009,Nữ,Tiền Giang,"Số 78, đường 16, Tiền Giang",hs191@school.edu.vn,0571314895,Hoàng Kim Thảo,0782181718,Mẹ,ph191@gmail.com
+Lý Kim Chi,28/09/2009,Nữ,Vĩnh Long,"Số 108, đường 35, Vĩnh Long",hs192@school.edu.vn,0339476288,Đỗ Đức An,0566535973,Bố,ph192@gmail.com
+Đỗ Diễm Hoa,21/10/2007,Nữ,Tiền Giang,"Số 166, đường 26, Tiền Giang",hs193@school.edu.vn,0656049246,Ngô Văn Đức,0577818215,Bố,ph193@gmail.com
+Vũ Trọng Hiếu,25/08/2008,Nam,Tiền Giang,"Số 151, đường 45, Tiền Giang",hs194@school.edu.vn,0837371044,Hoàng Văn Khang,0412259020,Cha,ph194@gmail.com
+Lê Quốc Đức,11/05/2008,Nam,Đồng Nai,"Số 53, đường 34, Đồng Nai",hs195@school.edu.vn,0818537844,Đỗ Ngọc Oanh,0785811477,Mẹ,ph195@gmail.com
+Đặng Đức Tuấn,21/06/2007,Nam,TP.HCM,"Số 174, đường 11, TP.HCM",hs196@school.edu.vn,0561899532,Huỳnh Thu Hạnh,0757810637,Mẹ,ph196@gmail.com
+Vũ Kim Châu,06/03/2009,Nữ,Tiền Giang,"Số 169, đường 28, Tiền Giang",hs197@school.edu.vn,0724753348,Nguyễn Bảo Chi,0761228852,Mẹ,ph197@gmail.com
+Phan Gia Bình,19/02/2009,Nam,TP.HCM,"Số 138, đường 12, TP.HCM",hs198@school.edu.vn,0692767278,Bùi Bảo Lan,0581699808,Mẹ,ph198@gmail.com
+Lý Thu Thùy,20/07/2009,Nữ,Nha Trang,"Số 151, đường 8, Nha Trang",hs199@school.edu.vn,0673581239,Đỗ Diễm Hoa,0619378952,Mẹ,ph199@gmail.com
+Lê Phương Nhi,08/02/2008,Nữ,Cần Thơ,"Số 30, đường 12, Cần Thơ",hs200@school.edu.vn,0700834337,Hoàng Kim Diệp,0448033880,Mẹ,ph200@gmail.com
