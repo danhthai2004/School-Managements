@@ -1,5 +1,6 @@
 import api from "./api";
 import type { StudentProfileDto, ScoreDto } from "./schoolAdminService";
+import type { StudentPhotosDto } from "./schoolAdminService";
 
 // ==================== TYPES ====================
 
@@ -243,6 +244,32 @@ export type ClassSeatMapData = {
     updatedByName?: string;
 };
 
+// ==================== FACE DATA TYPES ====================
+
+export type FaceStudentStatus = {
+    studentId: string;
+    studentCode: string;
+    studentName: string;
+    avatarUrl: string | null;
+    registered: boolean;
+    imageCount: number;
+    lastUpdated?: string;
+};
+
+export type FaceRegistrationStatus = {
+    students: FaceStudentStatus[];
+    totalStudents: number;
+    totalRegistered: number;
+    totalUnregistered: number;
+};
+
+export type FaceRegisterResult = {
+    totalFiles: number;
+    successCount: number;
+    failCount: number;
+    details: Record<string, unknown>[];
+};
+
 // ==================== SERVICE ====================
 
 export const teacherService = {
@@ -427,5 +454,41 @@ export const teacherService = {
     // Delete/reset seating chart for a class (GVCN only)
     deleteClassSeatMap: async (classId: string): Promise<void> => {
         await api.delete(`/teacher/class-map/${classId}`);
+    },
+
+    // ==================== HOMEROOM FACE DATA ====================
+
+    // Get face registration status for homeroom class
+    getFaceStatus: async (): Promise<FaceRegistrationStatus> => {
+        const res = await api.get<FaceRegistrationStatus>("/teacher/homeroom/face-status");
+        return res.data;
+    },
+
+    // Register face for a student (batch upload)
+    registerFace: async (studentId: string, files: File[]): Promise<FaceRegisterResult> => {
+        const formData = new FormData();
+        formData.append("studentId", studentId);
+        files.forEach(file => formData.append("files", file));
+        const res = await api.post<FaceRegisterResult>("/teacher/homeroom/face-register", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+            timeout: 60000, // 60s timeout for large uploads
+        });
+        return res.data;
+    },
+
+    // Delete face data for a student
+    deleteFaceData: async (studentId: string): Promise<void> => {
+        await api.delete(`/teacher/homeroom/face/${studentId}`);
+    },
+
+    // Get photos for a student
+    getStudentPhotos: async (studentId: string): Promise<StudentPhotosDto> => {
+        const res = await api.get<StudentPhotosDto>(`/teacher/homeroom/face/${studentId}/photos`);
+        return res.data;
+    },
+
+    // Delete a specific photo
+    deleteStudentPhoto: async (studentId: string, embeddingId: number): Promise<void> => {
+        await api.delete(`/teacher/homeroom/face/${studentId}/photos/${embeddingId}`);
     }
 };

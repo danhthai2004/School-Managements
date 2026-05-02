@@ -10,7 +10,6 @@ import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.security.UserPrincipal;
 import com.schoolmanagement.backend.service.admin.SchoolAdminService;
 import com.schoolmanagement.backend.service.attendance.AttendanceService;
-import com.schoolmanagement.backend.service.attendance.FaceAttendanceService;
 import com.schoolmanagement.backend.service.auth.UserLookupService;
 import com.schoolmanagement.backend.domain.notification.NotificationStatus;
 import com.schoolmanagement.backend.domain.notification.NotificationType;
@@ -42,16 +41,13 @@ public class SchoolAdminController {
     private final NotificationService notificationService;
     private final StudentExportService studentExportService;
     private final AttendanceService attendanceService;
-    private final FaceAttendanceService faceAttendanceService;
 
-    // 1. Phân đoạn Constructor (Gộp tất cả các biến vào đây)
     public SchoolAdminController(SchoolAdminService schoolAdminService,
             UserLookupService userLookup,
             StudentAccountService studentAccountService,
             NotificationService notificationService,
             StudentExportService studentExportService,
-            AttendanceService attendanceService,
-            FaceAttendanceService faceAttendanceService) {
+            AttendanceService attendanceService) {
 
         this.schoolAdminService = schoolAdminService;
         this.userLookup = userLookup;
@@ -59,7 +55,6 @@ public class SchoolAdminController {
         this.notificationService = notificationService;
         this.studentExportService = studentExportService;
         this.attendanceService = attendanceService;
-        this.faceAttendanceService = faceAttendanceService;
     }
 
     // 2. Hàm Export của develop2 (Giữ lại nguyên vẹn)
@@ -412,55 +407,5 @@ public class SchoolAdminController {
     public record AdminSlotDto(int slotIndex, String subjectName, String teacherName) {
     }
 
-    // ==================== FACE REGISTRATION MANAGEMENT ====================
-
-    /**
-     * Register a student's face. Upload one image at a time.
-     * School admin manages face data for all students in their school.
-     */
-    @Transactional
-    @PostMapping(value = "/face/register", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
-    public java.util.Map<String, Object> registerFace(
-            @AuthenticationPrincipal com.schoolmanagement.backend.security.UserPrincipal principal,
-            @RequestParam String studentId,
-            @RequestParam(defaultValue = "") String studentCode,
-            @RequestParam(defaultValue = "") String studentName,
-            @RequestPart MultipartFile file) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        return faceAttendanceService.registerFace(
-                admin.getEmail(), studentId, studentCode, studentName, file);
-    }
-
-    /**
-     * Get face registration status for all students in a class.
-     */
-    @GetMapping("/face/class-status")
-    public com.schoolmanagement.backend.dto.teacher.FaceRegistrationStatusResponse getClassFaceStatus(
-            @AuthenticationPrincipal com.schoolmanagement.backend.security.UserPrincipal principal,
-            @RequestParam String classId) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        return faceAttendanceService.getClassRegistrationStatus(admin.getEmail(), classId);
-    }
-
-    /**
-     * Delete all face data for a specific student.
-     */
-    @Transactional
-    @DeleteMapping("/face/{studentId}")
-    public void deleteStudentFace(
-            @AuthenticationPrincipal com.schoolmanagement.backend.security.UserPrincipal principal,
-            @PathVariable String studentId) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
-        }
-        faceAttendanceService.deleteStudentFaceData(studentId);
-    }
 
 }

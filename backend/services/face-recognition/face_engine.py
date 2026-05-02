@@ -66,7 +66,10 @@ def extract_embedding(image_data: bytes) -> dict:
         if not faces:
             return {"success": False, "message": "Không phát hiện khuôn mặt trong ảnh. Vui lòng chụp rõ mặt và đủ ánh sáng.", "error_code": "NO_FACE_DETECTED"}
 
-        # Pick largest face
+        if len(faces) > 1:
+            return {"success": False, "message": f"Phát hiện {len(faces)} khuôn mặt trong ảnh. Vui lòng chỉ tải ảnh có đúng 1 khuôn mặt của học sinh.", "error_code": "MULTIPLE_FACES_DETECTED"}
+
+        # Pick largest face (though there should only be 1 now)
         face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
         quality = compute_quality_score(face)
         

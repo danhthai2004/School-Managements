@@ -179,8 +179,8 @@ function TodayScheduleCard({ slots }: { slots: TimetableSlotDto[] }) {
                                     <p className="text-sm text-gray-500">{slot.teacherName}</p>
                                 </div>
                                 <div className="text-right text-sm text-gray-500">
-                                    <div>P.{slot.room || "-"}</div>
-                                    <div>Tiết {slot.slotIndex}</div>
+                                    <div className="font-medium text-indigo-600">Phòng {slot.room || "-"}</div>
+                                    <div className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded mt-1 inline-block font-bold">Tiết {slot.slotIndex}</div>
                                 </div>
                             </div>
                         ))}
