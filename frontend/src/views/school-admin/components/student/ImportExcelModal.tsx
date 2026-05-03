@@ -50,12 +50,8 @@ const ImportExcelModal: React.FC<ImportExcelModalProps> = ({ isOpen, onClose, on
     };
 
     const handleFileSelect = (selectedFile: File) => {
-        const validTypes = [
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "application/vnd.ms-excel"
-        ];
-        if (!validTypes.includes(selectedFile.type) && !selectedFile.name.match(/\.(xlsx|xls)$/i)) {
-            setError("Vui lòng chọn file Excel (.xlsx hoặc .xls)");
+        if (!selectedFile.name.match(/\.csv$/i) && selectedFile.type !== "text/csv") {
+            setError("Vui lòng chọn file CSV (.csv)");
             return;
         }
         setFile(selectedFile);
@@ -72,7 +68,7 @@ const ImportExcelModal: React.FC<ImportExcelModalProps> = ({ isOpen, onClose, on
 
     const handleSubmit = async () => {
         if (!file) {
-            setError("Vui lòng chọn file Excel");
+            setError("Vui lòng chọn file CSV");
             return;
         }
 
@@ -105,7 +101,7 @@ const ImportExcelModal: React.FC<ImportExcelModalProps> = ({ isOpen, onClose, on
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', 'Mau_Import_HocSinh.xlsx');
+            link.setAttribute('download', 'Mau_Import_HocSinh.csv');
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -136,11 +132,11 @@ const ImportExcelModal: React.FC<ImportExcelModalProps> = ({ isOpen, onClose, on
                                 <FileSpreadsheet className="w-5 h-5 text-emerald-50" />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold tracking-tight">Import học sinh từ Excel</h1>
+                                <h1 className="text-xl font-bold tracking-tight">Import học sinh từ CSV</h1>
                                 <p className="text-emerald-50/80 text-xs font-medium mt-0.5">Thêm mới học sinh vào hệ thống</p>
                             </div>
                         </div>
-                        <button onClick={handleClose} className="p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all">
+                        <button onClick={handleClose} title="Đóng" aria-label="Đóng" className="p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all">
                             <X className="w-5 h-5" />
                         </button>
                     </div>
@@ -170,8 +166,10 @@ const ImportExcelModal: React.FC<ImportExcelModalProps> = ({ isOpen, onClose, on
                     {/* Options Grid */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">Năm học</label>
+                            <label htmlFor="import-academic-year" className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">Năm học</label>
                             <select
+                                id="import-academic-year"
+                                title="Năm học"
                                 value={academicYearId}
                                 onChange={(e) => setAcademicYearId(e.target.value)}
                                 disabled={loadingYears}
@@ -184,8 +182,10 @@ const ImportExcelModal: React.FC<ImportExcelModalProps> = ({ isOpen, onClose, on
                             </select>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">Khối lớp</label>
+                            <label htmlFor="import-grade" className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">Khối lớp</label>
                             <select
+                                id="import-grade"
+                                title="Khối lớp"
                                 value={grade}
                                 onChange={(e) => setGrade(Number(e.target.value))}
                                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 outline-none bg-white font-bold text-slate-700 text-sm transition-all hover:border-slate-300"
@@ -209,8 +209,10 @@ const ImportExcelModal: React.FC<ImportExcelModalProps> = ({ isOpen, onClose, on
                         <input
                             ref={fileInputRef}
                             type="file"
-                            accept=".xlsx,.xls"
+                            accept=".csv"
                             className="hidden"
+                            aria-label="Chọn file CSV học sinh"
+                            title="Chọn file CSV học sinh"
                             onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
                         />
                         {file ? (
@@ -235,8 +237,8 @@ const ImportExcelModal: React.FC<ImportExcelModalProps> = ({ isOpen, onClose, on
                                     <Upload className="w-8 h-8" />
                                 </div>
                                 <div>
-                                    <p className="text-sm text-slate-600 font-bold">Kéo thả file Excel vào đây</p>
-                                    <p className="text-xs text-slate-400 font-medium mt-1">hoặc click để chọn file từ máy tính</p>
+                                    <p className="text-sm text-slate-600 font-bold">Kéo thả file CSV vào đây</p>
+                                    <p className="text-xs text-slate-400 font-medium mt-1">hoặc click để chọn file .csv từ máy tính</p>
                                 </div>
                             </div>
                         )}

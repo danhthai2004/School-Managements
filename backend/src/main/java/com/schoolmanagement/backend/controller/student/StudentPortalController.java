@@ -95,6 +95,51 @@ public class StudentPortalController {
     }
 
     /**
+     * [MOBILE] Get score summary shaped for the mobile app.
+     * Accepts semester number (1 or 2) instead of a UUID.
+     * Returns GuardianScoreSummary-compatible JSON.
+     */
+    @GetMapping("/scores/summary")
+    public ResponseEntity<java.util.Map<String, Object>> getScoresSummary(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Integer semester) {
+        List<ScoreDto> scores = studentPortalService.getScoresForUser(principal.getId(), null);
+        java.util.Map<String, Object> summary = buildScoreSummary(scores);
+        return ResponseEntity.ok(summary);
+    }
+
+    /** Maps List<ScoreDto> → GuardianScoreSummary-shaped map for mobile. */
+    private java.util.Map<String, Object> buildScoreSummary(List<ScoreDto> scores) {
+        java.util.List<java.util.Map<String, Object>> subjects = new java.util.ArrayList<>();
+        double totalAvg = 0;
+        int counted = 0;
+        for (ScoreDto s : scores) {
+            java.util.List<Double> reg = s.getRegularScores() != null ? s.getRegularScores() : java.util.List.of();
+            java.util.List<Double> oral = reg.size() > 0 ? java.util.List.of(reg.get(0)) : java.util.List.of();
+            java.util.List<Double> t15 = reg.size() > 1 ? reg.subList(1, Math.min(reg.size(), 3)) : java.util.List.of();
+            java.util.List<Double> t45 = reg.size() > 3 ? reg.subList(3, reg.size()) : java.util.List.of();
+            java.util.Map<String, Object> subj = new java.util.LinkedHashMap<>();
+            subj.put("subjectName", s.getSubjectName());
+            subj.put("oralScores", oral);
+            subj.put("test15MinScores", t15);
+            subj.put("test45MinScores", t45);
+            subj.put("midTermScore", s.getMidtermScore());
+            subj.put("finalTermScore", s.getFinalScore());
+            subj.put("averageScore", s.getAverageScore());
+            subjects.add(subj);
+            if (s.getAverageScore() != null) { totalAvg += s.getAverageScore(); counted++; }
+        }
+        double overall = counted > 0 ? Math.round((totalAvg / counted) * 10.0) / 10.0 : 0;
+        String classification = overall >= 8.0 ? "Giỏi" : overall >= 6.5 ? "Khá" : overall >= 5.0 ? "Trung bình" : "Yếu";
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("subjects", subjects);
+        result.put("overallAverage", counted > 0 ? overall : null);
+        result.put("classification", counted > 0 ? classification : null);
+        result.put("totalSubjects", subjects.size());
+        return result;
+    }
+
+    /**
      * Get attendance summary for the student.
      * 
      * @param month Optional month filter

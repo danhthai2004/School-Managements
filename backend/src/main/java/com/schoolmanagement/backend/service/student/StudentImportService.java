@@ -105,8 +105,12 @@ public class StudentImportService {
                     for (CSVRecord record : csvParser) {
                         Map<String, String> data = new HashMap<>();
                         for (String h : headers) {
-                            if (h != null)
-                                data.put(h.toLowerCase().trim(), record.get(h));
+                            if (h != null) {
+                                // Strip UTF-8 BOM (\uFEFF) that Excel/LibreOffice may prepend to the first column
+                                String cleanKey = h.replace("\uFEFF", "").toLowerCase().trim();
+                                if (!cleanKey.isEmpty())
+                                    data.put(cleanKey, record.get(h));
+                            }
                         }
                         parsedRows.add(new ParsedRow((int) record.getRecordNumber() + 1, data));
                     }

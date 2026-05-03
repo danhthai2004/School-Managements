@@ -1,77 +1,74 @@
 package com.schoolmanagement.backend.service.admin;
 
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 
 @Service
 public class ImportTemplateService {
 
     public byte[] generateStudentTemplate() throws IOException {
-        String[] columns = {
+        String[] headers = {
                 "Họ tên", "Ngày sinh", "Giới tính", "Nơi sinh", "Địa chỉ", "Email", "Số điện thoại",
                 "Mã tổ hợp", "Tên phụ huynh", "SĐT phụ huynh", "Mối quan hệ", "Email phụ huynh"
         };
-
-        return createExcelTemplate("Template_HocSinh", columns);
+        String[] sample = {
+                "Nguyễn Văn A", "01/01/2008", "Nam", "Hà Nội", "123 Đường ABC", "hocsinh@email.com", "0901234567",
+                "A00", "Nguyễn Văn B", "0912345678", "Cha", "phuhuynh@email.com"
+        };
+        return createCsvTemplate(headers, sample);
     }
 
     public byte[] generateTeacherTemplate() throws IOException {
-        String[] columns = {
+        String[] headers = {
                 "Họ tên", "Ngày sinh", "Giới tính", "Địa chỉ", "Email", "Số điện thoại",
                 "Chuyên môn", "Bằng cấp"
         };
-
-        return createExcelTemplate("Template_GiaoVien", columns);
+        String[] sample = {
+                "Trần Thị B", "15/05/1985", "Nữ", "456 Đường XYZ", "giaovien@email.com", "0987654321",
+                "Toán", "Thạc sĩ"
+        };
+        return createCsvTemplate(headers, sample);
     }
 
-    private byte[] createExcelTemplate(String sheetName, String[] columns) throws IOException {
-        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            Sheet sheet = workbook.createSheet(sheetName);
+    private byte[] createCsvTemplate(String[] headers, String[] sampleRow) throws IOException {
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream();
+             OutputStreamWriter writer = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
 
-            // Create header font & style
-            Font headerFont = workbook.createFont();
-            headerFont.setBold(true);
-            headerFont.setColor(IndexedColors.WHITE.getIndex());
+            // Write UTF-8 BOM so Excel opens the file correctly
+            out.write(new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF});
 
-            CellStyle headerCellStyle = workbook.createCellStyle();
-            headerCellStyle.setFont(headerFont);
-            headerCellStyle.setFillForegroundColor(IndexedColors.BLUE_GREY.getIndex());
-            headerCellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            headerCellStyle.setAlignment(HorizontalAlignment.CENTER);
-            headerCellStyle.setBorderBottom(BorderStyle.THIN);
-            headerCellStyle.setBorderTop(BorderStyle.THIN);
-            headerCellStyle.setBorderLeft(BorderStyle.THIN);
-            headerCellStyle.setBorderRight(BorderStyle.THIN);
+            // Write header row
+            writer.write(toCsvRow(headers));
+            writer.write("\r\n");
 
-            // Create header row
-            Row headerRow = sheet.createRow(0);
-            for (int i = 0; i < columns.length; i++) {
-                Cell cell = headerRow.createCell(i);
-                cell.setCellValue(columns[i]);
-                cell.setCellStyle(headerCellStyle);
-                sheet.setColumnWidth(i, 20 * 256); // Set Default width
-            }
+            // Write sample data row
+            writer.write(toCsvRow(sampleRow));
+            writer.write("\r\n");
 
-            // Add sample data row
-            Row sampleRow = sheet.createRow(1);
-            CellStyle sampleStyle = workbook.createCellStyle();
-            Font sampleFont = workbook.createFont();
-            sampleFont.setItalic(true);
-            sampleFont.setColor(IndexedColors.GREY_40_PERCENT.getIndex());
-            sampleStyle.setFont(sampleFont);
-
-            for (int i = 0; i < columns.length; i++) {
-                Cell cell = sampleRow.createCell(i);
-                cell.setCellValue("(Dữ liệu mẫu)");
-                cell.setCellStyle(sampleStyle);
-            }
-
-            workbook.write(out);
+            writer.flush();
             return out.toByteArray();
         }
+    }
+
+    private String toCsvRow(String[] values) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < values.length; i++) {
+            if (i > 0) sb.append(",");
+            sb.append(escapeCsv(values[i]));
+        }
+        return sb.toString();
+    }
+
+    private String escapeCsv(String value) {
+        if (value == null) return "";
+        // Quote the field if it contains comma, double-quote, or newline
+        if (value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 }

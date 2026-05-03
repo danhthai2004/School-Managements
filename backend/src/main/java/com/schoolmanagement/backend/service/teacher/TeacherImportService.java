@@ -87,8 +87,12 @@ public class TeacherImportService {
                     for (CSVRecord record : csvParser) {
                         Map<String, String> data = new HashMap<>();
                         for (String h : headers) {
-                            if (h != null)
-                                data.put(h.toLowerCase().trim(), record.get(h));
+                            if (h != null) {
+                                // Strip UTF-8 BOM (\uFEFF) that Excel/LibreOffice may prepend to the first column
+                                String cleanKey = h.replace("\uFEFF", "").toLowerCase().trim();
+                                if (!cleanKey.isEmpty())
+                                    data.put(cleanKey, record.get(h));
+                            }
                         }
                         parsedRows.add(new ParsedRow((int) record.getRecordNumber() + 1, data));
                     }
@@ -407,16 +411,17 @@ public class TeacherImportService {
     }
 
     private int getNextTeacherCodeNumber(School school) {
-        Optional<Teacher> latestTeacher = teachers.findTopBySchoolOrderByTeacherCodeDesc(school);
-        if (latestTeacher.isEmpty())
-            return 1;
-        String lastCode = latestTeacher.get().getTeacherCode();
-        try {
-            if (lastCode.startsWith("GV")) {
-                return Integer.parseInt(lastCode.substring(2)) + 1;
+        List<String> allCodes = teachers.findAllTeacherCodesBySchool(school);
+        int maxNumber = 0;
+        for (String code : allCodes) {
+            if (code != null && code.startsWith("GV") && code.length() > 2) {
+                try {
+                    int num = Integer.parseInt(code.substring(2));
+                    if (num > maxNumber) maxNumber = num;
+                } catch (NumberFormatException ignored) {
+                }
             }
-        } catch (NumberFormatException ignored) {
         }
-        return (int) teachers.countBySchool(school) + 1;
+        return maxNumber + 1;
     }
 }
