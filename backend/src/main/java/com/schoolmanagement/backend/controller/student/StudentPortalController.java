@@ -9,6 +9,15 @@ import com.schoolmanagement.backend.dto.attendance.AttendanceSummaryDto;
 import com.schoolmanagement.backend.dto.student.StudentDashboardDto;
 import com.schoolmanagement.backend.dto.timetable.TimetableSlotDto;
 import com.schoolmanagement.backend.dto.student.StudentAnalysisDto;
+import com.schoolmanagement.backend.dto.learning.LearningAnalysisDto;
+import com.schoolmanagement.backend.service.learning.LearningAnalyticsService;
+import com.schoolmanagement.backend.domain.entity.student.Student;
+import com.schoolmanagement.backend.repo.student.StudentRepository;
+import com.schoolmanagement.backend.repo.auth.UserRepository;
+import com.schoolmanagement.backend.domain.entity.auth.User;
+import com.schoolmanagement.backend.domain.auth.Role;
+import com.schoolmanagement.backend.exception.ApiException;
+import org.springframework.http.HttpStatus;
 
 import com.schoolmanagement.backend.dto.notification.NotificationPageResponse;
 
@@ -35,6 +44,9 @@ public class StudentPortalController {
 
     private final StudentPortalService studentPortalService;
     private final NotificationService notificationService;
+    private final LearningAnalyticsService learningAnalyticsService;
+    private final StudentRepository studentRepository;
+    private final UserRepository userRepository;
 
     /**
      * Get the profile of the logged-in student.
@@ -128,6 +140,27 @@ public class StudentPortalController {
     public ResponseEntity<StudentAnalysisDto> getAnalysis(@AuthenticationPrincipal UserPrincipal principal) {
         StudentAnalysisDto analysis = studentPortalService.getAnalysis(principal.getId());
         return ResponseEntity.ok(analysis);
+    }
+
+    /**
+     * GET /api/student/learning-analytics — Học sinh xem báo cáo AI cố vấn học tập (read-only).
+     */
+    @GetMapping("/learning-analytics")
+    public ResponseEntity<LearningAnalysisDto> getLearningAnalytics(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Student student = resolveStudent(principal.getId());
+        LearningAnalysisDto dto = learningAnalyticsService.getMyReport(student);
+        return dto != null ? ResponseEntity.ok(dto) : ResponseEntity.noContent().build();
+    }
+
+    private Student resolveStudent(java.util.UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User không tồn tại"));
+        if (user.getRole() != Role.STUDENT) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Chỉ học sinh mới có quyền truy cập");
+        }
+        return studentRepository.findByUserIdWithDetails(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy hồ sơ học sinh"));
     }
 
     /**

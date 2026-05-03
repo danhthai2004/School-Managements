@@ -100,11 +100,6 @@ public class RiskMetricsSnapshot {
         @Builder.Default
         private int failingSubjectsCount = 0;
 
-        /** Số lần vi phạm kỷ luật trong 30 ngày qua */
-        @Column(name = "conduct_violations_30d")
-        @Builder.Default
-        private int conductViolations30d = 0;
-
         /** Danh sách tên các môn học yếu (cách nhau bởi dấu phẩy) */
         @Column(name = "failing_subjects_detail", columnDefinition = "TEXT")
         private String failingSubjectsDetail;

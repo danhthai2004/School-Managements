@@ -32,4 +32,8 @@ public interface RiskMetricsSnapshotRepository extends JpaRepository<RiskMetrics
         @Query("SELECT s FROM RiskMetricsSnapshot s WHERE s.student = :student AND s.snapshotDate < :date ORDER BY s.snapshotDate DESC LIMIT 1")
         Optional<RiskMetricsSnapshot> findPreviousSnapshot(
                         @Param("student") Student student, @Param("date") LocalDate date);
+
+        List<RiskMetricsSnapshot> findByClassRoomAndSnapshotDateBetween(
+                        com.schoolmanagement.backend.domain.entity.classes.ClassRoom classRoom, 
+                        LocalDate startDate, LocalDate endDate);
 }
