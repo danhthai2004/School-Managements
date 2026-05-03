@@ -23,7 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
+import com.schoolmanagement.backend.domain.entity.attendance.Attendance;
 
 /**
  * Nightly Batch Job: Tổng hợp dữ liệu điểm số + chuyên cần vào bảng
@@ -73,54 +75,106 @@ public class NightlyDataAggregatorService {
         LocalDate today = LocalDate.now();
         LocalDate sevenDaysAgo = today.minusDays(7);
         LocalDate thirtyDaysAgo = today.minusDays(30);
+        LocalDate yesterday = today.minusDays(1);
 
         List<ClassRoom> classRooms = classRoomRepository.findAllBySchoolOrderByGradeAscNameAsc(school);
         int totalProcessed = 0;
 
+        // Lấy sẵn TẤT CẢ snapshot hôm nay của toàn trường (để skip duplicate)
+        List<RiskMetricsSnapshot> allTodaySnapshots = snapshotRepository.findAllBySchoolAndSnapshotDate(school, today);
+        Set<UUID> alreadyProcessedStudentIds = allTodaySnapshots.stream()
+                .map(s -> s.getStudent().getId())
+                .collect(Collectors.toSet());
+
         for (ClassRoom classRoom : classRooms) {
             List<ClassEnrollment> enrollments = classEnrollmentRepository.findAllByClassRoom(classRoom);
+            if (enrollments.isEmpty()) continue;
 
-            for (ClassEnrollment enrollment : enrollments) {
-                Student student = enrollment.getStudent();
+            List<Student> students = enrollments.stream().map(ClassEnrollment::getStudent).toList();
+            List<UUID> studentIds = students.stream().map(Student::getId).toList();
 
-                // Kiểm tra xem snapshot hôm nay đã tồn tại chưa
-                if (snapshotRepository.findByStudentAndSnapshotDate(student, today).isPresent()) {
+            // --- BATCH FETCHING ---
+            // 1. Attendance trong 30 ngày qua cho cả lớp
+            List<Attendance> classAttendances = 
+                attendanceRepository.findAllByClassRoomAndDateBetween(classRoom, thirtyDaysAgo, today);
+
+            // 2. Điểm số cho cả lớp
+            List<Grade> classGrades = gradeRepository.findAllByStudentIdIn(studentIds);
+
+            // 3. Snapshot cũ (trong 14 ngày qua để tìm previous GPA)
+            List<RiskMetricsSnapshot> pastSnapshots = snapshotRepository.findByClassRoomAndSnapshotDateBetween(
+                classRoom, today.minusDays(14), yesterday);
+
+            // Group data by studentId in memory
+            Map<UUID, List<Attendance>> attendanceByStudent = classAttendances.stream()
+                .collect(Collectors.groupingBy(a -> a.getStudent().getId()));
+            
+            Map<UUID, List<Grade>> gradesByStudent = classGrades.stream()
+                .collect(Collectors.groupingBy(g -> g.getStudent().getId()));
+
+            Map<UUID, List<RiskMetricsSnapshot>> snapshotsByStudent = pastSnapshots.stream()
+                .collect(Collectors.groupingBy(s -> s.getStudent().getId()));
+
+            List<RiskMetricsSnapshot> newSnapshots = new ArrayList<>();
+
+            for (Student student : students) {
+                if (alreadyProcessedStudentIds.contains(student.getId())) {
                     continue; // Skip nếu đã có
                 }
 
-                RiskMetricsSnapshot snapshot = buildSnapshot(student, classRoom, school,
-                        today, sevenDaysAgo, thirtyDaysAgo);
-                snapshotRepository.save(snapshot);
+                List<Attendance> studentAttendances = attendanceByStudent.getOrDefault(student.getId(), List.of());
+                List<Grade> studentGrades = gradesByStudent.getOrDefault(student.getId(), List.of());
+                
+                // Lấy snapshot gần nhất trước today
+                BigDecimal previousGpa = null;
+                List<RiskMetricsSnapshot> studentSnapshots = snapshotsByStudent.getOrDefault(student.getId(), List.of());
+                if (!studentSnapshots.isEmpty()) {
+                    // Sort descending by date
+                    studentSnapshots.sort((s1, s2) -> s2.getSnapshotDate().compareTo(s1.getSnapshotDate()));
+                    previousGpa = studentSnapshots.get(0).getCurrentGpa();
+                }
+
+                RiskMetricsSnapshot snapshot = buildSnapshotInMemory(student, classRoom, school,
+                        today, sevenDaysAgo, thirtyDaysAgo, studentAttendances, studentGrades, previousGpa);
+                
+                newSnapshots.add(snapshot);
+                alreadyProcessedStudentIds.add(student.getId());
                 totalProcessed++;
+            }
+
+            if (!newSnapshots.isEmpty()) {
+                snapshotRepository.saveAll(newSnapshots);
             }
         }
 
         log.info("[RiskAggregator] Trường {}: Đã tạo {} snapshot(s).", school.getId(), totalProcessed);
     }
 
-    private RiskMetricsSnapshot buildSnapshot(Student student, ClassRoom classRoom, School school,
-            LocalDate today, LocalDate sevenDaysAgo, LocalDate thirtyDaysAgo) {
+    private RiskMetricsSnapshot buildSnapshotInMemory(Student student, ClassRoom classRoom, School school,
+            LocalDate today, LocalDate sevenDaysAgo, LocalDate thirtyDaysAgo,
+            List<Attendance> attendances,
+            List<Grade> grades, BigDecimal previousGpa) {
+        
+        // Filter attendances for 7d
+        List<Attendance> attendances7d = attendances.stream()
+            .filter(a -> !a.getAttendanceDate().isBefore(sevenDaysAgo) && !a.getAttendanceDate().isAfter(today))
+            .toList();
+
         // === Attendance metrics (7 ngày) ===
-        long absentUnexcused7d = attendanceRepository.countByStudentAndDateRangeAndStatus(
-                student, sevenDaysAgo, today, AttendanceStatus.ABSENT_UNEXCUSED);
-        long absentExcused7d = attendanceRepository.countByStudentAndDateRangeAndStatus(
-                student, sevenDaysAgo, today, AttendanceStatus.ABSENT_EXCUSED);
-        long lateCount7d = attendanceRepository.countByStudentAndDateRangeAndStatus(
-                student, sevenDaysAgo, today, AttendanceStatus.LATE);
-        long totalSessions7d = attendanceRepository.countByStudentAndDateRange(
-                student, sevenDaysAgo, today);
+        long absentUnexcused7d = attendances7d.stream().filter(a -> a.getStatus() == AttendanceStatus.ABSENT_UNEXCUSED).count();
+        long absentExcused7d = attendances7d.stream().filter(a -> a.getStatus() == AttendanceStatus.ABSENT_EXCUSED).count();
+        long lateCount7d = attendances7d.stream().filter(a -> a.getStatus() == AttendanceStatus.LATE).count();
+        long totalSessions7d = attendances7d.size();
 
         // === Attendance rate (30 ngày) ===
-        long total30d = attendanceRepository.countByStudentAndDateRange(student, thirtyDaysAgo, today);
-        long present30d = attendanceRepository.countByStudentAndDateRangeAndStatus(
-                student, thirtyDaysAgo, today, AttendanceStatus.PRESENT);
+        long total30d = attendances.size();
+        long present30d = attendances.stream().filter(a -> a.getStatus() == AttendanceStatus.PRESENT).count();
         BigDecimal attendanceRate30d = total30d > 0
                 ? BigDecimal.valueOf(present30d).multiply(BigDecimal.valueOf(100))
                         .divide(BigDecimal.valueOf(total30d), 2, RoundingMode.HALF_UP)
                 : null;
 
         // === Academic metrics ===
-        List<Grade> grades = gradeRepository.findAllByStudent(student);
         BigDecimal currentGpa = calculateAverageGpa(grades);
 
         List<String> failingSubjectsList = grades.stream()
@@ -133,10 +187,6 @@ public class NightlyDataAggregatorService {
         String failingDetail = String.join(", ", failingSubjectsList);
 
         // === Previous snapshot (cho trend) ===
-        BigDecimal previousGpa = snapshotRepository.findPreviousSnapshot(student, today)
-                .map(RiskMetricsSnapshot::getCurrentGpa)
-                .orElse(null);
-
         RiskTrend gpaTrend = calculateTrend(currentGpa, previousGpa);
 
         return RiskMetricsSnapshot.builder()
@@ -162,7 +212,7 @@ public class NightlyDataAggregatorService {
             return null;
         List<BigDecimal> scores = grades.stream()
                 .map(Grade::getAverageScore)
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .toList();
         if (scores.isEmpty())
             return null;

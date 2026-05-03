@@ -11,7 +11,7 @@ export type RiskAssessmentDto = {
     classId: string | null;
     assessmentDate: string;
     riskScore: number;
-    riskCategory: "ACADEMIC" | "BEHAVIOR" | "OPERATIONAL" | "ATTENDANCE" | "MIXED";
+    riskCategory: "ACADEMIC" | "BEHAVIOR" | "ATTENDANCE" | "MIXED";
     riskTrend: "IMPROVING" | "STABLE" | "DECLINING" | "CRITICAL" | null;
     aiReason: string | null;
     aiAdvice: string | null;

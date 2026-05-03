@@ -111,7 +111,6 @@ public class AIRiskAnalysisService {
             row.put("prev_gpa", snap.getPreviousGpa());
             row.put("failing_subjects", snap.getFailingSubjectsCount());
             row.put("failing_subjects_detail", snap.getFailingSubjectsDetail()); // Thêm chi tiết tên môn
-            row.put("conduct_violations_30d", snap.getConductViolations30d());
             return row;
         }).toList();
 
@@ -173,10 +172,14 @@ public class AIRiskAnalysisService {
                         .aiAdvice(truncate(resp.getAdvice(), 500))
                         .build();
 
-                results.add(historyRepository.save(history));
+                results.add(history);
             } catch (Exception e) {
                 log.warn("[AIRisk] Lỗi xử lý response item: {}", e.getMessage());
             }
+        }
+
+        if (!results.isEmpty()) {
+            historyRepository.saveAll(results);
         }
 
         return results;

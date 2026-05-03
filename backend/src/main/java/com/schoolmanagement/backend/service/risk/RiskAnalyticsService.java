@@ -209,12 +209,7 @@ public class RiskAnalyticsService {
     }
 
     private LocalDate findLatestAssessmentDate(School school) {
-        // Lấy bất kỳ 1 record mới nhất để biết ngày assessment gần nhất
-        List<RiskAssessmentHistory> pending = historyRepository
-                .findAllBySchoolAndFeedbackStatus(school, TeacherFeedbackStatus.PENDING);
-        if (!pending.isEmpty()) {
-            return pending.get(0).getAssessmentDate();
-        }
-        return null;
+        // Lấy ngày assessment gần nhất của các bản ghi đang chờ xử lý
+        return historyRepository.findLatestDateBySchoolAndStatus(school, TeacherFeedbackStatus.PENDING);
     }
 }

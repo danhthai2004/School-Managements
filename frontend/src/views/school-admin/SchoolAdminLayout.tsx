@@ -50,7 +50,7 @@ export default function SchoolAdminLayout() {
             label: "Thống kê & AI",
             icon: <BarChart3 size={20} strokeWidth={1.5} />,
             children: [
-                { path: "/school-admin/risk-analytics", label: "AI Phân Tích Rủi Ro" },
+                { path: "/school-admin/ai-analytics", label: "AI Phân tích Học tập" },
                 { path: "/school-admin/reports", label: "Báo cáo & Thống kê" }
             ]
         },

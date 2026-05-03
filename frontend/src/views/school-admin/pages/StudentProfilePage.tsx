@@ -9,6 +9,7 @@ import { useToast } from '../../../context/ToastContext';
 import { useAuth } from '../../../context/AuthContext';
 import { formatDate } from '../../../utils/dateHelpers';
 import StudentRiskProfileCard from '../components/StudentRiskProfileCard';
+import StudentLearningProfileCard from '../components/StudentLearningProfileCard';
 
 
 
@@ -606,6 +607,11 @@ export default function StudentProfilePage() {
             {/* Risk Analytics Card */}
             <div className="mt-6">
                 <StudentRiskProfileCard studentId={id!} />
+            </div>
+
+            {/* AI Learning Analytics Card */}
+            <div className="mt-6">
+                <StudentLearningProfileCard studentId={id!} />
             </div>
 
             {/* Transfer Modal */}

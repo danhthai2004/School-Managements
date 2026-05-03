@@ -4,6 +4,10 @@ import com.schoolmanagement.backend.domain.chat.ChatIntent;
 import com.schoolmanagement.backend.dto.chat.RoutingDecision;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
+
+import java.util.Map;
+import java.util.HashMap;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -89,7 +93,7 @@ public class IntentClassificationService {
             }
 
             // Parse parameters
-            java.util.Map<String, String> parameters = new java.util.HashMap<>();
+            Map<String, String> parameters = new HashMap<>();
             JsonNode paramsNode = root.path("parameters");
             if (paramsNode.isObject()) {
                 paramsNode.fields().forEachRemaining(entry -> {
@@ -103,7 +107,7 @@ public class IntentClassificationService {
             log.warn("Intent Router lỗi: {}", e.getMessage());
             return new RoutingDecision("SMALL_TALK",
                     "Dạ, em đang gặp chút trục trặc trong việc xử lý ý định của mình. Anh/chị có thể nói rõ hơn được không ạ?",
-                    null, java.util.Map.of());
+                    null, Map.of());
         }
     }
 }
