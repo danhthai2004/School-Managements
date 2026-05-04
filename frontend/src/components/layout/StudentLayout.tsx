@@ -11,7 +11,8 @@ import {
     LogOut,
     UserCircle,
     Lock,
-    Bell
+    Bell,
+    Sparkles
 } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 
@@ -27,6 +28,7 @@ export default function StudentLayout() {
         { to: "/student/exam-schedule", label: "Lịch Kiểm Tra", icon: <CalendarClock size={20} strokeWidth={1.5} /> },
         { to: "/student/scores", label: "Điểm Số", icon: <GraduationCap size={20} strokeWidth={1.5} /> },
         { to: "/student/attendance", label: "Điểm Danh", icon: <UserCheck size={20} strokeWidth={1.5} /> },
+        { to: "/student/ai-analytics", label: "AI Phân tích Học tập", icon: <Sparkles size={20} strokeWidth={1.5} /> },
         { to: "/student/notification", label: "Thông báo", icon: <Bell size={20} strokeWidth={1.5} /> },
     ];
 

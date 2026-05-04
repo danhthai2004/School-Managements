@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { riskService, type ClassRiskOverviewDto, type RiskAssessmentDto } from "../../../services/riskService";
 import { Shield, AlertTriangle, CheckCircle, RefreshCw, Users, Loader2, ThumbsUp, ThumbsDown, Map, BellRing, MessageSquare, Activity } from "lucide-react";
 import { useToast } from "../../../context/ToastContext";
+import { useAuth } from "../../../context/AuthContext";
 
 export default function RiskDashboardPage() {
     const { toast } = useToast();
+    const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [triggerLoading, setTriggerLoading] = useState(false);
     const [overview, setOverview] = useState<ClassRiskOverviewDto[]>([]);
@@ -80,25 +82,18 @@ export default function RiskDashboardPage() {
 
     return (
         <div className="animate-fade-in-up space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                        <Shield className="w-6 h-6 text-indigo-600" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Hệ thống Phân tích Rủi ro AI</h1>
-                        <p className="text-sm text-gray-500">Tổng quan rủi ro toàn trường theo AI phân tích</p>
-                    </div>
-                </div>
-                <button
-                    onClick={handleTriggerAnalysis}
-                    disabled={triggerLoading}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-lg text-sm font-medium hover:from-indigo-700 hover:to-indigo-600 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {triggerLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" strokeWidth={1.8} />}
-                    {triggerLoading ? "Đang phân tích..." : "Kích hoạt AI phân tích"}
-                </button>
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-4">
+                {user?.role === 'SCHOOL_ADMIN' && (
+                    <button
+                        onClick={handleTriggerAnalysis}
+                        disabled={triggerLoading}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-lg text-sm font-medium hover:from-indigo-700 hover:to-indigo-600 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {triggerLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" strokeWidth={1.8} />}
+                        {triggerLoading ? "Đang phân tích..." : "Kích hoạt AI phân tích"}
+                    </button>
+                )}
             </div>
 
             {/* Stats */}

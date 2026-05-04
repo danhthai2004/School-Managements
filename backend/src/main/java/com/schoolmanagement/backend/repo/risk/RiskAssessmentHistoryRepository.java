@@ -62,4 +62,8 @@ public interface RiskAssessmentHistoryRepository extends JpaRepository<RiskAsses
                         "AND h.assessmentDate = :date ORDER BY h.riskScore DESC")
         List<RiskAssessmentHistory> findAllByClassAndDate(
                         @Param("classId") UUID classId, @Param("date") LocalDate date);
+
+        /** Lấy ngày đánh giá gần nhất của toàn trường */
+        @Query("SELECT MAX(h.assessmentDate) FROM RiskAssessmentHistory h WHERE h.school = :school AND h.teacherFeedback = :status")
+        LocalDate findLatestDateBySchoolAndStatus(@Param("school") School school, @Param("status") TeacherFeedbackStatus status);
 }

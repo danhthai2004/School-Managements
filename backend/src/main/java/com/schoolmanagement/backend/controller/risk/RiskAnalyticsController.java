@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import com.schoolmanagement.backend.domain.entity.admin.School;
 
 /**
  * REST Controller cho tính năng AI Risk Analytics.
@@ -40,11 +41,7 @@ public class RiskAnalyticsController {
      */
     @GetMapping("/overview")
     public List<ClassRiskOverviewDto> getSchoolOverview(@AuthenticationPrincipal UserPrincipal principal) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Chưa được gán trường.");
-        }
-        return riskAnalyticsService.getSchoolRiskOverview(admin.getSchool());
+        return riskAnalyticsService.getSchoolRiskOverview(requireSchool(principal));
     }
 
     /**
@@ -52,11 +49,7 @@ public class RiskAnalyticsController {
      */
     @GetMapping("/alerts")
     public List<RiskAssessmentDto> getPendingAlerts(@AuthenticationPrincipal UserPrincipal principal) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Chưa được gán trường.");
-        }
-        return riskAnalyticsService.getPendingAlerts(admin.getSchool());
+        return riskAnalyticsService.getPendingAlerts(requireSchool(principal));
     }
 
     // ══════════════════════════════════════════════
@@ -70,11 +63,7 @@ public class RiskAnalyticsController {
     public List<RiskAssessmentDto> getStudentHistory(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable("id") UUID studentId) {
-        var user = userLookup.requireById(principal.getId());
-        if (user.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Chưa được gán trường.");
-        }
-        return riskAnalyticsService.getStudentRiskHistory(user.getSchool(), studentId);
+        return riskAnalyticsService.getStudentRiskHistory(requireSchool(principal), studentId);
     }
 
     /**
@@ -84,11 +73,7 @@ public class RiskAnalyticsController {
     public ResponseEntity<RiskAssessmentDto> getLatestAssessment(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable("id") UUID studentId) {
-        var user = userLookup.requireById(principal.getId());
-        if (user.getSchool() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Chưa được gán trường.");
-        }
-        RiskAssessmentDto dto = riskAnalyticsService.getLatestRiskAssessment(user.getSchool(), studentId);
+        RiskAssessmentDto dto = riskAnalyticsService.getLatestRiskAssessment(requireSchool(principal), studentId);
         return dto != null ? ResponseEntity.ok(dto) : ResponseEntity.noContent().build();
     }
 
@@ -117,10 +102,17 @@ public class RiskAnalyticsController {
     @Transactional
     @PostMapping("/trigger")
     public List<RiskAssessmentDto> triggerAnalysis(@AuthenticationPrincipal UserPrincipal principal) {
-        var admin = userLookup.requireById(principal.getId());
-        if (admin.getSchool() == null) {
+        return riskAnalyticsService.triggerAnalysis(requireSchool(principal));
+    }
+
+    // ══════════════════════════════════════════════
+    // Helpers
+    // ══════════════════════════════════════════════
+    private School requireSchool(UserPrincipal principal) {
+        var user = userLookup.requireById(principal.getId());
+        if (user.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Chưa được gán trường.");
         }
-        return riskAnalyticsService.triggerAnalysis(admin.getSchool());
+        return user.getSchool();
     }
 }

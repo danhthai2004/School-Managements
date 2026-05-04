@@ -50,7 +50,7 @@ const ExamSessionManagement = lazy(() => import("../views/school-admin/pages/Exa
 const ExamSessionDetailPage = lazy(() => import("../views/school-admin/pages/ExamSessionDetailPage"));
 const ReportsPage = lazy(() => import("../views/school-admin/pages/ReportsPage"));
 const SemesterConfigPage = lazy(() => import("../views/school-admin/pages/SemesterConfigPage"));
-const RiskDashboardPage = lazy(() => import("../views/school-admin/pages/RiskDashboardPage"));
+const AIAnalyticsPage = lazy(() => import("../views/school-admin/pages/AIAnalyticsPage"));
 
 // Teacher pages
 const TeacherLayout = lazy(() => import("../views/teacher/TeacherLayout"));
@@ -64,7 +64,7 @@ const TeacherReportsPage = lazy(() => import("../views/teacher/pages/ReportsPage
 const TeacherNotificationsPage = lazy(() => import("../views/teacher/pages/NotificationsPage"));
 const TeacherSettingsPage = lazy(() => import("../views/teacher/pages/SettingsPage"));
 const TeacherExamSchedulePage = lazy(() => import("../views/teacher/pages/TeacherExamSchedulePage"));
-const ClassRiskManagementPage = lazy(() => import("../views/teacher/pages/ClassRiskManagementPage"));
+const AIAnalyticsTeacherPage = lazy(() => import("../views/teacher/pages/AIAnalyticsTeacherPage"));
 const TeacherFaceDataPage = lazy(() => import("../views/teacher/pages/FaceDataPage"));
 
 // Guardian pages
@@ -85,7 +85,7 @@ const StudentExamSchedulePage = lazy(() => import("../views/Student/StudentExamS
 const StudentScoresPage = lazy(() => import("../views/Student/StudentScoresPage"));
 const StudentAttendancePage = lazy(() => import("../views/Student/StudentAttendancePage"));
 const StudentAnalysisPage = lazy(() => import("../views/Student/StudentAnalysisPage"));
-const MyRiskAnalyticsPage = lazy(() => import("../views/Student/MyRiskAnalyticsPage"));
+const StudentAIAnalyticsPage = lazy(() => import("../views/Student/StudentAIAnalyticsPage"));
 const StudentNotificationPage = lazy(() => import("../views/Student/StudentNotificationPage"));
 
 export default function AppRouter() {
@@ -162,7 +162,7 @@ export default function AppRouter() {
           <Route path="exam-sessions/:id" element={<ExamSessionDetailPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="semesters" element={<SemesterConfigPage />} />
-          <Route path="risk-analytics" element={<RiskDashboardPage />} />
+          <Route path="ai-analytics" element={<AIAnalyticsPage />} />
           <Route path="profile" element={<ProfileSettingsPage />} />
         </Route>
 
@@ -187,7 +187,7 @@ export default function AppRouter() {
           <Route path="notifications" element={<TeacherNotificationsPage />} />
           <Route path="settings" element={<TeacherSettingsPage />} />
           <Route path="exam-schedule" element={<TeacherExamSchedulePage />} />
-          <Route path="risk-analytics" element={<ClassRiskManagementPage />} />
+          <Route path="ai-analytics" element={<AIAnalyticsTeacherPage />} />
           <Route path="face-data" element={<TeacherFaceDataPage />} />
           <Route path="profile" element={<ProfileSettingsPage />} />
         </Route>
@@ -227,7 +227,7 @@ export default function AppRouter() {
           <Route path="scores" element={<StudentScoresPage />} />
           <Route path="attendance" element={<StudentAttendancePage />} />
           <Route path="analysis" element={<StudentAnalysisPage />} />
-          <Route path="risk-analytics" element={<MyRiskAnalyticsPage />} />
+          <Route path="ai-analytics" element={<StudentAIAnalyticsPage />} />
           <Route path="notification" element={<StudentNotificationPage />} />
           <Route path="profile" element={<ProfileSettingsPage />} />
         </Route>

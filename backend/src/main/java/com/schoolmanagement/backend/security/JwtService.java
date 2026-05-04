@@ -45,10 +45,10 @@ public class JwtService {
         Instant exp = now.plus(accessTtl);
         return Jwts.builder()
                 .id(jti)
-                .setSubject(user.getId().toString())
-                .setIssuedAt(Date.from(now))
-                .setExpiration(Date.from(exp))
-                .addClaims(Map.of(
+                .subject(user.getId().toString())
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(exp))
+                .claims(Map.of(
                         "kind", TokenKind.ACCESS.name(),
                         "email", user.getEmail(),
                         "role", user.getRole().name()
@@ -61,10 +61,10 @@ public class JwtService {
         Instant now = Instant.now();
         Instant exp = now.plus(resetTtl);
         return Jwts.builder()
-                .setSubject(userId.toString())
-                .setIssuedAt(Date.from(now))
-                .setExpiration(Date.from(exp))
-                .addClaims(Map.of(
+                .subject(userId.toString())
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(exp))
+                .claims(Map.of(
                         "kind", TokenKind.RESET.name(),
                         "challengeId", challengeId.toString()
                 ))

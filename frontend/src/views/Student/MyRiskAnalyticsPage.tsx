@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { riskService, type RiskAssessmentDto } from "../../services/riskService";
 import { studentService } from "../../services/studentService";
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
-import { Shield, TrendingUp, TrendingDown, Minus, Sparkles, CheckCircle, Info } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Sparkles, CheckCircle, Info } from "lucide-react";
 
 export default function MyRiskAnalyticsPage() {
     const [loading, setLoading] = useState(true);
@@ -84,15 +84,7 @@ export default function MyRiskAnalyticsPage() {
 
     return (
         <div className="animate-fade-in-up space-y-6">
-            <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                    <Shield className="w-6 h-6 text-indigo-600" />
-                </div>
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Phân Tích Rủi Ro & Theo Dõi Tiến Độ</h1>
-                    <p className="text-sm text-gray-500 mt-1">AI phân tích và đưa ra lời khuyên giúp em phát triển tốt hơn</p>
-                </div>
-            </div>
+
 
             {noData ? (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">

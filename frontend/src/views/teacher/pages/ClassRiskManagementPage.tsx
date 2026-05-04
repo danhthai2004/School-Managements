@@ -111,12 +111,8 @@ export default function ClassRiskManagementPage() {
 
     return (
         <div className="animate-fade-in-up space-y-6 max-w-[1200px] mx-auto pb-8">
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Phân tích rủi ro học tập</h1>
-                    <p className="text-gray-500 text-sm">Theo dõi biến động và dự báo rủi ro học tập của lớp.</p>
-                </div>
+            {/* Actions */}
+            <div className="flex flex-col md:flex-row md:items-end justify-end gap-4">
                 <div className="flex bg-gray-100 p-1 rounded-xl">
                     <TabButton active={timeTab === "WEEK"} onClick={() => setTimeTab("WEEK")} label="Tuần này" />
                     <TabButton active={timeTab === "MONTH"} onClick={() => setTimeTab("MONTH")} label="Tháng này" />
