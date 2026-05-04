@@ -3,13 +3,11 @@ package com.schoolmanagement.backend.service.attendance;
 import com.schoolmanagement.backend.domain.entity.classes.ClassEnrollment;
 import com.schoolmanagement.backend.domain.entity.student.Student;
 import com.schoolmanagement.backend.domain.entity.timetable.Timetable;
-import com.schoolmanagement.backend.domain.timetable.TimetableStatus;
 
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.attendance.Attendance;
 import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
 import com.schoolmanagement.backend.domain.entity.admin.School;
-import com.schoolmanagement.backend.domain.entity.admin.Semester;
 import com.schoolmanagement.backend.domain.admin.SemesterStatus;
 
 import com.schoolmanagement.backend.repo.attendance.AttendanceRepository;
@@ -288,7 +286,8 @@ public class AttendanceService {
                                 .build();
         }
 
-        // ==================== TEACHER (SUBJECT): DAILY SLOT STATUS ====================
+        // ==================== TEACHER (SUBJECT): DAILY SLOT STATUS
+        // ====================
 
         /**
          * Lightweight daily slot status for subject teachers.
@@ -302,26 +301,30 @@ public class AttendanceService {
                 Teacher teacher = findTeacher(user);
 
                 Timetable timetable = timetableRepository
-                                .findFirstBySchoolAndStatusOrderByCreatedAtDesc(
-                                                user.getSchool(), TimetableStatus.OFFICIAL)
+                                .findTimetableAtDate(user.getSchool(), date)
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                                "Chưa có thời khóa biểu chính thức."));
+                                                "Chưa có thời khóa biểu áp dụng cho ngày này."));
 
                 // Find teacher assignments for the day
-                List<TimetableDetail> details = timetableDetailRepository.findAllByTimetableAndTeacher(timetable, teacher)
+                List<TimetableDetail> details = timetableDetailRepository
+                                .findAllByTimetableAndTeacher(timetable, teacher)
                                 .stream()
                                 .filter(d -> d.getDayOfWeek() == date.getDayOfWeek())
                                 .toList();
 
-                // A slot is considered "finalized" if there is at least 1 attendance record saved for that class+slot+date.
-                // (Unique constraint is per-student, so non-empty list implies the slot has been marked.)
+                // A slot is considered "finalized" if there is at least 1 attendance record
+                // saved for that class+slot+date.
+                // (Unique constraint is per-student, so non-empty list implies the slot has
+                // been marked.)
                 Set<Integer> finalized = new HashSet<>();
                 for (TimetableDetail d : details) {
                         int slotIndex = d.getSlotIndex();
-                        if (slotIndex <= 0) continue;
+                        if (slotIndex <= 0)
+                                continue;
                         List<Attendance> records = attendanceRepository.findAllByClassRoomAndDateAndSlotIndex(
                                         d.getClassRoom(), date, slotIndex);
-                        if (!records.isEmpty()) finalized.add(slotIndex);
+                        if (!records.isEmpty())
+                                finalized.add(slotIndex);
                 }
 
                 List<Integer> sorted = finalized.stream().sorted().toList();
@@ -506,9 +509,9 @@ public class AttendanceService {
                                                 "Lớp học không tồn tại."));
 
                 Timetable timetable = timetableRepository
-                                .findFirstBySchoolAndStatusOrderByCreatedAtDesc(school, TimetableStatus.OFFICIAL)
+                                .findTimetableAtDate(school, request.getDate())
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                                "Chưa có thời khóa biểu chính thức."));
+                                                "Chưa có thời khóa biểu áp dụng cho ngày này."));
 
                 TimetableDetail detail = timetableDetailRepository
                                 .findByTimetableAndClassRoomAndDayOfWeekAndSlotIndex(timetable, classRoom,
@@ -583,9 +586,9 @@ public class AttendanceService {
                                                 "Lớp học không tồn tại."));
 
                 Timetable timetable = timetableRepository
-                                .findFirstBySchoolAndStatusOrderByCreatedAtDesc(school, TimetableStatus.OFFICIAL)
+                                .findTimetableAtDate(school, date)
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                                "Chưa có thời khóa biểu chính thức."));
+                                                "Chưa có thời khóa biểu áp dụng cho ngày này."));
 
                 return timetableDetailRepository.findAllByTimetableAndClassRoomAndDayOfWeek(
                                 timetable, classRoom, date.getDayOfWeek());
@@ -622,38 +625,9 @@ public class AttendanceService {
         private TimetableDetail findTimetableDetail(Teacher teacher, LocalDate date, int slotIndex) {
                 School school = teacher.getUser().getSchool();
 
-                // Strategy: try multiple semesters to find an OFFICIAL timetable
-                // Priority: 1) Active semester 2) Date-based semester 3) Any official TKB in
-                // school
-                Semester activeSemester = semesterService.getActiveSemesterEntity(school);
-                Semester dateSemester = semesterService.getSemesterByDate(school, date);
-
-                Timetable timetable = null;
-
-                // 1. Try active semester first (highest priority)
-                if (activeSemester != null) {
-                        timetable = timetableRepository
-                                        .findFirstBySchoolAndSemesterAndStatusOrderByCreatedAtDesc(
-                                                        school, activeSemester, TimetableStatus.OFFICIAL)
-                                        .orElse(null);
-                }
-
-                // 2. If active semester has no TKB, try the date-based semester
-                if (timetable == null && dateSemester != null && !dateSemester.equals(activeSemester)) {
-                        timetable = timetableRepository
-                                        .findFirstBySchoolAndSemesterAndStatusOrderByCreatedAtDesc(
-                                                        school, dateSemester, TimetableStatus.OFFICIAL)
-                                        .orElse(null);
-                }
-
-                // 3. Last resort: any official timetable in the school (regardless of semester)
-                if (timetable == null) {
-                        timetable = timetableRepository
-                                        .findFirstBySchoolAndStatusOrderByCreatedAtDesc(school,
-                                                        TimetableStatus.OFFICIAL)
-                                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                                        "Chưa có thời khóa biểu chính thức nào trong trường."));
-                }
+                Timetable timetable = timetableRepository.findTimetableAtDate(school, date)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                                "Chưa có thời khóa biểu áp dụng cho ngày này."));
 
                 return timetableDetailRepository
                                 .findByTimetableAndTeacherAndDayOfWeekAndSlotIndex(

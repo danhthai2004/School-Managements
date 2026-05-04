@@ -27,8 +27,10 @@ export const guardianService = {
     return res.data;
   },
 
-  getTimetableInfo: async(studentId: string): Promise<TimetableDto[]> => {
-    const res = await api.get("/guardian/timetable/" + studentId);
+  getTimetableInfo: async(studentId: string, targetDate?: string): Promise<TimetableDto[]> => {
+    const res = await api.get("/guardian/timetable/" + studentId, {
+      params: { targetDate }
+    });
     return res.data;
   },
 
@@ -54,10 +56,10 @@ export const guardianService = {
     }
   },
 
-  getAttendance: async (studentId: string, month?: number, year?: number): Promise<AttendanceSummaryDto> => {
+  getAttendance: async (studentId: string, month?: number, year?: number, targetDate?: string): Promise<AttendanceSummaryDto> => {
     try {
       const res = await api.get("/guardian/attendance", {
-        params: { studentId, month, year }
+        params: { studentId, month, year, targetDate }
       });
       return res.data;
     } catch (err) {

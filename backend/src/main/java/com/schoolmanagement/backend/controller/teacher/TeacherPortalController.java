@@ -4,28 +4,32 @@ import com.schoolmanagement.backend.dto.HomeroomNotificationDto;
 import com.schoolmanagement.backend.dto.attendance.*;
 import com.schoolmanagement.backend.dto.common.*;
 import com.schoolmanagement.backend.dto.exam.ExamScheduleDto;
+import com.schoolmanagement.backend.dto.grade.ScoreDto;
 import com.schoolmanagement.backend.dto.request.CreateHomeroomNotificationRequest;
 import com.schoolmanagement.backend.dto.student.HomeroomStudentDto;
-import com.schoolmanagement.backend.dto.student.StudentRiskAnalysisDto;
 import com.schoolmanagement.backend.dto.student.StudentProfileDto;
-import com.schoolmanagement.backend.dto.grade.ScoreDto;
-import com.schoolmanagement.backend.dto.teacher.TeacherDashboardStatsDto;
-import com.schoolmanagement.backend.dto.teacher.TeacherProfileDto;
-
-import com.schoolmanagement.backend.service.teacher.HomeroomStudentExportService;
+import com.schoolmanagement.backend.dto.student.StudentRiskAnalysisDto;
 import com.schoolmanagement.backend.dto.teacher.ClassSeatMapDto;
 import com.schoolmanagement.backend.dto.teacher.SaveClassSeatMapRequest;
-import com.schoolmanagement.backend.service.ClassSeatMapService;
-import com.schoolmanagement.backend.service.HomeroomNotificationService;
-import com.schoolmanagement.backend.service.teacher.TeacherPortalService;
-import com.schoolmanagement.backend.service.FacePhotoStorageService;
-import com.schoolmanagement.backend.service.auth.UserLookupService;
-import com.schoolmanagement.backend.security.UserPrincipal;
+import com.schoolmanagement.backend.dto.teacher.TeacherDashboardStatsDto;
+import com.schoolmanagement.backend.dto.teacher.TeacherProfileDto;
+import com.schoolmanagement.backend.dto.timetable.TimetableDetailDto;
+import com.schoolmanagement.backend.dto.teacher.FaceRegistrationStatusResponse;
+import com.schoolmanagement.backend.dto.teacher.FaceRegistrationStatusResponse.FaceRegistrationStatusDto;
 import com.schoolmanagement.backend.domain.entity.student.Student;
-
+import com.schoolmanagement.backend.security.UserPrincipal;
+import com.schoolmanagement.backend.service.ClassSeatMapService;
+import com.schoolmanagement.backend.service.FacePhotoStorageService;
+import com.schoolmanagement.backend.service.HomeroomNotificationService;
+import com.schoolmanagement.backend.service.attendance.AttendanceService;
+import com.schoolmanagement.backend.service.auth.UserLookupService;
+import com.schoolmanagement.backend.service.teacher.HomeroomStudentExportService;
+import com.schoolmanagement.backend.service.teacher.TeacherPortalService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,6 +38,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +56,7 @@ import java.util.UUID;
 public class TeacherPortalController {
 
     private final TeacherPortalService teacherPortalService;
-    private final com.schoolmanagement.backend.service.attendance.AttendanceService attendanceService;
+    private final AttendanceService attendanceService;
     private final HomeroomStudentExportService homeroomStudentExportService;
     private final HomeroomNotificationService homeroomNotificationService;
     private final ClassSeatMapService classSeatMapService;
@@ -79,10 +85,11 @@ public class TeacherPortalController {
     }
 
     @GetMapping("/schedule/weekly")
-    public ResponseEntity<List<com.schoolmanagement.backend.dto.timetable.TimetableDetailDto>> getWeeklySchedule(
+    public ResponseEntity<List<TimetableDetailDto>> getWeeklySchedule(
             @AuthenticationPrincipal UserDetails userDetails,
-            @RequestParam(required = false) String semesterId) {
-        return ResponseEntity.ok(teacherPortalService.getWeeklySchedule(userDetails.getUsername(), semesterId));
+            @RequestParam(required = false) String semesterId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate targetDate) {
+        return ResponseEntity.ok(teacherPortalService.getWeeklySchedule(userDetails.getUsername(), semesterId, targetDate));
     }
 
     @GetMapping("/schedule/exam")
@@ -112,15 +119,15 @@ public class TeacherPortalController {
     @GetMapping("/students/{id}/profile")
     public ResponseEntity<StudentProfileDto> getStudentProfile(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable java.util.UUID id) {
+            @PathVariable UUID id) {
         return ResponseEntity.ok(teacherPortalService.getHomeroomStudentProfile(userDetails.getUsername(), id));
     }
 
     @GetMapping("/students/{id}/scores")
     public ResponseEntity<List<ScoreDto>> getStudentScores(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable java.util.UUID id,
-            @RequestParam(required = false) java.util.UUID semesterId) {
+            @PathVariable UUID id,
+            @RequestParam(required = false) UUID semesterId) {
         return ResponseEntity
                 .ok(teacherPortalService.getHomeroomStudentScores(userDetails.getUsername(), id, semesterId));
     }
@@ -128,7 +135,7 @@ public class TeacherPortalController {
     @GetMapping("/students/export")
     public void exportHomeroomStudents(
             @AuthenticationPrincipal UserDetails userDetails,
-            jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
+            HttpServletResponse response) throws IOException {
         Workbook workbook = homeroomStudentExportService.exportHomeroomStudents(userDetails.getUsername());
 
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -158,7 +165,7 @@ public class TeacherPortalController {
             @RequestParam int slotIndex) {
         List<AttendanceDto> attendance = attendanceService.getAttendanceForSlot(
                 userDetails.getUsername(),
-                java.time.LocalDate.parse(date),
+                LocalDate.parse(date),
                 slotIndex);
         return ResponseEntity.ok(attendance);
     }
@@ -177,7 +184,7 @@ public class TeacherPortalController {
             @RequestParam String date) {
         DailyAttendanceSummaryDto summary = attendanceService.getDailyAttendanceSummary(
                 userDetails.getUsername(),
-                java.time.LocalDate.parse(date));
+                LocalDate.parse(date));
         return ResponseEntity.ok(summary);
     }
 
@@ -191,21 +198,21 @@ public class TeacherPortalController {
             @RequestParam String date) {
         TeacherDailySlotStatusDto dto = attendanceService.getTeacherDailySlotStatus(
                 userDetails.getUsername(),
-                java.time.LocalDate.parse(date));
+                LocalDate.parse(date));
         return ResponseEntity.ok(dto);
     }
 
     @GetMapping("/attendance/report")
-    public ResponseEntity<com.schoolmanagement.backend.dto.attendance.AttendanceReportSummaryDto> getAttendanceReport(
+    public ResponseEntity<AttendanceReportSummaryDto> getAttendanceReport(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestParam String startDate,
             @RequestParam String endDate,
             @RequestParam String reportType) {
-        com.schoolmanagement.backend.dto.attendance.AttendanceReportSummaryDto report = attendanceService
+        AttendanceReportSummaryDto report = attendanceService
                 .getAttendanceReport(
                         userDetails.getUsername(),
-                        java.time.LocalDate.parse(startDate),
-                        java.time.LocalDate.parse(endDate),
+                        LocalDate.parse(startDate),
+                        LocalDate.parse(endDate),
                         reportType);
         return ResponseEntity.ok(report);
     }
@@ -219,9 +226,9 @@ public class TeacherPortalController {
             @RequestParam(required = false) String status) {
         StudentAttendanceDetailDto detail = attendanceService.getStudentAttendanceDetail(
                 userDetails.getUsername(),
-                java.util.UUID.fromString(studentId),
-                java.time.LocalDate.parse(startDate),
-                java.time.LocalDate.parse(endDate),
+                UUID.fromString(studentId),
+                LocalDate.parse(startDate),
+                LocalDate.parse(endDate),
                 status);
         return ResponseEntity.ok(detail);
     }
@@ -299,20 +306,20 @@ public class TeacherPortalController {
      * Get face registration status for all students in homeroom class.
      */
     @GetMapping("/homeroom/face-status")
-    public ResponseEntity<com.schoolmanagement.backend.dto.teacher.FaceRegistrationStatusResponse> getHomeroomFaceStatus(
+    public ResponseEntity<FaceRegistrationStatusResponse> getHomeroomFaceStatus(
             @AuthenticationPrincipal UserPrincipal principal) {
         String classId = teacherPortalService.getHomeroomClassId(principal.getUsername());
         var teacherUser = userLookup.requireById(principal.getId());
 
         var detail = facePhotoStorageService.getClassDetail(teacherUser.getSchool(), UUID.fromString(classId));
         var dtoStudents = detail.students().stream().map(s ->
-            new com.schoolmanagement.backend.dto.teacher.FaceRegistrationStatusResponse.FaceRegistrationStatusDto(
+            new FaceRegistrationStatusDto(
                 s.studentId(), s.studentCode(), s.studentName(), s.avatarUrl(),
                 s.isRegistered(), s.imageCount(), s.lastUpdated()
             )
         ).toList();
 
-        var response = new com.schoolmanagement.backend.dto.teacher.FaceRegistrationStatusResponse(
+        var response = new FaceRegistrationStatusResponse(
             dtoStudents, detail.totalStudents(), detail.totalRegistered(), detail.totalUnregistered()
         );
         return ResponseEntity.ok(response);

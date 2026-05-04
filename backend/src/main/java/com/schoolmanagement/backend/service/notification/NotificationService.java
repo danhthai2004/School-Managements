@@ -381,9 +381,7 @@ public class NotificationService {
         DayOfWeek tomorrowDow = LocalDate.now().plusDays(1).getDayOfWeek();
 
         // Lấy tất cả TKB có status OFFICIAL
-        List<Timetable> officialTimetables = timetableRepository.findAll().stream()
-                .filter(t -> t.getStatus() == TimetableStatus.OFFICIAL)
-                .toList();
+        List<Timetable> officialTimetables = timetableRepository.findAllByStatus(TimetableStatus.OFFICIAL);
 
         List<TimetableDetail> allDetails = new ArrayList<>();
         for (Timetable tt : officialTimetables) {
@@ -634,7 +632,7 @@ public class NotificationService {
                 log.warn("Bỏ qua recipient lỗi: user={}, error={}", user.getId(), e.getMessage());
             }
         }
-        log.info("✅ [ASYNC] Đã lưu {}/{} recipients vào DB.", savedCount, uniqueUsers.size());
+        log.info("[ASYNC] Đã lưu {}/{} recipients vào DB.", savedCount, uniqueUsers.size());
 
         // Fetch device tokens and push.
         // Supports both FCM tokens and Expo push tokens (Expo Go).
@@ -666,9 +664,9 @@ public class NotificationService {
                         notification.getContent(),
                         notification.getActionUrl(),
                         fcmTokens);
-                log.info("📲 [ASYNC] Đã gửi Push qua Firebase tới {} tokens.", fcmTokens.size());
+                log.info("[ASYNC] Đã gửi Push qua Firebase tới {} tokens.", fcmTokens.size());
             } catch (Exception e) {
-                log.error("❌ [ASYNC] Lỗi khi gửi FCM Push: {}", e.getMessage());
+                log.error("[ASYNC] Lỗi khi gửi FCM Push: {}", e.getMessage());
             }
         }
     }

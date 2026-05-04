@@ -1,24 +1,50 @@
 import { useState, useEffect, useMemo } from "react";
 import { teacherService, type TimetableDetail } from "../../../services/teacherService";
-import { AlertCircle, Calendar, Clock } from "lucide-react";
+import { AlertCircle, Calendar, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { formatDate } from "../../../utils/dateHelpers";
 
 const SLOTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const DAYS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"];
 const ENGLISH_DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
 
+function getWeekDates(weekOffset: number = 0) {
+    const today = new Date();
+    const currentDay = today.getDay();
+    const diff = currentDay === 0 ? -6 : 1 - currentDay;
+
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + diff + (weekOffset * 7));
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    return { monday, sunday };
+}
+
+function getWeekNumber(date: Date) {
+    const startDate = new Date(date.getFullYear(), 0, 1);
+    const daysVal = Math.floor((date.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
+    return Math.ceil((daysVal + startDate.getDay() + 1) / 7);
+}
+
 export default function SchedulePage() {
     const [schedule, setSchedule] = useState<TimetableDetail[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [weekOffset, setWeekOffset] = useState(0);
+
+    const { monday, sunday } = getWeekDates(weekOffset);
+    const weekNumber = getWeekNumber(monday);
 
     useEffect(() => {
         fetchSchedule();
-    }, []);
+    }, [weekOffset]);
 
     const fetchSchedule = async () => {
         try {
             setLoading(true);
-            const data = await teacherService.getWeeklySchedule();
+            const targetDate = monday.getFullYear() + "-" + String(monday.getMonth() + 1).padStart(2, '0') + "-" + String(monday.getDate()).padStart(2, '0');
+            const data = await teacherService.getWeeklySchedule(targetDate);
             setSchedule(data);
         } catch (err) {
             console.error("Failed to fetch schedule", err);
@@ -62,13 +88,35 @@ export default function SchedulePage() {
 
     return (
         <div className="animate-fade-in-up space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Thời khóa biểu</h1>
-                    <p className="text-sm text-gray-500 mt-1">Xem lịch giảng dạy hàng tuần của bạn</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Thời khóa biểu</h1>
+                        <p className="text-sm text-gray-500 mt-1">
+                            Tuần {weekNumber} ({formatDate(monday)} - {formatDate(sunday)})
+                        </p>
+                    </div>
                 </div>
-                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                    <Calendar size={24} />
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setWeekOffset(prev => prev - 1)}
+                        className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                    >
+                        <ChevronLeft className="w-5 h-5 text-gray-600" />
+                    </button>
+                    <button
+                        onClick={() => setWeekOffset(0)}
+                        className="px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-sm font-medium flex items-center gap-2"
+                    >
+                        <Calendar className="w-4 h-4" />
+                        Tuần này
+                    </button>
+                    <button
+                        onClick={() => setWeekOffset(prev => prev + 1)}
+                        className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                    >
+                        <ChevronRight className="w-5 h-5 text-gray-600" />
+                    </button>
                 </div>
             </div>
 

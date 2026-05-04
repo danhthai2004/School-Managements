@@ -6,13 +6,13 @@ import SemesterSelector from "../../components/common/SemesterSelector";
 import { formatDate } from "../../utils/dateHelpers";
 
 const days = [
-    { value: 2, label: "Thứ 2" },
-    { value: 3, label: "Thứ 3" },
-    { value: 4, label: "Thứ 4" },
-    { value: 5, label: "Thứ 5" },
-    { value: 6, label: "Thứ 6" },
-    { value: 7, label: "Thứ 7" },
-    { value: 8, label: "Chủ Nhật" },
+    { value: "MONDAY", label: "Thứ 2", jsDay: 1 },
+    { value: "TUESDAY", label: "Thứ 3", jsDay: 2 },
+    { value: "WEDNESDAY", label: "Thứ 4", jsDay: 3 },
+    { value: "THURSDAY", label: "Thứ 5", jsDay: 4 },
+    { value: "FRIDAY", label: "Thứ 6", jsDay: 5 },
+    { value: "SATURDAY", label: "Thứ 7", jsDay: 6 },
+    { value: "SUNDAY", label: "Chủ Nhật", jsDay: 0 },
 ];
 
 
@@ -61,7 +61,9 @@ export default function StudentTimetablePage() {
         const fetchData = async () => {
             if (!selectedSemesterId) return;
             try {
-                const data = await studentService.getTimetable(selectedSemesterId);
+                // targetDate format: YYYY-MM-DD
+                const targetDate = monday.getFullYear() + "-" + String(monday.getMonth() + 1).padStart(2, '0') + "-" + String(monday.getDate()).padStart(2, '0');
+                const data = await studentService.getTimetable(selectedSemesterId, targetDate);
                 setTimetable(data);
                 setError(null);
             } catch (err: unknown) {
@@ -74,9 +76,9 @@ export default function StudentTimetablePage() {
         if (!isContextLoading) {
             fetchData();
         }
-    }, [selectedSemesterId, isContextLoading]);
+    }, [selectedSemesterId, isContextLoading, weekOffset]);
 
-    const getSlotForDayAndPeriod = (dayOfWeek: number, slotIndex: number): TimetableSlotDto | null => {
+    const getSlotForDayAndPeriod = (dayOfWeek: string, slotIndex: number): TimetableSlotDto | null => {
         if (!timetable) return null;
         return timetable.slots.find(s => s.dayOfWeek === dayOfWeek && s.slotIndex === slotIndex) || null;
     };
@@ -155,7 +157,7 @@ export default function StudentTimetablePage() {
                                     <th className="p-4 text-center text-sm font-semibold text-slate-700 w-20 border-b border-r border-gray-100 bg-white sticky left-0 z-20">Tiết</th>
                                     {days.map((day) => {
                                         const realDayNum = new Date().getDay();
-                                        const highlightToday = realDayNum === (day.value === 7 && realDayNum === 6 ? 6 : day.value - 1);
+                                        const highlightToday = realDayNum === day.jsDay;
 
                                         return (
                                             <th
@@ -185,7 +187,7 @@ export default function StudentTimetablePage() {
                                         {days.map((day) => {
                                             const slot = getSlotForDayAndPeriod(day.value, period);
                                             const realDayNum = new Date().getDay();
-                                            const highlightToday = realDayNum === (day.value === 7 && realDayNum === 6 ? 6 : day.value - 1);
+                                            const highlightToday = realDayNum === day.jsDay;
 
                                             return (
                                                 <td key={day.value} className={`p-2 border-r border-gray-100 align-middle text-center h-[70px] transition-colors ${highlightToday ? "bg-blue-50/20" : ""}`}>
@@ -222,7 +224,7 @@ export default function StudentTimetablePage() {
                                         {days.map((day) => {
                                             const slot = getSlotForDayAndPeriod(day.value, period);
                                             const realDayNum = new Date().getDay();
-                                            const highlightToday = realDayNum === (day.value === 7 && realDayNum === 6 ? 6 : day.value - 1);
+                                            const highlightToday = realDayNum === day.jsDay;
 
                                             return (
                                                 <td key={day.value} className={`p-2 border-r border-gray-100 align-middle text-center h-[70px] transition-colors ${highlightToday ? "bg-blue-50/20" : ""}`}>

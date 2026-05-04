@@ -17,7 +17,7 @@ export type StudentProfileDto = {
 
 export type TimetableSlotDto = {
     id: string;
-    dayOfWeek: number; // 2-8 (Mon-Sun)
+    dayOfWeek: string; // MONDAY, TUESDAY, etc.
     slotIndex: number;
     subjectName: string;
     teacherName: string;
@@ -145,9 +145,9 @@ export const studentService = {
     },
 
     // Lấy thời khóa biểu theo lớp của học sinh
-    getTimetable: async (semesterId?: string): Promise<StudentTimetableDto> => {
+    getTimetable: async (semesterId?: string, targetDate?: string): Promise<StudentTimetableDto> => {
         const res = await api.get<StudentTimetableDto>("/student/timetable", {
-            params: { semesterId }
+            params: { semesterId, targetDate }
         });
         return res.data;
     },
@@ -169,9 +169,9 @@ export const studentService = {
     },
 
     // Lấy thông tin điểm danh
-    getAttendance: async (month?: number, year?: number): Promise<AttendanceSummaryDto> => {
+    getAttendance: async (month?: number, year?: number, targetDate?: string): Promise<AttendanceSummaryDto> => {
         const res = await api.get<AttendanceSummaryDto>("/student/attendance", {
-            params: { month, year }
+            params: { month, year, targetDate }
         });
         return res.data;
     },

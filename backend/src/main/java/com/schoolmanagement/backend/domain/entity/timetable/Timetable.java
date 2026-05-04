@@ -44,6 +44,9 @@ public class Timetable {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
+    @Column(name = "applied_date")
+    private java.time.LocalDate appliedDate;
+
     @OneToMany(mappedBy = "timetable", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private java.util.List<TimetableDetail> timetableDetails = new java.util.ArrayList<>();

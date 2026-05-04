@@ -449,8 +449,7 @@ public class TeacherManagementService {
                 homeroomClassName,
                 subjectDtos,
                 subjectNames,
-                teacher.getUser() != null,
-                null);
+                teacher.getUser() != null);
     }
 
     @Transactional

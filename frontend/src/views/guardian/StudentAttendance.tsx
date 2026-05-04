@@ -25,7 +25,8 @@ export default function StudentAttendance() {
             try {
                 const month = selectedDate.getMonth() + 1;
                 const year = selectedDate.getFullYear();
-                const data = await guardianService.getAttendance(student.id, month, year);
+                const targetDateStr = selectedDate.getFullYear() + "-" + String(selectedDate.getMonth() + 1).padStart(2, '0') + "-" + String(selectedDate.getDate()).padStart(2, '0');
+                const data = await guardianService.getAttendance(student.id, month, year, targetDateStr);
                 setAttendance(data);
             } catch (error) {
                 console.error("Error fetching attendance:", error);

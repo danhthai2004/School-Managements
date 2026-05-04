@@ -8,11 +8,16 @@ import com.schoolmanagement.backend.dto.admin.BulkDeleteRequest;
 
 import com.schoolmanagement.backend.dto.admin.BulkPromoteResponse;
 import com.schoolmanagement.backend.dto.student.ImportStudentResult;
+import com.schoolmanagement.backend.dto.student.BulkEnrollRequest;
+import com.schoolmanagement.backend.dto.student.BulkEnrollResponse;
 import com.schoolmanagement.backend.dto.student.StudentDto;
 import com.schoolmanagement.backend.dto.admin.BulkPromoteRequest;
 import com.schoolmanagement.backend.dto.student.CreateStudentRequest;
 import com.schoolmanagement.backend.dto.student.UpdateStudentRequest;
+import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
 import com.schoolmanagement.backend.exception.ApiException;
+import com.schoolmanagement.backend.repo.admin.AcademicYearRepository;
+import com.schoolmanagement.backend.service.student.StudentPortalService;
 import com.schoolmanagement.backend.security.UserPrincipal;
 import com.schoolmanagement.backend.service.student.StudentImportService;
 import com.schoolmanagement.backend.service.student.StudentManagementService;
@@ -23,6 +28,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.util.List;
 import java.util.UUID;
@@ -34,15 +40,15 @@ public class StudentController {
 
     private final StudentManagementService studentManagementService;
     private final StudentImportService studentImportService;
-    private final com.schoolmanagement.backend.service.student.StudentPortalService studentPortalService;
+    private final StudentPortalService studentPortalService;
     private final UserLookupService userLookup;
-    private final com.schoolmanagement.backend.repo.admin.AcademicYearRepository academicYearRepository;
+    private final AcademicYearRepository academicYearRepository;
 
     public StudentController(StudentManagementService studentManagementService,
             StudentImportService studentImportService,
-            com.schoolmanagement.backend.service.student.StudentPortalService studentPortalService,
+            StudentPortalService studentPortalService,
             UserLookupService userLookup,
-            com.schoolmanagement.backend.repo.admin.AcademicYearRepository academicYearRepository) {
+            AcademicYearRepository academicYearRepository) {
         this.studentManagementService = studentManagementService;
         this.studentImportService = studentImportService;
         this.studentPortalService = studentPortalService;
@@ -92,7 +98,7 @@ public class StudentController {
         return studentManagementService.createStudent(admin.getSchool(), req);
     }
 
-    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @PostMapping("/students/bulk-delete") // Changed to POST for reliable body payload support
     public BulkDeleteResponse bulkDeleteStudents(
             @AuthenticationPrincipal UserPrincipal principal,
@@ -150,9 +156,9 @@ public class StudentController {
 
     @Transactional
     @PostMapping("/students/bulk-enroll")
-    public com.schoolmanagement.backend.dto.student.BulkEnrollResponse bulkEnrollStudents(
+    public BulkEnrollResponse bulkEnrollStudents(
             @AuthenticationPrincipal UserPrincipal principal,
-            @Valid @RequestBody com.schoolmanagement.backend.dto.student.BulkEnrollRequest request) {
+            @Valid @RequestBody BulkEnrollRequest request) {
         var admin = userLookup.requireById(principal.getId());
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
@@ -178,7 +184,7 @@ public class StudentController {
         if (admin.getSchool() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "School admin chưa được gán trường.");
         }
-        com.schoolmanagement.backend.domain.entity.admin.AcademicYear ay = academicYearRepository
+        AcademicYear ay = academicYearRepository
                 .findByIdAndSchool(academicYearId, admin.getSchool())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy năm học"));
         return studentImportService.importStudentsFromExcel(admin.getSchool(), file, ay, grade, autoAssign);

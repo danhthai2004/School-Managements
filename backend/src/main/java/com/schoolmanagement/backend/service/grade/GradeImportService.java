@@ -21,6 +21,7 @@ import com.schoolmanagement.backend.repo.teacher.TeacherAssignmentRepository;
 import com.schoolmanagement.backend.repo.teacher.TeacherRepository;
 import com.schoolmanagement.backend.service.admin.SemesterService;
 import com.schoolmanagement.backend.util.StudentSortUtils;
+import com.schoolmanagement.backend.dto.grade.GradeBookDto.StudentGradeDto;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -104,11 +105,15 @@ public class GradeImportService {
         // 4. Verify semester is not closed
         if (semesterEntity.getStatus() == com.schoolmanagement.backend.domain.admin.SemesterStatus.CLOSED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Học kỳ đã chốt sổ, không thể nhập điểm.");
+                    String.format("%s (năm học %s) đã chốt sổ. Bạn không thể nhập điểm cho học kỳ này.",
+                            semesterEntity.getName(),
+                            semesterEntity.getAcademicYear().getName()));
         }
         if (semesterEntity.getStatus() == com.schoolmanagement.backend.domain.admin.SemesterStatus.UPCOMING) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Học kỳ chưa bắt đầu, không thể nhập điểm.");
+                    String.format("%s (năm học %s) chưa bắt đầu. Bạn chưa thể nhập điểm cho học kỳ này.",
+                            semesterEntity.getName(),
+                            semesterEntity.getAcademicYear().getName()));
         }
 
         // 5. Get existing grades for this class-subject-semester
@@ -119,7 +124,7 @@ public class GradeImportService {
 
         // 6. Parse the Excel file
         List<GradeImportResultDto.ImportError> errors = new ArrayList<>();
-        List<com.schoolmanagement.backend.dto.grade.GradeBookDto.StudentGradeDto> previewData = new ArrayList<>();
+        List<StudentGradeDto> previewData = new ArrayList<>();
         int totalRows = 0;
         int successCount = 0;
         int updatedCount = 0;

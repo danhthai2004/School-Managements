@@ -204,12 +204,16 @@ public class GradeService {
 
                 if (semesterEntity.getStatus() == com.schoolmanagement.backend.domain.admin.SemesterStatus.CLOSED) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                        "Học kỳ đã chốt sổ, không thể sửa đổi điểm.");
+                                        String.format("%s (năm học %s) đã chốt sổ. Bạn không thể nhập hoặc sửa đổi điểm cho học kỳ này.",
+                                                        semesterEntity.getName(),
+                                                        semesterEntity.getAcademicYear().getName()));
                 }
 
                 if (semesterEntity.getStatus() == com.schoolmanagement.backend.domain.admin.SemesterStatus.UPCOMING) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                        "Học kỳ chưa bắt đầu, không thể nhập điểm.");
+                                        String.format("%s (năm học %s) chưa bắt đầu. Bạn chưa thể nhập điểm cho học kỳ này.",
+                                                        semesterEntity.getName(),
+                                                        semesterEntity.getAcademicYear().getName()));
                 }
 
                 // Get existing grades using Semester entity FK
