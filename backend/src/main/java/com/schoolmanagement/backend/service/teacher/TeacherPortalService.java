@@ -5,7 +5,6 @@ import com.schoolmanagement.backend.dto.timetable.TimetableScheduleSummaryDto.Sl
 import com.schoolmanagement.backend.dto.exam.ExamScheduleDto;
 
 import java.util.Optional;
-import com.schoolmanagement.backend.domain.timetable.TimetableStatus;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.ArrayList;
@@ -127,9 +126,8 @@ public class TeacherPortalService {
                                 .findByUser(teacher).orElse(null);
 
                 if (teacherEntity != null) {
-                        var activeSem = semesterService.getActiveSemesterEntity(teacher.getSchool());
-                        var ttOpt = timetableRepository.findFirstBySchoolAndSemesterAndStatusOrderByCreatedAtDesc(
-                                        teacher.getSchool(), activeSem, TimetableStatus.OFFICIAL);
+                        var ttOpt = timetableRepository.findTimetableAtDate(
+                                        teacher.getSchool(), LocalDate.now(VIETNAM_ZONE));
                         if (ttOpt.isPresent()) {
                                 DayOfWeek dow = LocalDate.now(VIETNAM_ZONE).getDayOfWeek();
                                 todayPeriods = (int) timetableDetailRepository
@@ -185,12 +183,8 @@ public class TeacherPortalService {
                 DayOfWeek dayOfWeek = today.getDayOfWeek();
                 log.debug("getTodaySchedule: today={} dayOfWeek={}", today, dayOfWeek);
 
-                com.schoolmanagement.backend.domain.entity.admin.Semester activeSemester = semesterService
-                                .getActiveSemesterEntity(user.getSchool());
                 Optional<com.schoolmanagement.backend.domain.entity.timetable.Timetable> timetableOpt = timetableRepository
-                                .findFirstBySchoolAndSemesterAndStatusOrderByCreatedAtDesc(user.getSchool(),
-                                                activeSemester,
-                                                TimetableStatus.OFFICIAL);
+                                .findTimetableAtDate(user.getSchool(), today);
 
                 if (timetableOpt.isEmpty()) {
                         return List.of();
@@ -219,7 +213,7 @@ public class TeacherPortalService {
          * Get weekly schedule
          */
         public List<com.schoolmanagement.backend.dto.timetable.TimetableDetailDto> getWeeklySchedule(String email,
-                        String semesterId) {
+                        String semesterId, LocalDate targetDate) {
                 User user = findTeacherByEmail(email);
                 com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher = teacherRepository.findByUser(user)
                                 .orElse(null);
@@ -229,15 +223,9 @@ public class TeacherPortalService {
                         return new ArrayList<>();
                 }
 
-                // Get official timetable
-                com.schoolmanagement.backend.domain.entity.admin.Semester targetSemester = semesterId != null
-                                ? semesterService.getSemester(java.util.UUID.fromString(semesterId))
-                                : semesterService.getActiveSemesterEntity(user.getSchool());
-
+                LocalDate dateToUse = (targetDate != null) ? targetDate : LocalDate.now(VIETNAM_ZONE);
                 Optional<com.schoolmanagement.backend.domain.entity.timetable.Timetable> timetableOpt = timetableRepository
-                                .findFirstBySchoolAndSemesterAndStatusOrderByCreatedAtDesc(user.getSchool(),
-                                                targetSemester,
-                                                TimetableStatus.OFFICIAL);
+                                .findTimetableAtDate(user.getSchool(), dateToUse);
 
                 if (timetableOpt.isEmpty()) {
                         return List.of();

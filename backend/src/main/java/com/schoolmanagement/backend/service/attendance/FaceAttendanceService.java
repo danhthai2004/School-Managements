@@ -1,7 +1,6 @@
 package com.schoolmanagement.backend.service.attendance;
 
 import com.schoolmanagement.backend.domain.attendance.AttendanceStatus;
-import com.schoolmanagement.backend.domain.timetable.TimetableStatus;
 import com.schoolmanagement.backend.repo.teacher.TeacherRepository;
 import com.schoolmanagement.backend.repo.student.StudentRepository;
 import com.schoolmanagement.backend.repo.classes.ClassEnrollmentRepository;
@@ -101,8 +100,8 @@ public class FaceAttendanceService {
             Teacher teacher = teacherRepository.findByUser(teacherUser).orElse(null);
             if (teacher != null) {
                 // Find OFFICIAL timetable and class for this slot
-                var officialTimetable = timetableRepository.findFirstBySchoolAndStatusOrderByCreatedAtDesc(
-                        teacher.getSchool(), TimetableStatus.OFFICIAL);
+                var officialTimetable = timetableRepository.findTimetableAtDate(
+                        teacher.getSchool(), date);
                 if (officialTimetable.isPresent()) {
                     var details = timetableDetailRepository
                             .findAllByTimetableAndTeacher(officialTimetable.get(), teacher);
@@ -178,8 +177,8 @@ public class FaceAttendanceService {
 
         if (teacher != null) {
             try {
-                var officialTimetable = timetableRepository.findFirstBySchoolAndStatusOrderByCreatedAtDesc(
-                        teacher.getSchool(), TimetableStatus.OFFICIAL);
+                var officialTimetable = timetableRepository.findTimetableAtDate(
+                        teacher.getSchool(), date);
                 if (officialTimetable.isPresent()) {
                     var detailOpt = timetableDetailRepository
                             .findByTimetableAndTeacherAndDayOfWeekAndSlotIndex(

@@ -34,7 +34,7 @@ public class FirebaseMessagingService {
         // Firebase Maximum chunk size is 500
         int chunkSize = 500;
         List<List<String>> tokenBatches = new ArrayList<>();
-        
+
         for (int i = 0; i < fcmTokens.size(); i += chunkSize) {
             tokenBatches.add(fcmTokens.subList(i, Math.min(i + chunkSize, fcmTokens.size())));
         }
@@ -55,14 +55,15 @@ public class FirebaseMessagingService {
                 }
 
                 BatchResponse response = FirebaseMessaging.getInstance().sendEachForMulticast(messageBuilder.build());
-                
+
                 if (response.getFailureCount() > 0) {
                     List<SendResponse> responses = response.getResponses();
                     for (int i = 0; i < responses.size(); i++) {
                         if (!responses.get(i).isSuccessful()) {
                             MessagingErrorCode errorCode = responses.get(i).getException().getMessagingErrorCode();
                             // Xử lý Dead Token
-                            if (errorCode == MessagingErrorCode.UNREGISTERED || errorCode == MessagingErrorCode.INVALID_ARGUMENT) {
+                            if (errorCode == MessagingErrorCode.UNREGISTERED
+                                    || errorCode == MessagingErrorCode.INVALID_ARGUMENT) {
                                 failedTokens.add(batch.get(i));
                             }
                         }
@@ -75,7 +76,7 @@ public class FirebaseMessagingService {
 
         // Auto cleanup invalid tokens
         if (!failedTokens.isEmpty()) {
-            log.info("🗑️ Dọn dẹp {} FCM Tokens không hợp lệ...", failedTokens.size());
+            log.info("Dọn dẹp {} FCM Tokens không hợp lệ...", failedTokens.size());
             deviceTokenRepository.deleteAllById(failedTokens);
         }
     }

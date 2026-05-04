@@ -1,11 +1,13 @@
 package com.schoolmanagement.backend.service.student;
 
 import com.schoolmanagement.backend.domain.entity.admin.School;
+import com.schoolmanagement.backend.domain.student.Gender;
 import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
 import com.schoolmanagement.backend.service.admin.SemesterService;
 import com.schoolmanagement.backend.domain.entity.classes.ClassEnrollment;
 import com.schoolmanagement.backend.domain.entity.classes.ClassRoom;
 import com.schoolmanagement.backend.domain.entity.student.Student;
+import com.schoolmanagement.backend.domain.student.StudentStatus;
 import com.schoolmanagement.backend.repo.classes.ClassEnrollmentRepository;
 import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.student.StudentRepository;
@@ -19,7 +21,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -155,7 +159,7 @@ public class StudentExportService {
         // --- OPTIMIZATION: Fetch enrollments in batch to avoid N+1 ---
         AcademicYear currentYear = semesterService.getActiveAcademicYearSafe(school);
 
-        java.util.Map<java.util.UUID, String> studentClassMap = new java.util.HashMap<>();
+        Map<UUID, String> studentClassMap = new HashMap<>();
         if (!studentsList.isEmpty()) {
             List<ClassEnrollment> allEnrollments;
             if (currentYear != null) {
@@ -204,7 +208,7 @@ public class StudentExportService {
         cell.setCellStyle(style);
     }
 
-    private String translateGender(com.schoolmanagement.backend.domain.student.Gender gender) {
+    private String translateGender(Gender gender) {
         if (gender == null)
             return "";
         return switch (gender) {
@@ -214,7 +218,7 @@ public class StudentExportService {
         };
     }
 
-    private String translateStatus(com.schoolmanagement.backend.domain.student.StudentStatus status) {
+    private String translateStatus(StudentStatus status) {
         if (status == null)
             return "";
         return switch (status) {

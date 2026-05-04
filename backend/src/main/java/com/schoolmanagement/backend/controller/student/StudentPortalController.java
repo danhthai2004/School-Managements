@@ -1,36 +1,36 @@
 package com.schoolmanagement.backend.controller.student;
 
-import com.schoolmanagement.backend.dto.student.StudentProfileDto;
-import com.schoolmanagement.backend.dto.exam.ExamScheduleDto;
-
-import com.schoolmanagement.backend.dto.timetable.StudentTimetableDto;
-import com.schoolmanagement.backend.dto.grade.ScoreDto;
-import com.schoolmanagement.backend.dto.attendance.AttendanceSummaryDto;
-import com.schoolmanagement.backend.dto.student.StudentDashboardDto;
-import com.schoolmanagement.backend.dto.timetable.TimetableSlotDto;
-import com.schoolmanagement.backend.dto.student.StudentAnalysisDto;
-import com.schoolmanagement.backend.dto.learning.LearningAnalysisDto;
-import com.schoolmanagement.backend.service.learning.LearningAnalyticsService;
-import com.schoolmanagement.backend.domain.entity.student.Student;
-import com.schoolmanagement.backend.repo.student.StudentRepository;
-import com.schoolmanagement.backend.repo.auth.UserRepository;
-import com.schoolmanagement.backend.domain.entity.auth.User;
 import com.schoolmanagement.backend.domain.auth.Role;
-import com.schoolmanagement.backend.exception.ApiException;
-import org.springframework.http.HttpStatus;
-
+import com.schoolmanagement.backend.domain.entity.auth.User;
+import com.schoolmanagement.backend.domain.entity.student.Student;
+import com.schoolmanagement.backend.dto.attendance.AttendanceSummaryDto;
+import com.schoolmanagement.backend.dto.exam.ExamScheduleDto;
+import com.schoolmanagement.backend.dto.grade.ScoreDto;
+import com.schoolmanagement.backend.dto.learning.LearningAnalysisDto;
 import com.schoolmanagement.backend.dto.notification.NotificationPageResponse;
-
+import com.schoolmanagement.backend.dto.student.StudentAnalysisDto;
+import com.schoolmanagement.backend.dto.student.StudentDashboardDto;
+import com.schoolmanagement.backend.dto.student.StudentProfileDto;
+import com.schoolmanagement.backend.dto.timetable.StudentTimetableDto;
+import com.schoolmanagement.backend.dto.timetable.TimetableSlotDto;
+import com.schoolmanagement.backend.exception.ApiException;
+import com.schoolmanagement.backend.repo.auth.UserRepository;
+import com.schoolmanagement.backend.repo.student.StudentRepository;
 import com.schoolmanagement.backend.security.UserPrincipal;
+import com.schoolmanagement.backend.service.learning.LearningAnalyticsService;
 import com.schoolmanagement.backend.service.notification.NotificationService;
 import com.schoolmanagement.backend.service.student.StudentPortalService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * REST Controller for Student Portal APIs.
@@ -64,8 +64,9 @@ public class StudentPortalController {
     @GetMapping("/timetable")
     public ResponseEntity<StudentTimetableDto> getTimetable(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(required = false) String semesterId) {
-        StudentTimetableDto timetable = studentPortalService.getTimetable(principal.getId(), semesterId);
+            @RequestParam(required = false) String semesterId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate targetDate) {
+        StudentTimetableDto timetable = studentPortalService.getTimetable(principal.getId(), semesterId, targetDate);
         return ResponseEntity.ok(timetable);
     }
 
@@ -100,25 +101,25 @@ public class StudentPortalController {
      * Returns GuardianScoreSummary-compatible JSON.
      */
     @GetMapping("/scores/summary")
-    public ResponseEntity<java.util.Map<String, Object>> getScoresSummary(
+    public ResponseEntity<Map<String, Object>> getScoresSummary(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) Integer semester) {
         List<ScoreDto> scores = studentPortalService.getScoresForUser(principal.getId(), null);
-        java.util.Map<String, Object> summary = buildScoreSummary(scores);
+        Map<String, Object> summary = buildScoreSummary(scores);
         return ResponseEntity.ok(summary);
     }
 
     /** Maps List<ScoreDto> → GuardianScoreSummary-shaped map for mobile. */
-    private java.util.Map<String, Object> buildScoreSummary(List<ScoreDto> scores) {
-        java.util.List<java.util.Map<String, Object>> subjects = new java.util.ArrayList<>();
+    private Map<String, Object> buildScoreSummary(List<ScoreDto> scores) {
+        List<Map<String, Object>> subjects = new ArrayList<>();
         double totalAvg = 0;
         int counted = 0;
         for (ScoreDto s : scores) {
-            java.util.List<Double> reg = s.getRegularScores() != null ? s.getRegularScores() : java.util.List.of();
-            java.util.List<Double> oral = reg.size() > 0 ? java.util.List.of(reg.get(0)) : java.util.List.of();
-            java.util.List<Double> t15 = reg.size() > 1 ? reg.subList(1, Math.min(reg.size(), 3)) : java.util.List.of();
-            java.util.List<Double> t45 = reg.size() > 3 ? reg.subList(3, reg.size()) : java.util.List.of();
-            java.util.Map<String, Object> subj = new java.util.LinkedHashMap<>();
+            List<Double> reg = s.getRegularScores() != null ? s.getRegularScores() : List.of();
+            List<Double> oral = reg.size() > 0 ? List.of(reg.get(0)) : List.of();
+            List<Double> t15 = reg.size() > 1 ? reg.subList(1, Math.min(reg.size(), 3)) : List.of();
+            List<Double> t45 = reg.size() > 3 ? reg.subList(3, reg.size()) : List.of();
+            Map<String, Object> subj = new LinkedHashMap<>();
             subj.put("subjectName", s.getSubjectName());
             subj.put("oralScores", oral);
             subj.put("test15MinScores", t15);
@@ -131,7 +132,7 @@ public class StudentPortalController {
         }
         double overall = counted > 0 ? Math.round((totalAvg / counted) * 10.0) / 10.0 : 0;
         String classification = overall >= 8.0 ? "Giỏi" : overall >= 6.5 ? "Khá" : overall >= 5.0 ? "Trung bình" : "Yếu";
-        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        Map<String, Object> result = new LinkedHashMap<>();
         result.put("subjects", subjects);
         result.put("overallAverage", counted > 0 ? overall : null);
         result.put("classification", counted > 0 ? classification : null);
@@ -149,8 +150,9 @@ public class StudentPortalController {
     public ResponseEntity<AttendanceSummaryDto> getAttendance(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) Integer month,
-            @RequestParam(required = false) Integer year) {
-        AttendanceSummaryDto attendance = studentPortalService.getAttendanceForUser(principal.getId(), month, year);
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate targetDate) {
+        AttendanceSummaryDto attendance = studentPortalService.getAttendanceForUser(principal.getId(), month, year, targetDate);
         return ResponseEntity.ok(attendance);
     }
 
@@ -198,7 +200,7 @@ public class StudentPortalController {
         return dto != null ? ResponseEntity.ok(dto) : ResponseEntity.noContent().build();
     }
 
-    private Student resolveStudent(java.util.UUID userId) {
+    private Student resolveStudent(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User không tồn tại"));
         if (user.getRole() != Role.STUDENT) {
@@ -225,7 +227,7 @@ public class StudentPortalController {
      */
     @PatchMapping("/notifications/{id}/read")
     public ResponseEntity<Void> markNotificationAsRead(
-            @PathVariable java.util.UUID id,
+            @PathVariable UUID id,
             @AuthenticationPrincipal UserPrincipal principal) {
         notificationService.markAsRead(id, principal.getId());
         return ResponseEntity.ok().build();

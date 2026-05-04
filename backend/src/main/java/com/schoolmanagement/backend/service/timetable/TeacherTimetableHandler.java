@@ -14,13 +14,14 @@ import com.schoolmanagement.backend.repo.timetable.TimetableRepository;
 import com.schoolmanagement.backend.repo.timetable.TimetableDetailRepository;
 
 import com.schoolmanagement.backend.domain.chat.ChatIntent;
-import com.schoolmanagement.backend.domain.timetable.TimetableStatus;
 
 import com.schoolmanagement.backend.dto.chat.ChatContext;
 
 import org.springframework.stereotype.Component;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -68,14 +69,10 @@ public class TeacherTimetableHandler implements ChatHandler {
                     "Không tìm thấy hồ sơ giáo viên liên kết với tài khoản của bạn.");
         }
 
-        // Tìm Timetable OFFICIAL của trường
+        // Tìm Timetable đang áp dụng của trường
         School school = teacher.getSchool();
-        List<Timetable> timetables = timetableRepository
-                .findAllBySchoolOrderByCreatedAtDesc(school);
-
-        Timetable officialTimetable = timetables.stream()
-                .filter(timetable -> timetable.getStatus() == TimetableStatus.OFFICIAL)
-                .findFirst()
+        Timetable officialTimetable = timetableRepository
+                .findTimetableAtDate(school, LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")))
                 .orElse(null);
 
         if (officialTimetable == null) {

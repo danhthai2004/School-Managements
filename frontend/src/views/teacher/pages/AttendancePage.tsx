@@ -33,15 +33,16 @@ export default function AttendancePage() {
         startTime?: string;
     } | null>(null);
 
-    // Initial load of weekly schedule to determine teaching slots
+    // Initial load and refetch on date change
     useEffect(() => {
         loadSchedule();
-    }, []);
+    }, [selectedDate]);
 
     async function loadSchedule() {
         try {
             setLoadingSchedule(true);
-            const data = await teacherService.getWeeklySchedule();
+            const targetDateStr = selectedDate.getFullYear() + "-" + String(selectedDate.getMonth() + 1).padStart(2, '0') + "-" + String(selectedDate.getDate()).padStart(2, '0');
+            const data = await teacherService.getWeeklySchedule(targetDateStr);
             setTimetable(data);
         } catch (error) {
             console.error("Failed to load schedule", error);

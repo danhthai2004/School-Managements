@@ -20,7 +20,8 @@ export default function StudentAttendancePage() {
             try {
                 const month = selectedDate.getMonth() + 1;
                 const year = selectedDate.getFullYear();
-                const data = await studentService.getAttendance(month, year);
+                const targetDateStr = selectedDate.getFullYear() + "-" + String(selectedDate.getMonth() + 1).padStart(2, '0') + "-" + String(selectedDate.getDate()).padStart(2, '0');
+                const data = await studentService.getAttendance(month, year, targetDateStr);
                 setAttendance(data);
             } catch (error) {
                 console.error("Error fetching attendance:", error);
@@ -191,8 +192,9 @@ export default function StudentAttendancePage() {
                                         const dateStr = `${year}-${month}-${dayNum}`;
                                         const record = attendanceGrid[dateStr]?.[slotIndex + 1];
 
+                                        const enumNames = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
                                         let timetableSlot = (attendance as any).classroomTimetable?.find(
-                                            (s: any) => s.dayOfWeek === (dayIdx + 2) && s.slotIndex === (slotIndex + 1)
+                                            (s: any) => s.dayOfWeek === enumNames[dayIdx] && s.slotIndex === (slotIndex + 1)
                                         );
 
                                         const currentYear = allAcademicYears.find((y: any) => y.id === activeSemester?.academicYearId);

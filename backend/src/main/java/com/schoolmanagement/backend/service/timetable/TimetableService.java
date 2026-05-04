@@ -19,6 +19,8 @@ import org.apache.poi.ss.usermodel.*;
 import java.util.Map;
 import java.util.HashMap;
 import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -100,11 +102,11 @@ public class TimetableService {
   }
 
   // OVERLOADING
-  public List<SimpleTimetableDetailDto> getTimetableDetailsOfStudent(Student student, ClassRoom classRoom) {
+  public List<SimpleTimetableDetailDto> getTimetableDetailsOfStudent(Student student, ClassRoom classRoom, LocalDate targetDate) {
     School school = student.getSchool();
+    LocalDate dateToUse = targetDate != null ? targetDate : LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
     Timetable studentTimetable = timetables
-        .findFirstBySchoolAndSemesterAndStatusOrderByCreatedAtDesc(school,
-            semesterService.getActiveSemesterEntity(school), TimetableStatus.OFFICIAL)
+        .findTimetableAtDate(school, dateToUse)
         .orElseThrow(() -> new EntityNotFoundException("Timetable not found"));
     return timetableDetailRepository.findAllByTimetableAndClassRoom(studentTimetable, classRoom)
         .stream()
@@ -157,17 +159,19 @@ public class TimetableService {
     Timetable timetable = timetables.findById(id)
         .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy thời khóa biểu."));
 
-    // Optional: Set all other timetables of this school to DRAFT/ARCHIVED if needed
-    // For now, just mark this one as OFFICIAL (Active)
+    // Set today as the start date for this timetable
+    timetable.setAppliedDate(LocalDate.now());
+    timetable.setStatus(TimetableStatus.OFFICIAL);
+    timetables.save(timetable);
+
+    // Archive all other currently OFFICIAL timetables of this school
     List<Timetable> schoolTimetables = timetables
         .findAllBySchoolOrderByCreatedAtDesc(timetable.getSchool());
     for (Timetable item : schoolTimetables) {
-      if (item.getId().equals(id)) {
-        item.setStatus(TimetableStatus.OFFICIAL);
-      } else if (item.getStatus() == TimetableStatus.OFFICIAL) {
-        item.setStatus(TimetableStatus.DRAFT); // Demote currently active TKB
+      if (!item.getId().equals(id) && item.getStatus() == TimetableStatus.OFFICIAL) {
+        item.setStatus(TimetableStatus.ARCHIVED); // Archive previously active TKB
+        timetables.save(item);
       }
-      timetables.save(item);
     }
   }
 
@@ -254,14 +258,14 @@ public class TimetableService {
         return a.length() - b.length();
       });
 
-      java.time.DayOfWeek[] days = {
-          java.time.DayOfWeek.MONDAY,
-          java.time.DayOfWeek.TUESDAY,
-          java.time.DayOfWeek.WEDNESDAY,
-          java.time.DayOfWeek.THURSDAY,
-          java.time.DayOfWeek.FRIDAY,
-          java.time.DayOfWeek.SATURDAY,
-          java.time.DayOfWeek.SUNDAY
+      DayOfWeek[] days = {
+          DayOfWeek.MONDAY,
+          DayOfWeek.TUESDAY,
+          DayOfWeek.WEDNESDAY,
+          DayOfWeek.THURSDAY,
+          DayOfWeek.FRIDAY,
+          DayOfWeek.SATURDAY,
+          DayOfWeek.SUNDAY
       };
 
       for (String clsName : sortedClasses) {

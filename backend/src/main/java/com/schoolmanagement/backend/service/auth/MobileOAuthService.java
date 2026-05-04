@@ -4,7 +4,6 @@ import com.schoolmanagement.backend.dto.auth.AuthResponse;
 import com.schoolmanagement.backend.exception.ApiException;
 import com.schoolmanagement.backend.repo.auth.UserRepository;
 import com.schoolmanagement.backend.security.JwtService;
-import com.schoolmanagement.backend.util.RandomUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -17,10 +16,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Mobile OAuth Polling Flow for Expo Go:
- * 1. Mobile generates sessionId, opens /api/auth/google/mobile/start?sessionId=... in WebBrowser
+ * 1. Mobile generates sessionId, opens
+ * /api/auth/google/mobile/start?sessionId=... in WebBrowser
  * 2. Backend redirects to Google OAuth with backend callback URL
- * 3. Google redirects to /api/auth/google/mobile/callback?code=...&state=sessionId
- * 4. Backend exchanges code → idToken → verifies → issues JWT → stores in session map
+ * 3. Google redirects to
+ * /api/auth/google/mobile/callback?code=...&state=sessionId
+ * 4. Backend exchanges code → idToken → verifies → issues JWT → stores in
+ * session map
  * 5. Mobile polls /api/auth/google/mobile/poll?sessionId=... until JWT is ready
  */
 @Slf4j
@@ -29,7 +31,8 @@ public class MobileOAuthService {
 
     private static final int SESSION_TTL_MINUTES = 5;
 
-    record SessionEntry(AuthResponse response, Instant expiresAt, String error) {}
+    record SessionEntry(AuthResponse response, Instant expiresAt, String error) {
+    }
 
     // In-memory store: sessionId → result (expires after 5 min)
     private final Map<String, SessionEntry> sessions = new ConcurrentHashMap<>();
@@ -95,7 +98,8 @@ public class MobileOAuthService {
      */
     public AuthResponse poll(String sessionId) {
         SessionEntry entry = sessions.get(sessionId);
-        if (entry == null) return null;
+        if (entry == null)
+            return null;
 
         if (Instant.now().isAfter(entry.expiresAt())) {
             sessions.remove(sessionId);
@@ -118,7 +122,8 @@ public class MobileOAuthService {
     // ── private helpers ────────────────────────────────────────────────────────
 
     private void storeResult(String sessionId, AuthResponse response, String error) {
-        sessions.put(sessionId, new SessionEntry(response, Instant.now().plus(SESSION_TTL_MINUTES, ChronoUnit.MINUTES), error));
+        sessions.put(sessionId,
+                new SessionEntry(response, Instant.now().plus(SESSION_TTL_MINUTES, ChronoUnit.MINUTES), error));
     }
 
     private String exchangeCodeForIdToken(String code, String redirectUri) {

@@ -11,17 +11,20 @@ import com.schoolmanagement.backend.dto.auth.AuthResponse;
 import com.schoolmanagement.backend.dto.chat.MessageResponse;
 import com.schoolmanagement.backend.dto.auth.UserDto;
 import com.schoolmanagement.backend.dto.auth.VerifyResponse;
-
+import com.schoolmanagement.backend.dto.request.auth.ChangePasswordRequest;
+import com.schoolmanagement.backend.dto.request.auth.UpdateProfileRequest;
 import com.schoolmanagement.backend.security.UserPrincipal;
 import com.schoolmanagement.backend.service.auth.AuthService;
 import com.schoolmanagement.backend.service.auth.MobileOAuthService;
+import org.springframework.http.ResponseEntity;
+
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -71,7 +74,8 @@ public class AuthController {
             @RequestParam(required = false) String error,
             HttpServletResponse response) throws IOException {
         if (error != null || code == null || state == null) {
-            response.sendRedirect("https://rhinological-izabella-superbusily.ngrok-free.dev/api/auth/google/mobile/done?error=cancelled");
+            response.sendRedirect(
+                    "https://rhinological-izabella-superbusily.ngrok-free.dev/api/auth/google/mobile/done?error=cancelled");
             return;
         }
         mobileOAuth.handleCallback(code, state);
@@ -97,13 +101,13 @@ public class AuthController {
      * Returns 204 if still pending, 200+body if done, 401 if error.
      */
     @GetMapping("/google/mobile/poll")
-    public org.springframework.http.ResponseEntity<?> mobileOAuthPoll(@RequestParam String sessionId) {
+    public ResponseEntity<?> mobileOAuthPoll(@RequestParam String sessionId) {
         AuthResponse result = mobileOAuth.poll(sessionId);
         if (result == null) {
             // Still pending
-            return org.springframework.http.ResponseEntity.noContent().build();
+            return ResponseEntity.noContent().build();
         }
-        return org.springframework.http.ResponseEntity.ok(result);
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/forgot-password")
@@ -134,25 +138,25 @@ public class AuthController {
 
     @PutMapping("/profile")
     public UserDto updateProfile(@AuthenticationPrincipal UserPrincipal principal,
-            @Valid @RequestBody com.schoolmanagement.backend.dto.request.auth.UpdateProfileRequest req) {
+            @Valid @RequestBody UpdateProfileRequest req) {
         return auth.updateProfile(principal.getId(), req);
     }
 
     @PutMapping("/change-password")
     public MessageResponse changePassword(@AuthenticationPrincipal UserPrincipal principal,
-            @Valid @RequestBody com.schoolmanagement.backend.dto.request.auth.ChangePasswordRequest req) {
+            @Valid @RequestBody ChangePasswordRequest req) {
         return auth.changePassword(principal.getId(), req.currentPassword(), req.newPassword());
     }
 
     @PostMapping("/logout")
-    public MessageResponse logout(jakarta.servlet.http.HttpServletRequest request) {
+    public MessageResponse logout(HttpServletRequest request) {
         auth.logoutCurrentDevice(request);
         return new MessageResponse("Đã đăng xuất khỏi thiết bị này.");
     }
 
     @PostMapping("/logout-other-devices")
     public MessageResponse logoutOtherDevices(@AuthenticationPrincipal UserPrincipal principal,
-            jakarta.servlet.http.HttpServletRequest request) {
+            HttpServletRequest request) {
         auth.logoutOtherDevices(principal.getId(), request);
         return new MessageResponse("Đã đăng xuất khỏi các thiết bị khác.");
     }

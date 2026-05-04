@@ -21,8 +21,7 @@ public record TeacherDto(
                 String homeroomClassName,
                 java.util.List<SubjectDto> subjects,
                 String subjectName,
-                boolean hasAccount,
-        Integer maxPeriodsPerWeek) {
+        boolean hasAccount) {
 
 }
 

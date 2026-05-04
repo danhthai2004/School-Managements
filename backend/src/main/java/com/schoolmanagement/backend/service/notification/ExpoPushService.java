@@ -14,7 +14,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Send push notifications via Expo Push API (used by Expo Go / Expo Push Tokens).
+ * Send push notifications via Expo Push API (used by Expo Go / Expo Push
+ * Tokens).
  *
  * Endpoint: https://exp.host/--/api/v2/push/send
  */
@@ -27,7 +28,8 @@ public class ExpoPushService {
     private final RestTemplate restTemplate = new RestTemplate();
 
     public void sendMulticast(String title, String body, String actionUrl, List<String> expoPushTokens) {
-        if (expoPushTokens == null || expoPushTokens.isEmpty()) return;
+        if (expoPushTokens == null || expoPushTokens.isEmpty())
+            return;
 
         // Expo recommends max 100 messages per request
         int chunkSize = 100;
@@ -36,7 +38,8 @@ public class ExpoPushService {
             try {
                 List<Map<String, Object>> messages = new ArrayList<>();
                 for (String to : chunk) {
-                    if (to == null || to.isBlank()) continue;
+                    if (to == null || to.isBlank())
+                        continue;
                     Map<String, Object> msg = new HashMap<>();
                     msg.put("to", to);
                     msg.put("title", title);
@@ -48,18 +51,18 @@ public class ExpoPushService {
                     }
                     messages.add(msg);
                 }
-                if (messages.isEmpty()) continue;
+                if (messages.isEmpty())
+                    continue;
 
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
 
                 HttpEntity<List<Map<String, Object>>> entity = new HttpEntity<>(messages, headers);
                 ResponseEntity<String> res = restTemplate.postForEntity(EXPO_PUSH_URL, entity, String.class);
-                log.info("✅ Expo push sent: {} messages, status={}", messages.size(), res.getStatusCode());
+                log.info("Expo push sent: {} messages, status={}", messages.size(), res.getStatusCode());
             } catch (Exception ex) {
-                log.error("❌ Expo push error: {}", ex.getMessage(), ex);
+                log.error("Expo push error: {}", ex.getMessage(), ex);
             }
         }
     }
 }
-

@@ -26,6 +26,8 @@ import com.schoolmanagement.backend.repo.classes.ClassEnrollmentRepository;
 import com.schoolmanagement.backend.repo.classes.ClassRoomRepository;
 import com.schoolmanagement.backend.repo.student.GuardianRepository;
 import com.schoolmanagement.backend.repo.student.StudentRepository;
+import com.schoolmanagement.backend.repo.auth.UserRepository;
+import com.schoolmanagement.backend.repo.classes.CombinationRepository;
 import com.schoolmanagement.backend.domain.entity.admin.AcademicYear;
 import com.schoolmanagement.backend.service.admin.SemesterService;
 
@@ -66,9 +68,9 @@ public class StudentManagementService {
     public StudentManagementService(StudentRepository students, GuardianRepository guardians,
             ClassRoomRepository classRooms, ClassEnrollmentRepository enrollments,
             StudentAccountService studentAccountService,
-            com.schoolmanagement.backend.repo.auth.UserRepository users,
+            UserRepository users,
             SemesterService semesterService,
-            com.schoolmanagement.backend.repo.classes.CombinationRepository combinations) {
+            CombinationRepository combinations) {
         this.students = students;
         this.guardians = guardians;
         this.classRooms = classRooms;

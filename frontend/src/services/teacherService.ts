@@ -292,8 +292,10 @@ export const teacherService = {
     },
 
     // Get weekly schedule
-    getWeeklySchedule: async (): Promise<TimetableDetail[]> => {
-        const res = await api.get<TimetableDetail[]>("/teacher/schedule/weekly");
+    getWeeklySchedule: async (targetDate?: string): Promise<TimetableDetail[]> => {
+        const res = await api.get<TimetableDetail[]>("/teacher/schedule/weekly", {
+            params: { targetDate }
+        });
         return res.data;
     },
 
