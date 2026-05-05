@@ -47,13 +47,15 @@ public interface GradeRepository extends JpaRepository<Grade, UUID> {
         List<Grade> findAllBySchoolAndAcademicYear(@Param("school") School school,
                         @Param("academicYear") com.schoolmanagement.backend.domain.entity.admin.AcademicYear academicYear);
 
-        @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "student", "subject", "classRoom" })
+        @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "student", "subject", "classRoom", "regularScores" })
         @Query("SELECT g FROM Grade g WHERE g.classRoom.school = :school AND g.semester = :semester")
         List<Grade> findAllBySchoolAndSemester(
                         @Param("school") School school,
                         @Param("semester") com.schoolmanagement.backend.domain.entity.admin.Semester semester);
 
         long countByClassRoom(ClassRoom classRoom);
+        
+        long countByClassRoomAndSemester(ClassRoom classRoom, com.schoolmanagement.backend.domain.entity.admin.Semester semester);
 
         List<Grade> findAllByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
 

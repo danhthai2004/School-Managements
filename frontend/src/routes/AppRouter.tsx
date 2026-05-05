@@ -51,6 +51,7 @@ const ExamSessionDetailPage = lazy(() => import("../views/school-admin/pages/Exa
 const ReportsPage = lazy(() => import("../views/school-admin/pages/ReportsPage"));
 const SemesterConfigPage = lazy(() => import("../views/school-admin/pages/SemesterConfigPage"));
 const AIAnalyticsPage = lazy(() => import("../views/school-admin/pages/AIAnalyticsPage"));
+const GradeManagementPage = lazy(() => import("../views/school-admin/pages/GradeManagementPage"));
 
 // Teacher pages
 const TeacherLayout = lazy(() => import("../views/teacher/TeacherLayout"));
@@ -163,6 +164,7 @@ export default function AppRouter() {
           <Route path="reports" element={<ReportsPage />} />
           <Route path="semesters" element={<SemesterConfigPage />} />
           <Route path="ai-analytics" element={<AIAnalyticsPage />} />
+          <Route path="grades" element={<GradeManagementPage />} />
           <Route path="profile" element={<ProfileSettingsPage />} />
         </Route>
 

@@ -44,4 +44,6 @@ public interface TeacherAssignmentRepository extends JpaRepository<TeacherAssign
         void deleteByTeacherId(UUID teacherId);
 
         long countByTeacher(com.schoolmanagement.backend.domain.entity.teacher.Teacher teacher);
+
+        long countByClassRoom(ClassRoom classRoom);
 }

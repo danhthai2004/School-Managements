@@ -52,6 +52,8 @@ public class GradeImportService {
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final UserRepository userRepository;
     private final SemesterService semesterService;
+    private final GradeCalculationHelper gradeCalculationHelper;
+    private final GradeGovernanceHelper gradeGovernanceHelper;
 
     /**
      * Import grades from an Excel file for a specific class, subject and semester.
@@ -115,6 +117,9 @@ public class GradeImportService {
                             semesterEntity.getName(),
                             semesterEntity.getAcademicYear().getName()));
         }
+
+        // 4b. Check per-class lock (Admin-level grade entry lock) and deadline
+        gradeGovernanceHelper.validateGradeEntryAllowed(classId, semesterEntity);
 
         // 5. Get existing grades for this class-subject-semester
         List<Grade> existingGrades = gradeRepository.findAllByClassRoomAndSubjectAndSemester(
@@ -349,7 +354,8 @@ public class GradeImportService {
 
                     } else {
                         // NORMAL SAVE
-                        if (grade == null) {
+                        boolean isNew = (grade == null);
+                        if (isNew) {
                             grade = Grade.builder()
                                     .student(student)
                                     .subject(subject)
@@ -362,8 +368,25 @@ public class GradeImportService {
                             grade = gradeRepository.save(grade);
                         }
 
+                        // Snapshot old scores for audit trail
+                        Map<Integer, BigDecimal> oldRegMap = new HashMap<>();
+                        BigDecimal oldMid = null;
+                        BigDecimal oldFinal = null;
+
+                        if (!isNew && grade != null) {
+                            if (grade.getRegularScores() != null) {
+                                for (RegularScore rs : grade.getRegularScores()) {
+                                    oldRegMap.put(rs.getScoreIndex(), rs.getScoreValue());
+                                }
+                            }
+                            oldMid = grade.getMidtermScore();
+                            oldFinal = grade.getFinalScore();
+                        }
+
                         // Clear existing regular scores and rebuild from Excel
-                        grade.getRegularScores().clear();
+                        if (grade != null && grade.getRegularScores() != null) {
+                            grade.getRegularScores().clear();
+                        }
                         for (Map.Entry<Integer, Double> entry : regularScoresMap.entrySet()) {
                             grade.getRegularScores().add(RegularScore.builder()
                                     .grade(grade)
@@ -379,11 +402,16 @@ public class GradeImportService {
                             grade.setFinalScore(BigDecimal.valueOf(finalVal));
                         }
 
-                        // Calculate average
-                        grade.setAverageScore(calculateAverage(grade));
+                        // Calculate average using shared helper
+                        UUID schoolId = classRoom.getSchool().getId();
+                        grade.setAverageScore(gradeCalculationHelper.calculateAverage(grade, schoolId));
                         grade.setUpdatedAt(Instant.now());
                         grade.setUpdatedBy(user);
-                        gradeRepository.save(grade);
+                        grade = gradeRepository.save(grade);
+
+                        // Record history if changed
+                        gradeGovernanceHelper.recordHistoryIfChanged(grade, oldRegMap, oldMid, oldFinal, user,
+                                "Import từ Excel");
 
                         if (isUpdate) {
                             updatedCount++;
@@ -604,33 +632,6 @@ public class GradeImportService {
     }
 
     // ==================== HELPERS ====================
-
-    private BigDecimal calculateAverage(Grade grade) {
-        double total = 0;
-        int weight = 0;
-
-        if (grade.getRegularScores() != null) {
-            for (RegularScore rs : grade.getRegularScores()) {
-                if (rs.getScoreValue() != null) {
-                    total += rs.getScoreValue().doubleValue();
-                    weight += 1;
-                }
-            }
-        }
-
-        if (grade.getMidtermScore() != null) {
-            total += grade.getMidtermScore().doubleValue() * 2;
-            weight += 2;
-        }
-        if (grade.getFinalScore() != null) {
-            total += grade.getFinalScore().doubleValue() * 3;
-            weight += 3;
-        }
-
-        if (weight == 0)
-            return null;
-        return BigDecimal.valueOf(Math.round((total / weight) * 10.0) / 10.0);
-    }
 
     private String getCellStringValue(Cell cell) {
         if (cell == null)
