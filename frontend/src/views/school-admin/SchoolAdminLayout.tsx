@@ -43,7 +43,8 @@ export default function SchoolAdminLayout() {
             children: [
                 { path: "/school-admin/subjects", label: "Môn học & Tổ hợp" },
                 { path: "/school-admin/schedule", label: "Thời khóa biểu" },
-                { path: "/school-admin/exam-sessions", label: "Kỳ thi & Phân bổ" }
+                { path: "/school-admin/exam-sessions", label: "Kỳ thi & Phân bổ" },
+                { path: "/school-admin/grades", label: "Điểm số & Xếp hạng" }
             ]
         },
         {

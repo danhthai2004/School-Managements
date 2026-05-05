@@ -37,6 +37,7 @@ import java.time.Instant;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationContext;
 
 @Service
 @RequiredArgsConstructor
@@ -53,6 +54,9 @@ public class GradeService {
         private final UserRepository userRepository;
         private final StudentRepository studentRepository;
         private final SemesterService semesterService;
+        private final GradeCalculationHelper gradeCalculationHelper;
+        private final GradeGovernanceHelper gradeGovernanceHelper;
+        private final ApplicationContext applicationContext;
 
         public GradeBookDto getGradeBook(String email, UUID classId, UUID subjectId, String semesterId) {
                 User user = userRepository.findByEmailIgnoreCaseWithSchool(email)
@@ -216,6 +220,9 @@ public class GradeService {
                                                         semesterEntity.getAcademicYear().getName()));
                 }
 
+                // Check per-class lock (Admin-level grade entry lock) and deadline
+                gradeGovernanceHelper.validateGradeEntryAllowed(classId, semesterEntity);
+
                 // Get existing grades using Semester entity FK
                 List<Grade> existingGrades = gradeRepository.findAllByClassRoomAndSubjectAndSemester(classRoom, subject,
                                 semesterEntity);
@@ -251,6 +258,21 @@ public class GradeService {
                                 grade = gradeRepository.save(grade); // save first to get ID for RegularScore
                         }
 
+                        // Snapshot old scores for audit trail
+                        Map<Integer, BigDecimal> oldRegMap = new HashMap<>();
+                        BigDecimal oldMid = null;
+                        BigDecimal oldFinal = null;
+
+                        if (!isNew && grade != null) {
+                                if (grade.getRegularScores() != null) {
+                                        for (RegularScore rs : grade.getRegularScores()) {
+                                                oldRegMap.put(rs.getScoreIndex(), rs.getScoreValue());
+                                        }
+                                }
+                                oldMid = grade.getMidtermScore();
+                                oldFinal = grade.getFinalScore();
+                        }
+
                         // Clear existing regular scores and rebuild
                         if (grade != null) {
                                 grade.getRegularScores().clear();
@@ -274,44 +296,20 @@ public class GradeService {
                                         }
                                 }
 
-                                // Calculate average
-                                grade.setAverageScore(calculateAverage(grade));
+                                // Calculate average using shared helper (reads weights from DB)
+                                UUID schoolId = classRoom.getSchool().getId();
+                                grade.setAverageScore(gradeCalculationHelper.calculateAverage(grade, schoolId));
                                 grade.setUpdatedAt(Instant.now());
                                 grade.setUpdatedBy(user);
+                                grade = gradeRepository.save(grade);
 
-                                gradeRepository.save(grade);
-                        }
-                }
-        }
-
-        private BigDecimal calculateAverage(Grade grade) {
-                double total = 0;
-                int weight = 0;
-
-                // Regular scores (coefficient 1 each)
-                if (grade.getRegularScores() != null) {
-                        for (RegularScore regularScore : grade.getRegularScores()) {
-                                if (regularScore.getScoreValue() != null) {
-                                        total += regularScore.getScoreValue().doubleValue();
-                                        weight += 1;
-                                }
+                                // Record history if changed
+                                gradeGovernanceHelper.recordHistoryIfChanged(grade, oldRegMap, oldMid, oldFinal, user, "Cập nhật qua tính năng Nhập điểm");
                         }
                 }
 
-                // Mid-term (coefficient 2)
-                if (grade.getMidtermScore() != null) {
-                        total += grade.getMidtermScore().doubleValue() * 2;
-                        weight += 2;
-                }
-                // Final (coefficient 3)
-                if (grade.getFinalScore() != null) {
-                        total += grade.getFinalScore().doubleValue() * 3;
-                        weight += 3;
-                }
-
-                if (weight == 0)
-                        return null;
-                return BigDecimal.valueOf(Math.round((total / weight) * 10.0) / 10.0);
+                // Auto-calculate rankings
+                applicationContext.getBean(AdminGradeService.class).calculateClassRankings(user.getSchool(), user, classId, semesterEntity.getId());
         }
 
 }
